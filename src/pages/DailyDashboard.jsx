@@ -42,7 +42,7 @@ function DailyDashboard() {
     try {
       setLoading(true)
       const response = await axios.post(
-        'http://localhost:3000/api/transactions',
+        'http://3.88.39.10:3000/api/transactions',
         {
           ordered_at_ini: startDate,
           ordered_at_end: endDate,
