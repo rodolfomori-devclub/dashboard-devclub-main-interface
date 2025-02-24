@@ -90,7 +90,7 @@ function MonthlyDashboard() {
       setError(null)
 
       const response = await axios.post(
-        'http://3.88.39.10:3000/api/transactions',
+        'https://dash.launchcontrol.com.br/api/transactions',
         {
           ordered_at_ini: firstDayOfMonth,
           ordered_at_end: lastDayOfMonth,

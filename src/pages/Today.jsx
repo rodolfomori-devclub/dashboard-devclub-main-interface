@@ -16,7 +16,7 @@ function Today() {
     try {
       setLoading(true);
       const today = new Date().toISOString().split('T')[0];
-      const response = await axios.post('http://3.88.39.10:3000/api/transactions', {
+      const response = await axios.post('https://dash.launchcontrol.com.br/api/transactions', {
         ordered_at_ini: today,
         ordered_at_end: today
       });
