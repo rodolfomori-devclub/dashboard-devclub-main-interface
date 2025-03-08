@@ -16,31 +16,48 @@ function DailyDashboard() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [dateRange, setDateRange] = useState(() => {
-    const baseDate = new Date()
-    const sevenDaysAgo = new Date(baseDate)
-    sevenDaysAgo.setDate(baseDate.getDate() - 7)
+    // Obter data atual em formato local
+    const today = new Date()
+    // Criar data de 7 dias atrás
+    const sevenDaysAgo = new Date(today)
+    sevenDaysAgo.setDate(today.getDate() - 7)
 
-    const isToday = new Date()
-
-    const todayStr = sevenDaysAgo.toISOString().split('T')[0]
-    const today = isToday.toISOString().split('T')[0]
+    // Formatar para YYYY-MM-DD em fuso horário local
+    const formatLocalDate = (date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
 
     return {
-      start: todayStr,
-      end: today,
+      start: formatLocalDate(sevenDaysAgo),
+      end: formatLocalDate(today),
     }
   })
 
   const convertTimestampToDate = (timestamp) => {
     if (timestamp > 1700000000) {
-      return new Date(timestamp * 1000).toISOString().split('T')[0]
+      // Para timestamps em segundos (formato Unix)
+      const date = new Date(timestamp * 1000);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
     }
-    return new Date(timestamp).toISOString().split('T')[0]
+    // Para timestamps em milissegundos (formato JavaScript)
+    const date = new Date(timestamp);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   const fetchData = useCallback(async (startDate, endDate) => {
     try {
       setLoading(true)
+      console.log(`Buscando dados: De ${startDate} até ${endDate}`);
+      
       const response = await axios.post(
         'https://dash.launchcontrol.com.br/api/transactions',
         {
@@ -55,10 +72,14 @@ function DailyDashboard() {
       let totalAffiliateValue = 0
 
       // Inicializar o mapa de dados diários
-      const start = new Date(startDate)
-      const end = new Date(endDate)
+      const start = new Date(startDate + 'T00:00:00');
+      const end = new Date(endDate + 'T23:59:59');
       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        const dateStr = d.toISOString().split('T')[0]
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
+        
         dailyDataMap[dateStr] = {
           date: dateStr,
           net_amount: 0,
@@ -70,9 +91,12 @@ function DailyDashboard() {
       // Processar transações
       if (Array.isArray(response.data.data)) {
         response.data.data.forEach((transaction) => {
-          const transactionDate = new Date(transaction.dates.created_at * 1000)
-            .toISOString()
-            .split('T')[0]
+          // Converte o timestamp para data local
+          const transactionDate = convertTimestampToDate(transaction.dates.created_at);
+          
+          // Log para debug
+          console.log(`Transação: timestamp=${transaction.dates.created_at}, data=${transactionDate}`);
+          
           const affiliateValue =
             transaction.calculation_details?.net_affiliate_value || 0
 
@@ -81,6 +105,8 @@ function DailyDashboard() {
               transaction.calculation_details.net_amount
             dailyDataMap[transactionDate].quantity += 1
             dailyDataMap[transactionDate].affiliate_value += affiliateValue
+          } else {
+            console.log(`Aviso: Transação com data ${transactionDate} fora do intervalo definido`);
           }
 
           totalAffiliateValue += affiliateValue
@@ -116,7 +142,7 @@ function DailyDashboard() {
   }
 
   const formatDate = (dateStr) => {
-    const date = new Date(dateStr)
+    const date = new Date(dateStr + 'T12:00:00'); // Usar meio-dia para evitar problemas de fuso
     return date.toLocaleDateString('pt-BR')
   }
 

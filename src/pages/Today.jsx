@@ -9,16 +9,17 @@ import { formatCurrency } from '../utils/currencyUtils';
 const COLORS = ['#8A2BE2', '#00FF00', '#FF4500', '#1E90FF', '#FFD700', '#FF1493'];
 
 function Today() {
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [displayDate, setDisplayDate] = useState(new Date().toISOString().split('T')[0]);
   const [todayData, setTodayData] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchTodayData = useCallback(async () => {
+  const fetchDayData = useCallback(async (date) => {
     try {
       setLoading(true);
-      const today = new Date().toISOString().split('T')[0];
       const response = await axios.post('https://dash.launchcontrol.com.br/api/transactions', {
-        ordered_at_ini: today,
-        ordered_at_end: today
+        ordered_at_ini: date,
+        ordered_at_end: date
       });
 
       const hourlyData = Array(24).fill().map((_, index) => ({
@@ -76,10 +77,32 @@ function Today() {
   }, []);
 
   useEffect(() => {
-    fetchTodayData();
-    const interval = setInterval(fetchTodayData, 5 * 60 * 1000); // Atualiza a cada 5 minutos
-    return () => clearInterval(interval);
-  }, [fetchTodayData]);
+    fetchDayData(selectedDate);
+    
+    // Se estiver exibindo o dia atual, atualiza a cada 5 minutos
+    let interval;
+    if (selectedDate === new Date().toISOString().split('T')[0]) {
+      interval = setInterval(() => fetchDayData(selectedDate), 5 * 60 * 1000);
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [fetchDayData, selectedDate]);
+
+  const handleDateChange = (e) => {
+    setDisplayDate(e.target.value);
+  };
+
+  const handleSearch = () => {
+    setSelectedDate(displayDate);
+  };
+
+  const handleToday = () => {
+    const today = new Date().toISOString().split('T')[0];
+    setDisplayDate(today);
+    setSelectedDate(today);
+  };
 
   if (loading) {
     return (
@@ -89,10 +112,45 @@ function Today() {
     );
   }
 
+  // Formatação da data para exibição mais amigável
+  const formattedDate = new Date(selectedDate).toLocaleDateString('pt-BR', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+
   return (
     <div className="min-h-screen bg-background-light dark:bg-background-dark p-6">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold text-primary dark:text-secondary mb-8">Dashboard de Hoje</h1>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
+          <h1 className="text-3xl font-bold text-primary dark:text-secondary">Dashboard</h1>
+          
+          <div className="flex flex-col sm:flex-row gap-2 mt-4 sm:mt-0">
+            <input 
+              type="date" 
+              value={displayDate}
+              onChange={handleDateChange}
+              className="px-4 py-2 border rounded-lg text-text-light dark:text-text-dark bg-white dark:bg-gray-700"
+            />
+            <button 
+              onClick={handleSearch}
+              className="px-4 py-2 bg-primary text-white dark:bg-secondary dark:text-gray-800 rounded-lg hover:bg-opacity-90"
+            >
+              Pesquisar
+            </button>
+            <button 
+              onClick={handleToday}
+              className="px-4 py-2 bg-accent1 text-white dark:bg-accent2 dark:text-gray-800 rounded-lg hover:bg-opacity-90"
+            >
+              Hoje
+            </button>
+          </div>
+        </div>
+
+        <h2 className="text-xl text-text-light dark:text-text-dark mb-6 capitalize">
+          {formattedDate}
+        </h2>
 
         {/* Resumo do dia */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
