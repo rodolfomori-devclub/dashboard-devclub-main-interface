@@ -31,6 +31,8 @@ function CommercialDashboard() {
   const [currentSeller, setCurrentSeller] = useState(null);
   const [showAddSaleModal, setShowAddSaleModal] = useState(false);
   const [showCancelSaleModal, setShowCancelSaleModal] = useState(false);
+  const [showDeleteSellerModal, setShowDeleteSellerModal] = useState(false);
+  const [sellerToDelete, setSellerToDelete] = useState(null);
   
   // Loading states
   const [loading, setLoading] = useState(true);
@@ -145,6 +147,20 @@ function CommercialDashboard() {
       } catch (error) {
         console.error('Erro ao cancelar venda:', error);
         setError('Falha ao cancelar venda');
+      }
+    }
+  };
+  
+  // Função para remover um vendedor
+  const handleDeleteSeller = async () => {
+    if (sellerToDelete) {
+      try {
+        await deleteDoc(doc(db, 'sellers', sellerToDelete.id));
+        setShowDeleteSellerModal(false);
+        setSellerToDelete(null);
+      } catch (error) {
+        console.error('Erro ao remover vendedor:', error);
+        setError('Falha ao remover vendedor');
       }
     }
   };
@@ -454,6 +470,16 @@ function CommercialDashboard() {
                   >
                     - Venda
                   </button>
+                  <button
+                    onClick={() => {
+                      setSellerToDelete(seller);
+                      setShowDeleteSellerModal(true);
+                    }}
+                    className="bg-gray-500 text-white px-3 py-1 rounded-full text-sm hover:bg-gray-600"
+                    title="Remover vendedor"
+                  >
+                    🗑️
+                  </button>
                 </div>
               </div>
               <div className="relative h-14 flex items-center">
@@ -580,6 +606,37 @@ function CommercialDashboard() {
               >
                 Cancelar
               </button>
+            </div>
+          </div>
+        )}
+        
+        {/* Modal de Confirmação para Remover Vendedor */}
+        {showDeleteSellerModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg max-w-md w-full">
+              <h2 className="text-xl font-bold text-text-light dark:text-text-dark mb-4">
+                Remover Vendedor
+              </h2>
+              <p className="text-text-light dark:text-text-dark mb-6">
+                Tem certeza que deseja remover <strong>{sellerToDelete?.name}</strong>? Esta ação não pode ser desfeita.
+              </p>
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => {
+                    setShowDeleteSellerModal(false);
+                    setSellerToDelete(null);
+                  }}
+                  className="px-4 py-2 border rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleDeleteSeller}
+                  className="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+                >
+                  Confirmar Remoção
+                </button>
+              </div>
             </div>
           </div>
         )}
