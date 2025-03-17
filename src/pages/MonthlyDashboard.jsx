@@ -20,6 +20,7 @@ import {
 
 function MonthlyDashboard() {
   const [monthlyData, setMonthlyData] = useState(null)
+  const [refundsData, setRefundsData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [goals, setGoals] = useState({
     meta: localStorage.getItem('monthlyMeta') || 'R$ 0,00',
@@ -89,8 +90,9 @@ function MonthlyDashboard() {
       setLoading(true)
       setError(null)
 
-      const response = await axios.post(
-        'https://dash.launchcontrol.com.br/api/transactions',
+      // Buscando transações aprovadas
+      const transactionsResponse = await axios.post(
+        'http://localhost:3000/api/transactions',
         {
           ordered_at_ini: firstDayOfMonth,
           ordered_at_end: lastDayOfMonth,
@@ -99,6 +101,21 @@ function MonthlyDashboard() {
           timeout: 30000,
           headers: {
             'X-Debug-Request': 'MonthlyDashboard',
+          },
+        },
+      )
+
+      // Buscando reembolsos
+      const refundsResponse = await axios.post(
+        'http://localhost:3000/api/refunds',
+        {
+          ordered_at_ini: firstDayOfMonth,
+          ordered_at_end: lastDayOfMonth,
+        },
+        {
+          timeout: 30000,
+          headers: {
+            'X-Debug-Request': 'MonthlyDashboard-Refunds',
           },
         },
       )
@@ -114,11 +131,13 @@ function MonthlyDashboard() {
           net_amount: 0,
           quantity: 0,
           affiliate_value: 0,
+          refund_amount: 0,
+          refund_quantity: 0,
         }
       }
 
       // Processar transações
-      response.data.data.forEach((transaction) => {
+      transactionsResponse.data.data.forEach((transaction) => {
         const fullDate = new Date(transaction.dates.created_at * 1000)
         const transactionDate = fullDate.toISOString().split('T')[0]
 
@@ -136,11 +155,26 @@ function MonthlyDashboard() {
         }
       })
 
+      // Processar reembolsos
+      refundsResponse.data.data.forEach((refund) => {
+        const fullDate = new Date(refund.dates.created_at * 1000)
+        const refundDate = fullDate.toISOString().split('T')[0]
+
+        // Usar o valor líquido calculado pelo backend que aplica as mesmas regras de transações
+        const refundAmount = Number(refund.calculation_details?.net_amount || 0)
+
+        if (dailyDataMap[refundDate]) {
+          dailyDataMap[refundDate].refund_amount += refundAmount
+          dailyDataMap[refundDate].refund_quantity += 1
+        }
+      })
+
       // Converter para array e ordenar
       const chartData = Object.values(dailyDataMap)
         .filter(
           (day) =>
-            day.net_amount > 0 || day.quantity > 0 || day.affiliate_value > 0,
+            day.net_amount > 0 || day.quantity > 0 || 
+            day.affiliate_value > 0 || day.refund_amount > 0
         )
         .sort((a, b) => new Date(a.date) - new Date(b.date))
 
@@ -157,6 +191,14 @@ function MonthlyDashboard() {
         (sum, day) => sum + day.affiliate_value,
         0,
       )
+      const totalRefundAmount = chartData.reduce(
+        (sum, day) => sum + day.refund_amount,
+        0,
+      )
+      const totalRefundQuantity = chartData.reduce(
+        (sum, day) => sum + day.refund_quantity,
+        0,
+      )
 
       // Atualizar estado imediatamente
       setMonthlyData({
@@ -166,6 +208,11 @@ function MonthlyDashboard() {
           total_net_amount: totalNetAmount,
           total_net_affiliate_value: totalAffiliateValue,
         },
+      })
+
+      setRefundsData({
+        total_refund_amount: totalRefundAmount,
+        total_refund_quantity: totalRefundQuantity,
       })
 
       // Forçar atualização do estado de carregamento
@@ -207,7 +254,7 @@ function MonthlyDashboard() {
         </h1>
 
         {/* Resumo Mensal */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
               Valor Total de Vendas
@@ -246,6 +293,18 @@ function MonthlyDashboard() {
                       monthlyData.totals.total_transactions
                   : 0,
               )}
+            </p>
+          </div>
+          {/* Novo card de reembolsos */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
+              Reembolsos
+            </h3>
+            <p className="mt-2 text-3xl font-bold text-red-500 dark:text-red-400">
+              {formatCurrency(refundsData?.total_refund_amount || 0)}
+            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {refundsData?.total_refund_quantity || 0} reembolso(s)
             </p>
           </div>
         </div>
@@ -349,7 +408,8 @@ function MonthlyDashboard() {
                     formatter={(value, name) => {
                       if (
                         name === 'Valor Líquido' ||
-                        name === 'Valor de Afiliação'
+                        name === 'Valor de Afiliação' ||
+                        name === 'Valor de Reembolso'
                       )
                         return formatCurrency(value)
                       return `${value} vendas`
@@ -376,6 +436,13 @@ function MonthlyDashboard() {
                     dataKey="affiliate_value"
                     name="Valor de Afiliação"
                     fill="#F97316"
+                  />
+                  {/* Nova barra para reembolsos */}
+                  <Bar
+                    yAxisId="left"
+                    dataKey="refund_amount"
+                    name="Valor de Reembolso"
+                    fill="#EF4444"
                   />
                 </BarChart>
               </ResponsiveContainer>
@@ -414,6 +481,13 @@ function MonthlyDashboard() {
                     dataKey="affiliate_value"
                     name="Valor de Afiliação"
                     stroke="#F97316"
+                  />
+                  {/* Nova linha para reembolsos */}
+                  <Line
+                    type="monotone"
+                    dataKey="refund_amount"
+                    name="Valor de Reembolso"
+                    stroke="#EF4444"
                   />
                 </LineChart>
               </ResponsiveContainer>

@@ -12,21 +12,33 @@ function Today() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [displayDate, setDisplayDate] = useState(new Date().toISOString().split('T')[0]);
   const [todayData, setTodayData] = useState(null);
+  const [refundsData, setRefundsData] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const fetchDayData = useCallback(async (date) => {
     try {
       setLoading(true);
-      const response = await axios.post('https://dash.launchcontrol.com.br/api/transactions', {
+      
+      // Buscar transações aprovadas
+      const transactionsResponse = await axios.post('http://localhost:3000/api/transactions', {
         ordered_at_ini: date,
         ordered_at_end: date
       });
 
+      // Buscar transações reembolsadas
+      const refundsResponse = await axios.post('http://localhost:3000/api/refunds', {
+        ordered_at_ini: date,
+        ordered_at_end: date
+      });
+
+      // Processar dados de transações
       const hourlyData = Array(24).fill().map((_, index) => ({
         hour: index,
         sales: 0,
         value: 0,
-        affiliateValue: 0
+        affiliateValue: 0,
+        refundCount: 0,
+        refundValue: 0
       }));
 
       let totalSales = 0;
@@ -34,7 +46,7 @@ function Today() {
       let totalAffiliateValue = 0;
       const productSales = {};
 
-      response.data.data.forEach(transaction => {
+      transactionsResponse.data.data.forEach(transaction => {
         const hour = new Date(transaction.dates.created_at * 1000).getHours();
         const netAmount = Number(transaction?.calculation_details?.net_amount || 0);
         const affiliateValue = Number(transaction?.calculation_details?.net_affiliate_value || 0);
@@ -55,6 +67,40 @@ function Today() {
         productSales[productName].value += netAmount;
       });
 
+      // Processar dados de reembolsos
+      let totalRefunds = 0;
+      let totalRefundAmount = 0;
+      const refundsByProduct = {};
+
+      refundsResponse.data.data.forEach(refund => {
+        const productName = refund.product?.name || 'Produto não especificado';
+        // Usar o valor líquido calculado pelo backend que aplica as mesmas regras de transações
+        const refundAmount = Number(refund.calculation_details?.net_amount || 0);
+        
+        if (!refundsByProduct[productName]) {
+          refundsByProduct[productName] = { count: 0, amount: 0 };
+        }
+        
+        refundsByProduct[productName].count += 1;
+        refundsByProduct[productName].amount += refundAmount;
+        
+        totalRefunds += 1;
+        totalRefundAmount += refundAmount;
+      });
+
+      // Converter para array para o gráfico
+      const refundProductData = Object.entries(refundsByProduct).map(([name, data]) => ({
+        name,
+        refundCount: data.count,
+        refundValue: data.amount
+      }));
+
+      // Adicionar reembolsos aos dados por hora para manter compatibilidade
+      hourlyData.forEach((hour, index) => {
+        hourlyData[index].refundCount = 0;
+        hourlyData[index].refundValue = 0;
+      });
+
       const productData = Object.entries(productSales).map(([name, data]) => ({
         name,
         quantity: data.quantity,
@@ -66,7 +112,13 @@ function Today() {
         totalSales,
         totalValue,
         totalAffiliateValue,
-        productData
+        productData,
+        refundProductData
+      });
+
+      setRefundsData({
+        totalRefunds, 
+        totalRefundAmount
       });
 
       setLoading(false);
@@ -153,7 +205,7 @@ function Today() {
         </h2>
 
         {/* Resumo do dia */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">Valor Total de Vendas</h3>
             <p className="mt-2 text-3xl font-bold text-accent1 dark:text-accent2">
@@ -176,6 +228,16 @@ function Today() {
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">Ticket Médio</h3>
             <p className="mt-2 text-3xl font-bold text-accent4 dark:text-accent3">
               {formatCurrency(todayData.totalSales > 0 ? todayData.totalValue / todayData.totalSales : 0)}
+            </p>
+          </div>
+          {/* Novo card de reembolsos */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h3 className="text-lg font-medium text-text-light dark:text-text-dark">Reembolsos</h3>
+            <p className="mt-2 text-3xl font-bold text-red-500 dark:text-red-400">
+              {formatCurrency(refundsData.totalRefundAmount)}
+            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {refundsData.totalRefunds} reembolso(s)
             </p>
           </div>
         </div>
@@ -245,18 +307,39 @@ function Today() {
             </div>
           </div>
 
-          {/* Valor de Afiliações por Hora */}
+          {/* Gráfico de Reembolsos por Produto melhorado */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">Valor de Afiliações por Hora</h3>
+            <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">Reembolsos por Produto</h3>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={todayData.hourlyData}>
+                <BarChart 
+                  data={todayData.refundProductData || []} 
+                  layout="vertical"
+                  margin={{
+                    top: 10,
+                    right: 30,
+                    left: 100,
+                    bottom: 20,
+                  }}
+                >
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="hour" />
-                  <YAxis tickFormatter={(value) => formatCurrency(value)} />
-                  <Tooltip formatter={(value) => formatCurrency(value)} />
+                  <XAxis type="number" />
+                  <YAxis 
+                    type="category" 
+                    dataKey="name" 
+                    width={90}
+                    tick={{ fontSize: 12 }}
+                  />
+                  <Tooltip
+                    formatter={(value, name) => {
+                      if (name === 'Valor Reembolsado')
+                        return formatCurrency(value);
+                      return `${value} reembolso(s)`;
+                    }}
+                  />
                   <Legend />
-                  <Bar dataKey="affiliateValue" name="Valor de Afiliação" fill="#ffa500" />
+                  <Bar dataKey="refundValue" name="Valor Reembolsado" fill="#FF6B6B" />
+                  <Bar dataKey="refundCount" name="Quantidade de Reembolsos" fill="#FF9F40" />
                 </BarChart>
               </ResponsiveContainer>
             </div>

@@ -14,6 +14,7 @@ import { formatCurrency } from '../utils/currencyUtils'
 
 function DailyDashboard() {
   const [data, setData] = useState(null)
+  const [refundsData, setRefundsData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [dateRange, setDateRange] = useState(() => {
     // Obter data atual em formato local
@@ -58,15 +59,26 @@ function DailyDashboard() {
       setLoading(true)
       console.log(`Buscando dados: De ${startDate} até ${endDate}`);
       
-      const response = await axios.post(
-        'https://dash.launchcontrol.com.br/api/transactions',
+      // Buscar transações aprovadas
+      const transactionsResponse = await axios.post(
+        'http://localhost:3000/api/transactions',
         {
           ordered_at_ini: startDate,
           ordered_at_end: endDate,
         },
       )
 
-      console.log('Dados recebidos do backend:', response.data)
+      // Buscar reembolsos
+      const refundsResponse = await axios.post(
+        'http://localhost:3000/api/refunds',
+        {
+          ordered_at_ini: startDate,
+          ordered_at_end: endDate,
+        },
+      )
+
+      console.log('Dados de transações recebidos:', transactionsResponse.data)
+      console.log('Dados de reembolsos recebidos:', refundsResponse.data)
 
       const dailyDataMap = {}
       let totalAffiliateValue = 0
@@ -85,12 +97,14 @@ function DailyDashboard() {
           net_amount: 0,
           quantity: 0,
           affiliate_value: 0,
+          refund_amount: 0,
+          refund_quantity: 0
         }
       }
 
       // Processar transações
-      if (Array.isArray(response.data.data)) {
-        response.data.data.forEach((transaction) => {
+      if (Array.isArray(transactionsResponse.data.data)) {
+        transactionsResponse.data.data.forEach((transaction) => {
           // Converte o timestamp para data local
           const transactionDate = convertTimestampToDate(transaction.dates.created_at);
           
@@ -113,17 +127,47 @@ function DailyDashboard() {
         })
       }
 
+      // Processar reembolsos
+      let totalRefundAmount = 0;
+      let totalRefundQuantity = 0;
+
+      if (Array.isArray(refundsResponse.data.data)) {
+        refundsResponse.data.data.forEach((refund) => {
+          // Converte o timestamp para data local
+          const refundDate = convertTimestampToDate(refund.dates.created_at);
+          
+          // Usar o valor líquido calculado pelo backend que aplica as mesmas regras de transações
+          const refundAmount = refund.calculation_details?.net_amount || 0;
+
+          if (dailyDataMap[refundDate]) {
+            dailyDataMap[refundDate].refund_amount += refundAmount;
+            dailyDataMap[refundDate].refund_quantity += 1;
+          } else {
+            console.log(`Aviso: Reembolso com data ${refundDate} fora do intervalo definido`);
+          }
+
+          totalRefundAmount += refundAmount;
+          totalRefundQuantity += 1;
+        })
+      }
+
       const chartData = Object.values(dailyDataMap)
       console.log('Dados processados:', chartData)
       console.log('Total de valor de afiliações:', totalAffiliateValue)
+      console.log('Total de valor de reembolsos:', totalRefundAmount)
 
       setData({
         dailyData: chartData,
         totals: {
-          total_transactions: response.data.totals.total_transactions,
-          total_net_amount: response.data.totals.total_net_amount,
+          total_transactions: transactionsResponse.data.totals.total_transactions,
+          total_net_amount: transactionsResponse.data.totals.total_net_amount,
           total_net_affiliate_value: totalAffiliateValue,
         },
+      })
+
+      setRefundsData({
+        total_refund_amount: totalRefundAmount,
+        total_refund_quantity: totalRefundQuantity
       })
 
       setLoading(false)
@@ -196,7 +240,7 @@ function DailyDashboard() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
               Valor Líquido Total
@@ -219,6 +263,18 @@ function DailyDashboard() {
             </h3>
             <p className="mt-2 text-3xl font-bold text-secondary dark:text-primary">
               {formatCurrency(data?.totals?.total_net_affiliate_value || 0)}
+            </p>
+          </div>
+          {/* Novo card de reembolsos */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
+              Reembolsos
+            </h3>
+            <p className="mt-2 text-3xl font-bold text-red-500 dark:text-red-400">
+              {formatCurrency(refundsData?.total_refund_amount || 0)}
+            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {refundsData?.total_refund_quantity || 0} reembolso(s)
             </p>
           </div>
         </div>
@@ -251,7 +307,8 @@ function DailyDashboard() {
                   formatter={(value, name) => {
                     if (
                       name === 'Valor Líquido' ||
-                      name === 'Valor de Afiliação'
+                      name === 'Valor de Afiliação' ||
+                      name === 'Valor de Reembolso'
                     )
                       return formatCurrency(value)
                     return `${value} vendas`
@@ -280,6 +337,15 @@ function DailyDashboard() {
                   dataKey="affiliate_value"
                   name="Valor de Afiliação"
                   fill="#F97316"
+                  radius={[4, 4, 0, 0]}
+                  barSize={40}
+                />
+                {/* Nova barra para reembolsos */}
+                <Bar
+                  yAxisId="left"
+                  dataKey="refund_amount"
+                  name="Valor de Reembolso"
+                  fill="#EF4444"
                   radius={[4, 4, 0, 0]}
                   barSize={40}
                 />

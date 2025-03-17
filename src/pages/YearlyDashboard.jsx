@@ -18,6 +18,7 @@ import {
 
 function YearlyDashboard() {
   const [yearlyData, setYearlyData] = useState(null)
+  const [refundsData, setRefundsData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [goals, setGoals] = useState({
     meta: localStorage.getItem('yearlyMeta') || 'R$ 0,00',
@@ -81,8 +82,9 @@ function YearlyDashboard() {
       setLoading(true)
       setError(null)
 
+      // Buscando transações aprovadas
       const response = await axios.post(
-        'https://dash.launchcontrol.com.br/api/transactions',
+        'http://localhost:3000/api/transactions',
         {
           ordered_at_ini: firstDayOfYear,
           ordered_at_end: lastDayOfYear,
@@ -91,6 +93,21 @@ function YearlyDashboard() {
           timeout: 30000,
           headers: {
             'X-Debug-Request': 'YearlyDashboard',
+          },
+        },
+      )
+
+      // Buscando reembolsos
+      const refundsResponse = await axios.post(
+        'http://localhost:3000/api/refunds',
+        {
+          ordered_at_ini: firstDayOfYear,
+          ordered_at_end: lastDayOfYear,
+        },
+        {
+          timeout: 30000,
+          headers: {
+            'X-Debug-Request': 'YearlyDashboard-Refunds',
           },
         },
       )
@@ -104,9 +121,12 @@ function YearlyDashboard() {
           net_amount: 0,
           quantity: 0,
           affiliate_value: 0,
+          refund_amount: 0,
+          refund_quantity: 0,
         }
       }
 
+      // Processar transações
       response.data.data.forEach((transaction) => {
         const fullDate = new Date(transaction.dates.created_at * 1000)
         const monthStr = String(fullDate.getMonth() + 1).padStart(2, '0')
@@ -122,6 +142,20 @@ function YearlyDashboard() {
           monthlyDataMap[monthStr].net_amount += netAmount
           monthlyDataMap[monthStr].quantity += 1
           monthlyDataMap[monthStr].affiliate_value += affiliateValue
+        }
+      })
+
+      // Processar reembolsos
+      refundsResponse.data.data.forEach((refund) => {
+        const fullDate = new Date(refund.dates.created_at * 1000)
+        const monthStr = String(fullDate.getMonth() + 1).padStart(2, '0')
+
+        // Usar o valor líquido calculado pelo backend que aplica as mesmas regras de transações
+        const refundAmount = Number(refund.calculation_details?.net_amount || 0)
+
+        if (monthlyDataMap[monthStr]) {
+          monthlyDataMap[monthStr].refund_amount += refundAmount
+          monthlyDataMap[monthStr].refund_quantity += 1
         }
       })
 
@@ -143,6 +177,14 @@ function YearlyDashboard() {
         (sum, month) => sum + month.affiliate_value,
         0,
       )
+      const totalRefundAmount = chartData.reduce(
+        (sum, month) => sum + month.refund_amount,
+        0,
+      )
+      const totalRefundQuantity = chartData.reduce(
+        (sum, month) => sum + month.refund_quantity,
+        0,
+      )
 
       setYearlyData({
         monthlyData: chartData,
@@ -151,6 +193,11 @@ function YearlyDashboard() {
           total_net_amount: totalNetAmount,
           total_net_affiliate_value: totalAffiliateValue,
         },
+      })
+
+      setRefundsData({
+        total_refund_amount: totalRefundAmount,
+        total_refund_quantity: totalRefundQuantity,
       })
 
       setLoading(false)
@@ -192,7 +239,7 @@ function YearlyDashboard() {
           </h1>
 
           {/* Resumo de Vendas */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
               <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
                 Valor Total de Vendas
@@ -217,6 +264,18 @@ function YearlyDashboard() {
                 {formatCurrency(
                   yearlyData?.totals?.total_net_affiliate_value || 0,
                 )}
+              </p>
+            </div>
+            {/* Novo card de reembolsos */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+              <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
+                Reembolsos
+              </h3>
+              <p className="mt-2 text-3xl font-bold text-red-500 dark:text-red-400">
+                {formatCurrency(refundsData?.total_refund_amount || 0)}
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {refundsData?.total_refund_quantity || 0} reembolso(s)
               </p>
             </div>
           </div>
@@ -344,7 +403,8 @@ function YearlyDashboard() {
                     formatter={(value, name) => {
                       if (
                         name === 'Valor Líquido' ||
-                        name === 'Valor de Afiliação'
+                        name === 'Valor de Afiliação' ||
+                        name === 'Valor de Reembolso'
                       )
                         return formatCurrency(value)
                       return `${value} vendas`
@@ -389,6 +449,15 @@ function YearlyDashboard() {
                     dataKey="affiliate_value"
                     name="Valor de Afiliação"
                     fill="#F97316"
+                    radius={[4, 4, 0, 0]}
+                    barSize={40}
+                  />
+                  {/* Nova barra para reembolsos */}
+                  <Bar
+                    yAxisId="left"
+                    dataKey="refund_amount"
+                    name="Valor de Reembolso"
+                    fill="#EF4444"
                     radius={[4, 4, 0, 0]}
                     barSize={40}
                   />
