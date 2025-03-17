@@ -1,111 +1,149 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import React, { useState, useEffect, useCallback } from 'react'
+import axios from 'axios'
 import {
-  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
-} from 'recharts';
-import { formatCurrency } from '../utils/currencyUtils';
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from 'recharts'
+import { formatCurrency } from '../utils/currencyUtils'
 
-const COLORS = ['#8A2BE2', '#00FF00', '#FF4500', '#1E90FF', '#FFD700', '#FF1493'];
+const COLORS = [
+  '#8A2BE2',
+  '#00FF00',
+  '#FF4500',
+  '#1E90FF',
+  '#FFD700',
+  '#FF1493',
+]
 
 function Today() {
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [displayDate, setDisplayDate] = useState(new Date().toISOString().split('T')[0]);
-  const [todayData, setTodayData] = useState(null);
-  const [refundsData, setRefundsData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [selectedDate, setSelectedDate] = useState(
+    new Date().toISOString().split('T')[0],
+  )
+  const [displayDate, setDisplayDate] = useState(
+    new Date().toISOString().split('T')[0],
+  )
+  const [todayData, setTodayData] = useState(null)
+  const [refundsData, setRefundsData] = useState(null)
+  const [loading, setLoading] = useState(true)
 
   const fetchDayData = useCallback(async (date) => {
     try {
-      setLoading(true);
-      
+      setLoading(true)
+
       // Buscar transações aprovadas
-      const transactionsResponse = await axios.post('http://localhost:3000/api/transactions', {
-        ordered_at_ini: date,
-        ordered_at_end: date
-      });
+      const transactionsResponse = await axios.post(
+        'https://dash.launchcontrol.com.br/api/transactions',
+        {
+          // const transactionsResponse = await axios.post('http://localhost:3000/api/transactions', {
+          ordered_at_ini: date,
+          ordered_at_end: date,
+        },
+      )
 
       // Buscar transações reembolsadas
-      const refundsResponse = await axios.post('http://localhost:3000/api/refunds', {
-        ordered_at_ini: date,
-        ordered_at_end: date
-      });
+      const refundsResponse = await axios.post(
+        // 'http://localhost:3000/api/refunds',
+        'https://dash.launchcontrol.com.br/api/refunds',
+        {
+          ordered_at_ini: date,
+          ordered_at_end: date,
+        },
+      )
 
       // Processar dados de transações
-      const hourlyData = Array(24).fill().map((_, index) => ({
-        hour: index,
-        sales: 0,
-        value: 0,
-        affiliateValue: 0,
-        refundCount: 0,
-        refundValue: 0
-      }));
+      const hourlyData = Array(24)
+        .fill()
+        .map((_, index) => ({
+          hour: index,
+          sales: 0,
+          value: 0,
+          affiliateValue: 0,
+          refundCount: 0,
+          refundValue: 0,
+        }))
 
-      let totalSales = 0;
-      let totalValue = 0;
-      let totalAffiliateValue = 0;
-      const productSales = {};
+      let totalSales = 0
+      let totalValue = 0
+      let totalAffiliateValue = 0
+      const productSales = {}
 
-      transactionsResponse.data.data.forEach(transaction => {
-        const hour = new Date(transaction.dates.created_at * 1000).getHours();
-        const netAmount = Number(transaction?.calculation_details?.net_amount || 0);
-        const affiliateValue = Number(transaction?.calculation_details?.net_affiliate_value || 0);
+      transactionsResponse.data.data.forEach((transaction) => {
+        const hour = new Date(transaction.dates.created_at * 1000).getHours()
+        const netAmount = Number(
+          transaction?.calculation_details?.net_amount || 0,
+        )
+        const affiliateValue = Number(
+          transaction?.calculation_details?.net_affiliate_value || 0,
+        )
 
-        hourlyData[hour].sales += 1;
-        hourlyData[hour].value += netAmount;
-        hourlyData[hour].affiliateValue += affiliateValue;
+        hourlyData[hour].sales += 1
+        hourlyData[hour].value += netAmount
+        hourlyData[hour].affiliateValue += affiliateValue
 
-        totalSales += 1;
-        totalValue += netAmount;
-        totalAffiliateValue += affiliateValue;
+        totalSales += 1
+        totalValue += netAmount
+        totalAffiliateValue += affiliateValue
 
-        const productName = transaction.product.name;
+        const productName = transaction.product.name
         if (!productSales[productName]) {
-          productSales[productName] = { quantity: 0, value: 0 };
+          productSales[productName] = { quantity: 0, value: 0 }
         }
-        productSales[productName].quantity += 1;
-        productSales[productName].value += netAmount;
-      });
+        productSales[productName].quantity += 1
+        productSales[productName].value += netAmount
+      })
 
       // Processar dados de reembolsos
-      let totalRefunds = 0;
-      let totalRefundAmount = 0;
-      const refundsByProduct = {};
+      let totalRefunds = 0
+      let totalRefundAmount = 0
+      const refundsByProduct = {}
 
-      refundsResponse.data.data.forEach(refund => {
-        const productName = refund.product?.name || 'Produto não especificado';
+      refundsResponse.data.data.forEach((refund) => {
+        const productName = refund.product?.name || 'Produto não especificado'
         // Usar o valor líquido calculado pelo backend que aplica as mesmas regras de transações
-        const refundAmount = Number(refund.calculation_details?.net_amount || 0);
-        
+        const refundAmount = Number(refund.calculation_details?.net_amount || 0)
+
         if (!refundsByProduct[productName]) {
-          refundsByProduct[productName] = { count: 0, amount: 0 };
+          refundsByProduct[productName] = { count: 0, amount: 0 }
         }
-        
-        refundsByProduct[productName].count += 1;
-        refundsByProduct[productName].amount += refundAmount;
-        
-        totalRefunds += 1;
-        totalRefundAmount += refundAmount;
-      });
+
+        refundsByProduct[productName].count += 1
+        refundsByProduct[productName].amount += refundAmount
+
+        totalRefunds += 1
+        totalRefundAmount += refundAmount
+      })
 
       // Converter para array para o gráfico
-      const refundProductData = Object.entries(refundsByProduct).map(([name, data]) => ({
-        name,
-        refundCount: data.count,
-        refundValue: data.amount
-      }));
+      const refundProductData = Object.entries(refundsByProduct).map(
+        ([name, data]) => ({
+          name,
+          refundCount: data.count,
+          refundValue: data.amount,
+        }),
+      )
 
       // Adicionar reembolsos aos dados por hora para manter compatibilidade
       hourlyData.forEach((hour, index) => {
-        hourlyData[index].refundCount = 0;
-        hourlyData[index].refundValue = 0;
-      });
+        hourlyData[index].refundCount = 0
+        hourlyData[index].refundValue = 0
+      })
 
       const productData = Object.entries(productSales).map(([name, data]) => ({
         name,
         quantity: data.quantity,
-        value: data.value
-      }));
+        value: data.value,
+      }))
 
       setTodayData({
         hourlyData,
@@ -113,55 +151,55 @@ function Today() {
         totalValue,
         totalAffiliateValue,
         productData,
-        refundProductData
-      });
+        refundProductData,
+      })
 
       setRefundsData({
-        totalRefunds, 
-        totalRefundAmount
-      });
+        totalRefunds,
+        totalRefundAmount,
+      })
 
-      setLoading(false);
+      setLoading(false)
     } catch (error) {
-      console.error('Erro ao buscar dados:', error);
-      setLoading(false);
+      console.error('Erro ao buscar dados:', error)
+      setLoading(false)
     }
-  }, []);
+  }, [])
 
   useEffect(() => {
-    fetchDayData(selectedDate);
-    
+    fetchDayData(selectedDate)
+
     // Se estiver exibindo o dia atual, atualiza a cada 5 minutos
-    let interval;
+    let interval
     if (selectedDate === new Date().toISOString().split('T')[0]) {
-      interval = setInterval(() => fetchDayData(selectedDate), 5 * 60 * 1000);
+      interval = setInterval(() => fetchDayData(selectedDate), 5 * 60 * 1000)
     }
-    
+
     return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [fetchDayData, selectedDate]);
+      if (interval) clearInterval(interval)
+    }
+  }, [fetchDayData, selectedDate])
 
   const handleDateChange = (e) => {
-    setDisplayDate(e.target.value);
-  };
+    setDisplayDate(e.target.value)
+  }
 
   const handleSearch = () => {
-    setSelectedDate(displayDate);
-  };
+    setSelectedDate(displayDate)
+  }
 
   const handleToday = () => {
-    const today = new Date().toISOString().split('T')[0];
-    setDisplayDate(today);
-    setSelectedDate(today);
-  };
+    const today = new Date().toISOString().split('T')[0]
+    setDisplayDate(today)
+    setSelectedDate(today)
+  }
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen bg-background-light dark:bg-background-dark">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary dark:border-secondary"></div>
       </div>
-    );
+    )
   }
 
   // Formatação da data para exibição mais amigável
@@ -169,29 +207,31 @@ function Today() {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
-    day: 'numeric'
-  });
+    day: 'numeric',
+  })
 
   return (
     <div className="min-h-screen bg-background-light dark:bg-background-dark p-6">
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
-          <h1 className="text-3xl font-bold text-primary dark:text-secondary">Dashboard</h1>
-          
+          <h1 className="text-3xl font-bold text-primary dark:text-secondary">
+            Dashboard
+          </h1>
+
           <div className="flex flex-col sm:flex-row gap-2 mt-4 sm:mt-0">
-            <input 
-              type="date" 
+            <input
+              type="date"
               value={displayDate}
               onChange={handleDateChange}
               className="px-4 py-2 border rounded-lg text-text-light dark:text-text-dark bg-white dark:bg-gray-700"
             />
-            <button 
+            <button
               onClick={handleSearch}
               className="px-4 py-2 bg-primary text-white dark:bg-secondary dark:text-gray-800 rounded-lg hover:bg-opacity-90"
             >
               Pesquisar
             </button>
-            <button 
+            <button
               onClick={handleToday}
               className="px-4 py-2 bg-accent1 text-white dark:bg-accent2 dark:text-gray-800 rounded-lg hover:bg-opacity-90"
             >
@@ -207,32 +247,46 @@ function Today() {
         {/* Resumo do dia */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <h3 className="text-lg font-medium text-text-light dark:text-text-dark">Valor Total de Vendas</h3>
+            <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
+              Valor Total de Vendas
+            </h3>
             <p className="mt-2 text-3xl font-bold text-accent1 dark:text-accent2">
               {formatCurrency(todayData.totalValue)}
             </p>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <h3 className="text-lg font-medium text-text-light dark:text-text-dark">Quantidade de Vendas</h3>
+            <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
+              Quantidade de Vendas
+            </h3>
             <p className="mt-2 text-3xl font-bold text-accent3 dark:text-accent4">
               {todayData.totalSales}
             </p>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <h3 className="text-lg font-medium text-text-light dark:text-text-dark">Valor de Afiliações</h3>
+            <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
+              Valor de Afiliações
+            </h3>
             <p className="mt-2 text-3xl font-bold text-secondary dark:text-primary">
               {formatCurrency(todayData.totalAffiliateValue)}
             </p>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <h3 className="text-lg font-medium text-text-light dark:text-text-dark">Ticket Médio</h3>
+            <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
+              Ticket Médio
+            </h3>
             <p className="mt-2 text-3xl font-bold text-accent4 dark:text-accent3">
-              {formatCurrency(todayData.totalSales > 0 ? todayData.totalValue / todayData.totalSales : 0)}
+              {formatCurrency(
+                todayData.totalSales > 0
+                  ? todayData.totalValue / todayData.totalSales
+                  : 0,
+              )}
             </p>
           </div>
           {/* Novo card de reembolsos */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <h3 className="text-lg font-medium text-text-light dark:text-text-dark">Reembolsos</h3>
+            <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
+              Reembolsos
+            </h3>
             <p className="mt-2 text-3xl font-bold text-red-500 dark:text-red-400">
               {formatCurrency(refundsData.totalRefundAmount)}
             </p>
@@ -246,7 +300,9 @@ function Today() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Progressão por Hora */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">Progressão por Hora</h3>
+            <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
+              Progressão por Hora
+            </h3>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={todayData.hourlyData}>
@@ -256,8 +312,20 @@ function Today() {
                   <YAxis yAxisId="right" orientation="right" stroke="#82ca9d" />
                   <Tooltip />
                   <Legend />
-                  <Line yAxisId="left" type="monotone" dataKey="value" name="Valor (R$)" stroke="#8884d8" />
-                  <Line yAxisId="right" type="monotone" dataKey="sales" name="Vendas" stroke="#82ca9d" />
+                  <Line
+                    yAxisId="left"
+                    type="monotone"
+                    dataKey="value"
+                    name="Valor (R$)"
+                    stroke="#8884d8"
+                  />
+                  <Line
+                    yAxisId="right"
+                    type="monotone"
+                    dataKey="sales"
+                    name="Vendas"
+                    stroke="#82ca9d"
+                  />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -265,7 +333,9 @@ function Today() {
 
           {/* Vendas por Produto */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">Vendas por Produto</h3>
+            <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
+              Vendas por Produto
+            </h3>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -280,7 +350,10 @@ function Today() {
                     label
                   >
                     {todayData.productData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={COLORS[index % COLORS.length]}
+                      />
                     ))}
                   </Pie>
                   <Tooltip formatter={(value) => formatCurrency(value)} />
@@ -292,7 +365,9 @@ function Today() {
 
           {/* Quantidade de Vendas por Produto */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">Quantidade de Vendas por Produto</h3>
+            <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
+              Quantidade de Vendas por Produto
+            </h3>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={todayData.productData}>
@@ -309,11 +384,13 @@ function Today() {
 
           {/* Gráfico de Reembolsos por Produto melhorado */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">Reembolsos por Produto</h3>
+            <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
+              Reembolsos por Produto
+            </h3>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart 
-                  data={todayData.refundProductData || []} 
+                <BarChart
+                  data={todayData.refundProductData || []}
                   layout="vertical"
                   margin={{
                     top: 10,
@@ -324,22 +401,30 @@ function Today() {
                 >
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis type="number" />
-                  <YAxis 
-                    type="category" 
-                    dataKey="name" 
+                  <YAxis
+                    type="category"
+                    dataKey="name"
                     width={90}
                     tick={{ fontSize: 12 }}
                   />
                   <Tooltip
                     formatter={(value, name) => {
                       if (name === 'Valor Reembolsado')
-                        return formatCurrency(value);
-                      return `${value} reembolso(s)`;
+                        return formatCurrency(value)
+                      return `${value} reembolso(s)`
                     }}
                   />
                   <Legend />
-                  <Bar dataKey="refundValue" name="Valor Reembolsado" fill="#FF6B6B" />
-                  <Bar dataKey="refundCount" name="Quantidade de Reembolsos" fill="#FF9F40" />
+                  <Bar
+                    dataKey="refundValue"
+                    name="Valor Reembolsado"
+                    fill="#FF6B6B"
+                  />
+                  <Bar
+                    dataKey="refundCount"
+                    name="Quantidade de Reembolsos"
+                    fill="#FF9F40"
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -347,7 +432,7 @@ function Today() {
         </div>
       </div>
     </div>
-  );
+  )
 }
 
-export default Today;
+export default Today
