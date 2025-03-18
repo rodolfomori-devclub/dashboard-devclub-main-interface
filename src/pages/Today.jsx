@@ -30,7 +30,6 @@ function Today() {
   const [selectedDate, setSelectedDate] = useState(
     new Date().toISOString().split('T')[0],
   )
-
   const [displayDate, setDisplayDate] = useState(
     new Date().toISOString().split('T')[0],
   )
@@ -44,8 +43,9 @@ function Today() {
 
       // Buscar transações aprovadas
       const transactionsResponse = await axios.post(
-        `${import.meta.env.VITE_API_URL}/transactions`,
+        'https://dash.launchcontrol.com.br/api/transactions',
         {
+          // const transactionsResponse = await axios.post('http://localhost:3000/api/transactions', {
           ordered_at_ini: date,
           ordered_at_end: date,
         },
@@ -53,7 +53,8 @@ function Today() {
 
       // Buscar transações reembolsadas
       const refundsResponse = await axios.post(
-        `${import.meta.env.VITE_API_URL}/refunds`,
+        // 'http://localhost:3000/api/refunds',
+        'https://dash.launchcontrol.com.br/api/refunds',
         {
           ordered_at_ini: date,
           ordered_at_end: date,
@@ -250,7 +251,7 @@ function Today() {
               Valor Total de Vendas
             </h3>
             <p className="mt-2 text-3xl font-bold text-accent1 dark:text-accent2">
-              {formatCurrency(todayData.totalValue)}
+              {formatCurrency(todayData?.totalValue)}
             </p>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
@@ -258,7 +259,7 @@ function Today() {
               Quantidade de Vendas
             </h3>
             <p className="mt-2 text-3xl font-bold text-accent3 dark:text-accent4">
-              {todayData.totalSales}
+              {todayData?.totalSales}
             </p>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
@@ -266,7 +267,7 @@ function Today() {
               Valor de Afiliações
             </h3>
             <p className="mt-2 text-3xl font-bold text-secondary dark:text-primary">
-              {formatCurrency(todayData.totalAffiliateValue)}
+              {formatCurrency(todayData?.totalAffiliateValue)}
             </p>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
@@ -275,8 +276,8 @@ function Today() {
             </h3>
             <p className="mt-2 text-3xl font-bold text-accent4 dark:text-accent3">
               {formatCurrency(
-                todayData.totalSales > 0
-                  ? todayData.totalValue / todayData.totalSales
+                todayData?.totalSales > 0
+                  ? todayData?.totalValue / todayData?.totalSales
                   : 0,
               )}
             </p>
@@ -287,10 +288,10 @@ function Today() {
               Reembolsos
             </h3>
             <p className="mt-2 text-3xl font-bold text-red-500 dark:text-red-400">
-              {formatCurrency(refundsData.totalRefundAmount)}
+              {formatCurrency(refundsData?.totalRefundAmount)}
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              {refundsData.totalRefunds} reembolso(s)
+              {refundsData?.totalRefunds} reembolso(s)
             </p>
           </div>
         </div>
@@ -304,7 +305,7 @@ function Today() {
             </h3>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={todayData.hourlyData}>
+                <LineChart data={todayData?.hourlyData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="hour" />
                   <YAxis yAxisId="left" orientation="left" stroke="#8884d8" />
@@ -339,7 +340,7 @@ function Today() {
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={todayData.productData}
+                    data={todayData?.productData}
                     dataKey="value"
                     nameKey="name"
                     cx="50%"
@@ -348,7 +349,7 @@ function Today() {
                     fill="#8884d8"
                     label
                   >
-                    {todayData.productData.map((entry, index) => (
+                    {todayData?.productData.map((entry, index) => (
                       <Cell
                         key={`cell-${index}`}
                         fill={COLORS[index % COLORS.length]}
@@ -369,7 +370,7 @@ function Today() {
             </h3>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={todayData.productData}>
+                <BarChart data={todayData?.productData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" />
                   <YAxis />
@@ -389,7 +390,7 @@ function Today() {
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
-                  data={todayData.refundProductData || []}
+                  data={todayData?.refundProductData || []}
                   layout="vertical"
                   margin={{
                     top: 10,
