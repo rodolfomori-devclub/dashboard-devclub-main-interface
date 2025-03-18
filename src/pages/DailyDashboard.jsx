@@ -15,6 +15,7 @@ import { formatCurrency } from '../utils/currencyUtils'
 function DailyDashboard() {
   const [data, setData] = useState(null)
   const [refundsData, setRefundsData] = useState(null)
+  const [commercialData, setCommercialData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [dateRange, setDateRange] = useState(() => {
     // Obter data atual em formato local
@@ -82,6 +83,8 @@ function DailyDashboard() {
 
       const dailyDataMap = {}
       let totalAffiliateValue = 0
+      let totalCommercialValue = 0
+      let totalCommercialQuantity = 0
 
       // Inicializar o mapa de dados diários
       const start = new Date(startDate + 'T00:00:00');
@@ -98,7 +101,9 @@ function DailyDashboard() {
           quantity: 0,
           affiliate_value: 0,
           refund_amount: 0,
-          refund_quantity: 0
+          refund_quantity: 0,
+          commercial_value: 0,
+          commercial_quantity: 0
         }
       }
 
@@ -111,19 +116,28 @@ function DailyDashboard() {
           // Log para debug
           console.log(`Transação: timestamp=${transaction.dates.created_at}, data=${transactionDate}`);
           
-          const affiliateValue =
-            transaction.calculation_details?.net_affiliate_value || 0
+          const netAmount = Number(transaction.calculation_details?.net_amount || 0);
+          const affiliateValue = Number(transaction.calculation_details?.net_affiliate_value || 0);
+          
+          // Verificar se é uma venda do comercial - CORRIGIDO
+          const isCommercial = transaction.trackings?.utm_source === 'comercial';
 
           if (dailyDataMap[transactionDate]) {
-            dailyDataMap[transactionDate].net_amount +=
-              transaction.calculation_details.net_amount
-            dailyDataMap[transactionDate].quantity += 1
-            dailyDataMap[transactionDate].affiliate_value += affiliateValue
+            dailyDataMap[transactionDate].net_amount += netAmount;
+            dailyDataMap[transactionDate].quantity += 1;
+            dailyDataMap[transactionDate].affiliate_value += affiliateValue;
+            
+            if (isCommercial) {
+              dailyDataMap[transactionDate].commercial_value += netAmount;
+              dailyDataMap[transactionDate].commercial_quantity += 1;
+              totalCommercialValue += netAmount;
+              totalCommercialQuantity += 1;
+            }
           } else {
             console.log(`Aviso: Transação com data ${transactionDate} fora do intervalo definido`);
           }
 
-          totalAffiliateValue += affiliateValue
+          totalAffiliateValue += affiliateValue;
         })
       }
 
@@ -155,6 +169,7 @@ function DailyDashboard() {
       console.log('Dados processados:', chartData)
       console.log('Total de valor de afiliações:', totalAffiliateValue)
       console.log('Total de valor de reembolsos:', totalRefundAmount)
+      console.log('Total de valor de vendas comercial:', totalCommercialValue)
 
       setData({
         dailyData: chartData,
@@ -168,6 +183,11 @@ function DailyDashboard() {
       setRefundsData({
         total_refund_amount: totalRefundAmount,
         total_refund_quantity: totalRefundQuantity
+      })
+      
+      setCommercialData({
+        total_commercial_value: totalCommercialValue,
+        total_commercial_quantity: totalCommercialQuantity
       })
 
       setLoading(false)
@@ -240,7 +260,7 @@ function DailyDashboard() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
               Valor Líquido Total
@@ -265,7 +285,7 @@ function DailyDashboard() {
               {formatCurrency(data?.totals?.total_net_affiliate_value || 0)}
             </p>
           </div>
-          {/* Novo card de reembolsos */}
+          {/* Card de reembolsos */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
               Reembolsos
@@ -275,6 +295,18 @@ function DailyDashboard() {
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400">
               {refundsData?.total_refund_quantity || 0} reembolso(s)
+            </p>
+          </div>
+          {/* Novo card para vendas do comercial */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
+              Vendas Comercial
+            </h3>
+            <p className="mt-2 text-3xl font-bold text-blue-500 dark:text-blue-400">
+              {formatCurrency(commercialData?.total_commercial_value || 0)}
+            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {commercialData?.total_commercial_quantity || 0} venda(s)
             </p>
           </div>
         </div>
@@ -308,7 +340,8 @@ function DailyDashboard() {
                     if (
                       name === 'Valor Líquido' ||
                       name === 'Valor de Afiliação' ||
-                      name === 'Valor de Reembolso'
+                      name === 'Valor de Reembolso' ||
+                      name === 'Valor Comercial'
                     )
                       return formatCurrency(value)
                     return `${value} vendas`
@@ -340,12 +373,65 @@ function DailyDashboard() {
                   radius={[4, 4, 0, 0]}
                   barSize={40}
                 />
-                {/* Nova barra para reembolsos */}
                 <Bar
                   yAxisId="left"
                   dataKey="refund_amount"
                   name="Valor de Reembolso"
                   fill="#EF4444"
+                  radius={[4, 4, 0, 0]}
+                  barSize={40}
+                />
+                {/* Nova barra para vendas do comercial */}
+                <Bar
+                  yAxisId="left"
+                  dataKey="commercial_value"
+                  name="Valor Comercial"
+                  fill="#3B82F6"
+                  radius={[4, 4, 0, 0]}
+                  barSize={40}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+        
+        {/* Novo gráfico para comparar vendas normais vs comercial */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 relative mt-6">
+          <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
+            Comparativo: Vendas Normais vs Comercial
+          </h3>
+          <div className="h-96 relative">
+            {loading && (
+              <div className="absolute inset-0 bg-white dark:bg-gray-800 bg-opacity-75 flex items-center justify-center z-10">
+                <div className="flex flex-col items-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                  <p className="mt-4 text-text-light dark:text-text-dark">Carregando dados...</p>
+                </div>
+              </div>
+            )}
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={data?.dailyData || []}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" tickFormatter={formatDate} />
+                <YAxis
+                  tickFormatter={(value) => formatCurrency(value)}
+                />
+                <Tooltip
+                  formatter={(value, name) => formatCurrency(value)}
+                  labelFormatter={formatDate}
+                />
+                <Legend />
+                <Bar
+                  dataKey="net_amount"
+                  name="Valor Total"
+                  fill="#2563EB"
+                  radius={[4, 4, 0, 0]}
+                  barSize={40}
+                />
+                <Bar
+                  dataKey="commercial_value"
+                  name="Valor Comercial"
+                  fill="#3B82F6"
                   radius={[4, 4, 0, 0]}
                   barSize={40}
                 />

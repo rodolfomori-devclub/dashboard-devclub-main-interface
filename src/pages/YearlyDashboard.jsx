@@ -19,6 +19,7 @@ import {
 function YearlyDashboard() {
   const [yearlyData, setYearlyData] = useState(null)
   const [refundsData, setRefundsData] = useState(null)
+  const [commercialData, setCommercialData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [goals, setGoals] = useState({
     meta: localStorage.getItem('yearlyMeta') || 'R$ 0,00',
@@ -123,10 +124,15 @@ function YearlyDashboard() {
           affiliate_value: 0,
           refund_amount: 0,
           refund_quantity: 0,
+          commercial_value: 0,
+          commercial_quantity: 0,
         }
       }
 
       // Processar transações
+      let totalCommercialValue = 0
+      let totalCommercialQuantity = 0
+      
       response.data.data.forEach((transaction) => {
         const fullDate = new Date(transaction.dates.created_at * 1000)
         const monthStr = String(fullDate.getMonth() + 1).padStart(2, '0')
@@ -137,11 +143,21 @@ function YearlyDashboard() {
         const affiliateValue = Number(
           transaction?.calculation_details?.net_affiliate_value || 0,
         )
+        
+        // Verificar se é uma venda do comercial - CORRIGIDO
+        const isCommercial = transaction.trackings?.utm_source === 'comercial'
 
         if (monthlyDataMap[monthStr]) {
           monthlyDataMap[monthStr].net_amount += netAmount
           monthlyDataMap[monthStr].quantity += 1
           monthlyDataMap[monthStr].affiliate_value += affiliateValue
+          
+          if (isCommercial) {
+            monthlyDataMap[monthStr].commercial_value += netAmount
+            monthlyDataMap[monthStr].commercial_quantity += 1
+            totalCommercialValue += netAmount
+            totalCommercialQuantity += 1
+          }
         }
       })
 
@@ -199,6 +215,11 @@ function YearlyDashboard() {
         total_refund_amount: totalRefundAmount,
         total_refund_quantity: totalRefundQuantity,
       })
+      
+      setCommercialData({
+        total_commercial_value: totalCommercialValue,
+        total_commercial_quantity: totalCommercialQuantity,
+      })
 
       setLoading(false)
     } catch (error) {
@@ -239,7 +260,7 @@ function YearlyDashboard() {
           </h1>
 
           {/* Resumo de Vendas */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
               <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
                 Valor Total de Vendas
@@ -266,7 +287,7 @@ function YearlyDashboard() {
                 )}
               </p>
             </div>
-            {/* Novo card de reembolsos */}
+            {/* Card de reembolsos */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
               <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
                 Reembolsos
@@ -276,6 +297,18 @@ function YearlyDashboard() {
               </p>
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 {refundsData?.total_refund_quantity || 0} reembolso(s)
+              </p>
+            </div>
+            {/* Novo card para vendas do comercial */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+              <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
+                Vendas Comercial
+              </h3>
+              <p className="mt-2 text-3xl font-bold text-blue-500 dark:text-blue-400">
+                {formatCurrency(commercialData?.total_commercial_value || 0)}
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {commercialData?.total_commercial_quantity || 0} venda(s)
               </p>
             </div>
           </div>
@@ -353,8 +386,8 @@ function YearlyDashboard() {
             ))}
           </div>
 
-          {/* Gráfico */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 relative">
+          {/* Gráfico de Barras Mensal */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 relative mb-8">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
               Vendas Mensais
             </h3>
@@ -404,7 +437,8 @@ function YearlyDashboard() {
                       if (
                         name === 'Valor Líquido' ||
                         name === 'Valor de Afiliação' ||
-                        name === 'Valor de Reembolso'
+                        name === 'Valor de Reembolso' ||
+                        name === 'Valor Comercial'
                       )
                         return formatCurrency(value)
                       return `${value} vendas`
@@ -452,12 +486,102 @@ function YearlyDashboard() {
                     radius={[4, 4, 0, 0]}
                     barSize={40}
                   />
-                  {/* Nova barra para reembolsos */}
                   <Bar
                     yAxisId="left"
                     dataKey="refund_amount"
                     name="Valor de Reembolso"
                     fill="#EF4444"
+                    radius={[4, 4, 0, 0]}
+                    barSize={40}
+                  />
+                  {/* Nova barra para vendas do comercial */}
+                  <Bar
+                    yAxisId="left"
+                    dataKey="commercial_value"
+                    name="Valor Comercial"
+                    fill="#3B82F6"
+                    radius={[4, 4, 0, 0]}
+                    barSize={40}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+          
+          {/* Gráfico comparativo comercial vs total */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 relative">
+            <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
+              Comparativo Mensal: Vendas Totais vs Comercial
+            </h3>
+            <div className="h-96 relative">
+              {loading && (
+                <div className="absolute inset-0 bg-white dark:bg-gray-800 bg-opacity-75 flex items-center justify-center z-10">
+                  <div className="flex flex-col items-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary dark:border-secondary"></div>
+                    <p className="mt-4 text-text-light dark:text-text-dark">
+                      Carregando dados...
+                    </p>
+                  </div>
+                </div>
+              )}
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={yearlyData?.monthlyData || []}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="month"
+                    tickFormatter={(monthStr) => {
+                      const monthNames = [
+                        'Jan',
+                        'Fev',
+                        'Mar',
+                        'Abr',
+                        'Mai',
+                        'Jun',
+                        'Jul',
+                        'Ago',
+                        'Set',
+                        'Out',
+                        'Nov',
+                        'Dez',
+                      ]
+                      return monthNames[parseInt(monthStr) - 1]
+                    }}
+                  />
+                  <YAxis
+                    tickFormatter={(value) => formatCurrency(value)}
+                  />
+                  <Tooltip
+                    formatter={(value) => formatCurrency(value)}
+                    labelFormatter={(monthStr) => {
+                      const monthNames = [
+                        'Janeiro',
+                        'Fevereiro',
+                        'Março',
+                        'Abril',
+                        'Maio',
+                        'Junho',
+                        'Julho',
+                        'Agosto',
+                        'Setembro',
+                        'Outubro',
+                        'Novembro',
+                        'Dezembro',
+                      ]
+                      return monthNames[parseInt(monthStr) - 1]
+                    }}
+                  />
+                  <Legend />
+                  <Bar
+                    dataKey="net_amount"
+                    name="Valor Total"
+                    fill="#2563EB"
+                    radius={[4, 4, 0, 0]}
+                    barSize={40}
+                  />
+                  <Bar
+                    dataKey="commercial_value"
+                    name="Valor Comercial"
+                    fill="#3B82F6"
                     radius={[4, 4, 0, 0]}
                     barSize={40}
                   />

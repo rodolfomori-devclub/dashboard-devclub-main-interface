@@ -35,6 +35,7 @@ function Today() {
   )
   const [todayData, setTodayData] = useState(null)
   const [refundsData, setRefundsData] = useState(null)
+  const [commercialData, setCommercialData] = useState(null)
   const [loading, setLoading] = useState(true)
 
   const fetchDayData = useCallback(async (date) => {
@@ -71,11 +72,15 @@ function Today() {
           affiliateValue: 0,
           refundCount: 0,
           refundValue: 0,
+          commercialSales: 0,
+          commercialValue: 0,
         }))
 
       let totalSales = 0
       let totalValue = 0
       let totalAffiliateValue = 0
+      let totalCommercialValue = 0
+      let totalCommercialSales = 0
       const productSales = {}
 
       transactionsResponse.data.data.forEach((transaction) => {
@@ -86,10 +91,20 @@ function Today() {
         const affiliateValue = Number(
           transaction?.calculation_details?.net_affiliate_value || 0,
         )
+        
+        // Verificar se é uma venda do comercial - CORRIGIDO
+        const isCommercial = transaction.trackings?.utm_source === 'comercial'
 
         hourlyData[hour].sales += 1
         hourlyData[hour].value += netAmount
         hourlyData[hour].affiliateValue += affiliateValue
+        
+        if (isCommercial) {
+          hourlyData[hour].commercialSales += 1
+          hourlyData[hour].commercialValue += netAmount
+          totalCommercialSales += 1
+          totalCommercialValue += netAmount
+        }
 
         totalSales += 1
         totalValue += netAmount
@@ -97,10 +112,20 @@ function Today() {
 
         const productName = transaction.product.name
         if (!productSales[productName]) {
-          productSales[productName] = { quantity: 0, value: 0 }
+          productSales[productName] = { 
+            quantity: 0, 
+            value: 0,
+            commercialQuantity: 0,
+            commercialValue: 0 
+          }
         }
         productSales[productName].quantity += 1
         productSales[productName].value += netAmount
+        
+        if (isCommercial) {
+          productSales[productName].commercialQuantity += 1
+          productSales[productName].commercialValue += netAmount
+        }
       })
 
       // Processar dados de reembolsos
@@ -143,6 +168,8 @@ function Today() {
         name,
         quantity: data.quantity,
         value: data.value,
+        commercialQuantity: data.commercialQuantity || 0,
+        commercialValue: data.commercialValue || 0
       }))
 
       setTodayData({
@@ -157,6 +184,11 @@ function Today() {
       setRefundsData({
         totalRefunds,
         totalRefundAmount,
+      })
+      
+      setCommercialData({
+        totalCommercialSales,
+        totalCommercialValue
       })
 
       setLoading(false)
@@ -272,19 +304,6 @@ function Today() {
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
-              Ticket Médio
-            </h3>
-            <p className="mt-2 text-3xl font-bold text-accent4 dark:text-accent3">
-              {formatCurrency(
-                todayData?.totalSales > 0
-                  ? todayData?.totalValue / todayData?.totalSales
-                  : 0,
-              )}
-            </p>
-          </div>
-          {/* Novo card de reembolsos */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
               Reembolsos
             </h3>
             <p className="mt-2 text-3xl font-bold text-red-500 dark:text-red-400">
@@ -292,6 +311,18 @@ function Today() {
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400">
               {refundsData?.totalRefunds} reembolso(s)
+            </p>
+          </div>
+          {/* Novo card para vendas do comercial */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
+              Vendas Comercial
+            </h3>
+            <p className="mt-2 text-3xl font-bold text-blue-500 dark:text-blue-400">
+              {formatCurrency(commercialData?.totalCommercialValue)}
+            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {commercialData?.totalCommercialSales} venda(s)
             </p>
           </div>
         </div>
@@ -325,6 +356,23 @@ function Today() {
                     dataKey="sales"
                     name="Vendas"
                     stroke="#82ca9d"
+                  />
+                  {/* Nova linha para vendas do comercial */}
+                  <Line
+                    yAxisId="left"
+                    type="monotone"
+                    dataKey="commercialValue"
+                    name="Valor Comercial (R$)"
+                    stroke="#3B82F6"
+                    strokeDasharray="5 5"
+                  />
+                  <Line
+                    yAxisId="right"
+                    type="monotone"
+                    dataKey="commercialSales"
+                    name="Vendas Comercial"
+                    stroke="#60A5FA"
+                    strokeDasharray="5 5"
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -376,55 +424,28 @@ function Today() {
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="quantity" fill="#8884d8" />
+                  <Bar dataKey="quantity" name="Total" fill="#8884d8" />
+                  <Bar dataKey="commercialQuantity" name="Comercial" fill="#3B82F6" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </div>
 
-          {/* Gráfico de Reembolsos por Produto melhorado */}
+          {/* Valor de Vendas por Produto (incluindo comercial) */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
-              Reembolsos por Produto
+              Valor de Vendas por Produto
             </h3>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={todayData?.refundProductData || []}
-                  layout="vertical"
-                  margin={{
-                    top: 10,
-                    right: 30,
-                    left: 100,
-                    bottom: 20,
-                  }}
-                >
+                <BarChart data={todayData?.productData}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" />
-                  <YAxis
-                    type="category"
-                    dataKey="name"
-                    width={90}
-                    tick={{ fontSize: 12 }}
-                  />
-                  <Tooltip
-                    formatter={(value, name) => {
-                      if (name === 'Valor Reembolsado')
-                        return formatCurrency(value)
-                      return `${value} reembolso(s)`
-                    }}
-                  />
+                  <XAxis dataKey="name" />
+                  <YAxis tickFormatter={(value) => formatCurrency(value)} />
+                  <Tooltip formatter={(value) => formatCurrency(value)} />
                   <Legend />
-                  <Bar
-                    dataKey="refundValue"
-                    name="Valor Reembolsado"
-                    fill="#FF6B6B"
-                  />
-                  <Bar
-                    dataKey="refundCount"
-                    name="Quantidade de Reembolsos"
-                    fill="#FF9F40"
-                  />
+                  <Bar dataKey="value" name="Total" fill="#8884d8" />
+                  <Bar dataKey="commercialValue" name="Comercial" fill="#3B82F6" />
                 </BarChart>
               </ResponsiveContainer>
             </div>

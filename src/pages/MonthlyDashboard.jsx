@@ -21,6 +21,7 @@ import {
 function MonthlyDashboard() {
   const [monthlyData, setMonthlyData] = useState(null)
   const [refundsData, setRefundsData] = useState(null)
+  const [commercialData, setCommercialData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [goals, setGoals] = useState({
     meta: localStorage.getItem('monthlyMeta') || 'R$ 0,00',
@@ -133,10 +134,15 @@ function MonthlyDashboard() {
           affiliate_value: 0,
           refund_amount: 0,
           refund_quantity: 0,
+          commercial_value: 0,
+          commercial_quantity: 0,
         }
       }
 
       // Processar transações
+      let totalCommercialValue = 0
+      let totalCommercialQuantity = 0
+      
       transactionsResponse.data.data.forEach((transaction) => {
         const fullDate = new Date(transaction.dates.created_at * 1000)
         const transactionDate = fullDate.toISOString().split('T')[0]
@@ -147,11 +153,21 @@ function MonthlyDashboard() {
         const affiliateValue = Number(
           transaction?.calculation_details?.net_affiliate_value || 0,
         )
+        
+        // Verificar se é uma venda do comercial - CORRIGIDO
+        const isCommercial = transaction.trackings?.utm_source === 'comercial'
 
         if (dailyDataMap[transactionDate]) {
           dailyDataMap[transactionDate].net_amount += netAmount
           dailyDataMap[transactionDate].quantity += 1
           dailyDataMap[transactionDate].affiliate_value += affiliateValue
+          
+          if (isCommercial) {
+            dailyDataMap[transactionDate].commercial_value += netAmount
+            dailyDataMap[transactionDate].commercial_quantity += 1
+            totalCommercialValue += netAmount
+            totalCommercialQuantity += 1
+          }
         }
       })
 
@@ -174,7 +190,8 @@ function MonthlyDashboard() {
         .filter(
           (day) =>
             day.net_amount > 0 || day.quantity > 0 || 
-            day.affiliate_value > 0 || day.refund_amount > 0
+            day.affiliate_value > 0 || day.refund_amount > 0 ||
+            day.commercial_value > 0
         )
         .sort((a, b) => new Date(a.date) - new Date(b.date))
 
@@ -213,6 +230,11 @@ function MonthlyDashboard() {
       setRefundsData({
         total_refund_amount: totalRefundAmount,
         total_refund_quantity: totalRefundQuantity,
+      })
+      
+      setCommercialData({
+        total_commercial_value: totalCommercialValue,
+        total_commercial_quantity: totalCommercialQuantity,
       })
 
       // Forçar atualização do estado de carregamento
@@ -254,7 +276,7 @@ function MonthlyDashboard() {
         </h1>
 
         {/* Resumo Mensal */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-6 mb-8">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
               Valor Total de Vendas
@@ -295,7 +317,7 @@ function MonthlyDashboard() {
               )}
             </p>
           </div>
-          {/* Novo card de reembolsos */}
+          {/* Card de reembolsos */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
               Reembolsos
@@ -305,6 +327,18 @@ function MonthlyDashboard() {
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400">
               {refundsData?.total_refund_quantity || 0} reembolso(s)
+            </p>
+          </div>
+          {/* Novo card para vendas do comercial */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
+              Vendas Comercial
+            </h3>
+            <p className="mt-2 text-3xl font-bold text-blue-500 dark:text-blue-400">
+              {formatCurrency(commercialData?.total_commercial_value || 0)}
+            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {commercialData?.total_commercial_quantity || 0} venda(s)
             </p>
           </div>
         </div>
@@ -409,7 +443,8 @@ function MonthlyDashboard() {
                       if (
                         name === 'Valor Líquido' ||
                         name === 'Valor de Afiliação' ||
-                        name === 'Valor de Reembolso'
+                        name === 'Valor de Reembolso' ||
+                        name === 'Valor Comercial'
                       )
                         return formatCurrency(value)
                       return `${value} vendas`
@@ -437,12 +472,18 @@ function MonthlyDashboard() {
                     name="Valor de Afiliação"
                     fill="#F97316"
                   />
-                  {/* Nova barra para reembolsos */}
                   <Bar
                     yAxisId="left"
                     dataKey="refund_amount"
                     name="Valor de Reembolso"
                     fill="#EF4444"
+                  />
+                  {/* Nova barra para vendas do comercial */}
+                  <Bar
+                    yAxisId="left"
+                    dataKey="commercial_value"
+                    name="Valor Comercial"
+                    fill="#3B82F6"
                   />
                 </BarChart>
               </ResponsiveContainer>
@@ -482,12 +523,19 @@ function MonthlyDashboard() {
                     name="Valor de Afiliação"
                     stroke="#F97316"
                   />
-                  {/* Nova linha para reembolsos */}
                   <Line
                     type="monotone"
                     dataKey="refund_amount"
                     name="Valor de Reembolso"
                     stroke="#EF4444"
+                  />
+                  {/* Nova linha para vendas do comercial */}
+                  <Line
+                    type="monotone"
+                    dataKey="commercial_value"
+                    name="Valor Comercial"
+                    stroke="#3B82F6"
+                    strokeDasharray="5 5"
                   />
                 </LineChart>
               </ResponsiveContainer>
