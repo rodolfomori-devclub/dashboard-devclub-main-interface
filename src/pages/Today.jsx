@@ -30,6 +30,7 @@ function Today() {
   const [selectedDate, setSelectedDate] = useState(
     new Date().toISOString().split('T')[0],
   )
+
   const [displayDate, setDisplayDate] = useState(
     new Date().toISOString().split('T')[0],
   )
@@ -43,9 +44,8 @@ function Today() {
 
       // Buscar transações aprovadas
       const transactionsResponse = await axios.post(
-        'https://dash.launchcontrol.com.br/api/transactions',
+        `${import.meta.env.VITE_API_URL}/transactions`,
         {
-          // const transactionsResponse = await axios.post('http://localhost:3000/api/transactions', {
           ordered_at_ini: date,
           ordered_at_end: date,
         },
@@ -53,8 +53,7 @@ function Today() {
 
       // Buscar transações reembolsadas
       const refundsResponse = await axios.post(
-        // 'http://localhost:3000/api/refunds',
-        'https://dash.launchcontrol.com.br/api/refunds',
+        `${import.meta.env.VITE_API_URL}/refunds`,
         {
           ordered_at_ini: date,
           ordered_at_end: date,
@@ -203,7 +202,7 @@ function Today() {
   }
 
   // Formatação da data para exibição mais amigável
-  const formattedDate = new Date(selectedDate).toLocaleDateString('pt-BR', {
+  const formattedDate = new Date(`${selectedDate}T12:00:00`).toLocaleDateString('pt-BR', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',

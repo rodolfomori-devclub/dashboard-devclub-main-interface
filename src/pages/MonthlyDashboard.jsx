@@ -92,8 +92,7 @@ function MonthlyDashboard() {
 
       // Buscando transações aprovadas
       const transactionsResponse = await axios.post(
-        // 'http://localhost:3000/api/transactions',
-        'https://dash.launchcontrol.com.br/api/transactions',
+        `${import.meta.env.VITE_API_URL}/transactions`,
         {
           ordered_at_ini: firstDayOfMonth,
           ordered_at_end: lastDayOfMonth,
@@ -108,8 +107,7 @@ function MonthlyDashboard() {
 
       // Buscando reembolsos
       const refundsResponse = await axios.post(
-        'https://dash.launchcontrol.com.br/api/refunds',
-        // 'http://localhost:3000/api/refunds',
+        `${import.meta.env.VITE_API_URL}/refunds`,
         {
           ordered_at_ini: firstDayOfMonth,
           ordered_at_end: lastDayOfMonth,
