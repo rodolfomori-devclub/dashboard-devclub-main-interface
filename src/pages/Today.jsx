@@ -3,10 +3,6 @@ import axios from 'axios'
 import {
   BarChart,
   Bar,
-  LineChart,
-  Line,
-  PieChart,
-  Pie,
   Cell,
   XAxis,
   YAxis,
@@ -14,6 +10,9 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  PieChart,
+  Pie,
+  LabelList,
 } from 'recharts'
 import { formatCurrency } from '../utils/currencyUtils'
 
@@ -46,7 +45,7 @@ function Today() {
       const transactionsResponse = await axios.post(
         'https://dash.launchcontrol.com.br/api/transactions',
         {
-          // const transactionsResponse = await axios.post('http://localhost:3000/api/transactions', {
+          // Define timezone para Brasília (GMT-3)
           ordered_at_ini: date,
           ordered_at_end: date,
         },
@@ -54,7 +53,6 @@ function Today() {
 
       // Buscar transações reembolsadas
       const refundsResponse = await axios.post(
-        // 'http://localhost:3000/api/refunds',
         'https://dash.launchcontrol.com.br/api/refunds',
         {
           ordered_at_ini: date,
@@ -74,6 +72,7 @@ function Today() {
           refundValue: 0,
           commercialSales: 0,
           commercialValue: 0,
+          productSales: {}, // Armazenar vendas por produto por hora
         }))
 
       let totalSales = 0
@@ -84,7 +83,12 @@ function Today() {
       const productSales = {}
 
       transactionsResponse.data.data.forEach((transaction) => {
-        const hour = new Date(transaction.dates.created_at * 1000).getHours()
+        // Ajuste para fuso horário de Brasília (GMT-3)
+        const timestamp = transaction.dates.created_at * 1000
+        const date = new Date(timestamp)
+        // Ajusta para o fuso horário local (Brasília)
+        const hour = date.getHours()
+        
         const netAmount = Number(
           transaction?.calculation_details?.net_amount || 0,
         )
@@ -92,12 +96,18 @@ function Today() {
           transaction?.calculation_details?.net_affiliate_value || 0,
         )
         
-        // Verificar se é uma venda do comercial - CORRIGIDO
         const isCommercial = transaction.trackings?.utm_source === 'comercial'
 
         hourlyData[hour].sales += 1
         hourlyData[hour].value += netAmount
         hourlyData[hour].affiliateValue += affiliateValue
+        
+        // Registro das vendas por produto por hora
+        const productName = transaction.product.name
+        if (!hourlyData[hour].productSales[productName]) {
+          hourlyData[hour].productSales[productName] = 0
+        }
+        hourlyData[hour].productSales[productName] += 1
         
         if (isCommercial) {
           hourlyData[hour].commercialSales += 1
@@ -110,7 +120,6 @@ function Today() {
         totalValue += netAmount
         totalAffiliateValue += affiliateValue
 
-        const productName = transaction.product.name
         if (!productSales[productName]) {
           productSales[productName] = { 
             quantity: 0, 
@@ -172,13 +181,24 @@ function Today() {
         commercialValue: data.commercialValue || 0
       }))
 
+      // Calcular média de vendas por hora (apenas para horas com vendas)
+      const hoursWithSales = hourlyData.filter(hour => hour.sales > 0).length || 1
+      const averageSalesPerHour = totalSales / hoursWithSales
+
+      // Adicionar informação sobre a média para uso no gráfico
+      const processedHourlyData = hourlyData.map(hour => ({
+        ...hour,
+        averageSales: averageSalesPerHour
+      }))
+
       setTodayData({
-        hourlyData,
+        hourlyData: processedHourlyData,
         totalSales,
         totalValue,
         totalAffiliateValue,
         productData,
         refundProductData,
+        averageSalesPerHour
       })
 
       setRefundsData({
@@ -226,16 +246,62 @@ function Today() {
     setSelectedDate(today)
   }
 
+  // Função para determinar a cor da barra com base nas vendas
+  const getBarColor = (sales, averageSales) => {
+    if (sales === 0) return '#EF4444'; // Vermelho para zero vendas
+    if (sales < averageSales * 0.5) return '#F97316'; // Laranja para abaixo da média
+    if (sales < averageSales) return '#FACC15'; // Amarelo para próximo da média
+    return '#22C55E'; // Verde para acima da média
+  }
+
+  // Configuração do tooltip personalizado para mostrar informações adicionais
+  const CustomTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+      const hourData = payload[0].payload;
+      
+      // Organizar vendas por produto por ordem decrescente de quantidade
+      const productSalesEntries = Object.entries(hourData.productSales || {})
+        .sort((a, b) => b[1] - a[1]);
+      
+      return (
+        <div className="bg-white dark:bg-gray-800 p-3 border rounded shadow-lg min-w-[200px]">
+          <p className="font-bold text-text-light dark:text-text-dark text-lg border-b pb-1 mb-2">{`${label}:00h`}</p>
+          <p className="text-text-light dark:text-text-dark font-medium">{`Vendas: ${hourData.sales}`}</p>
+          <p className="text-text-light dark:text-text-dark mb-2">{`Valor: ${formatCurrency(hourData.value)}`}</p>
+          
+          {hourData.commercialSales > 0 && (
+            <p className="text-text-light dark:text-text-dark mb-2">{`Vendas Comercial: ${hourData.commercialSales}`}</p>
+          )}
+          
+          {productSalesEntries.length > 0 && (
+            <>
+              <p className="font-medium text-text-light dark:text-text-dark border-t pt-1 mt-2">Vendas por produto:</p>
+              <div className="mt-1 max-h-48 overflow-y-auto">
+                {productSalesEntries.map(([product, count], index) => (
+                  <div key={index} className="flex justify-between text-text-light dark:text-text-dark text-sm py-1">
+                    <span className="mr-2 truncate">{product}</span>
+                    <span className="font-medium">{count}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      );
+    }
+    return null;
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen bg-background-light dark:bg-background-dark">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary dark:border-secondary"></div>
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary dark:border-primary"></div>
       </div>
     )
   }
 
   // Formatação da data para exibição mais amigável
-  const formattedDate = new Date(`${selectedDate}T12:00:00`).toLocaleDateString('pt-BR', {
+  const formattedDate = new Date(`${selectedDate}T12:00:00-03:00`).toLocaleDateString('pt-BR', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
@@ -246,7 +312,7 @@ function Today() {
     <div className="min-h-screen bg-background-light dark:bg-background-dark p-6">
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
-          <h1 className="text-3xl font-bold text-primary dark:text-secondary">
+          <h1 className="text-3xl font-bold text-primary-dark dark:text-primary">
             Dashboard
           </h1>
 
@@ -259,13 +325,13 @@ function Today() {
             />
             <button
               onClick={handleSearch}
-              className="px-4 py-2 bg-primary text-white dark:bg-secondary dark:text-gray-800 rounded-lg hover:bg-opacity-90"
+              className="px-4 py-2 bg-primary text-white dark:bg-primary dark:text-secondary-dark rounded-lg hover:bg-primary-dark"
             >
               Pesquisar
             </button>
             <button
               onClick={handleToday}
-              className="px-4 py-2 bg-accent1 text-white dark:bg-accent2 dark:text-gray-800 rounded-lg hover:bg-opacity-90"
+              className="px-4 py-2 bg-accent1 text-white dark:bg-accent2 dark:text-text-dark rounded-lg hover:bg-opacity-90"
             >
               Hoje
             </button>
@@ -282,7 +348,7 @@ function Today() {
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
               Valor Total de Vendas
             </h3>
-            <p className="mt-2 text-3xl font-bold text-accent1 dark:text-accent2">
+            <p className="mt-2 text-3xl font-bold text-primary-dark dark:text-primary">
               {formatCurrency(todayData?.totalValue)}
             </p>
           </div>
@@ -290,7 +356,7 @@ function Today() {
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
               Quantidade de Vendas
             </h3>
-            <p className="mt-2 text-3xl font-bold text-accent3 dark:text-accent4">
+            <p className="mt-2 text-3xl font-bold text-accent3 dark:text-accent3">
               {todayData?.totalSales}
             </p>
           </div>
@@ -298,7 +364,7 @@ function Today() {
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
               Valor de Afiliações
             </h3>
-            <p className="mt-2 text-3xl font-bold text-secondary dark:text-primary">
+            <p className="mt-2 text-3xl font-bold text-secondary-light dark:text-secondary-light">
               {formatCurrency(todayData?.totalAffiliateValue)}
             </p>
           </div>
@@ -329,52 +395,50 @@ function Today() {
 
         {/* Gráficos */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Progressão por Hora */}
+          {/* Progressão por Hora - MODIFICADO: Gráfico de barras com cores dinâmicas */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
               Progressão por Hora
             </h3>
+            <div className="mt-2 mb-4 text-sm text-text-light dark:text-text-dark flex items-center">
+              <span className="w-4 h-4 inline-block bg-red-500 mr-1 rounded"></span> Baixo
+              <span className="w-4 h-4 inline-block bg-yellow-400 mx-3 rounded"></span> Médio
+              <span className="w-4 h-4 inline-block bg-green-500 mx-1 rounded"></span> Alto
+              <span className="ml-4">Média: {todayData?.averageSalesPerHour.toFixed(1)} vendas/hora</span>
+            </div>
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={todayData?.hourlyData}>
+                <BarChart 
+                  data={todayData?.hourlyData}
+                  margin={{ top: 20, right: 30, left: 0, bottom: 5 }}
+                >
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="hour" />
-                  <YAxis yAxisId="left" orientation="left" stroke="#8884d8" />
-                  <YAxis yAxisId="right" orientation="right" stroke="#82ca9d" />
-                  <Tooltip />
+                  <XAxis 
+                    dataKey="hour" 
+                    tickFormatter={(hour) => `${hour}h`}
+                  />
+                  <YAxis />
+                  <Tooltip content={<CustomTooltip />} />
                   <Legend />
-                  <Line
-                    yAxisId="left"
-                    type="monotone"
-                    dataKey="value"
-                    name="Valor (R$)"
-                    stroke="#8884d8"
-                  />
-                  <Line
-                    yAxisId="right"
-                    type="monotone"
-                    dataKey="sales"
+                  <Bar 
+                    dataKey="sales" 
                     name="Vendas"
-                    stroke="#82ca9d"
-                  />
-                  {/* Nova linha para vendas do comercial */}
-                  <Line
-                    yAxisId="left"
-                    type="monotone"
-                    dataKey="commercialValue"
-                    name="Valor Comercial (R$)"
-                    stroke="#3B82F6"
-                    strokeDasharray="5 5"
-                  />
-                  <Line
-                    yAxisId="right"
-                    type="monotone"
-                    dataKey="commercialSales"
-                    name="Vendas Comercial"
-                    stroke="#60A5FA"
-                    strokeDasharray="5 5"
-                  />
-                </LineChart>
+                    minPointSize={3} // Barras muito pequenas para zero vendas
+                  >
+                    {todayData?.hourlyData.map((entry, index) => (
+                      <Cell 
+                        key={`cell-${index}`} 
+                        fill={getBarColor(entry.sales, todayData.averageSalesPerHour)} 
+                      />
+                    ))}
+                    <LabelList 
+                      dataKey="sales" 
+                      position="top" 
+                      style={{ fill: "white", textShadow: "0px 0px 3px rgba(0,0,0,0.7)" }}
+                      formatter={(value) => value > 0 ? value : ""}
+                    />
+                  </Bar>
+                </BarChart>
               </ResponsiveContainer>
             </div>
           </div>
@@ -424,7 +488,7 @@ function Today() {
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="quantity" name="Total" fill="#8884d8" />
+                  <Bar dataKey="quantity" name="Total" fill="#37E359" />
                   <Bar dataKey="commercialQuantity" name="Comercial" fill="#3B82F6" />
                 </BarChart>
               </ResponsiveContainer>
@@ -444,7 +508,7 @@ function Today() {
                   <YAxis tickFormatter={(value) => formatCurrency(value)} />
                   <Tooltip formatter={(value) => formatCurrency(value)} />
                   <Legend />
-                  <Bar dataKey="value" name="Total" fill="#8884d8" />
+                  <Bar dataKey="value" name="Total" fill="#37E359" />
                   <Bar dataKey="commercialValue" name="Comercial" fill="#3B82F6" />
                 </BarChart>
               </ResponsiveContainer>

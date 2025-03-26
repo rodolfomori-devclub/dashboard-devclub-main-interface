@@ -15,7 +15,8 @@ const ThemeToggle = () => {
   return (
     <button
       onClick={() => setDarkMode(!darkMode)}
-      className="fixed top-4 right-4 p-2 rounded-full bg-primary text-white"
+      className="fixed top-4 right-4 p-2 rounded-full bg-primary text-secondary-dark dark:bg-secondary dark:text-primary transition-colors"
+      aria-label={darkMode ? 'Mudar para modo claro' : 'Mudar para modo escuro'}
     >
       {darkMode ? <FaSun /> : <FaMoon />}
     </button>

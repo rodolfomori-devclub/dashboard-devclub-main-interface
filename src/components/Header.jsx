@@ -8,7 +8,7 @@ export default function Header() {
   };
 
   return (
-    <header className="bg-primary text-white dark:bg-gray-800">
+    <header className="bg-primary text-secondary-dark dark:bg-gray-800 dark:text-primary">
       <nav className="container mx-auto px-6 py-4">
         <ul className="flex space-x-4 flex-wrap">
         <li>
