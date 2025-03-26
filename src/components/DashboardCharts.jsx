@@ -55,6 +55,8 @@ const categorizeProduct = (productName) => {
 // Função para obter o canal de venda com segurança
 const getSaleChannel = (sale) => {
   if (!sale || !sale.channel) return "Desconhecido";
+
+  console.log(sale)
   return sale.channel;
 };
 
