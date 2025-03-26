@@ -271,8 +271,8 @@ function MonthlyDashboard() {
   return (
     <div className="min-h-screen bg-background-light dark:bg-background-dark p-6">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold text-primary dark:text-secondary mb-8">
-          Dashboard de Metas Mensais
+      <h1 className="text-3xl font-bold text-primary-dark dark:text-primary">
+      Dashboard de Metas Mensais
         </h1>
 
         {/* Resumo Mensal */}

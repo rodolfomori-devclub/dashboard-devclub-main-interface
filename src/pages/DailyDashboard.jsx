@@ -224,8 +224,8 @@ function DailyDashboard() {
     <div className="min-h-screen bg-background-light dark:bg-background-dark p-6">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-2xl font-bold text-primary dark:text-secondary">
-            Dashboard Diário de Vendas
+        <h1 className="text-3xl font-bold text-primary-dark dark:text-primary">
+        Dashboard Diário de Vendas
           </h1>
           <button
             onClick={handleRefreshData}

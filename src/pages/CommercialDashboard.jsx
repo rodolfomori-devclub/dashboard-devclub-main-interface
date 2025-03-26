@@ -493,8 +493,8 @@ const categorizeProduct = (productName) => {
     <div className="min-h-screen bg-background-light dark:bg-background-dark p-6">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-2xl font-bold text-primary dark:text-secondary">
-            Dashboard Comercial
+        <h1 className="text-3xl font-bold text-primary-dark dark:text-primary">
+        Dashboard Comercial
           </h1>
           <button
             onClick={() => setShowAddSellerModal(true)}
