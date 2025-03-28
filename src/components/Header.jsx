@@ -11,7 +11,7 @@ export default function Header() {
     <header className="bg-primary text-secondary-dark dark:bg-gray-800 dark:text-primary">
       <nav className="container mx-auto px-6 py-4">
         <ul className="flex space-x-4 flex-wrap">
-        <li>
+          <li>
             <Link
               to="/"
               className={`px-4 py-2 rounded hover:bg-secondary hover:text-primary transition-colors ${isActive('/')}`}
@@ -49,6 +49,14 @@ export default function Header() {
               className={`px-4 py-2 rounded hover:bg-secondary hover:text-primary transition-colors ${isActive('/commercial')}`}
             >
               Comercial
+            </Link>
+          </li>
+          <li>
+            <Link
+              to="/data-sources"
+              className={`px-4 py-2 rounded hover:bg-secondary hover:text-primary transition-colors ${isActive('/data-sources')}`}
+            >
+              Fontes de Dados
             </Link>
           </li>
         </ul>

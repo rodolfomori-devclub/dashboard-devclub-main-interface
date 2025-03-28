@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import axios from 'axios'
+import boletoService from '../services/boletoService'
 import {
   BarChart,
   Bar,
@@ -16,6 +17,7 @@ function DailyDashboard() {
   const [data, setData] = useState(null)
   const [refundsData, setRefundsData] = useState(null)
   const [commercialData, setCommercialData] = useState(null)
+  const [boletoData, setBoletoData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [dateRange, setDateRange] = useState(() => {
     // Obter data atual em formato local
@@ -77,19 +79,27 @@ function DailyDashboard() {
           ordered_at_end: endDate,
         },
       )
+      
+      // Buscar vendas de boleto
+      const start = new Date(startDate + 'T00:00:00');
+      const end = new Date(endDate + 'T23:59:59');
+      const boletoSales = await boletoService.getSalesByDateRange(start, end)
 
       console.log('Dados de transações recebidos:', transactionsResponse.data)
       console.log('Dados de reembolsos recebidos:', refundsResponse.data)
+      console.log('Dados de boleto recebidos:', boletoSales)
 
       const dailyDataMap = {}
       let totalAffiliateValue = 0
       let totalCommercialValue = 0
       let totalCommercialQuantity = 0
+      let totalBoletoValue = 0
+      let totalBoletoQuantity = 0
 
       // Inicializar o mapa de dados diários
-      const start = new Date(startDate + 'T00:00:00');
-      const end = new Date(endDate + 'T23:59:59');
-      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const start_date = new Date(startDate + 'T00:00:00');
+      const end_date = new Date(endDate + 'T23:59:59');
+      for (let d = new Date(start_date); d <= end_date; d.setDate(d.getDate() + 1)) {
         const year = d.getFullYear();
         const month = String(d.getMonth() + 1).padStart(2, '0');
         const day = String(d.getDate()).padStart(2, '0');
@@ -103,7 +113,9 @@ function DailyDashboard() {
           refund_amount: 0,
           refund_quantity: 0,
           commercial_value: 0,
-          commercial_quantity: 0
+          commercial_quantity: 0,
+          boleto_value: 0,
+          boleto_quantity: 0
         }
       }
 
@@ -119,7 +131,7 @@ function DailyDashboard() {
           const netAmount = Number(transaction.calculation_details?.net_amount || 0);
           const affiliateValue = Number(transaction.calculation_details?.net_affiliate_value || 0);
           
-          // Verificar se é uma venda do comercial - CORRIGIDO
+          // Verificar se é uma venda do comercial
           const isCommercial = transaction.trackings?.utm_source === 'comercial';
 
           if (dailyDataMap[transactionDate]) {
@@ -164,19 +176,45 @@ function DailyDashboard() {
           totalRefundQuantity += 1;
         })
       }
+      
+      // Processar vendas de boleto
+      boletoSales.forEach((sale) => {
+        if (!sale || !sale.timestamp) return;
+        
+        // Converte para data local
+        const saleDate = new Date(sale.timestamp);
+        const dateStr = saleDate.toISOString().split('T')[0];
+        const saleValue = sale.value || 0;
+        
+        if (dailyDataMap[dateStr]) {
+          dailyDataMap[dateStr].boleto_value += saleValue;
+          dailyDataMap[dateStr].boleto_quantity += 1;
+          // Adicionar também aos totais gerais
+          dailyDataMap[dateStr].net_amount += saleValue;
+          dailyDataMap[dateStr].quantity += 1;
+        } else {
+          console.log(`Venda de boleto com data ${dateStr} fora do intervalo definido`);
+        }
+        
+        totalBoletoValue += saleValue;
+        totalBoletoQuantity += 1;
+      });
 
       const chartData = Object.values(dailyDataMap)
       console.log('Dados processados:', chartData)
       console.log('Total de valor de afiliações:', totalAffiliateValue)
       console.log('Total de valor de reembolsos:', totalRefundAmount)
       console.log('Total de valor de vendas comercial:', totalCommercialValue)
+      console.log('Total de valor de vendas boleto:', totalBoletoValue)
 
       setData({
         dailyData: chartData,
         totals: {
-          total_transactions: transactionsResponse.data.totals.total_transactions,
-          total_net_amount: transactionsResponse.data.totals.total_net_amount,
+          total_transactions: transactionsResponse.data.totals.total_transactions + totalBoletoQuantity,
+          total_net_amount: transactionsResponse.data.totals.total_net_amount + totalBoletoValue,
           total_net_affiliate_value: totalAffiliateValue,
+          total_card_transactions: transactionsResponse.data.totals.total_transactions,
+          total_card_amount: transactionsResponse.data.totals.total_net_amount
         },
       })
 
@@ -188,6 +226,11 @@ function DailyDashboard() {
       setCommercialData({
         total_commercial_value: totalCommercialValue,
         total_commercial_quantity: totalCommercialQuantity
+      })
+      
+      setBoletoData({
+        total_boleto_value: totalBoletoValue,
+        total_boleto_quantity: totalBoletoQuantity
       })
 
       setLoading(false)
@@ -260,24 +303,58 @@ function DailyDashboard() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <div className="grid grid-cols-1 md:grid-cols-7 gap-6 mb-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 md:col-span-2">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
               Valor Líquido Total
             </h3>
             <p className="mt-2 text-3xl font-bold text-accent1 dark:text-accent2">
               {formatCurrency(data?.totals?.total_net_amount || 0)}
             </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Cartão + Boleto
+            </p>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 md:col-span-2">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
               Quantidade de Vendas
             </h3>
             <p className="mt-2 text-3xl font-bold text-accent3 dark:text-accent4">
               {data?.totals?.total_transactions || 0}
             </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Cartão + Boleto
+            </p>
           </div>
+          
+          {/* Card para vendas por cartão */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
+              Vendas Cartão
+            </h3>
+            <p className="mt-2 text-3xl font-bold text-green-500 dark:text-green-400">
+              {formatCurrency(data?.totals?.total_card_amount || 0)}
+            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {data?.totals?.total_card_transactions || 0} venda(s)
+            </p>
+          </div>
+          
+          {/* Card para vendas por boleto */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
+              Vendas Boleto
+            </h3>
+            <p className="mt-2 text-3xl font-bold text-yellow-500 dark:text-yellow-400">
+              {formatCurrency(boletoData?.total_boleto_value || 0)}
+            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {boletoData?.total_boleto_quantity || 0} venda(s)
+            </p>
+          </div>
+          
+          {/* Valor de afiliações */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 hidden md:block">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
               Valor de Afiliações
             </h3>
@@ -285,6 +362,19 @@ function DailyDashboard() {
               {formatCurrency(data?.totals?.total_net_affiliate_value || 0)}
             </p>
           </div>
+        </div>
+        
+        {/* Segunda linha de cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 md:hidden">
+            <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
+              Valor de Afiliações
+            </h3>
+            <p className="mt-2 text-3xl font-bold text-secondary dark:text-primary">
+              {formatCurrency(data?.totals?.total_net_affiliate_value || 0)}
+            </p>
+          </div>
+          
           {/* Card de reembolsos */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
@@ -297,7 +387,8 @@ function DailyDashboard() {
               {refundsData?.total_refund_quantity || 0} reembolso(s)
             </p>
           </div>
-          {/* Novo card para vendas do comercial */}
+          
+          {/* Vendas do comercial */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
               Vendas Comercial
@@ -341,7 +432,8 @@ function DailyDashboard() {
                       name === 'Valor Líquido' ||
                       name === 'Valor de Afiliação' ||
                       name === 'Valor de Reembolso' ||
-                      name === 'Valor Comercial'
+                      name === 'Valor Comercial' ||
+                      name === 'Valor Boleto'
                     )
                       return formatCurrency(value)
                     return `${value} vendas`
@@ -381,12 +473,21 @@ function DailyDashboard() {
                   radius={[4, 4, 0, 0]}
                   barSize={40}
                 />
-                {/* Nova barra para vendas do comercial */}
+                {/* Barra para vendas do comercial */}
                 <Bar
                   yAxisId="left"
                   dataKey="commercial_value"
                   name="Valor Comercial"
                   fill="#3B82F6"
+                  radius={[4, 4, 0, 0]}
+                  barSize={40}
+                />
+                {/* Nova barra para vendas de boleto */}
+                <Bar
+                  yAxisId="left"
+                  dataKey="boleto_value"
+                  name="Valor Boleto"
+                  fill="#EAB308"
                   radius={[4, 4, 0, 0]}
                   barSize={40}
                 />
@@ -417,7 +518,7 @@ function DailyDashboard() {
                   tickFormatter={(value) => formatCurrency(value)}
                 />
                 <Tooltip
-                  formatter={(value, name) => formatCurrency(value)}
+                  formatter={(value) => formatCurrency(value)}
                   labelFormatter={formatDate}
                 />
                 <Legend />
@@ -435,6 +536,47 @@ function DailyDashboard() {
                   radius={[4, 4, 0, 0]}
                   barSize={40}
                 />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+        
+        {/* Novo gráfico para comparar vendas por tipo (cartão vs boleto) */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 relative mt-6">
+          <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
+            Comparativo: Vendas Cartão vs Boleto
+          </h3>
+          <div className="h-96 relative">
+            {loading && (
+              <div className="absolute inset-0 bg-white dark:bg-gray-800 bg-opacity-75 flex items-center justify-center z-10">
+                <div className="flex flex-col items-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                  <p className="mt-4 text-text-light dark:text-text-dark">Carregando dados...</p>
+                </div>
+              </div>
+            )}
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={data?.dailyData || []}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" tickFormatter={(date) => date.slice(5)} /> {/* Exibe mês-dia */}
+                <YAxis
+                  tickFormatter={(value) => formatCurrency(value)}
+                />
+                <Tooltip
+                  formatter={(value, name) => {
+                    if (name === "Vendas Cartão" || name === "Vendas Boleto")
+                      return formatCurrency(value);
+                    return value;
+                  }}
+                  labelFormatter={(date) => new Date(date).toLocaleDateString('pt-BR')}
+                />
+                <Legend />
+                <Bar 
+                  dataKey={(entry) => entry.net_amount - entry.boleto_value}
+                  name="Vendas Cartão" 
+                  fill="#2563EB" 
+                />
+                <Bar dataKey="boleto_value" name="Vendas Boleto" fill="#EAB308" />
               </BarChart>
             </ResponsiveContainer>
           </div>

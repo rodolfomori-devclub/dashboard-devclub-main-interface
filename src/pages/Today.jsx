@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import axios from 'axios'
+import boletoService from '../services/boletoService'
 import {
   BarChart,
   Bar,
@@ -35,6 +36,7 @@ function Today() {
   const [todayData, setTodayData] = useState(null)
   const [refundsData, setRefundsData] = useState(null)
   const [commercialData, setCommercialData] = useState(null)
+  const [boletoData, setBoletoData] = useState(null)
   const [loading, setLoading] = useState(true)
 
   const fetchDayData = useCallback(async (date) => {
@@ -59,6 +61,10 @@ function Today() {
           ordered_at_end: date,
         },
       )
+      
+      // Buscar vendas de boleto (TMB)
+      const selectedDate = new Date(date)
+      const boletoSales = await boletoService.getSalesByDate(selectedDate)
 
       // Processar dados de transações
       const hourlyData = Array(24)
@@ -72,6 +78,8 @@ function Today() {
           refundValue: 0,
           commercialSales: 0,
           commercialValue: 0,
+          boletoSales: 0,
+          boletoValue: 0,
           productSales: {}, // Armazenar vendas por produto por hora
         }))
 
@@ -80,6 +88,8 @@ function Today() {
       let totalAffiliateValue = 0
       let totalCommercialValue = 0
       let totalCommercialSales = 0
+      let totalBoletoSales = 0
+      let totalBoletoValue = 0
       const productSales = {}
 
       transactionsResponse.data.data.forEach((transaction) => {
@@ -125,7 +135,9 @@ function Today() {
             quantity: 0, 
             value: 0,
             commercialQuantity: 0,
-            commercialValue: 0 
+            commercialValue: 0,
+            boletoQuantity: 0,
+            boletoValue: 0
           }
         }
         productSales[productName].quantity += 1
@@ -136,6 +148,39 @@ function Today() {
           productSales[productName].commercialValue += netAmount
         }
       })
+      
+      // Processar vendas de boleto
+      boletoSales.forEach((boletoSale) => {
+        const date = new Date(boletoSale.timestamp);
+        const hour = date.getHours();
+        
+        const saleValue = boletoSale.value || 0;
+        
+        hourlyData[hour].boletoSales += 1;
+        hourlyData[hour].boletoValue += saleValue;
+        
+        // Adicionar às vendas totais
+        totalBoletoSales += 1;
+        totalBoletoValue += saleValue;
+        
+        // Adicionar às vendas por produto
+        const productName = boletoSale.product;
+        if (!productSales[productName]) {
+          productSales[productName] = { 
+            quantity: 0, 
+            value: 0,
+            commercialQuantity: 0,
+            commercialValue: 0,
+            boletoQuantity: 0,
+            boletoValue: 0
+          };
+        }
+        
+        productSales[productName].boletoQuantity = (productSales[productName].boletoQuantity || 0) + 1;
+        productSales[productName].boletoValue = (productSales[productName].boletoValue || 0) + saleValue;
+        productSales[productName].quantity += 1;
+        productSales[productName].value += saleValue;
+      });
 
       // Processar dados de reembolsos
       let totalRefunds = 0
@@ -178,11 +223,17 @@ function Today() {
         quantity: data.quantity,
         value: data.value,
         commercialQuantity: data.commercialQuantity || 0,
-        commercialValue: data.commercialValue || 0
+        commercialValue: data.commercialValue || 0,
+        boletoQuantity: data.boletoQuantity || 0,
+        boletoValue: data.boletoValue || 0
       }))
 
       // Calcular média de vendas por hora (apenas para horas com vendas)
-      const hoursWithSales = hourlyData.filter(hour => hour.sales > 0).length || 1
+      const hoursWithSales = hourlyData.filter(hour => hour.sales > 0 || hour.boletoSales > 0).length || 1
+      // Agora totalSales inclui vendas de cartão (da API) + vendas de boleto
+      const totalCardSales = totalSales;
+      totalSales += totalBoletoSales;
+      const totalCombinedValue = totalValue + totalBoletoValue;
       const averageSalesPerHour = totalSales / hoursWithSales
 
       // Adicionar informação sobre a média para uso no gráfico
@@ -194,7 +245,8 @@ function Today() {
       setTodayData({
         hourlyData: processedHourlyData,
         totalSales,
-        totalValue,
+        totalCardSales,
+        totalValue: totalCombinedValue, 
         totalAffiliateValue,
         productData,
         refundProductData,
@@ -209,6 +261,11 @@ function Today() {
       setCommercialData({
         totalCommercialSales,
         totalCommercialValue
+      })
+      
+      setBoletoData({
+        totalBoletoSales,
+        totalBoletoValue
       })
 
       setLoading(false)
@@ -271,6 +328,10 @@ function Today() {
           
           {hourData.commercialSales > 0 && (
             <p className="text-text-light dark:text-text-dark mb-2">{`Vendas Comercial: ${hourData.commercialSales}`}</p>
+          )}
+          
+          {hourData.boletoSales > 0 && (
+            <p className="text-text-light dark:text-text-dark mb-2">{`Vendas Boleto: ${hourData.boletoSales}`}</p>
           )}
           
           {productSalesEntries.length > 0 && (
@@ -342,24 +403,59 @@ function Today() {
           {formattedDate}
         </h2>
 
-        {/* Resumo do dia */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        {/* PRIMEIRA LINHA DE RESUMO - Principais indicadores */}
+        <div className="grid grid-cols-1 md:grid-cols-10 gap-6 mb-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 md:col-span-3">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
               Valor Total de Vendas
             </h3>
             <p className="mt-2 text-3xl font-bold text-primary-dark dark:text-primary">
               {formatCurrency(todayData?.totalValue)}
             </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Cartão + Boleto
+            </p>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 md:col-span-2">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
               Quantidade de Vendas
             </h3>
             <p className="mt-2 text-3xl font-bold text-accent3 dark:text-accent3">
               {todayData?.totalSales}
             </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Total geral
+            </p>
           </div>
+          
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 md:col-span-2.5">
+            <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
+              Vendas Cartão
+            </h3>
+            <p className="mt-2 text-3xl font-bold text-green-500 dark:text-green-400">
+              {formatCurrency(todayData?.totalValue - (boletoData?.totalBoletoValue || 0))}
+            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {todayData?.totalCardSales || 0} venda(s)
+            </p>
+          </div>
+          
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 md:col-span-2.5">
+            <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
+              Vendas Boleto
+            </h3>
+            <p className="mt-2 text-3xl font-bold text-yellow-500 dark:text-yellow-400">
+              {formatCurrency(boletoData?.totalBoletoValue || 0)}
+            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {boletoData?.totalBoletoSales || 0} venda(s)
+            </p>
+          </div>
+        </div>
+        
+        {/* SEGUNDA LINHA DE RESUMO - Indicadores adicionais */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
               Valor de Afiliações
@@ -368,6 +464,7 @@ function Today() {
               {formatCurrency(todayData?.totalAffiliateValue)}
             </p>
           </div>
+          
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
               Reembolsos
@@ -379,7 +476,7 @@ function Today() {
               {refundsData?.totalRefunds} reembolso(s)
             </p>
           </div>
-          {/* Novo card para vendas do comercial */}
+          
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
               Vendas Comercial
@@ -394,8 +491,8 @@ function Today() {
         </div>
 
         {/* Gráficos */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Progressão por Hora - MODIFICADO: Gráfico de barras com cores dinâmicas */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Progressão por Hora - Barras verticais */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
               Progressão por Hora
@@ -406,24 +503,28 @@ function Today() {
               <span className="w-4 h-4 inline-block bg-green-500 mx-1 rounded"></span> Alto
               <span className="ml-4">Média: {todayData?.averageSalesPerHour.toFixed(1)} vendas/hora</span>
             </div>
-            <div className="h-80">
+            <div className="h-96">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart 
+                  layout="vertical"
                   data={todayData?.hourlyData}
-                  margin={{ top: 20, right: 30, left: 0, bottom: 5 }}
+                  margin={{ top: 20, right: 30, left: 40, bottom: 5 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis 
+                  <XAxis type="number" />
+                  <YAxis 
                     dataKey="hour" 
+                    type="category"
                     tickFormatter={(hour) => `${hour}h`}
+                    width={40}
                   />
-                  <YAxis />
                   <Tooltip content={<CustomTooltip />} />
                   <Legend />
                   <Bar 
                     dataKey="sales" 
-                    name="Vendas"
-                    minPointSize={3} // Barras muito pequenas para zero vendas
+                    name="Vendas Cartão" 
+                    minPointSize={3}
+                    barSize={20}
                   >
                     {todayData?.hourlyData.map((entry, index) => (
                       <Cell 
@@ -433,11 +534,52 @@ function Today() {
                     ))}
                     <LabelList 
                       dataKey="sales" 
-                      position="top" 
-                      style={{ fill: "white", textShadow: "0px 0px 3px rgba(0,0,0,0.7)" }}
+                      position="right" 
+                      fill="currentColor" 
+                      className="text-text-light dark:text-text-dark"
                       formatter={(value) => value > 0 ? value : ""}
                     />
                   </Bar>
+                  <Bar 
+                    dataKey="boletoSales" 
+                    name="Vendas Boleto"
+                    fill="#EAB308"
+                    barSize={20}
+                  >
+                    <LabelList 
+                      dataKey="boletoSales" 
+                      position="right" 
+                      fill="currentColor"
+                      className="text-text-light dark:text-text-dark"
+                      formatter={(value) => value > 0 ? value : ""}
+                    />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Comparativo: Vendas por Tipo (Cartão x Boleto) */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
+              Comparativo: Vendas Cartão vs Boleto
+            </h3>
+            <div className="h-96">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={todayData?.hourlyData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis 
+                    dataKey="hour" 
+                    tickFormatter={(hour) => `${hour}h`}
+                  />
+                  <YAxis tickFormatter={(value) => formatCurrency(value)} />
+                  <Tooltip 
+                    formatter={(value) => formatCurrency(value)}
+                    labelFormatter={(hour) => `${hour}:00h`}
+                  />
+                  <Legend />
+                  <Bar dataKey="value" name="Valor Cartão" fill="#2563EB" />
+                  <Bar dataKey="boletoValue" name="Valor Boleto" fill="#EAB308" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -474,7 +616,7 @@ function Today() {
               </ResponsiveContainer>
             </div>
           </div>
-
+          
           {/* Quantidade de Vendas por Produto */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
@@ -490,6 +632,7 @@ function Today() {
                   <Legend />
                   <Bar dataKey="quantity" name="Total" fill="#37E359" />
                   <Bar dataKey="commercialQuantity" name="Comercial" fill="#3B82F6" />
+                  <Bar dataKey="boletoQuantity" name="Boleto" fill="#EAB308" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -510,6 +653,7 @@ function Today() {
                   <Legend />
                   <Bar dataKey="value" name="Total" fill="#37E359" />
                   <Bar dataKey="commercialValue" name="Comercial" fill="#3B82F6" />
+                  <Bar dataKey="boletoValue" name="Boleto" fill="#EAB308" />
                 </BarChart>
               </ResponsiveContainer>
             </div>

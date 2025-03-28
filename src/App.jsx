@@ -5,6 +5,8 @@ import DailyDashboard from './pages/DailyDashboard';
 import MonthlyDashboard from './pages/MonthlyDashboard';
 import YearlyDashboard from './pages/YearlyDashboard';
 import CommercialDashboard from './pages/CommercialDashboard';
+import DataSourcesPage from './pages/DataSourcesPage';
+import AdminPage from './pages/AdminPage';
 import Today from './pages/Today';
 import ThemeToggle from './components/ThemeToggle';
 
@@ -22,6 +24,8 @@ function App() {
           <Route path="/monthly" element={<MonthlyDashboard />} />
           <Route path="/yearly" element={<YearlyDashboard />} />
           <Route path="/commercial" element={<CommercialDashboard />} />
+          <Route path="/admin/dev" element={<AdminPage />} />
+          <Route path="/data-sources" element={<DataSourcesPage />} />
         </Routes>
       </div>
     </Router>

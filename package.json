@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy" : "aws s3 sync ./dist s3://dash-front-v1 --delete && aws cloudfront create-invalidation --distribution-id E1O677RGSOPKTA --paths '/*'"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
