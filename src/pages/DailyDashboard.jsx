@@ -28,11 +28,11 @@ function DailyDashboard() {
 
     // Formatar para YYYY-MM-DD em fuso horário local
     const formatLocalDate = (date) => {
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    };
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
+    }
 
     return {
       start: formatLocalDate(sevenDaysAgo),
@@ -43,25 +43,25 @@ function DailyDashboard() {
   const convertTimestampToDate = (timestamp) => {
     if (timestamp > 1700000000) {
       // Para timestamps em segundos (formato Unix)
-      const date = new Date(timestamp * 1000);
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
+      const date = new Date(timestamp * 1000)
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
     }
     // Para timestamps em milissegundos (formato JavaScript)
-    const date = new Date(timestamp);
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    const date = new Date(timestamp)
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
   }
 
   const fetchData = useCallback(async (startDate, endDate) => {
     try {
       setLoading(true)
-      console.log(`Buscando dados: De ${startDate} até ${endDate}`);
-      
+      console.log(`Buscando dados: De ${startDate} até ${endDate}`)
+
       // Buscar transações aprovadas
       const transactionsResponse = await axios.post(
         `${import.meta.env.VITE_API_URL}/transactions`,
@@ -79,10 +79,10 @@ function DailyDashboard() {
           ordered_at_end: endDate,
         },
       )
-      
+
       // Buscar vendas de boleto
-      const start = new Date(startDate + 'T00:00:00');
-      const end = new Date(endDate + 'T23:59:59');
+      const start = new Date(startDate + 'T00:00:00')
+      const end = new Date(endDate + 'T23:59:59')
       const boletoSales = await boletoService.getSalesByDateRange(start, end)
 
       console.log('Dados de transações recebidos:', transactionsResponse.data)
@@ -97,14 +97,18 @@ function DailyDashboard() {
       let totalBoletoQuantity = 0
 
       // Inicializar o mapa de dados diários
-      const start_date = new Date(startDate + 'T00:00:00');
-      const end_date = new Date(endDate + 'T23:59:59');
-      for (let d = new Date(start_date); d <= end_date; d.setDate(d.getDate() + 1)) {
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        const dateStr = `${year}-${month}-${day}`;
-        
+      const start_date = new Date(startDate + 'T00:00:00')
+      const end_date = new Date(endDate + 'T23:59:59')
+      for (
+        let d = new Date(start_date);
+        d <= end_date;
+        d.setDate(d.getDate() + 1)
+      ) {
+        const year = d.getFullYear()
+        const month = String(d.getMonth() + 1).padStart(2, '0')
+        const day = String(d.getDate()).padStart(2, '0')
+        const dateStr = `${year}-${month}-${day}`
+
         dailyDataMap[dateStr] = {
           date: dateStr,
           net_amount: 0,
@@ -115,7 +119,7 @@ function DailyDashboard() {
           commercial_value: 0,
           commercial_quantity: 0,
           boleto_value: 0,
-          boleto_quantity: 0
+          boleto_quantity: 0,
         }
       }
 
@@ -123,82 +127,96 @@ function DailyDashboard() {
       if (Array.isArray(transactionsResponse.data.data)) {
         transactionsResponse.data.data.forEach((transaction) => {
           // Converte o timestamp para data local
-          const transactionDate = convertTimestampToDate(transaction.dates.created_at);
-          
+          const transactionDate = convertTimestampToDate(
+            transaction.dates.created_at,
+          )
+
           // Log para debug
-          console.log(`Transação: timestamp=${transaction.dates.created_at}, data=${transactionDate}`);
-          
-          const netAmount = Number(transaction.calculation_details?.net_amount || 0);
-          const affiliateValue = Number(transaction.calculation_details?.net_affiliate_value || 0);
-          
+          console.log(
+            `Transação: timestamp=${transaction.dates.created_at}, data=${transactionDate}`,
+          )
+
+          const netAmount = Number(
+            transaction.calculation_details?.net_amount || 0,
+          )
+          const affiliateValue = Number(
+            transaction.calculation_details?.net_affiliate_value || 0,
+          )
+
           // Verificar se é uma venda do comercial
-          const isCommercial = transaction.trackings?.utm_source === 'comercial';
+          const isCommercial = transaction.trackings?.utm_source === 'comercial'
 
           if (dailyDataMap[transactionDate]) {
-            dailyDataMap[transactionDate].net_amount += netAmount;
-            dailyDataMap[transactionDate].quantity += 1;
-            dailyDataMap[transactionDate].affiliate_value += affiliateValue;
-            
+            dailyDataMap[transactionDate].net_amount += netAmount
+            dailyDataMap[transactionDate].quantity += 1
+            dailyDataMap[transactionDate].affiliate_value += affiliateValue
+
             if (isCommercial) {
-              dailyDataMap[transactionDate].commercial_value += netAmount;
-              dailyDataMap[transactionDate].commercial_quantity += 1;
-              totalCommercialValue += netAmount;
-              totalCommercialQuantity += 1;
+              dailyDataMap[transactionDate].commercial_value += netAmount
+              dailyDataMap[transactionDate].commercial_quantity += 1
+              totalCommercialValue += netAmount
+              totalCommercialQuantity += 1
             }
           } else {
-            console.log(`Aviso: Transação com data ${transactionDate} fora do intervalo definido`);
+            console.log(
+              `Aviso: Transação com data ${transactionDate} fora do intervalo definido`,
+            )
           }
 
-          totalAffiliateValue += affiliateValue;
+          totalAffiliateValue += affiliateValue
         })
       }
 
       // Processar reembolsos
-      let totalRefundAmount = 0;
-      let totalRefundQuantity = 0;
+      let totalRefundAmount = 0
+      let totalRefundQuantity = 0
 
       if (Array.isArray(refundsResponse.data.data)) {
         refundsResponse.data.data.forEach((refund) => {
           // Converte o timestamp para data local
-          const refundDate = convertTimestampToDate(refund.dates.created_at);
-          
+          const refundDate = convertTimestampToDate(refund.dates.created_at)
+
           // Usar o valor líquido calculado pelo backend que aplica as mesmas regras de transações
-          const refundAmount = refund.calculation_details?.net_amount || 0;
+          const refundAmount = refund.calculation_details?.net_amount || 0
 
           if (dailyDataMap[refundDate]) {
-            dailyDataMap[refundDate].refund_amount += refundAmount;
-            dailyDataMap[refundDate].refund_quantity += 1;
+            dailyDataMap[refundDate].refund_amount += refundAmount
+            dailyDataMap[refundDate].refund_quantity += 1
           } else {
-            console.log(`Aviso: Reembolso com data ${refundDate} fora do intervalo definido`);
+            console.log(
+              `Aviso: Reembolso com data ${refundDate} fora do intervalo definido`,
+            )
           }
 
-          totalRefundAmount += refundAmount;
-          totalRefundQuantity += 1;
+          totalRefundAmount += refundAmount
+          totalRefundQuantity += 1
         })
       }
-      
+
       // Processar vendas de boleto
       boletoSales.forEach((sale) => {
-        if (!sale || !sale.timestamp) return;
-        
+        if (!sale || !sale.timestamp) return
+
         // Converte para data local
-        const saleDate = new Date(sale.timestamp);
-        const dateStr = saleDate.toISOString().split('T')[0];
-        const saleValue = sale.value || 0;
-        
+        const saleDate = new Date(sale.timestamp)
+        const dateStr = saleDate.toISOString().split('T')[0]
+        const saleValue = sale.value || 0
+
         if (dailyDataMap[dateStr]) {
-          dailyDataMap[dateStr].boleto_value += saleValue;
-          dailyDataMap[dateStr].boleto_quantity += 1;
+          dailyDataMap[dateStr].boleto_value += saleValue
+          dailyDataMap[dateStr].boleto_quantity += 1
           // Adicionar também aos totais gerais
-          dailyDataMap[dateStr].net_amount += saleValue;
-          dailyDataMap[dateStr].quantity += 1;
+          dailyDataMap[dateStr].net_amount += saleValue
+          dailyDataMap[dateStr].quantity += 1
         } else {
-          console.log(`Venda de boleto com data ${dateStr} fora do intervalo definido`);
+          console.log(
+            `Venda de boleto com data ${dateStr} fora do intervalo definido`,
+          )
         }
-        
-        totalBoletoValue += saleValue;
-        totalBoletoQuantity += 1;
-      });
+
+        totalBoletoValue += saleValue
+        totalBoletoQuantity += 1
+      })
 
       const chartData = Object.values(dailyDataMap)
       console.log('Dados processados:', chartData)
@@ -210,27 +228,32 @@ function DailyDashboard() {
       setData({
         dailyData: chartData,
         totals: {
-          total_transactions: transactionsResponse.data.totals.total_transactions + totalBoletoQuantity,
-          total_net_amount: transactionsResponse.data.totals.total_net_amount + totalBoletoValue,
+          total_transactions:
+            transactionsResponse.data.totals.total_transactions +
+            totalBoletoQuantity,
+          total_net_amount:
+            transactionsResponse.data.totals.total_net_amount +
+            totalBoletoValue,
           total_net_affiliate_value: totalAffiliateValue,
-          total_card_transactions: transactionsResponse.data.totals.total_transactions,
-          total_card_amount: transactionsResponse.data.totals.total_net_amount
+          total_card_transactions:
+            transactionsResponse.data.totals.total_transactions,
+          total_card_amount: transactionsResponse.data.totals.total_net_amount,
         },
       })
 
       setRefundsData({
         total_refund_amount: totalRefundAmount,
-        total_refund_quantity: totalRefundQuantity
+        total_refund_quantity: totalRefundQuantity,
       })
-      
+
       setCommercialData({
         total_commercial_value: totalCommercialValue,
-        total_commercial_quantity: totalCommercialQuantity
+        total_commercial_quantity: totalCommercialQuantity,
       })
-      
+
       setBoletoData({
         total_boleto_value: totalBoletoValue,
-        total_boleto_quantity: totalBoletoQuantity
+        total_boleto_quantity: totalBoletoQuantity,
       })
 
       setLoading(false)
@@ -249,7 +272,7 @@ function DailyDashboard() {
   }
 
   const formatDate = (dateStr) => {
-    const date = new Date(dateStr + 'T12:00:00'); // Usar meio-dia para evitar problemas de fuso
+    const date = new Date(dateStr + 'T12:00:00') // Usar meio-dia para evitar problemas de fuso
     return date.toLocaleDateString('pt-BR')
   }
 
@@ -267,8 +290,8 @@ function DailyDashboard() {
     <div className="min-h-screen bg-background-light dark:bg-background-dark p-6">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-primary-dark dark:text-primary">
-        Dashboard Diário de Vendas
+          <h1 className="text-3xl font-bold text-primary-dark dark:text-primary">
+            Dashboard Diário de Vendas
           </h1>
           <button
             onClick={handleRefreshData}
@@ -303,8 +326,8 @@ function DailyDashboard() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-7 gap-6 mb-8">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 md:col-span-2">
+        <div className="grid grid-cols-1 md:grid-cols-11 gap-2 mb-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 md:col-span-3">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
               Valor Líquido Total
             </h3>
@@ -326,9 +349,9 @@ function DailyDashboard() {
               Cartão + Boleto
             </p>
           </div>
-          
+
           {/* Card para vendas por cartão */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 md:col-span-3">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
               Vendas Cartão
             </h3>
@@ -339,9 +362,9 @@ function DailyDashboard() {
               {data?.totals?.total_card_transactions || 0} venda(s)
             </p>
           </div>
-          
+
           {/* Card para vendas por boleto */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 md:col-span-3">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
               Vendas Boleto
             </h3>
@@ -352,7 +375,18 @@ function DailyDashboard() {
               {boletoData?.total_boleto_quantity || 0} venda(s)
             </p>
           </div>
-          
+        </div>
+
+        {/* Segunda linha de cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-8">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 md:hidden">
+            <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
+              Valor de Afiliações
+            </h3>
+            <p className="mt-2 text-3xl font-bold text-secondary dark:text-primary">
+              {formatCurrency(data?.totals?.total_net_affiliate_value || 0)}
+            </p>
+          </div>
           {/* Valor de afiliações */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 hidden md:block">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
@@ -362,19 +396,7 @@ function DailyDashboard() {
               {formatCurrency(data?.totals?.total_net_affiliate_value || 0)}
             </p>
           </div>
-        </div>
-        
-        {/* Segunda linha de cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 md:hidden">
-            <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
-              Valor de Afiliações
-            </h3>
-            <p className="mt-2 text-3xl font-bold text-secondary dark:text-primary">
-              {formatCurrency(data?.totals?.total_net_affiliate_value || 0)}
-            </p>
-          </div>
-          
+
           {/* Card de reembolsos */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
@@ -387,7 +409,7 @@ function DailyDashboard() {
               {refundsData?.total_refund_quantity || 0} reembolso(s)
             </p>
           </div>
-          
+
           {/* Vendas do comercial */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
@@ -411,7 +433,9 @@ function DailyDashboard() {
               <div className="absolute inset-0 bg-white dark:bg-gray-800 bg-opacity-75 flex items-center justify-center z-10">
                 <div className="flex flex-col items-center">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-                  <p className="mt-4 text-text-light dark:text-text-dark">Carregando dados...</p>
+                  <p className="mt-4 text-text-light dark:text-text-dark">
+                    Carregando dados...
+                  </p>
                 </div>
               </div>
             )}
@@ -495,7 +519,7 @@ function DailyDashboard() {
             </ResponsiveContainer>
           </div>
         </div>
-        
+
         {/* Novo gráfico para comparar vendas normais vs comercial */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 relative mt-6">
           <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
@@ -506,7 +530,9 @@ function DailyDashboard() {
               <div className="absolute inset-0 bg-white dark:bg-gray-800 bg-opacity-75 flex items-center justify-center z-10">
                 <div className="flex flex-col items-center">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-                  <p className="mt-4 text-text-light dark:text-text-dark">Carregando dados...</p>
+                  <p className="mt-4 text-text-light dark:text-text-dark">
+                    Carregando dados...
+                  </p>
                 </div>
               </div>
             )}
@@ -514,9 +540,7 @@ function DailyDashboard() {
               <BarChart data={data?.dailyData || []}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" tickFormatter={formatDate} />
-                <YAxis
-                  tickFormatter={(value) => formatCurrency(value)}
-                />
+                <YAxis tickFormatter={(value) => formatCurrency(value)} />
                 <Tooltip
                   formatter={(value) => formatCurrency(value)}
                   labelFormatter={formatDate}
@@ -540,7 +564,7 @@ function DailyDashboard() {
             </ResponsiveContainer>
           </div>
         </div>
-        
+
         {/* Novo gráfico para comparar vendas por tipo (cartão vs boleto) */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 relative mt-6">
           <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
@@ -551,32 +575,42 @@ function DailyDashboard() {
               <div className="absolute inset-0 bg-white dark:bg-gray-800 bg-opacity-75 flex items-center justify-center z-10">
                 <div className="flex flex-col items-center">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-                  <p className="mt-4 text-text-light dark:text-text-dark">Carregando dados...</p>
+                  <p className="mt-4 text-text-light dark:text-text-dark">
+                    Carregando dados...
+                  </p>
                 </div>
               </div>
             )}
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data?.dailyData || []}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" tickFormatter={(date) => date.slice(5)} /> {/* Exibe mês-dia */}
-                <YAxis
-                  tickFormatter={(value) => formatCurrency(value)}
-                />
+                <XAxis
+                  dataKey="date"
+                  tickFormatter={(date) => date.slice(5)}
+                />{' '}
+                {/* Exibe mês-dia */}
+                <YAxis tickFormatter={(value) => formatCurrency(value)} />
                 <Tooltip
                   formatter={(value, name) => {
-                    if (name === "Vendas Cartão" || name === "Vendas Boleto")
-                      return formatCurrency(value);
-                    return value;
+                    if (name === 'Vendas Cartão' || name === 'Vendas Boleto')
+                      return formatCurrency(value)
+                    return value
                   }}
-                  labelFormatter={(date) => new Date(date).toLocaleDateString('pt-BR')}
+                  labelFormatter={(date) =>
+                    new Date(date).toLocaleDateString('pt-BR')
+                  }
                 />
                 <Legend />
-                <Bar 
+                <Bar
                   dataKey={(entry) => entry.net_amount - entry.boleto_value}
-                  name="Vendas Cartão" 
-                  fill="#2563EB" 
+                  name="Vendas Cartão"
+                  fill="#2563EB"
                 />
-                <Bar dataKey="boleto_value" name="Vendas Boleto" fill="#EAB308" />
+                <Bar
+                  dataKey="boleto_value"
+                  name="Vendas Boleto"
+                  fill="#EAB308"
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>

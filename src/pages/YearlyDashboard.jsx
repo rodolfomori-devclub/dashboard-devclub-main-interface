@@ -296,8 +296,8 @@ function YearlyDashboard() {
           </h1>
 
           {/* Resumo de Vendas */}
-          <div className="grid grid-cols-1 md:grid-cols-7 gap-6 mb-8">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 md:col-span-2">
+          <div className="grid grid-cols-1 md:grid-cols-11 gap-6 mb-8">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 md:col-span-3">
               <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
                 Valor Total de Vendas
               </h3>
@@ -321,7 +321,7 @@ function YearlyDashboard() {
             </div>
             
             {/* Card vendas cartão */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 md:col-span-3">
               <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
                 Vendas Cartão
               </h3>
@@ -334,7 +334,7 @@ function YearlyDashboard() {
             </div>
             
             {/* Card vendas boleto */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 md:col-span-3">
               <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
                 Vendas Boleto
               </h3>
@@ -346,8 +346,12 @@ function YearlyDashboard() {
               </p>
             </div>
             
-            {/* Valor de afiliações */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 hidden md:block">
+        
+          </div>
+          
+          {/* Segunda linha de cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 md:hidden">
               <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
                 Valor Total de Afiliações
               </h3>
@@ -357,11 +361,9 @@ function YearlyDashboard() {
                 )}
               </p>
             </div>
-          </div>
-          
-          {/* Segunda linha de cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 md:hidden">
+
+            {/* Valor de afiliações */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 hidden md:block">
               <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
                 Valor Total de Afiliações
               </h3>

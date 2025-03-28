@@ -404,7 +404,7 @@ function Today() {
         </h2>
 
         {/* PRIMEIRA LINHA DE RESUMO - Principais indicadores */}
-        <div className="grid grid-cols-1 md:grid-cols-10 gap-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-11 gap-6 mb-6">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 md:col-span-3">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
               Valor Total de Vendas
@@ -429,7 +429,7 @@ function Today() {
             </p>
           </div>
           
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 md:col-span-2.5">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 md:col-span-3">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
               Vendas Cartão
             </h3>
@@ -441,7 +441,7 @@ function Today() {
             </p>
           </div>
           
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 md:col-span-2.5">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 md:col-span-3">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
               Vendas Boleto
             </h3>
