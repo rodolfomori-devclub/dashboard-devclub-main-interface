@@ -1,214 +1,257 @@
-// // src/services/boletoService.js
-
-// import { db } from '../firebase';
-// import { 
-//   collection, 
-//   query, 
-//   where, 
-//   getDocs, 
-//   Timestamp 
-// } from 'firebase/firestore';
-
-// /**
-//  * Serviço para consulta de vendas via boleto (TMB)
-//  * Futuramente será substituído pela API da TMB
-//  */
-// export const boletoService = {
-//   /**
-//    * Obtém vendas de boleto em um intervalo de datas
-//    * @param {Date} startDate Data inicial
-//    * @param {Date} endDate Data final
-//    * @returns {Promise<Array>} Array de vendas
-//    */
-//   async getSalesByDateRange(startDate, endDate) {
-//     try {
-//       // Converter datas para Timestamp do Firestore
-//       const startTimestamp = Timestamp.fromDate(startDate);
-//       const endTimestamp = Timestamp.fromDate(endDate);
-      
-//       // Consultar vendas no período
-//       const salesRef = collection(db, 'tmb_boleto_sales');
-//       const q = query(
-//         salesRef,
-//         where('timestamp', '>=', startTimestamp),
-//         where('timestamp', '<=', endTimestamp)
-//       );
-      
-//       const querySnapshot = await getDocs(q);
-      
-//       // Mapear documentos para formato padronizado
-//       const sales = querySnapshot.docs.map(doc => {
-//         const data = doc.data();
-//         return {
-//           id: doc.id,
-//           product: data.product,
-//           value: data.value || 0,
-//           timestamp: data.timestamp?.toDate() || new Date(),
-//           payment_method: 'boleto',
-//           channel: data.channel || 'TMB',
-//           // Formatar como objeto compatível com o formato das transações do PagarMe
-//           dates: {
-//             created_at: Math.floor(data.timestamp?.toDate().getTime() / 1000) // Converter para timestamp Unix
-//           },
-//           calculation_details: {
-//             net_amount: data.value || 0,
-//             net_affiliate_value: 0, // Boletos não têm afiliados
-//             payment_method: 'boleto'
-//           }
-//         };
-//       });
-      
-//       return sales;
-//     } catch (error) {
-//       console.error('Erro ao buscar vendas de boleto:', error);
-//       return [];
-//     }
-//   },
-
-//   /**
-//    * Obtém vendas de boleto para uma data específica
-//    * @param {Date} date Data específica
-//    * @returns {Promise<Array>} Array de vendas
-//    */
-//   async getSalesByDate(date) {
-//     // Criar versão da data com início do dia
-//     const startDate = new Date(date);
-//     startDate.setHours(0, 0, 0, 0);
-    
-//     // Criar versão da data com fim do dia
-//     const endDate = new Date(date);
-//     endDate.setHours(23, 59, 59, 999);
-    
-//     return this.getSalesByDateRange(startDate, endDate);
-//   },
-
-//   /**
-//    * Obtém vendas de boleto para um mês específico
-//    * @param {number} year Ano
-//    * @param {number} month Mês (0-11)
-//    * @returns {Promise<Array>} Array de vendas
-//    */
-//   async getSalesByMonth(year, month) {
-//     // Primeiro dia do mês
-//     const startDate = new Date(year, month, 1);
-//     startDate.setHours(0, 0, 0, 0);
-    
-//     // Último dia do mês
-//     const endDate = new Date(year, month + 1, 0);
-//     endDate.setHours(23, 59, 59, 999);
-    
-//     return this.getSalesByDateRange(startDate, endDate);
-//   },
-
-//   /**
-//    * Obtém vendas de boleto para um ano específico
-//    * @param {number} year Ano
-//    * @returns {Promise<Array>} Array de vendas
-//    */
-//   async getSalesByYear(year) {
-//     // Primeiro dia do ano
-//     const startDate = new Date(year, 0, 1);
-//     startDate.setHours(0, 0, 0, 0);
-    
-//     // Último dia do ano
-//     const endDate = new Date(year, 11, 31);
-//     endDate.setHours(23, 59, 59, 999);
-    
-//     return this.getSalesByDateRange(startDate, endDate);
-//   }
-// };
-
-// export default boletoService;
 // src/services/boletoService.js
 import axios from 'axios';
 
 // ID da planilha do Google Sheets
-// https://drive.google.com/open?id=1NOj8TdVXGddTuxIQOv-4JYHxlzPbQWml&usp=drive_fs
 const SHEET_ID = '12W7rG0P4fPUHkaccJ26KNa877LkqcRo5gv4gO5RQfFA';
 
-// API Key (em um ambiente de produção, isto deveria estar protegido via variáveis de ambiente)
-// Para simplicidade, estamos usando uma conexão pública de leitura apenas
-// const API_KEY = 'AIzaSyBOXnnT1F-h9s1FP3063BQ_-vE3gT3yfwk';
-// const API_KEY = 'AIzaSyBG_fHr7v0kfT2e5kXnNa68VMQyOUQY1Dw';
+// API Key
 const API_KEY = 'AIzaSyDefktRla6Q-o9k-yfKaLxW1nFMgAJfDt8';
 
-
-
-
+// Mapeamento de produtos para seus respectivos valores
+const PRODUCT_VALUES = {
+  'DevClub Full Stack': 2200,
+  'DevClub Boleto': 2200,
+  'DevClub Cartão': 2000,
+  'Vitalicio Cartão': 1000,
+  'Vitalicio Boleto': 1200,
+  'Front End Cartão': 500,
+  'Front End Boleto': 1200,
+  // Adicionar outros produtos conforme necessário
+  'DEFAULT': 2200 // Valor padrão se não encontrar o produto
+};
 
 /**
  * Serviço para consulta de vendas via boleto (TMB) do Google Sheets
+ * Implementação completamente redesenhada com lógica de data simplificada
  */
 export const boletoService = {
+  // Armazenar os dados em cache após a primeira chamada
+  _cachedData: null,
+  _lastFetchTime: null,
+  
   /**
-   * Busca todos os dados da planilha
-   * @returns {Promise<Array>} Array de vendas
+   * Extrair dia/mês/ano de uma string no formato DD/MM/YYYY
+   * @param {string} dateStr String de data no formato DD/MM/YYYY
+   * @returns {Object} Objeto com dia, mês e ano extraídos
+   */
+  _parseDateString(dateStr) {
+    // Considerar apenas a parte da data (ignorar a hora)
+    const datePart = dateStr.split(' ')[0];
+    const [day, month, year] = datePart.split('/').map(num => parseInt(num.trim(), 10));
+    return { day, month, year };
+  },
+
+  /**
+   * Verificar se uma data está dentro de um intervalo
+   * @param {Object} dateObj Objeto com dia, mês e ano
+   * @param {Object} startObj Objeto com dia, mês e ano do início
+   * @param {Object} endObj Objeto com dia, mês e ano do fim
+   * @returns {boolean} Verdadeiro se a data estiver no intervalo
+   */
+  _isDateInRange(dateObj, startObj, endObj) {
+    // Criar strings de data para comparação no formato YYYY-MM-DD
+    const dateStr = `${dateObj.year}-${String(dateObj.month).padStart(2, '0')}-${String(dateObj.day).padStart(2, '0')}`;
+    const startStr = `${startObj.year}-${String(startObj.month).padStart(2, '0')}-${String(startObj.day).padStart(2, '0')}`;
+    const endStr = `${endObj.year}-${String(endObj.month).padStart(2, '0')}-${String(endObj.day).padStart(2, '0')}`;
+    
+    // Comparação de strings simples
+    return dateStr >= startStr && dateStr <= endStr;
+  },
+
+  /**
+   * Buscar todos os dados da planilha
+   * @returns {Promise<Array>} Array com os dados processados da planilha
    */
   async fetchAllSheetData() {
+    // Se temos dados em cache e foram buscados há menos de 5 minutos, usar o cache
+    const now = Date.now();
+    if (this._cachedData && this._lastFetchTime && (now - this._lastFetchTime < 5 * 60 * 1000)) {
+      console.log('Usando dados em cache');
+      return this._cachedData;
+    }
+    
     try {
-      const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/Vendas!A:E?key=${API_KEY}`;
+      console.log('Buscando dados da planilha');
       
-      const response = await axios.get(url);
+      // Primeiro, vamos buscar informações sobre a planilha
+      const sheetsUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?key=${API_KEY}`;
+      const sheetsResponse = await axios.get(sheetsUrl);
+      
+      // Encontrar a primeira aba
+      const sheets = sheetsResponse.data.sheets || [];
+      if (sheets.length === 0) {
+        console.error('Nenhuma aba encontrada na planilha');
+        return [];
+      }
+      
+      // Obter o nome da primeira aba
+      const sheetName = sheets[0].properties?.title;
+      if (!sheetName) {
+        console.error('Não foi possível determinar o nome da aba');
+        return [];
+      }
+      
+      console.log(`Usando a aba: ${sheetName}`);
+      
+      // Buscar os dados da aba
+      const valuesUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(sheetName)}?key=${API_KEY}`;
+      const response = await axios.get(valuesUrl);
+      
       const rows = response.data.values || [];
+      console.log(`Número de linhas na planilha: ${rows.length}`);
       
-      // Pular a primeira linha (cabeçalhos)
-      const dataRows = rows.slice(1);
+      if (rows.length <= 1) {
+        console.log('Planilha vazia ou contém apenas cabeçalhos');
+        return [];
+      }
       
-      // Converter para o formato esperado pelos dashboards
-      return dataRows.map(row => {
-        const [dateStr, product, value, payment_method, channel] = row;
+      // Mapear os dados (pular a primeira linha, que são cabeçalhos)
+      const processedData = rows.slice(1).map((row, index) => {
+        // Verificar se a linha tem dados suficientes
+        if (row.length < 5) {
+          console.log(`Linha ${index + 2} tem dados insuficientes:`, row);
+          return null;
+        }
         
-        // Converter data para objeto Date (assume formato DD/MM/YYYY)
-        const [day, month, year] = dateStr.split('/').map(num => parseInt(num));
-        const timestamp = new Date(year, month - 1, day, 12, 0, 0);
-        
-        // Converter valor para número (assume formato R$ 1.234,56)
-        const numericValue = parseFloat(
-          value.replace('R$', '')
-               .replace('.', '')
-               .replace(',', '.')
-               .trim()
-        );
-        
-        return {
-          id: `sheet-${dateStr}-${product}-${Math.random().toString(36).substring(2, 10)}`,
-          product,
-          value: numericValue,
-          timestamp,
-          payment_method: payment_method || 'boleto',
-          channel: channel || 'TMB',
-          // Formatar como objeto compatível com o formato das transações do PagarMe
-          dates: {
-            created_at: Math.floor(timestamp.getTime() / 1000) // Converter para timestamp Unix
-          },
-          calculation_details: {
-            net_amount: numericValue,
-            net_affiliate_value: 0, // Boletos não têm afiliados
-            payment_method: 'boleto'
+        try {
+          const [nome, email, telefone, dataHoraStr, produto] = row;
+          
+          // Se faltam campos importantes, pular
+          if (!dataHoraStr || !produto) {
+            console.log(`Linha ${index + 2} com campos obrigatórios faltando`);
+            return null;
           }
-        };
-      });
+          
+          // Extrair a data da string (ignora a hora)
+          const dateParts = this._parseDateString(dataHoraStr);
+          
+          // Criar objeto com as informações da venda
+          return {
+            id: `sheet-${index}-${Math.random().toString(36).substring(2, 10)}`,
+            raw: { // Guardar os dados brutos para depuração
+              nome,
+              email,
+              telefone,
+              dataHoraStr,
+              produto
+            },
+            product: produto.trim(),
+            value: PRODUCT_VALUES[produto.trim()] || PRODUCT_VALUES.DEFAULT,
+            date: { // Guardar data decomposta para facilitar filtragem
+              ...dateParts,
+              original: dataHoraStr,
+              // Para compatibilidade com código existente
+              timestamp: new Date(dateParts.year, dateParts.month - 1, dateParts.day, 12, 0, 0)
+            },
+            payment_method: 'boleto',
+            channel: 'TMB',
+            // Para compatibilidade com código existente
+            timestamp: new Date(dateParts.year, dateParts.month - 1, dateParts.day, 12, 0, 0),
+            dates: {
+              created_at: Math.floor(new Date(dateParts.year, dateParts.month - 1, dateParts.day, 12, 0, 0).getTime() / 1000)
+            },
+            calculation_details: {
+              net_amount: PRODUCT_VALUES[produto.trim()] || PRODUCT_VALUES.DEFAULT,
+              net_affiliate_value: 0,
+              payment_method: 'boleto'
+            }
+          };
+        } catch (err) {
+          console.log(`Erro ao processar linha ${index + 2}:`, err.message);
+          return null;
+        }
+      }).filter(item => item !== null);
+      
+      console.log(`Dados processados: ${processedData.length} itens válidos`);
+      
+      // Atualizar cache
+      this._cachedData = processedData;
+      this._lastFetchTime = now;
+      
+      return processedData;
     } catch (error) {
-      console.error('Erro ao buscar dados da planilha do Google Sheets:', error);
+      console.error('Erro ao buscar dados da planilha:', error.response?.data || error.message);
       return [];
     }
   },
 
   /**
-   * Filtra as vendas por intervalo de data
+   * Filtrar vendas por dia específico
+   * @param {Date} date Data para filtrar
+   * @returns {Promise<Array>} Vendas do dia especificado
+   */
+  async getSalesByDate(date) {
+    try {
+      // Extrair dia, mês e ano da data fornecida
+      const day = date.getDate();
+      const month = date.getMonth() + 1; // getMonth() retorna 0-11
+      const year = date.getFullYear();
+      
+      console.log(`Filtrando vendas para o dia ${day}/${month}/${year}`);
+      
+      const dateFilter = { day, month, year };
+      
+      // Buscar todos os dados
+      const allSales = await this.fetchAllSheetData();
+      
+      // Filtrar apenas pelo dia exato (usando os objetos de data decompostos)
+      const filtered = allSales.filter(sale => 
+        sale.date.day === dateFilter.day && 
+        sale.date.month === dateFilter.month && 
+        sale.date.year === dateFilter.year
+      );
+      
+      console.log(`Encontradas ${filtered.length} vendas para ${day}/${month}/${year}`);
+      
+      // Log detalhado para depuração
+      if (filtered.length > 0) {
+        console.log("Primeiras vendas encontradas:");
+        filtered.slice(0, 3).forEach(sale => {
+          console.log(`  - Data original: ${sale.date.original}, Produto: ${sale.product}`);
+        });
+      }
+      
+      return filtered;
+    } catch (error) {
+      console.error('Erro ao filtrar vendas por data:', error);
+      return [];
+    }
+  },
+
+  /**
+   * Filtrar vendas por intervalo de datas
    * @param {Date} startDate Data inicial
    * @param {Date} endDate Data final
-   * @returns {Promise<Array>} Array de vendas filtradas
+   * @returns {Promise<Array>} Vendas no intervalo especificado
    */
   async getSalesByDateRange(startDate, endDate) {
     try {
+      // Extrair dia, mês e ano das datas de início e fim
+      const startFilter = {
+        day: startDate.getDate(),
+        month: startDate.getMonth() + 1,
+        year: startDate.getFullYear()
+      };
+      
+      const endFilter = {
+        day: endDate.getDate(),
+        month: endDate.getMonth() + 1,
+        year: endDate.getFullYear()
+      };
+      
+      console.log(`Filtrando vendas entre ${startFilter.day}/${startFilter.month}/${startFilter.year} e ${endFilter.day}/${endFilter.month}/${endFilter.year}`);
+      
+      // Buscar todos os dados
       const allSales = await this.fetchAllSheetData();
       
-      // Filtrar por intervalo de datas
-      return allSales.filter(sale => {
-        const saleDate = sale.timestamp;
-        return saleDate >= startDate && saleDate <= endDate;
-      });
+      // Filtrar pelo intervalo de datas
+      const filtered = allSales.filter(sale => 
+        this._isDateInRange(sale.date, startFilter, endFilter)
+      );
+      
+      console.log(`Encontradas ${filtered.length} vendas no intervalo`);
+      
+      return filtered;
     } catch (error) {
       console.error('Erro ao filtrar vendas por intervalo de datas:', error);
       return [];
@@ -216,55 +259,61 @@ export const boletoService = {
   },
 
   /**
-   * Obtém vendas de boleto para uma data específica
-   * @param {Date} date Data específica
-   * @returns {Promise<Array>} Array de vendas
-   */
-  async getSalesByDate(date) {
-    // Criar versão da data com início do dia
-    const startDate = new Date(date);
-    startDate.setHours(0, 0, 0, 0);
-    
-    // Criar versão da data com fim do dia
-    const endDate = new Date(date);
-    endDate.setHours(23, 59, 59, 999);
-    
-    return this.getSalesByDateRange(startDate, endDate);
-  },
-
-  /**
-   * Obtém vendas de boleto para um mês específico
+   * Filtrar vendas por mês específico
    * @param {number} year Ano
    * @param {number} month Mês (0-11)
-   * @returns {Promise<Array>} Array de vendas
+   * @returns {Promise<Array>} Vendas do mês especificado
    */
   async getSalesByMonth(year, month) {
-    // Primeiro dia do mês
-    const startDate = new Date(year, month, 1);
-    startDate.setHours(0, 0, 0, 0);
-    
-    // Último dia do mês
-    const endDate = new Date(year, month + 1, 0);
-    endDate.setHours(23, 59, 59, 999);
-    
-    return this.getSalesByDateRange(startDate, endDate);
+    try {
+      // Ajustar mês para 1-12 (internamente usamos 1-12, mas a API recebe 0-11)
+      const adjustedMonth = month + 1;
+      
+      console.log(`Filtrando vendas para o mês ${adjustedMonth}/${year}`);
+      
+      // Criar filtro para o mês
+      const monthFilter = { month: adjustedMonth, year };
+      
+      // Buscar todos os dados
+      const allSales = await this.fetchAllSheetData();
+      
+      // Filtrar apenas pelo mês exato
+      const filtered = allSales.filter(sale => 
+        sale.date.month === monthFilter.month && 
+        sale.date.year === monthFilter.year
+      );
+      
+      console.log(`Encontradas ${filtered.length} vendas para ${adjustedMonth}/${year}`);
+      
+      return filtered;
+    } catch (error) {
+      console.error('Erro ao filtrar vendas por mês:', error);
+      return [];
+    }
   },
 
   /**
-   * Obtém vendas de boleto para um ano específico
+   * Filtrar vendas por ano específico
    * @param {number} year Ano
-   * @returns {Promise<Array>} Array de vendas
+   * @returns {Promise<Array>} Vendas do ano especificado
    */
   async getSalesByYear(year) {
-    // Primeiro dia do ano
-    const startDate = new Date(year, 0, 1);
-    startDate.setHours(0, 0, 0, 0);
-    
-    // Último dia do ano
-    const endDate = new Date(year, 11, 31);
-    endDate.setHours(23, 59, 59, 999);
-    
-    return this.getSalesByDateRange(startDate, endDate);
+    try {
+      console.log(`Filtrando vendas para o ano ${year}`);
+      
+      // Buscar todos os dados
+      const allSales = await this.fetchAllSheetData();
+      
+      // Filtrar apenas pelo ano exato
+      const filtered = allSales.filter(sale => sale.date.year === year);
+      
+      console.log(`Encontradas ${filtered.length} vendas para o ano ${year}`);
+      
+      return filtered;
+    } catch (error) {
+      console.error('Erro ao filtrar vendas por ano:', error);
+      return [];
+    }
   }
 };
 

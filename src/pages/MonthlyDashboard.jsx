@@ -142,15 +142,19 @@ function MonthlyDashboard() {
           commercial_value: 0,
           commercial_quantity: 0,
           boleto_value: 0,
-          boleto_quantity: 0
+          boleto_quantity: 0,
+          card_amount: 0,
+          card_quantity: 0
         }
       }
 
-      // Processar transações
-      let totalCommercialValue = 0
-      let totalCommercialQuantity = 0
-      let totalBoletoValue = 0
-      let totalBoletoQuantity = 0
+      // Processar transações de cartão
+      let totalCardAmount = 0;
+      let totalCardQuantity = 0;
+      let totalCommercialValue = 0;
+      let totalCommercialQuantity = 0;
+      let totalBoletoValue = 0;
+      let totalBoletoQuantity = 0;
       
       transactionsResponse.data.data.forEach((transaction) => {
         const fullDate = new Date(transaction.dates.created_at * 1000)
@@ -167,9 +171,16 @@ function MonthlyDashboard() {
         const isCommercial = transaction.trackings?.utm_source === 'comercial'
 
         if (dailyDataMap[transactionDate]) {
+          // Adicionar aos valores totais
           dailyDataMap[transactionDate].net_amount += netAmount
           dailyDataMap[transactionDate].quantity += 1
           dailyDataMap[transactionDate].affiliate_value += affiliateValue
+          
+          // Adicionar específicamente aos dados de cartão
+          dailyDataMap[transactionDate].card_amount += netAmount
+          dailyDataMap[transactionDate].card_quantity += 1
+          totalCardAmount += netAmount
+          totalCardQuantity += 1
           
           if (isCommercial) {
             dailyDataMap[transactionDate].commercial_value += netAmount
@@ -202,8 +213,10 @@ function MonthlyDashboard() {
         const saleValue = Number(boletoSale.value || 0);
         
         if (dailyDataMap[transactionDate]) {
+          // Adicionar aos boletos
           dailyDataMap[transactionDate].boleto_value += saleValue;
           dailyDataMap[transactionDate].boleto_quantity += 1;
+          
           // Adicionar às vendas totais
           dailyDataMap[transactionDate].net_amount += saleValue;
           dailyDataMap[transactionDate].quantity += 1;
@@ -248,11 +261,11 @@ function MonthlyDashboard() {
       setMonthlyData({
         dailyData: chartData,
         totals: {
-          total_transactions: totalQuantity + totalBoletoQuantity,
-          total_net_amount: totalNetAmount + totalBoletoValue,
+          total_transactions: totalQuantity,
+          total_net_amount: totalNetAmount,
           total_net_affiliate_value: totalAffiliateValue,
-          total_card_transactions: totalQuantity,
-          total_card_amount: totalNetAmount
+          total_card_transactions: totalCardQuantity,
+          total_card_amount: totalCardAmount
         },
       })
 
@@ -301,13 +314,53 @@ function MonthlyDashboard() {
     }
   }, [monthlyData, goals, calculateProgress])
 
+  // Componente de carregamento
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center">
+        <div className="flex flex-col items-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-primary dark:border-secondary"></div>
+          <p className="mt-4 text-xl text-primary-dark dark:text-primary font-medium">Carregando dados do mês...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Tela de erro
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background-light dark:bg-background-dark p-6">
+        <div className="max-w-7xl mx-auto bg-red-100 dark:bg-red-900 p-6 rounded-lg shadow">
+          <h2 className="text-2xl font-bold text-red-700 dark:text-red-300 mb-4">Erro ao carregar dados</h2>
+          <p className="text-red-600 dark:text-red-400 mb-4">
+            Ocorreu um erro ao buscar os dados do mês. Por favor, tente novamente mais tarde.
+          </p>
+          <button
+            onClick={fetchMonthlyData}
+            className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-opacity-90"
+          >
+            Tentar novamente
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   // Renderização dos dados
   return (
     <div className="min-h-screen bg-background-light dark:bg-background-dark p-6">
       <div className="max-w-7xl mx-auto">
-      <h1 className="text-3xl font-bold text-primary-dark dark:text-primary">
-      Dashboard de Metas Mensais
-        </h1>
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold text-primary-dark dark:text-primary">
+            Dashboard de Metas Mensais
+          </h1>
+          <button
+            onClick={fetchMonthlyData}
+            className="bg-secondary text-primary px-4 py-2 rounded hover:bg-primary hover:text-secondary transition-colors"
+          >
+            Atualizar Dados
+          </button>
+        </div>
 
         {/* Resumo Mensal */}
         <div className="grid grid-cols-1 md:grid-cols-11 gap-6 mb-8">
@@ -359,8 +412,6 @@ function MonthlyDashboard() {
               {boletoData?.total_boleto_quantity || 0} venda(s)
             </p>
           </div>
-          
-     
         </div>
         
         {/* Segunda linha de cards */}
@@ -379,8 +430,8 @@ function MonthlyDashboard() {
               )}
             </p>
           </div>
-               {/* Ticket médio */}
-               <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 hidden md:block">
+          {/* Ticket médio */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 hidden md:block">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
               Ticket Médio
             </h3>
@@ -535,7 +586,8 @@ function MonthlyDashboard() {
                         name === 'Valor de Afiliação' ||
                         name === 'Valor de Reembolso' ||
                         name === 'Valor Comercial' ||
-                        name === 'Valor Boleto'
+                        name === 'Valor Boleto' ||
+                        name === 'Valor Cartão'
                       )
                         return formatCurrency(value)
                       return `${value} vendas`
@@ -610,8 +662,20 @@ function MonthlyDashboard() {
                   <Line
                     type="monotone"
                     dataKey="net_amount"
-                    name="Valor Líquido"
+                    name="Valor Total"
                     stroke="#2563EB"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="card_amount"
+                    name="Valor Cartão"
+                    stroke="#22C55E"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="boleto_value"
+                    name="Valor Boleto"
+                    stroke="#EAB308"
                   />
                   <Line
                     type="monotone"
@@ -624,20 +688,6 @@ function MonthlyDashboard() {
                     dataKey="refund_amount"
                     name="Valor de Reembolso"
                     stroke="#EF4444"
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="commercial_value"
-                    name="Valor Comercial"
-                    stroke="#3B82F6"
-                    strokeDasharray="5 5"
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="boleto_value"
-                    name="Valor Boleto"
-                    stroke="#EAB308"
-                    strokeDasharray="5 5"
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -666,14 +716,54 @@ function MonthlyDashboard() {
                   />
                   <Legend />
                   <Bar
-                    dataKey={(entry) => entry.net_amount - entry.boleto_value}
+                    dataKey="card_amount"
                     name="Vendas Cartão" 
-                    fill="#2563EB"
+                    fill="#22C55E"
                   />
                   <Bar
                     dataKey="boleto_value"
                     name="Vendas Boleto"
                     fill="#EAB308"
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+          
+          {/* Quantidade de vendas por tipo */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
+              Quantidade de Vendas por Tipo
+            </h3>
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={monthlyData?.dailyData || []}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis
+                    dataKey="date"
+                    tickFormatter={(dateStr) => new Date(dateStr).getDate()}
+                  />
+                  <YAxis />
+                  <Tooltip
+                    labelFormatter={(dateStr) =>
+                      new Date(dateStr).toLocaleDateString('pt-BR')
+                    }
+                  />
+                  <Legend />
+                  <Bar
+                    dataKey="card_quantity"
+                    name="Vendas Cartão" 
+                    fill="#22C55E"
+                  />
+                  <Bar
+                    dataKey="boleto_quantity"
+                    name="Vendas Boleto"
+                    fill="#EAB308"
+                  />
+                  <Bar
+                    dataKey="commercial_quantity"
+                    name="Vendas Comercial"
+                    fill="#3B82F6"
                   />
                 </BarChart>
               </ResponsiveContainer>

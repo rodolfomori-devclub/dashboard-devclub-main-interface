@@ -293,15 +293,29 @@ function Today() {
     setDisplayDate(e.target.value)
   }
 
-  const handleSearch = () => {
-    setSelectedDate(displayDate)
-  }
+// SUBSTITUA POR:
+const handleSearch = () => {
+  // Corrigir problema de fuso horário ao criar data a partir da string
+  // Formato da string: YYYY-MM-DD
+  const [year, month, day] = displayDate.split('-').map(num => parseInt(num, 10));
+  // Criar data garantindo que o dia seja correto (baseado nos componentes)
+  const correctedDate = new Date(year, month - 1, day, 12, 0, 0);
+  
+  console.log(`Data selecionada: ${displayDate}, convertida para: ${correctedDate.toLocaleDateString()}`);
+  setSelectedDate(correctedDate);
+}
 
-  const handleToday = () => {
-    const today = new Date().toISOString().split('T')[0]
-    setDisplayDate(today)
-    setSelectedDate(today)
-  }
+const handleToday = () => {
+  const now = new Date();
+  // Formato YYYY-MM-DD para o input
+  const today = now.toISOString().split('T')[0];
+  setDisplayDate(today);
+  
+  // Criar objeto Date com o dia correto para o filtro
+  const todayObj = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0);
+  console.log(`Hoje: ${today}, objeto data: ${todayObj.toLocaleDateString()}`);
+  setSelectedDate(todayObj);
+}
 
   // Função para determinar a cor da barra com base nas vendas
   const getBarColor = (sales, averageSales) => {
