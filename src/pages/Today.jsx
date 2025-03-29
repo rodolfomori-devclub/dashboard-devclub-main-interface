@@ -418,7 +418,7 @@ const handleToday = () => {
         </h2>
 
         {/* PRIMEIRA LINHA DE RESUMO - Principais indicadores */}
-        <div className="grid grid-cols-1 md:grid-cols-11 gap-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-9 gap-6 mb-6">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 md:col-span-3">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
               Valor Total de Vendas
@@ -427,21 +427,11 @@ const handleToday = () => {
               {formatCurrency(todayData?.totalValue)}
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Cartão + Boleto
+              Cartão + Boleto <br />
+              {todayData?.totalSales} venda(s)
             </p>
           </div>
           
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 md:col-span-2">
-            <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
-              Quantidade de Vendas
-            </h3>
-            <p className="mt-2 text-3xl font-bold text-accent3 dark:text-accent3">
-              {todayData?.totalSales}
-            </p>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Total geral
-            </p>
-          </div>
           
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 md:col-span-3">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">

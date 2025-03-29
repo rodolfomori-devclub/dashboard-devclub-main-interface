@@ -296,7 +296,7 @@ function YearlyDashboard() {
           </h1>
 
           {/* Resumo de Vendas */}
-          <div className="grid grid-cols-1 md:grid-cols-11 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-9 gap-6 mb-8">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 md:col-span-3">
               <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
                 Valor Total de Vendas
@@ -305,20 +305,11 @@ function YearlyDashboard() {
                 {formatCurrency(yearlyData?.totals?.total_net_amount || 0)}
               </p>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Cartão + Boleto
+                Cartão + Boleto <br/>
+                {yearlyData?.totals?.total_transactions || 0} venda(s)
               </p>
             </div>
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 md:col-span-2">
-              <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
-                Quantidade Total de Vendas
-              </h3>
-              <p className="mt-2 text-3xl font-bold text-accent3 dark:text-accent4">
-                {yearlyData?.totals?.total_transactions || 0}
-              </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Cartão + Boleto
-              </p>
-            </div>
+
             
             {/* Card vendas cartão */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 md:col-span-3">
