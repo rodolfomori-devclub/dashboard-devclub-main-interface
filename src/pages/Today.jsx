@@ -27,12 +27,15 @@ const COLORS = [
 ]
 
 function Today() {
-  const [selectedDate, setSelectedDate] = useState(
-    new Date().toISOString().split('T')[0],
-  )
+  // Inicializar com a data atual como objeto Date
+  const initialDate = new Date();
+  initialDate.setHours(12, 0, 0, 0); // Meio-dia para evitar problemas de fuso
+  
+  const [selectedDate, setSelectedDate] = useState(initialDate);
   const [displayDate, setDisplayDate] = useState(
-    new Date().toISOString().split('T')[0],
-  )
+    initialDate.toISOString().split('T')[0]
+  );
+
   const [todayData, setTodayData] = useState(null)
   const [refundsData, setRefundsData] = useState(null)
   const [commercialData, setCommercialData] = useState(null)
@@ -307,9 +310,11 @@ const handleSearch = () => {
 
 const handleToday = () => {
   const now = new Date();
-  // Formato YYYY-MM-DD para o input
-  const today = now.toISOString().split('T')[0];
+  const today = new Date();
   setDisplayDate(today);
+
+    // Inicializar com objetos Date em vez de strings para evitar problemas de formatação
+
   
   // Criar objeto Date com o dia correto para o filtro
   const todayObj = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0);
@@ -376,12 +381,15 @@ const handleToday = () => {
   }
 
   // Formatação da data para exibição mais amigável
-  const formattedDate = new Date(`${selectedDate}T12:00:00-03:00`).toLocaleDateString('pt-BR', {
+  const formattedDate = selectedDate.toLocaleDateString('pt-BR', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
     day: 'numeric',
   })
+
+  console.log(selectedDate)
+  console.log(formattedDate)
 
   return (
     <div className="min-h-screen bg-background-light dark:bg-background-dark p-6">

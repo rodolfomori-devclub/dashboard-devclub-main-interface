@@ -6,13 +6,14 @@ const SHEET_ID = '1jPCyVkRImt8yYPgMlBAeMZPqwdyQvy9P_KpWmo2PHBU';
 // API Key
 const API_KEY = 'AIzaSyDefktRla6Q-o9k-yfKaLxW1nFMgAJfDt8';
 
-// Mapeamento de produtos para seus respectivos valores
+// Mapeamento de produtos para seus respectivos valores (usado como fallback)
 const PRODUCT_VALUES = {
   'DevClub Full Stack': 2200,
   'DevClub Boleto': 2200,
   'DevClub Cartão': 2000,
   'Vitalicio Cartão': 1000,
   'Vitalicio Boleto': 1200,
+  'DevClub Vitalício': 5000,
   'Front End Cartão': 500,
   'Front End Boleto': 1200,
   // Adicionar outros produtos conforme necessário
@@ -34,10 +35,32 @@ export const boletoService = {
    * @returns {Object} Objeto com dia, mês e ano extraídos
    */
   _parseDateString(dateStr) {
-    // Considerar apenas a parte da data (ignorar a hora)
-    const datePart = dateStr.split(' ')[0];
-    const [day, month, year] = datePart.split('/').map(num => parseInt(num.trim(), 10));
-    return { day, month, year };
+    try {
+      // Considerar apenas a parte da data (ignorar a hora)
+      const datePart = dateStr.split(' ')[0];
+      const [day, month, year] = datePart.split('/').map(num => parseInt(num.trim(), 10));
+      
+      // Validar data para evitar valores inválidos
+      if (isNaN(day) || isNaN(month) || isNaN(year)) {
+        console.warn(`Data inválida: "${dateStr}", usando data atual como fallback`);
+        const today = new Date();
+        return {
+          day: today.getDate(),
+          month: today.getMonth() + 1,
+          year: today.getFullYear()
+        };
+      }
+      
+      return { day, month, year };
+    } catch (error) {
+      console.error(`Erro ao analisar data "${dateStr}":`, error);
+      const today = new Date();
+      return {
+        day: today.getDate(),
+        month: today.getMonth() + 1,
+        year: today.getFullYear()
+      };
+    }
   },
 
   /**
@@ -124,6 +147,25 @@ export const boletoService = {
           // Extrair a data da string (ignora a hora)
           const dateParts = this._parseDateString(dataHoraStr);
           
+          // Pegar o valor diretamente da planilha (índice 5), se existir
+          // Caso contrário, usar o valor do mapeamento ou valor padrão
+          let saleValue = 0;
+          
+          // Verificar se existe um valor na posição 5 da linha
+          if (row.length > 5 && row[5]) {
+            // Converter para número, removendo possíveis formatações (R$, ., etc)
+            const rawValue = row[5].toString().replace(/[^\d,.-]/g, '').replace(',', '.');
+            saleValue = parseFloat(rawValue) || 0;
+            
+            // Se não conseguir converter ou for 0, usar o valor do mapeamento
+            if (!saleValue) {
+              saleValue = PRODUCT_VALUES[produto.trim()] || PRODUCT_VALUES.DEFAULT;
+            }
+          } else {
+            // Se não existir o valor na planilha, usar o mapeamento
+            saleValue = PRODUCT_VALUES[produto.trim()] || PRODUCT_VALUES.DEFAULT;
+          }
+          
           // Criar objeto com as informações da venda
           return {
             id: `sheet-${index}-${Math.random().toString(36).substring(2, 10)}`,
@@ -132,10 +174,11 @@ export const boletoService = {
               email,
               telefone,
               dataHoraStr,
-              produto
+              produto,
+              valor: row.length > 5 ? row[5] : null
             },
             product: produto.trim(),
-            value: PRODUCT_VALUES[produto.trim()] || PRODUCT_VALUES.DEFAULT,
+            value: saleValue,
             date: { // Guardar data decomposta para facilitar filtragem
               ...dateParts,
               original: dataHoraStr,
@@ -150,7 +193,7 @@ export const boletoService = {
               created_at: Math.floor(new Date(dateParts.year, dateParts.month - 1, dateParts.day, 12, 0, 0).getTime() / 1000)
             },
             calculation_details: {
-              net_amount: PRODUCT_VALUES[produto.trim()] || PRODUCT_VALUES.DEFAULT,
+              net_amount: saleValue,
               net_affiliate_value: 0,
               payment_method: 'boleto'
             }
