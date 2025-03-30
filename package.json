@@ -8,7 +8,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "deploy" : "yarn build && aws s3 sync ./dist s3://dash-front-v1 --delete && aws cloudfront create-invalidation --distribution-id E1O677RGSOPKTA --paths '/*'"
+    "deploy": "yarn build && aws s3 sync ./dist s3://dash-front-v1 --delete && aws cloudfront create-invalidation --distribution-id E1O677RGSOPKTA --paths '/*'",
+    "create-admin": "node scripts/create-admin.js"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -16,6 +17,7 @@
     "@mui/icons-material": "^6.4.4",
     "@mui/material": "^6.4.4",
     "axios": "^1.7.9",
+    "bcryptjs": "^2.4.3",
     "chart.js": "^4.4.8",
     "firebase": "^11.4.0",
     "react": "^19.0.0",

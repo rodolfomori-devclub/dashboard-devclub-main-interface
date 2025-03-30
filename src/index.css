@@ -2,19 +2,136 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Estilos personalizados */
+/* Base styles */
+html {
+  font-size: 16px;
+}
+
+@media (max-width: 768px) {
+  html {
+    font-size: 14px;
+  }
+}
+
+body {
+  @apply font-sans antialiased;
+}
+
+/* Improved Typography */
+h1, h2, h3, h4, h5, h6 {
+  @apply font-medium tracking-tight;
+}
+
+/* Table Responsiveness */
+.table-responsive {
+  @apply w-full overflow-x-auto;
+}
+
+/* Dark mode improvements */
+.dark input::placeholder {
+  @apply text-gray-400;
+}
+
+.dark select option {
+  @apply bg-background-dark text-text-dark;
+}
+
+/* Improved card styles */
+.card {
+  @apply bg-white dark:bg-gray-800 rounded-lg shadow p-6;
+}
+
+/* Standardized button styles */
+.btn {
+  @apply px-4 py-2 rounded-lg transition-colors font-medium;
+}
+
+.btn-primary {
+  @apply bg-primary text-white hover:bg-primary-dark dark:bg-secondary dark:text-primary-dark dark:hover:bg-secondary-light;
+}
+
+.btn-secondary {
+  @apply bg-gray-200 text-gray-800 hover:bg-gray-300 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600;
+}
+
+.btn-danger {
+  @apply bg-red-500 text-white hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700;
+}
+
+.btn-sm {
+  @apply px-3 py-1 text-sm;
+}
+
+/* Mobile menu styles */
+.mobile-menu {
+  @apply fixed inset-0 bg-black bg-opacity-50 z-50 lg:hidden;
+}
+
+.mobile-menu-content {
+  @apply bg-white dark:bg-gray-800 w-64 h-full p-4 transform transition-transform duration-300;
+}
+
+/* Improved form controls */
+.form-control {
+  @apply w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-text-light dark:text-text-dark;
+}
+
+.form-label {
+  @apply block text-sm font-medium text-text-light dark:text-text-dark mb-1;
+}
+
+/* Recharts tooltip styling improvements */
 .recharts-tooltip-wrapper {
   @apply shadow-lg rounded-lg;
 }
 
 .recharts-default-tooltip {
-  @apply bg-white bg-opacity-95 rounded-lg shadow-lg border-none !important;
+  @apply bg-white dark:bg-gray-800 bg-opacity-95 rounded-lg shadow-lg border-none !important;
 }
 
 .recharts-tooltip-label {
-  @apply text-gray-700 font-medium !important;
+  @apply text-gray-700 dark:text-gray-300 font-medium !important;
 }
 
 .recharts-tooltip-item {
-  @apply text-gray-600 !important;
+  @apply text-gray-600 dark:text-gray-400 !important;
+}
+
+/* Fix for low contrast text in dark mode */
+.dark .text-gray-500 {
+  @apply text-gray-400;
+}
+
+.dark .text-gray-600 {
+  @apply text-gray-300;
+}
+
+.dark .text-gray-700 {
+  @apply text-gray-200;
+}
+
+/* Improved responsiveness for grid layouts */
+.responsive-grid {
+  @apply grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4;
+}
+
+.responsive-grid-tight {
+  @apply grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4;
+}
+
+/* Better scrollbar in dark mode */
+.dark ::-webkit-scrollbar {
+  @apply w-2 h-2;
+}
+
+.dark ::-webkit-scrollbar-track {
+  @apply bg-gray-800;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  @apply bg-gray-600 rounded-full;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-500;
 }

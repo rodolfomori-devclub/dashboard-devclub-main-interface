@@ -48,7 +48,7 @@ function Today() {
 
       // Buscar transações aprovadas
       const transactionsResponse = await axios.post(
-        'https://dash.launchcontrol.com.br/api/transactions',
+        `${import.meta.env.VITE_API_URL}/transactions`,
         {
           // Define timezone para Brasília (GMT-3)
           ordered_at_ini: date,
@@ -58,7 +58,7 @@ function Today() {
 
       // Buscar transações reembolsadas
       const refundsResponse = await axios.post(
-        'https://dash.launchcontrol.com.br/api/refunds',
+        `${import.meta.env.VITE_API_URL}/refunds`,
         {
           ordered_at_ini: date,
           ordered_at_end: date,

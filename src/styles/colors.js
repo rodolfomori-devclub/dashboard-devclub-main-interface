@@ -16,10 +16,10 @@ export const colors = {
   },
   text: {
     light: '#051626',
-    dark: '#F8F9FA',
+    dark: '#F8F9FA', // Texto mais claro para o tema escuro para maior contraste
     muted: {
       light: '#64748B',
-      dark: '#94A3B8',
+      dark: '#A1B2CE', // Texto de suporte mais claro para melhor legibilidade no tema escuro
     },
   },
   accent1: '#FF4500',    // Laranja
