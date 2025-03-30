@@ -292,7 +292,7 @@ function YearlyDashboard() {
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-primary dark:text-secondary mb-4">
-            Dashboard de Metas Anuais
+            Consolidade Anual de Vendas
           </h1>
 
           {/* Resumo de Vendas */}
