@@ -5,16 +5,17 @@ import { db, auth } from '../firebase';
 import { collection, getDocs, doc, updateDoc, deleteDoc, getDoc, setDoc } from 'firebase/firestore';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { Navigate } from 'react-router-dom';
-import { FaEdit, FaTrash, FaUserPlus, FaTimes, FaSave, FaUserShield, FaInfoCircle } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaUserPlus, FaTimes, FaSave, FaUserShield, FaInfoCircle, FaChartPie } from 'react-icons/fa';
 
 // Define the available app routes for permissions
 const APP_ROUTES = [
-  { id: 'today', name: 'Today Dashboard' },
-  { id: 'daily', name: 'Daily Dashboard' },
-  { id: 'monthly', name: 'Monthly Dashboard' },
-  { id: 'yearly', name: 'Yearly Dashboard' },
-  { id: 'commercial', name: 'Commercial Dashboard' },
-  { id: 'data-sources', name: 'Data Sources' }
+  { id: 'today', name: 'Today Dashboard', icon: null },
+  { id: 'daily', name: 'Daily Dashboard', icon: null },
+  { id: 'monthly', name: 'Monthly Dashboard', icon: null },
+  { id: 'yearly', name: 'Yearly Dashboard', icon: null },
+  { id: 'commercial', name: 'Commercial Dashboard', icon: null },
+  { id: 'dre', name: 'DRE Dashboard', icon: <FaChartPie className="mr-1 text-blue-500" /> },
+  { id: 'data-sources', name: 'Data Sources', icon: null }
 ];
 
 const AdminUserPage = () => {
@@ -47,7 +48,7 @@ const AdminUserPage = () => {
 
   // Check if user is admin - redirect if not
   if (!userRoles?.isAdmin) {
-    return <Navigate to="/" />;
+    return <Navigate to="/access-denied" />;
   }
 
   // Fetch all users from Firestore
@@ -364,8 +365,8 @@ const AdminUserPage = () => {
                     disabled={isAdmin}
                     className="h-4 w-4 text-primary focus:ring-primary dark:focus:ring-secondary rounded border-gray-300 dark:border-gray-600 disabled:opacity-50"
                   />
-                  <label htmlFor={`new-${route.id}`} className={`ml-2 ${isAdmin ? 'text-gray-500 dark:text-gray-500' : 'text-gray-700 dark:text-gray-200'}`}>
-                    {route.name}
+                  <label htmlFor={`new-${route.id}`} className={`ml-2 flex items-center ${isAdmin ? 'text-gray-500 dark:text-gray-500' : 'text-gray-700 dark:text-gray-200'}`}>
+                    {route.icon} {route.name}
                   </label>
                 </div>
               ))}
@@ -456,13 +457,14 @@ const AdminUserPage = () => {
                             user.roles && user.roles[route.id] ? (
                               <span 
                                 key={route.id}
-                                className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                                className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 flex items-center"
                               >
+                                {route.icon && <span className="mr-1">{route.icon}</span>}
                                 {route.name}
                               </span>
                             ) : null
                           ))}
-                          {Object.values(user.roles || {}).every(v => !v) && (
+                          {!user.roles || Object.values(user.roles).every(v => !v) && (
                             <span className="text-gray-500 dark:text-gray-400 italic">
                               Sem acesso
                             </span>
@@ -566,8 +568,8 @@ const AdminUserPage = () => {
                         disabled={editIsAdmin}
                         className="h-4 w-4 text-primary focus:ring-primary dark:focus:ring-secondary rounded border-gray-300 dark:border-gray-600 disabled:opacity-50"
                       />
-                      <label htmlFor={`edit-${route.id}`} className={`ml-2 ${editIsAdmin ? 'text-gray-500 dark:text-gray-500' : 'text-gray-700 dark:text-gray-200'}`}>
-                        {route.name}
+                      <label htmlFor={`edit-${route.id}`} className={`ml-2 flex items-center ${editIsAdmin ? 'text-gray-500 dark:text-gray-500' : 'text-gray-700 dark:text-gray-200'}`}>
+                        {route.icon} {route.name}
                       </label>
                     </div>
                   ))}
@@ -609,19 +611,6 @@ const AdminUserPage = () => {
               </h2>
               <button 
                 onClick={() => setShowDeleteModal(false)}
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 text-xl"
-              >
-                <FaTimes />
-              </button>
-            </div>
-            
-            <p className="text-gray-700 dark:text-gray-300 mb-6">
-              Tem certeza que deseja excluir o usuário <strong>{userToDelete?.displayName}</strong> ({userToDelete?.email})? Esta ação não poderá ser desfeita.
-            </p>
-            
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={() => setShowDeleteModal(false)}
                 className="px-4 py-2 border rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600"
               >
                 Cancelar
@@ -642,4 +631,4 @@ const AdminUserPage = () => {
   );
 };
 
-export default AdminUserPage;
+export default AdminUserPage

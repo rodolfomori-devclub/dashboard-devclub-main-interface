@@ -5,11 +5,12 @@ import DailyDashboard from './pages/DailyDashboard';
 import MonthlyDashboard from './pages/MonthlyDashboard';
 import YearlyDashboard from './pages/YearlyDashboard';
 import CommercialDashboard from './pages/CommercialDashboard';
+import DREDashboard from './pages/DREDashboard';
 import DataSourcesPage from './pages/DataSourcesPage';
 import AdminUserPage from './pages/AdminUserPage';
 import LoginPage from './pages/LoginPage';
+import AccessDeniedPage from './pages/AccessDeniedPage';
 import Today from './pages/Today';
-import ThemeToggle from './components/ThemeToggle';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 
 // Protected route component
@@ -23,7 +24,8 @@ const ProtectedRoute = ({ children, requiredPermission }) => {
   
   // If a specific permission is required, check it
   if (requiredPermission && !hasPermission(requiredPermission)) {
-    return <Navigate to="/" />;
+    // Redirect to access denied page instead of root
+    return <Navigate to="/access-denied" state={{ requiredPermission }} />;
   }
   
   return children;
@@ -34,7 +36,7 @@ const AdminRoute = ({ children }) => {
   const { userRoles } = useAuth();
   
   if (!userRoles?.isAdmin) {
-    return <Navigate to="/" />;
+    return <Navigate to="/access-denied" state={{ requiredPermission: 'admin' }} />;
   }
   
   return children;
@@ -59,7 +61,6 @@ const AuthenticatedLayout = ({ children }) => {
           </div>
         </div>
       </footer>
-      <ThemeToggle />
     </div>
   );
 };
@@ -69,6 +70,7 @@ function AppRouter() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/access-denied" element={<AccessDeniedPage />} />
       
       <Route path="/" element={
         <ProtectedRoute requiredPermission="today">
@@ -106,6 +108,14 @@ function AppRouter() {
         <ProtectedRoute requiredPermission="commercial">
           <AuthenticatedLayout>
             <CommercialDashboard />
+          </AuthenticatedLayout>
+        </ProtectedRoute>
+      } />
+      
+      <Route path="/dre" element={
+        <ProtectedRoute requiredPermission="dre">
+          <AuthenticatedLayout>
+            <DREDashboard />
           </AuthenticatedLayout>
         </ProtectedRoute>
       } />

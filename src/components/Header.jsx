@@ -1,12 +1,39 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { FaUserCog, FaSignOutAlt, FaBars, FaTimes } from 'react-icons/fa';
+import { FaUserCog, FaSignOutAlt, FaBars, FaTimes, FaChartPie, FaSun, FaMoon } from 'react-icons/fa';
 
 export default function Header() {
   const location = useLocation();
   const { userRoles, logout, currentUser } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [darkMode, setDarkMode] = useState(false);
+
+  useEffect(() => {
+    // Check if user has a theme preference stored
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+      setDarkMode(true);
+      document.documentElement.classList.add('dark');
+    } else {
+      // Default to light theme
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const newDarkMode = !darkMode;
+    setDarkMode(newDarkMode);
+    
+    if (newDarkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  };
 
   const isActive = (path) => {
     return location.pathname === path ? 'bg-secondary text-primary' : '';
@@ -39,7 +66,6 @@ export default function Header() {
             alt="DevClub Logo" 
             className="h-8 w-8 mr-2 inline dark:hidden" 
           />
-          <span className="font-bold text-lg hidden sm:inline">DevClub Dashboard</span>
         </div>
 
         {/* Mobile menu button */}
@@ -108,6 +134,17 @@ export default function Header() {
             </li>
           )}
           
+          {(userRoles?.dre !== false || userRoles?.isAdmin) && (
+            <li>
+              <Link
+                to="/dre"
+                className={`px-4 py-2 rounded hover:bg-secondary hover:text-primary transition-colors ${isActive('/dre')}`}
+              >
+                DRE
+              </Link>
+            </li>
+          )}
+          
           {userRoles?.['data-sources'] !== false && (
             <li>
               <Link
@@ -123,6 +160,19 @@ export default function Header() {
         {/* Desktop right side items */}
         {currentUser && (
           <div className="hidden lg:flex items-center space-x-4">
+            {/* Theme Toggle */}
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              aria-label={darkMode ? "Mudar para modo claro" : "Mudar para modo escuro"}
+            >
+              {darkMode ? (
+                <FaSun className="text-xl text-yellow-400" />
+              ) : (
+                <FaMoon className="text-xl text-gray-700" />
+              )}
+            </button>
+
             {userRoles?.isAdmin && (
               <Link
                 to="/admin/users"
@@ -158,11 +208,31 @@ export default function Header() {
               </div>
 
               <ul className="space-y-4">
+                {/* Theme Toggle in Mobile Menu */}
+                <li>
+                  <button
+                    onClick={toggleTheme}
+                    className="flex items-center w-full px-4 py-2 rounded text-text-light dark:text-text-dark hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    {darkMode ? (
+                      <>
+                        <FaSun className="mr-2 text-yellow-400" />
+                        Modo Claro
+                      </>
+                    ) : (
+                      <>
+                        <FaMoon className="mr-2" />
+                        Modo Escuro
+                      </>
+                    )}
+                  </button>
+                </li>
+
                 {userRoles?.today !== false && (
                   <li>
                     <Link
                       to="/"
-                      className={`block px-4 py-2 rounded text-text-light dark:text-text-dark hover:bg-gray-100 dark:hover:bg-gray-700 ${isActive('/')}`}
+                      className={`block px-4 py-2 rounded text-primary dark:text-text-dark hover:bg-gray-100 dark:hover:bg-gray-700 ${isActive('/')}`}
                       onClick={closeMobileMenu}
                     >
                       Hoje
@@ -174,7 +244,7 @@ export default function Header() {
                   <li>
                     <Link
                       to="/daily"
-                      className={`block px-4 py-2 rounded text-text-light dark:text-text-dark hover:bg-gray-100 dark:hover:bg-gray-700 ${isActive('/daily')}`}
+                      className={`block px-4 py-2 rounded text-primary dark:text-text-dark hover:bg-gray-100 dark:hover:bg-gray-700 ${isActive('/daily')}`}
                       onClick={closeMobileMenu}
                     >
                       Dashboard
@@ -186,7 +256,7 @@ export default function Header() {
                   <li>
                     <Link
                       to="/monthly"
-                      className={`block px-4 py-2 rounded text-text-light dark:text-text-dark hover:bg-gray-100 dark:hover:bg-gray-700 ${isActive('/monthly')}`}
+                      className={`block px-4 py-2 rounded text-primary dark:text-text-dark hover:bg-gray-100 dark:hover:bg-gray-700 ${isActive('/monthly')}`}
                       onClick={closeMobileMenu}
                     >
                       Dados Mensais
@@ -198,7 +268,7 @@ export default function Header() {
                   <li>
                     <Link
                       to="/yearly"
-                      className={`block px-4 py-2 rounded text-text-light dark:text-text-dark hover:bg-gray-100 dark:hover:bg-gray-700 ${isActive('/yearly')}`}
+                      className={`block px-4 py-2 rounded text-primary dark:text-text-dark hover:bg-gray-100 dark:hover:bg-gray-700 ${isActive('/yearly')}`}
                       onClick={closeMobileMenu}
                     >
                       Dados Anuais
@@ -210,10 +280,23 @@ export default function Header() {
                   <li>
                     <Link
                       to="/commercial"
-                      className={`block px-4 py-2 rounded text-text-light dark:text-text-dark hover:bg-gray-100 dark:hover:bg-gray-700 ${isActive('/commercial')}`}
+                      className={`block px-4 py-2 rounded text-primary dark:text-text-dark hover:bg-gray-100 dark:hover:bg-gray-700 ${isActive('/commercial')}`}
                       onClick={closeMobileMenu}
                     >
                       Comercial
+                    </Link>
+                  </li>
+                )}
+                
+                {(userRoles?.dre !== false || userRoles?.isAdmin) && (
+                  <li>
+                    <Link
+                      to="/dre"
+                      className={`block px-4 py-2 rounded text-primary dark:text-text-dark hover:bg-gray-100 dark:hover:bg-gray-700 ${isActive('/dre')}`}
+                      onClick={closeMobileMenu}
+                    >
+                      <FaChartPie className="inline mr-2" />
+                      DRE
                     </Link>
                   </li>
                 )}
@@ -222,7 +305,7 @@ export default function Header() {
                   <li>
                     <Link
                       to="/data-sources"
-                      className={`block px-4 py-2 rounded text-text-light dark:text-text-dark hover:bg-gray-100 dark:hover:bg-gray-700 ${isActive('/data-sources')}`}
+                      className={`block px-4 py-2 rounded text-primary dark:text-text-dark hover:bg-gray-100 dark:hover:bg-gray-700 ${isActive('/data-sources')}`}
                       onClick={closeMobileMenu}
                     >
                       Fontes de Dados
@@ -234,7 +317,7 @@ export default function Header() {
                   <li>
                     <Link
                       to="/admin/users"
-                      className={`block px-4 py-2 rounded text-text-light dark:text-text-dark hover:bg-gray-100 dark:hover:bg-gray-700 ${isActive('/admin/users')}`}
+                      className={`block px-4 py-2 rounded text-primary dark:text-text-dark hover:bg-gray-100 dark:hover:bg-gray-700 ${isActive('/admin/users')}`}
                       onClick={closeMobileMenu}
                     >
                       <FaUserCog className="inline mr-2" />
