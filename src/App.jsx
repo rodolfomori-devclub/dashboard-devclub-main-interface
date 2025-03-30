@@ -13,6 +13,10 @@ import AccessDeniedPage from './pages/AccessDeniedPage';
 import Today from './pages/Today';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 
+// Update the imports in App.jsx by adding these lines:
+import CommercialDashboardPage from './pages/CommercialDashboardPage';
+import CommercialSellersPage from './pages/CommercialSellersPage';
+
 // Protected route component
 const ProtectedRoute = ({ children, requiredPermission }) => {
   const { currentUser, hasPermission } = useAuth();
@@ -104,14 +108,29 @@ function AppRouter() {
         </ProtectedRoute>
       } />
       
-      <Route path="/commercial" element={
+      {/* <Route path="/commercial" element={
         <ProtectedRoute requiredPermission="commercial">
           <AuthenticatedLayout>
             <CommercialDashboard />
           </AuthenticatedLayout>
         </ProtectedRoute>
-      } />
+      } /> */}
       
+      <Route path="/commercial" element={
+  <ProtectedRoute requiredPermission="commercial">
+    <AuthenticatedLayout>
+      <CommercialDashboardPage />
+    </AuthenticatedLayout>
+  </ProtectedRoute>
+} />
+
+<Route path="/commercial/sellers" element={
+  <ProtectedRoute requiredPermission="commercial">
+    <AuthenticatedLayout>
+      <CommercialSellersPage />
+    </AuthenticatedLayout>
+  </ProtectedRoute>
+} />
       <Route path="/dre" element={
         <ProtectedRoute requiredPermission="dre">
           <AuthenticatedLayout>

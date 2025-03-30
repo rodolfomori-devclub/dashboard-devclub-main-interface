@@ -352,7 +352,7 @@ function MonthlyDashboard() {
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-primary-dark dark:text-primary">
-            Consolidade Mensal de Vendas
+            Consolidado Mensal de Vendas
           </h1>
           <button
             onClick={fetchMonthlyData}

@@ -107,7 +107,7 @@ export default function Header() {
                 to="/monthly"
                 className={`px-4 py-2 rounded hover:bg-secondary hover:text-primary transition-colors ${isActive('/monthly')}`}
               >
-                Consolidade Mensal
+                Consolidado Mensal
               </Link>
             </li>
           )}
@@ -235,7 +235,7 @@ export default function Header() {
                       className={`block px-4 py-2 rounded text-primary dark:text-text-dark hover:bg-gray-100 dark:hover:bg-gray-700 ${isActive('/')}`}
                       onClick={closeMobileMenu}
                     >
-                      Hoje
+                      Diário
                     </Link>
                   </li>
                 )}
@@ -247,7 +247,7 @@ export default function Header() {
                       className={`block px-4 py-2 rounded text-primary dark:text-text-dark hover:bg-gray-100 dark:hover:bg-gray-700 ${isActive('/daily')}`}
                       onClick={closeMobileMenu}
                     >
-                      Dashboard
+                      Global
                     </Link>
                   </li>
                 )}
@@ -259,7 +259,7 @@ export default function Header() {
                       className={`block px-4 py-2 rounded text-primary dark:text-text-dark hover:bg-gray-100 dark:hover:bg-gray-700 ${isActive('/monthly')}`}
                       onClick={closeMobileMenu}
                     >
-                      Dados Mensais
+                      Mensal
                     </Link>
                   </li>
                 )}
@@ -271,7 +271,7 @@ export default function Header() {
                       className={`block px-4 py-2 rounded text-primary dark:text-text-dark hover:bg-gray-100 dark:hover:bg-gray-700 ${isActive('/yearly')}`}
                       onClick={closeMobileMenu}
                     >
-                      Dados Anuais
+                      Anual
                     </Link>
                   </li>
                 )}
