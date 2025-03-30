@@ -1,0 +1,64 @@
+[
+    {
+        "id": "9fx8MrAm9qJ0cAXgr5Wf",
+        "sales": {
+            "DevClub Boleto": 4,
+            "DevClub Cartão": 4,
+            "Front End": 0,
+            "Vitalicio": 6
+        },
+        "name": "Pablo Henrique"
+    },
+    {
+        "id": "QPI7J8NLDXUuGanN4wBs",
+        "name": "Branca Oliveira",
+        "sales": {
+            "DevClub Boleto": 1,
+            "Vitalicio": 0,
+            "DevClub Cartão": 1,
+            "Front End": 0
+        }
+    },
+    {
+        "id": "aR4omf1VQVzgeDNDToMR",
+        "sales": {
+            "DevClub Boleto": 1,
+            "Front End": 0,
+            "DevClub Cartão": 0,
+            "Vitalicio": 3
+        },
+        "name": "Alana Cardoso"
+    },
+    {
+        "id": "lp5gG4WbdusVjgMvAzm5",
+        "name": "Lucas Gottlieb",
+        "sales": {
+            "DevClub Cartão": 4,
+            "DevClub Boleto": 10,
+            "Vitalicio": 7,
+            "Front End": 9,
+            "DevClub Guru": 0,
+            "DevClub TMB": 0
+        }
+    },
+    {
+        "id": "oqiBRAjCMuhUhMQrU8wT",
+        "name": "Naiara Marques",
+        "sales": {
+            "DevClub Boleto": 5,
+            "DevClub Cartão": 1,
+            "Vitalicio": 10,
+            "Front End": 0
+        }
+    },
+    {
+        "id": "twSmbDBDuPUhkeqV5Kat",
+        "name": "Karol Pierre",
+        "sales": {
+            "DevClub Cartão": 0,
+            "DevClub Boleto": 1,
+            "Front End": 2,
+            "Vitalicio": 3
+        }
+    }
+]
