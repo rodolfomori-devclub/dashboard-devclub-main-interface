@@ -572,8 +572,6 @@ function CommercialSellersPage() {
               </>
             )}
             {/* Modal Detalhes do Vendedor */}
-            // Substitua a parte do modal de detalhes de vendedor na
-            CommercialSellersPage.jsx
             {/* Modal Detalhes do Vendedor - Versão Melhorada */}
             {showModal && modalData && (
               <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 backdrop-blur-sm transition-all duration-300">

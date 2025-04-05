@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 
 const ConfettiEffect = () => {
   const [confetti, setConfetti] = useState([]);
+  const [isActive, setIsActive] = useState(true);
   
   useEffect(() => {
     // Criar 100 pedaços de confete
@@ -70,7 +71,9 @@ const ConfettiEffect = () => {
         })
       );
       
-      animationId = requestAnimationFrame(animate);
+      if (isActive) {
+        animationId = requestAnimationFrame(animate);
+      }
     };
     
     // Iniciar a animação após um pequeno atraso
@@ -78,12 +81,20 @@ const ConfettiEffect = () => {
       animationId = requestAnimationFrame(animate);
     }, 500);
     
+    // Parar a animação após 5 segundos
+    const stopTimeout = setTimeout(() => {
+      setIsActive(false);
+    }, 5000);
+    
     // Limpar
     return () => {
       cancelAnimationFrame(animationId);
       clearTimeout(timeout);
+      clearTimeout(stopTimeout);
     };
   }, []);
+  
+  if (!isActive) return null;
   
   return (
     <div className="fixed inset-0 pointer-events-none overflow-hidden z-10">
