@@ -305,7 +305,7 @@ function YearlyDashboard() {
                 {formatCurrency(yearlyData?.totals?.total_net_amount || 0)}
               </p>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Cartão + Boleto <br/>
+                Total <br/>
                 {yearlyData?.totals?.total_transactions || 0} venda(s)
               </p>
             </div>

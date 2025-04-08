@@ -360,7 +360,7 @@ function DREDashboard() {
           </h1>
           <button
             onClick={fetchData}
-            className="p-2 flex justify-center rounded-md bg-primary text-white dark:bg-primary-dark dark:text-white hover:bg-primary-dark hover:shadow-md dark:hover:bg-primary transition-all duration-200 ease-in-out transform hover:scale-105"
+            className="p-2 flex justify-center items-center rounded-md bg-primary text-white dark:bg-primary-dark dark:text-white hover:bg-primary-dark hover:shadow-md dark:hover:bg-primary transition-all duration-200 ease-in-out transform hover:scale-105"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"

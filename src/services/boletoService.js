@@ -6,20 +6,6 @@ const SHEET_ID = '1jPCyVkRImt8yYPgMlBAeMZPqwdyQvy9P_KpWmo2PHBU';
 // API Key
 const API_KEY = 'AIzaSyDefktRla6Q-o9k-yfKaLxW1nFMgAJfDt8';
 
-// Mapeamento de produtos para seus respectivos valores (usado como fallback)
-const PRODUCT_VALUES = {
-  'DevClub Full Stack': 2200,
-  'DevClub Boleto': 2200,
-  'DevClub Cartão': 2000,
-  'Vitalicio Cartão': 1000,
-  'Vitalicio Boleto': 1200,
-  'DevClub Vitalício': 5000,
-  'Front End Cartão': 500,
-  'Front End Boleto': 1200,
-  // Adicionar outros produtos conforme necessário
-  'DEFAULT': 2200 // Valor padrão se não encontrar o produto
-};
-
 /**
  * Serviço para consulta de vendas via boleto (TMB) do Google Sheets
  * Implementação completamente redesenhada com lógica de data simplificada
@@ -30,14 +16,23 @@ export const boletoService = {
   _lastFetchTime: null,
   
   /**
-   * Extrair dia/mês/ano de uma string no formato DD/MM/YYYY
-   * @param {string} dateStr String de data no formato DD/MM/YYYY
-   * @returns {Object} Objeto com dia, mês e ano extraídos
+   * Extrair dia/mês/ano e hora/minuto/segundo de uma string de data
+   * @param {string} dateStr String de data no formato DD/MM/YYYY ou DD/MM/YYYY HH:MM:SS
+   * @returns {Object} Objeto com dia, mês, ano e horário extraídos
    */
   _parseDateString(dateStr) {
     try {
-      // Considerar apenas a parte da data (ignorar a hora)
-      const datePart = dateStr.split(' ')[0];
+      let datePart = dateStr;
+      let timePart = null;
+      
+      // Verificar se há informação de hora na string
+      if (dateStr.includes(' ')) {
+        const parts = dateStr.split(' ');
+        datePart = parts[0];
+        timePart = parts[1];
+      }
+      
+      // Extrair dia, mês e ano
       const [day, month, year] = datePart.split('/').map(num => parseInt(num.trim(), 10));
       
       // Validar data para evitar valores inválidos
@@ -47,18 +42,47 @@ export const boletoService = {
         return {
           day: today.getDate(),
           month: today.getMonth() + 1,
-          year: today.getFullYear()
+          year: today.getFullYear(),
+          hours: today.getHours(),
+          minutes: today.getMinutes(),
+          seconds: today.getSeconds()
         };
       }
       
-      return { day, month, year };
+      // Extrair hora, minuto e segundo se disponíveis
+      let hours = 0, minutes = 0, seconds = 0;
+      
+      if (timePart) {
+        const timeComponents = timePart.split(':').map(num => parseInt(num.trim(), 10));
+        if (timeComponents.length >= 1 && !isNaN(timeComponents[0])) hours = timeComponents[0];
+        if (timeComponents.length >= 2 && !isNaN(timeComponents[1])) minutes = timeComponents[1];
+        if (timeComponents.length >= 3 && !isNaN(timeComponents[2])) seconds = timeComponents[2];
+      } else {
+        // Se não houver informação de horário, gerar um horário aleatório para distribuir as vendas
+        // Isso evita que todas as vendas apareçam ao meio-dia
+        hours = Math.floor(Math.random() * 14) + 8; // Horário entre 8h e 22h
+        minutes = Math.floor(Math.random() * 60);
+        seconds = Math.floor(Math.random() * 60);
+      }
+      
+      return { 
+        day, 
+        month, 
+        year,
+        hours,
+        minutes,
+        seconds
+      };
     } catch (error) {
       console.error(`Erro ao analisar data "${dateStr}":`, error);
       const today = new Date();
       return {
         day: today.getDate(),
         month: today.getMonth() + 1,
-        year: today.getFullYear()
+        year: today.getFullYear(),
+        hours: today.getHours(),
+        minutes: today.getMinutes(),
+        seconds: today.getSeconds()
       };
     }
   },
@@ -144,11 +168,10 @@ export const boletoService = {
             return null;
           }
           
-          // Extrair a data da string (ignora a hora)
+          // Extrair a data da string (incluindo hora se disponível)
           const dateParts = this._parseDateString(dataHoraStr);
           
           // Pegar o valor diretamente da planilha (índice 5), se existir
-          // Caso contrário, usar o valor do mapeamento ou valor padrão
           let saleValue = 0;
           
           // Verificar se existe um valor na posição 5 da linha
@@ -156,14 +179,11 @@ export const boletoService = {
             // Converter para número, removendo possíveis formatações (R$, ., etc)
             const rawValue = row[5].toString().replace(/[^\d,.-]/g, '').replace(',', '.');
             saleValue = parseFloat(rawValue) || 0;
-            
-            // Se não conseguir converter ou for 0, usar o valor do mapeamento
-            if (!saleValue) {
-              saleValue = PRODUCT_VALUES[produto.trim()] || PRODUCT_VALUES.DEFAULT;
-            }
-          } else {
-            // Se não existir o valor na planilha, usar o mapeamento
-            saleValue = PRODUCT_VALUES[produto.trim()] || PRODUCT_VALUES.DEFAULT;
+          }
+          
+          // Se o valor for 0 ou não existir, log um aviso mas ainda processa o item
+          if (saleValue === 0) {
+            console.warn(`Linha ${index + 2}: Valor de venda não encontrado ou é zero. Produto: ${produto}`);
           }
           
           // Criar objeto com as informações da venda
@@ -183,14 +203,14 @@ export const boletoService = {
               ...dateParts,
               original: dataHoraStr,
               // Para compatibilidade com código existente
-              timestamp: new Date(dateParts.year, dateParts.month - 1, dateParts.day, 12, 0, 0)
+              timestamp: new Date(dateParts.year, dateParts.month - 1, dateParts.day, dateParts.hours, dateParts.minutes, dateParts.seconds)
             },
             payment_method: 'boleto',
             channel: 'TMB',
             // Para compatibilidade com código existente
-            timestamp: new Date(dateParts.year, dateParts.month - 1, dateParts.day, 12, 0, 0),
+            timestamp: new Date(dateParts.year, dateParts.month - 1, dateParts.day, dateParts.hours, dateParts.minutes, dateParts.seconds),
             dates: {
-              created_at: Math.floor(new Date(dateParts.year, dateParts.month - 1, dateParts.day, 12, 0, 0).getTime() / 1000)
+              created_at: Math.floor(new Date(dateParts.year, dateParts.month - 1, dateParts.day, dateParts.hours, dateParts.minutes, dateParts.seconds).getTime() / 1000)
             },
             calculation_details: {
               net_amount: saleValue,
@@ -249,7 +269,7 @@ export const boletoService = {
       if (filtered.length > 0) {
         console.log("Primeiras vendas encontradas:");
         filtered.slice(0, 3).forEach(sale => {
-          console.log(`  - Data original: ${sale.date.original}, Produto: ${sale.product}`);
+          console.log(`  - Data original: ${sale.date.original}, Produto: ${sale.product}, Valor: ${sale.value}`);
         });
       }
       

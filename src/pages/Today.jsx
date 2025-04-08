@@ -363,54 +363,59 @@ function Today() {
   }
 
   // Configuração do tooltip personalizado para mostrar informações adicionais
-  const CustomTooltip = ({ active, payload, label }) => {
-    if (active && payload && payload.length) {
-      const hourData = payload[0].payload
+ // Atualização para o componente CustomTooltip em src/pages/Today.jsx
 
-      // Organizar vendas por produto por ordem decrescente de quantidade
-      const productSalesEntries = Object.entries(
-        hourData.productSales || {},
-      ).sort((a, b) => b[1] - a[1])
+const CustomTooltip = ({ active, payload, label }) => {
+  if (active && payload && payload.length) {
+    const hourData = payload[0].payload;
 
-      return (
-        <div className="bg-white dark:bg-gray-800 p-3 border rounded shadow-lg min-w-[200px]">
-          <p className="font-bold text-text-light dark:text-text-dark text-lg border-b pb-1 mb-2">{`${label}:00h`}</p>
-          <p className="text-text-light dark:text-text-dark font-medium">{`Vendas: ${hourData.sales}`}</p>
-          <p className="text-text-light dark:text-text-dark mb-2">{`Valor: ${formatCurrency(
-            hourData.value,
-          )}`}</p>
+    // Organizar vendas por produto por ordem decrescente de quantidade
+    const productSalesEntries = Object.entries(
+      hourData.productSales || {},
+    ).sort((a, b) => b[1] - a[1]);
 
-          {hourData.commercialSales > 0 && (
-            <p className="text-text-light dark:text-text-dark mb-2">{`Vendas Comercial: ${hourData.commercialSales}`}</p>
-          )}
+    return (
+      <div className="bg-white dark:bg-gray-800 p-3 border rounded shadow-lg min-w-[200px]">
+        <p className="font-bold text-text-light dark:text-text-dark text-lg border-b pb-1 mb-2">{`${label}:00h`}</p>
+        <p className="text-text-light dark:text-text-dark font-medium">{`Vendas: ${hourData.sales}`}</p>
+        <p className="text-text-light dark:text-text-dark mb-2">{`Valor: ${formatCurrency(
+          hourData.value,
+        )}`}</p>
 
-          {hourData.boletoSales > 0 && (
+        {hourData.commercialSales > 0 && (
+          <p className="text-text-light dark:text-text-dark mb-2">{`Vendas Comercial: ${hourData.commercialSales}`}</p>
+        )}
+
+        {hourData.boletoSales > 0 && (
+          <>
             <p className="text-text-light dark:text-text-dark mb-2">{`Vendas Boleto: ${hourData.boletoSales}`}</p>
-          )}
+            <p className="text-text-light dark:text-text-dark mb-2">{`Valor Boleto: ${formatCurrency(hourData.boletoValue || 0)}`}</p>
+          </>
+        )}
 
-          {productSalesEntries.length > 0 && (
-            <>
-              <p className="font-medium text-text-light dark:text-text-dark border-t pt-1 mt-2">
-                Vendas por produto:
-              </p>
-              <div className="mt-1 max-h-48 overflow-y-auto">
-                {productSalesEntries.map(([product, count], index) => (
-                  <div
-                    key={index}
-                    className="flex justify-between text-text-light dark:text-text-dark text-sm py-1"
-                  >
-                    <span className="mr-2 truncate">{product}</span>
-                    <span className="font-medium">{count}</span>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      )
-    }
-    return null
+        {productSalesEntries.length > 0 && (
+          <>
+            <p className="font-medium text-text-light dark:text-text-dark border-t pt-1 mt-2">
+              Vendas por produto:
+            </p>
+            <div className="mt-1 max-h-48 overflow-y-auto">
+              {productSalesEntries.map(([product, count], index) => (
+                <div
+                  key={index}
+                  className="flex justify-between text-text-light dark:text-text-dark text-sm py-1"
+                >
+                  <span className="mr-2 truncate">{product}</span>
+                  <span className="font-medium">{count}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+    );
   }
+  return null;
+};
 
   if (loading) {
     return (
@@ -449,7 +454,7 @@ function Today() {
             />
             <button
               onClick={() => fetchDayData(selectedDate)}
-              className="p-2 flex justify-center rounded-md bg-primary text-white dark:bg-primary-dark dark:text-white hover:bg-primary-dark hover:shadow-md dark:hover:bg-primary transition-all duration-200 ease-in-out transform hover:scale-105"
+              className="p-2 flex justify-center items-center rounded-md bg-primary text-white dark:bg-primary-dark dark:text-white hover:bg-primary-dark hover:shadow-md dark:hover:bg-primary transition-all duration-200 ease-in-out transform hover:scale-105"
               aria-label="Refresh data"
             >
               <svg
@@ -480,7 +485,7 @@ function Today() {
               {formatCurrency(todayData?.totalValue)}
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Cartão + Boleto <br />
+              Total <br />
               {todayData?.totalSales} venda(s)
             </p>
           </div>

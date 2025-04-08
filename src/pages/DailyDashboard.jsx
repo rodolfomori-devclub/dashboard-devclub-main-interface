@@ -297,7 +297,7 @@ function DailyDashboard() {
           </h1>
           <button
             onClick={handleRefreshData}
-            className="p-2 flex justify-center rounded-md bg-primary text-white dark:bg-primary-dark dark:text-white hover:bg-primary-dark hover:shadow-md dark:hover:bg-primary transition-all duration-200 ease-in-out transform hover:scale-105"
+            className="p-2 flex items-center justify-center rounded-md bg-primary text-white dark:bg-primary-dark dark:text-white hover:bg-primary-dark hover:shadow-md dark:hover:bg-primary transition-all duration-200 ease-in-out transform hover:scale-105"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -346,7 +346,7 @@ function DailyDashboard() {
               {formatCurrency(data?.totals?.total_net_amount || 0)}
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Cartão + Boleto <br/>
+              Total <br/>
               {data?.totals?.total_transactions || 0} venda(s)
             </p>
           </div>

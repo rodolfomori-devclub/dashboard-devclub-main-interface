@@ -356,7 +356,7 @@ function MonthlyDashboard() {
           </h1>
           <button
             onClick={fetchMonthlyData}
-            className="p-2 flex justify-center rounded-md bg-primary text-white dark:bg-primary-dark dark:text-white hover:bg-primary-dark hover:shadow-md dark:hover:bg-primary transition-all duration-200 ease-in-out transform hover:scale-105"
+            className="p-2 flex justify-center items-center rounded-md bg-primary text-white dark:bg-primary-dark dark:text-white hover:bg-primary-dark hover:shadow-md dark:hover:bg-primary transition-all duration-200 ease-in-out transform hover:scale-105"
           >
                    <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -381,7 +381,7 @@ function MonthlyDashboard() {
               {formatCurrency(monthlyData?.totals?.total_net_amount || 0)}
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Cartão + Boleto <br/>
+              Total <br/>
               {monthlyData?.totals?.total_transactions || 0} venda(s)
             </p>
           </div>
