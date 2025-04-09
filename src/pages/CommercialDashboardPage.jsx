@@ -1,4 +1,3 @@
-// src/pages/CommercialDashboardPage.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -20,6 +19,11 @@ import commercialService from '../services/commercialService';
 import goalsService from '../services/goalsService';
 import { formatCurrency } from '../utils/currencyUtils';
 import { FaEdit, FaSave, FaChartBar, FaCalendarAlt } from 'react-icons/fa';
+
+// Importação dos novos componentes para análise de métodos de pagamento
+import PaymentMethodAnalysis from '../components/PaymentMethodAnalysis';
+import PaymentMethodCards from '../components/PaymentMethodCards';
+import PaymentMethodComparison from '../components/PaymentMethodComparison';
 
 const COLORS = ['#37E359', '#051626', '#FF4500', '#1E90FF', '#FFD700', '#FF1493'];
 
@@ -57,7 +61,7 @@ function CommercialDashboardPage() {
     salesByProduct: [],
     salesBySeller: [],
     salesByChannel: [],
-    salesByPaymentMethod: [],
+    salesByPaymentMethod: [], // Novo campo para métodos de pagamento
     dailyTrend: [],
   });
 
@@ -173,17 +177,28 @@ function CommercialDashboardPage() {
     });
     const salesByChannel = Array.from(channelMap.values());
 
-    // Agrupar vendas por método de pagamento
+    // NOVO: Agrupar vendas por método de pagamento
     const paymentMap = new Map();
     sales.forEach(sale => {
-      const payment = sale.paymentMethod;
+      const payment = sale.paymentMethod || 'Desconhecido';
       if (!paymentMap.has(payment)) {
-        paymentMap.set(payment, { name: payment, count: 0, value: 0 });
+        paymentMap.set(payment, { 
+          name: payment, 
+          count: 0, 
+          value: 0,
+          ticketAvg: 0
+        });
       }
       const paymentData = paymentMap.get(payment);
       paymentData.count += 1;
       paymentData.value += (sale.value || 0);
     });
+    
+    // Calcular ticket médio para cada método de pagamento
+    paymentMap.forEach(method => {
+      method.ticketAvg = method.count > 0 ? method.value / method.count : 0;
+    });
+    
     const salesByPaymentMethod = Array.from(paymentMap.values());
 
     // Tendência diária (para gráfico de linha)
@@ -211,7 +226,7 @@ function CommercialDashboardPage() {
       salesByProduct,
       salesBySeller,
       salesByChannel,
-      salesByPaymentMethod,
+      salesByPaymentMethod, // NOVO: Adicionando dados de métodos de pagamento
       dailyTrend
     });
   };
@@ -490,7 +505,7 @@ function CommercialDashboardPage() {
                           }}
                         ></div>
                       </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                      <p className="text-xs font-semibold inline-block text-primary dark:text-primary">
                         {calculateProgress(goals[goalType])}% concluído ({summary.totalSales} de {goals[goalType]})
                       </p>
                     </div>
@@ -527,6 +542,9 @@ function CommercialDashboardPage() {
               </div>
             </div>
 
+            {/* NOVO: Adicionar Cards de Métodos de Pagamento */}
+            <PaymentMethodCards salesData={filteredSales} />
+
             {/* Top Vendedores */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
               <div className="flex justify-between items-center mb-6">
@@ -562,6 +580,9 @@ function CommercialDashboardPage() {
                 ))}
               </div>
             </div>
+
+            {/* NOVO: Comparativo de Métodos de Pagamento */}
+            <PaymentMethodComparison salesData={filteredSales} />
 
             {/* Gráficos */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -638,35 +659,6 @@ function CommercialDashboardPage() {
                 </div>
               </div>
 
-              {/* Vendas por Método de Pagamento */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
-                  Vendas por Método de Pagamento
-                </h3>
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={summary.salesByPaymentMethod}
-                        dataKey="count"
-                        nameKey="name"
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={80}
-                        fill="#8884d8"
-                        label={(entry) => entry.name}
-                      >
-                        {summary.salesByPaymentMethod.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(value, name, props) => [value, 'Vendas']} />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
               {/* Tendência de Vendas Diárias */}
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 md:col-span-2">
                 <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
@@ -711,6 +703,9 @@ function CommercialDashboardPage() {
                 </div>
               </div>
             </div>
+
+            {/* NOVO: Análise detalhada por Método de Pagamento */}
+            <PaymentMethodAnalysis salesData={filteredSales} />
 
             {/* Lista de vendas recentes */}
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">

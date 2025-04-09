@@ -8,6 +8,7 @@ const API_KEY = 'AIzaSyDefktRla6Q-o9k-yfKaLxW1nFMgAJfDt8';
 
 /**
  * Serviço para consulta de vendas comerciais do Google Sheets
+ * Implementação atualizada para buscar dados de todas as abas
  */
 export const commercialService = {
   // Armazenar os dados em cache após a primeira chamada
@@ -81,7 +82,7 @@ export const commercialService = {
   },
 
   /**
-   * Buscar todos os dados da planilha
+   * Buscar todos os dados de todas as abas da planilha
    * @returns {Promise<Array>} Array com os dados processados da planilha
    */
   async fetchAllSalesData() {
@@ -93,100 +94,140 @@ export const commercialService = {
     }
     
     try {
-      console.log('Buscando dados da planilha comercial');
+      console.log('Buscando dados da planilha comercial (todas as abas)');
       
-      // Buscar informações sobre a planilha
+      // Buscar informações sobre a planilha para obter todas as abas
       const sheetsUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?key=${API_KEY}`;
       const sheetsResponse = await axios.get(sheetsUrl);
       
-      // Encontrar a primeira aba
+      // Obter todas as abas
       const sheets = sheetsResponse.data.sheets || [];
       if (sheets.length === 0) {
-        console.error('Nenhuma aba encontrada na planilha');
+        console.error('Nenhuma aba encontrada na planilha comercial');
         return [];
       }
       
-      // Obter o nome da primeira aba
-      const sheetName = sheets[0].properties?.title;
-      if (!sheetName) {
-        console.error('Não foi possível determinar o nome da aba');
-        return [];
-      }
+      console.log(`Total de abas encontradas: ${sheets.length}`);
       
-      console.log(`Usando a aba: ${sheetName}`);
+      // Buscar dados de todas as abas
+      const allSales = [];
       
-      // Buscar os dados da aba
-      const valuesUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(sheetName)}?key=${API_KEY}`;
-      const response = await axios.get(valuesUrl);
-      
-      const rows = response.data.values || [];
-      console.log(`Número de linhas na planilha: ${rows.length}`);
-      
-      if (rows.length <= 1) {
-        console.log('Planilha vazia ou contém apenas cabeçalhos');
-        return [];
-      }
-      
-      // Mapear os dados (pular a primeira linha, que são cabeçalhos)
-      const processedData = rows.slice(1).map((row, index) => {
-        // Verificar se a linha tem dados suficientes
-        if (row.length < 5) {
-          console.log(`Linha ${index + 2} tem dados insuficientes:`, row);
-          return null;
+      for (const sheet of sheets) {
+        const sheetName = sheet.properties?.title;
+        if (!sheetName) continue;
+        
+        console.log(`Buscando dados da aba: ${sheetName}`);
+        
+        // Buscar os dados da aba
+        const valuesUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(sheetName)}?key=${API_KEY}`;
+        const response = await axios.get(valuesUrl);
+        
+        const rows = response.data.values || [];
+        console.log(`Número de linhas na aba ${sheetName}: ${rows.length}`);
+        
+        if (rows.length <= 1) {
+          console.log(`Aba ${sheetName} vazia ou contém apenas cabeçalhos`);
+          continue;
         }
         
-        try {
-          // Posições aproximadas dos campos (ajustar conforme a estrutura real)
-          const produto = row[0] || 'Não especificado';
-          const valor = parseFloat((row[1] || '0').replace(/[^0-9.,]/g, '').replace(',', '.'));
-          const vendedor = row[2] || 'Desconhecido';
-          const dataStr = row[3] || new Date().toLocaleDateString();
-          const meioPagamento = row[4] || 'Desconhecido';
-          const canal = row[5] || 'Desconhecido';
+        // Identificar cabeçalhos (para lidar com diferentes estruturas)
+        const headers = rows[0].map(header => 
+          header ? header.toLowerCase().trim() : ''
+        );
+        
+        // Encontrar índices dos campos necessários
+        const produtoIndex = headers.indexOf('produto') !== -1 ? 
+          headers.indexOf('produto') : 0;
+        
+        const valorIndex = headers.indexOf('valor') !== -1 ? 
+          headers.indexOf('valor') : 1;
+        
+        const vendedorIndex = headers.indexOf('vendedor') !== -1 ? 
+          headers.indexOf('vendedor') : 2;
+        
+        const dataIndex = headers.indexOf('data') !== -1 ? 
+          headers.indexOf('data') : 3;
+        
+        const pagamentoIndex = headers.indexOf('pagamento') !== -1 ? 
+          headers.indexOf('pagamento') : headers.indexOf('meio de pagamento') !== -1 ? 
+          headers.indexOf('meio de pagamento') : 4;
+        
+        const canalIndex = headers.indexOf('canal') !== -1 ? 
+          headers.indexOf('canal') : 5;
+        
+        // Mapear os dados (pular a primeira linha, que são cabeçalhos)
+        const sheetSales = rows.slice(1).map((row, index) => {
+          // Verificar se a linha tem dados suficientes
+          if (row.length < Math.max(produtoIndex, valorIndex, vendedorIndex, dataIndex) + 1) {
+            return null;
+          }
           
-          // Ignoramos os campos de nome, email e telefone do aluno conforme solicitado
-          
-          // Processar a data
-          const dateParts = this._parseDateString(dataStr);
-          const timestamp = new Date(dateParts.year, dateParts.month - 1, dateParts.day);
-          
-          // Criar objeto de venda
-          return {
-            id: `commercial-${index}-${Math.random().toString(36).substring(2, 10)}`,
-            product: produto.trim(),
-            value: valor,
-            seller: vendedor.trim(),
-            paymentMethod: meioPagamento.trim(),
-            channel: canal.trim(),
-            date: {
-              day: dateParts.day,
-              month: dateParts.month,
-              year: dateParts.year,
-              formatted: `${dateParts.day}/${dateParts.month}/${dateParts.year}`
-            },
-            timestamp
-          };
-        } catch (err) {
-          console.log(`Erro ao processar linha ${index + 2}:`, err.message);
-          return null;
-        }
-      }).filter(item => item !== null);
+          try {
+            // Obter valores com tratamento para evitar erros com campos ausentes
+            const produto = row[produtoIndex] || 'Não especificado';
+            
+            // Tratar valor: remover formatação e converter para número
+            let valor = 0;
+            if (row[valorIndex]) {
+              const valorStr = row[valorIndex].toString().replace(/[^0-9.,]/g, '').replace(',', '.');
+              valor = parseFloat(valorStr) || 0;
+            }
+            
+            const vendedor = row[vendedorIndex] || 'Desconhecido';
+            const dataStr = row[dataIndex] || new Date().toLocaleDateString();
+            const meioPagamento = row.length > pagamentoIndex ? row[pagamentoIndex] || 'Desconhecido' : 'Desconhecido';
+            const canal = row.length > canalIndex ? row[canalIndex] || 'Desconhecido' : 'Desconhecido';
+            
+            // Processar a data
+            const dateParts = this._parseDateString(dataStr);
+            const timestamp = new Date(dateParts.year, dateParts.month - 1, dateParts.day);
+            
+            // Criar objeto de venda
+            return {
+              id: `commercial-${sheetName}-${index}-${Math.random().toString(36).substring(2, 10)}`,
+              product: produto.trim(),
+              value: valor,
+              seller: vendedor.trim(),
+              paymentMethod: meioPagamento.trim(),
+              channel: canal.trim(),
+              date: {
+                day: dateParts.day,
+                month: dateParts.month,
+                year: dateParts.year,
+                formatted: `${dateParts.day}/${dateParts.month}/${dateParts.year}`
+              },
+              timestamp,
+              sheetName // Manter referência da aba para depuração
+            };
+          } catch (err) {
+            console.log(`Erro ao processar linha ${index + 2} da aba ${sheetName}:`, err.message);
+            return null;
+          }
+        }).filter(item => item !== null);
+        
+        console.log(`Processadas ${sheetSales.length} vendas válidas na aba ${sheetName}`);
+        
+        // Adicionar vendas desta aba ao array total
+        allSales.push(...sheetSales);
+      }
       
-      console.log(`Dados processados: ${processedData.length} vendas comerciais válidas`);
+      console.log(`Total de vendas comerciais processadas de todas as abas: ${allSales.length}`);
       
-      // Extrair lista de vendedores
-      const uniqueVendors = [...new Set(processedData.map(sale => sale.seller))];
+      // Extrair lista de vendedores únicos
+      const uniqueVendors = [...new Set(allSales.map(sale => sale.seller))];
       this._cachedVendors = uniqueVendors.sort();
+      console.log(`Vendedores encontrados: ${uniqueVendors.length}`);
       
-      // Extrair lista de produtos
-      const uniqueProducts = [...new Set(processedData.map(sale => sale.product))];
+      // Extrair lista de produtos únicos
+      const uniqueProducts = [...new Set(allSales.map(sale => sale.product))];
       this._cachedProducts = uniqueProducts.sort();
+      console.log(`Produtos encontrados: ${uniqueProducts.length}`);
       
       // Atualizar cache
-      this._cachedData = processedData;
+      this._cachedData = allSales;
       this._lastFetchTime = now;
       
-      return processedData;
+      return allSales;
     } catch (error) {
       console.error('Erro ao buscar dados da planilha comercial:', error.response?.data || error.message);
       return [];
