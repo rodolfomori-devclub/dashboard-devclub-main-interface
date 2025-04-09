@@ -14,6 +14,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 // Update the imports in App.jsx by adding these lines:
 import CommercialDashboardPage from './pages/CommercialDashboardPage';
 import CommercialSellersPage from './pages/CommercialSellersPage';
+import CommercialSalesListPage from './pages/CommercialSalesListPage';
 
 // Protected route component
 const ProtectedRoute = ({ children, requiredPermission }) => {
@@ -106,29 +107,31 @@ function AppRouter() {
         </ProtectedRoute>
       } />
       
-      {/* <Route path="/commercial" element={
+      <Route path="/commercial" element={
         <ProtectedRoute requiredPermission="commercial">
           <AuthenticatedLayout>
-            <CommercialDashboard />
+            <CommercialDashboardPage />
           </AuthenticatedLayout>
         </ProtectedRoute>
-      } /> */}
-      
-      <Route path="/commercial" element={
-  <ProtectedRoute requiredPermission="commercial">
-    <AuthenticatedLayout>
-      <CommercialDashboardPage />
-    </AuthenticatedLayout>
-  </ProtectedRoute>
-} />
+      } />
 
-<Route path="/commercial/sellers" element={
-  <ProtectedRoute requiredPermission="commercial">
-    <AuthenticatedLayout>
-      <CommercialSellersPage />
-    </AuthenticatedLayout>
-  </ProtectedRoute>
-} />
+      <Route path="/commercial/sellers" element={
+        <ProtectedRoute requiredPermission="commercial">
+          <AuthenticatedLayout>
+            <CommercialSellersPage />
+          </AuthenticatedLayout>
+        </ProtectedRoute>
+      } />
+      
+      {/* Nova rota para listar todas as vendas */}
+      <Route path="/commercial/sales" element={
+        <ProtectedRoute requiredPermission="commercial">
+          <AuthenticatedLayout>
+            <CommercialSalesListPage />
+          </AuthenticatedLayout>
+        </ProtectedRoute>
+      } />
+      
       <Route path="/dre" element={
         <ProtectedRoute requiredPermission="dre">
           <AuthenticatedLayout>

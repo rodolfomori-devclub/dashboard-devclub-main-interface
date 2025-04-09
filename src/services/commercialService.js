@@ -7,6 +7,22 @@ const SHEET_ID = '1sLPgeIYpAGWnUXolgWqSskKhbWYmwZZXo-86EDHZ8lI';
 const API_KEY = 'AIzaSyDefktRla6Q-o9k-yfKaLxW1nFMgAJfDt8';
 
 /**
+ * Função utilitária para normalizar nomes
+ * - Transforma em title case (primeira letra maiúscula, resto minúscula)
+ * - Trata nomes compostos e com espaços
+ * @param {string} name Nome a ser normalizado
+ * @returns {string} Nome normalizado
+ */
+const normalizeSellerName = (name) => {
+  if (!name) return 'Desconhecido';
+  
+  // Converter para lowercase e então tornar a primeira letra de cada palavra maiúscula
+  return name.trim().toLowerCase().split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
+/**
  * Serviço para consulta de vendas comerciais do Google Sheets
  * Implementação atualizada para buscar dados de todas as abas
  */
@@ -16,6 +32,7 @@ export const commercialService = {
   _lastFetchTime: null,
   _cachedVendors: null,
   _cachedProducts: null,
+  _normalizedVendorsMap: {}, // Mapa para rastrear nomes de vendedores normalizados
   
   /**
    * Extrair dia/mês/ano de uma string no formato DD/MM/YYYY
@@ -96,6 +113,9 @@ export const commercialService = {
     try {
       console.log('Buscando dados da planilha comercial (todas as abas)');
       
+      // Limpar o mapa de vendedores normalizados ao fazer uma nova busca
+      this._normalizedVendorsMap = {};
+      
       // Buscar informações sobre a planilha para obter todas as abas
       const sheetsUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?key=${API_KEY}`;
       const sheetsResponse = await axios.get(sheetsUrl);
@@ -173,7 +193,15 @@ export const commercialService = {
               valor = parseFloat(valorStr) || 0;
             }
             
-            const vendedor = row[vendedorIndex] || 'Desconhecido';
+            // Normalizar nome do vendedor
+            const rawVendedor = row[vendedorIndex] || 'Desconhecido';
+            const normalizedVendedor = normalizeSellerName(rawVendedor);
+            
+            // Rastrear o nome normalizado para agrupamento posterior
+            if (!this._normalizedVendorsMap[normalizedVendedor.toLowerCase()]) {
+              this._normalizedVendorsMap[normalizedVendedor.toLowerCase()] = normalizedVendedor;
+            }
+            
             const dataStr = row[dataIndex] || new Date().toLocaleDateString();
             const meioPagamento = row.length > pagamentoIndex ? row[pagamentoIndex] || 'Desconhecido' : 'Desconhecido';
             const canal = row.length > canalIndex ? row[canalIndex] || 'Desconhecido' : 'Desconhecido';
@@ -187,7 +215,8 @@ export const commercialService = {
               id: `commercial-${sheetName}-${index}-${Math.random().toString(36).substring(2, 10)}`,
               product: produto.trim(),
               value: valor,
-              seller: vendedor.trim(),
+              seller: normalizedVendedor,
+              rawSeller: rawVendedor, // Manter o original para depuração
               paymentMethod: meioPagamento.trim(),
               channel: canal.trim(),
               date: {
@@ -213,14 +242,14 @@ export const commercialService = {
       
       console.log(`Total de vendas comerciais processadas de todas as abas: ${allSales.length}`);
       
-      // Extrair lista de vendedores únicos
-      const uniqueVendors = [...new Set(allSales.map(sale => sale.seller))];
-      this._cachedVendors = uniqueVendors.sort();
-      console.log(`Vendedores encontrados: ${uniqueVendors.length}`);
+      // Extrair lista de vendedores únicos normalizados
+      const uniqueVendors = Object.values(this._normalizedVendorsMap).sort();
+      this._cachedVendors = uniqueVendors;
+      console.log(`Vendedores encontrados (após normalização): ${uniqueVendors.length}`);
       
       // Extrair lista de produtos únicos
-      const uniqueProducts = [...new Set(allSales.map(sale => sale.product))];
-      this._cachedProducts = uniqueProducts.sort();
+      const uniqueProducts = [...new Set(allSales.map(sale => sale.product))].sort();
+      this._cachedProducts = uniqueProducts;
       console.log(`Produtos encontrados: ${uniqueProducts.length}`);
       
       // Atualizar cache
@@ -307,12 +336,15 @@ export const commercialService = {
     try {
       const salesInRange = await this.getSalesByDateRange(startDate, endDate);
       
-      // Filtrar pelo vendedor
+      // Normalizar o nome do vendedor para busca
+      const normalizedSeller = normalizeSellerName(seller);
+      
+      // Filtrar pelo vendedor normalizado
       const filteredBySeller = salesInRange.filter(sale => 
-        sale.seller.toLowerCase() === seller.toLowerCase()
+        sale.seller.toLowerCase() === normalizedSeller.toLowerCase()
       );
       
-      console.log(`Encontradas ${filteredBySeller.length} vendas para o vendedor "${seller}" no período`);
+      console.log(`Encontradas ${filteredBySeller.length} vendas para o vendedor "${normalizedSeller}" no período`);
       
       return filteredBySeller;
     } catch (error) {
