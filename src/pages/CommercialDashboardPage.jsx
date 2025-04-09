@@ -19,6 +19,7 @@ import commercialService from '../services/commercialService';
 import goalsService from '../services/goalsService';
 import { formatCurrency } from '../utils/currencyUtils';
 import { FaEdit, FaSave, FaChartBar, FaCalendarAlt } from 'react-icons/fa';
+import {Link} from 'react-router-dom'
 
 // Importação dos novos componentes para análise de métodos de pagamento
 import PaymentMethodAnalysis from '../components/PaymentMethodAnalysis';
@@ -707,11 +708,22 @@ function CommercialDashboardPage() {
             {/* NOVO: Análise detalhada por Método de Pagamento */}
             <PaymentMethodAnalysis salesData={filteredSales} />
 
-            {/* Lista de vendas recentes */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-              <h3 className="text-xl font-bold text-primary dark:text-secondary mb-6">
-                Vendas Recentes
-              </h3>
+      {/* Lista de vendas recentes */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold text-primary dark:text-secondary">
+                  Vendas Recentes
+                </h3>
+                <Link 
+                  to="/commercial/sales" 
+                  className="inline-flex items-center text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  Ver todas as vendas
+                  <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
+                  </svg>
+                </Link>
+              </div>
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                   <thead className="bg-gray-50 dark:bg-gray-700">
@@ -761,6 +773,15 @@ function CommercialDashboardPage() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+              
+              <div className="mt-4 text-center">
+                <Link 
+                  to="/commercial/sales" 
+                  className="inline-flex items-center px-4 py-2 bg-primary text-white dark:bg-secondary dark:text-primary-dark rounded-lg hover:bg-primary-dark dark:hover:bg-secondary-light transition-colors"
+                >
+                  Ver todas as vendas
+                </Link>
               </div>
             </div>
           </>
