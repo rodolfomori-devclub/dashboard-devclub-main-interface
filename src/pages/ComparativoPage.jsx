@@ -1083,6 +1083,14 @@ function ComparativoPage() {
                     <p className="text-sm text-gray-500 dark:text-gray-400">
                       {getFirstLabel()}
                     </p>
+                    {/* Adicionado: Comparação em relação ao segundo valor */}
+                    {secondData.summary.totalSales > 0 && (
+                      <p className={`text-xs font-medium mt-1 ${getDiffStyle(firstData.summary.totalSales - secondData.summary.totalSales)}`}>
+                        {firstData.summary.totalSales > secondData.summary.totalSales ? '+' : ''}
+                        {((firstData.summary.totalSales - secondData.summary.totalSales) / secondData.summary.totalSales * 100).toFixed(2)}% 
+                        ({firstData.summary.totalSales - secondData.summary.totalSales})
+                      </p>
+                    )}
                   </div>
                   <div className="pl-2">
                     <p className="text-2xl font-bold text-blue-500 dark:text-blue-400">
@@ -1091,6 +1099,14 @@ function ComparativoPage() {
                     <p className="text-sm text-gray-500 dark:text-gray-400">
                       {getSecondLabel()}
                     </p>
+                    {/* Adicionado: Comparação em relação ao primeiro valor */}
+                    {firstData.summary.totalSales > 0 && (
+                      <p className={`text-xs font-medium mt-1 ${getDiffStyle(secondData.summary.totalSales - firstData.summary.totalSales)}`}>
+                        {secondData.summary.totalSales > firstData.summary.totalSales ? '+' : ''}
+                        {((secondData.summary.totalSales - firstData.summary.totalSales) / firstData.summary.totalSales * 100).toFixed(2)}% 
+                        ({secondData.summary.totalSales - firstData.summary.totalSales})
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="mt-3 flex items-center">
@@ -1115,6 +1131,14 @@ function ComparativoPage() {
                     <p className="text-sm text-gray-500 dark:text-gray-400">
                       {getFirstLabel()}
                     </p>
+                    {/* Adicionado: Comparação em relação ao segundo valor */}
+                    {secondData.summary.totalValue > 0 && (
+                      <p className={`text-xs font-medium mt-1 ${getDiffStyle(firstData.summary.totalValue - secondData.summary.totalValue)}`}>
+                        {firstData.summary.totalValue > secondData.summary.totalValue ? '+' : ''}
+                        {((firstData.summary.totalValue - secondData.summary.totalValue) / secondData.summary.totalValue * 100).toFixed(2)}% 
+                        ({formatCurrency(firstData.summary.totalValue - secondData.summary.totalValue)})
+                      </p>
+                    )}
                   </div>
                   <div className="pl-2">
                     <p className="text-2xl font-bold text-blue-500 dark:text-blue-400">
@@ -1123,6 +1147,14 @@ function ComparativoPage() {
                     <p className="text-sm text-gray-500 dark:text-gray-400">
                       {getSecondLabel()}
                     </p>
+                    {/* Adicionado: Comparação em relação ao primeiro valor */}
+                    {firstData.summary.totalValue > 0 && (
+                      <p className={`text-xs font-medium mt-1 ${getDiffStyle(secondData.summary.totalValue - firstData.summary.totalValue)}`}>
+                        {secondData.summary.totalValue > firstData.summary.totalValue ? '+' : ''}
+                        {((secondData.summary.totalValue - firstData.summary.totalValue) / firstData.summary.totalValue * 100).toFixed(2)}% 
+                        ({formatCurrency(secondData.summary.totalValue - firstData.summary.totalValue)})
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="mt-3 flex items-center">
@@ -1147,6 +1179,21 @@ function ComparativoPage() {
                     <p className="text-sm text-gray-500 dark:text-gray-400">
                       {getFirstLabel()}
                     </p>
+                    {/* Adicionado: Comparação em relação ao segundo valor */}
+                    {secondData.summary.cardSales > 0 && (
+                      <p className={`text-xs font-medium mt-1 ${getDiffStyle(firstData.summary.cardSales - secondData.summary.cardSales)}`}>
+                        {firstData.summary.cardSales > secondData.summary.cardSales ? '+' : ''}
+                        {((firstData.summary.cardSales - secondData.summary.cardSales) / secondData.summary.cardSales * 100).toFixed(2)}% 
+                        ({firstData.summary.cardSales - secondData.summary.cardSales})
+                      </p>
+                    )}
+                    {secondData.summary.cardValue > 0 && (
+                      <p className={`text-xs font-medium ${getDiffStyle(firstData.summary.cardValue - secondData.summary.cardValue)}`}>
+                        {firstData.summary.cardValue > secondData.summary.cardValue ? '+' : ''}
+                        {((firstData.summary.cardValue - secondData.summary.cardValue) / secondData.summary.cardValue * 100).toFixed(2)}% 
+                        ({formatCurrency(firstData.summary.cardValue - secondData.summary.cardValue)})
+                      </p>
+                    )}
                   </div>
                   <div className="pl-2">
                     <p className="text-xl font-bold text-blue-500 dark:text-blue-400">
@@ -1155,6 +1202,21 @@ function ComparativoPage() {
                     <p className="text-sm text-gray-500 dark:text-gray-400">
                       {getSecondLabel()}
                     </p>
+                    {/* Adicionado: Comparação em relação ao primeiro valor */}
+                    {firstData.summary.cardSales > 0 && (
+                      <p className={`text-xs font-medium mt-1 ${getDiffStyle(secondData.summary.cardSales - firstData.summary.cardSales)}`}>
+                        {secondData.summary.cardSales > firstData.summary.cardSales ? '+' : ''}
+                        {((secondData.summary.cardSales - firstData.summary.cardSales) / firstData.summary.cardSales * 100).toFixed(2)}% 
+                        ({secondData.summary.cardSales - firstData.summary.cardSales})
+                      </p>
+                    )}
+                    {firstData.summary.cardValue > 0 && (
+                      <p className={`text-xs font-medium ${getDiffStyle(secondData.summary.cardValue - firstData.summary.cardValue)}`}>
+                        {secondData.summary.cardValue > firstData.summary.cardValue ? '+' : ''}
+                        {((secondData.summary.cardValue - firstData.summary.cardValue) / firstData.summary.cardValue * 100).toFixed(2)}% 
+                        ({formatCurrency(secondData.summary.cardValue - firstData.summary.cardValue)})
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="mt-3 flex items-center">
@@ -1179,6 +1241,21 @@ function ComparativoPage() {
                     <p className="text-sm text-gray-500 dark:text-gray-400">
                       {getFirstLabel()}
                     </p>
+                    {/* Adicionado: Comparação em relação ao segundo valor */}
+                    {secondData.summary.boletoSales > 0 && (
+                      <p className={`text-xs font-medium mt-1 ${getDiffStyle(firstData.summary.boletoSales - secondData.summary.boletoSales)}`}>
+                        {firstData.summary.boletoSales > secondData.summary.boletoSales ? '+' : ''}
+                        {((firstData.summary.boletoSales - secondData.summary.boletoSales) / secondData.summary.boletoSales * 100).toFixed(2)}% 
+                        ({firstData.summary.boletoSales - secondData.summary.boletoSales})
+                      </p>
+                    )}
+                    {secondData.summary.boletoValue > 0 && (
+                      <p className={`text-xs font-medium ${getDiffStyle(firstData.summary.boletoValue - secondData.summary.boletoValue)}`}>
+                        {firstData.summary.boletoValue > secondData.summary.boletoValue ? '+' : ''}
+                        {((firstData.summary.boletoValue - secondData.summary.boletoValue) / secondData.summary.boletoValue * 100).toFixed(2)}% 
+                        ({formatCurrency(firstData.summary.boletoValue - secondData.summary.boletoValue)})
+                      </p>
+                    )}
                   </div>
                   <div className="pl-2">
                     <p className="text-xl font-bold text-blue-500 dark:text-blue-400">
@@ -1187,6 +1264,21 @@ function ComparativoPage() {
                     <p className="text-sm text-gray-500 dark:text-gray-400">
                       {getSecondLabel()}
                     </p>
+                    {/* Adicionado: Comparação em relação ao primeiro valor */}
+                    {firstData.summary.boletoSales > 0 && (
+                      <p className={`text-xs font-medium mt-1 ${getDiffStyle(secondData.summary.boletoSales - firstData.summary.boletoSales)}`}>
+                        {secondData.summary.boletoSales > firstData.summary.boletoSales ? '+' : ''}
+                        {((secondData.summary.boletoSales - firstData.summary.boletoSales) / firstData.summary.boletoSales * 100).toFixed(2)}% 
+                        ({secondData.summary.boletoSales - firstData.summary.boletoSales})
+                      </p>
+                    )}
+                    {firstData.summary.boletoValue > 0 && (
+                      <p className={`text-xs font-medium ${getDiffStyle(secondData.summary.boletoValue - firstData.summary.boletoValue)}`}>
+                        {secondData.summary.boletoValue > firstData.summary.boletoValue ? '+' : ''}
+                        {((secondData.summary.boletoValue - firstData.summary.boletoValue) / firstData.summary.boletoValue * 100).toFixed(2)}% 
+                        ({formatCurrency(secondData.summary.boletoValue - firstData.summary.boletoValue)})
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="mt-3 flex items-center">
@@ -1211,6 +1303,21 @@ function ComparativoPage() {
                     <p className="text-sm text-gray-500 dark:text-gray-400">
                       {getFirstLabel()}
                     </p>
+                    {/* Adicionado: Comparação em relação ao segundo valor */}
+                    {secondData.summary.refunds > 0 && (
+                      <p className={`text-xs font-medium mt-1 ${getDiffStyle(-1 * (firstData.summary.refunds - secondData.summary.refunds))}`}>
+                        {firstData.summary.refunds < secondData.summary.refunds ? '-' : '+'}
+                        {((firstData.summary.refunds - secondData.summary.refunds) / secondData.summary.refunds * 100).toFixed(2)}% 
+                        ({firstData.summary.refunds - secondData.summary.refunds})
+                      </p>
+                    )}
+                    {secondData.summary.refundAmount > 0 && (
+                      <p className={`text-xs font-medium ${getDiffStyle(-1 * (firstData.summary.refundAmount - secondData.summary.refundAmount))}`}>
+                        {firstData.summary.refundAmount < secondData.summary.refundAmount ? '-' : '+'}
+                        {((firstData.summary.refundAmount - secondData.summary.refundAmount) / secondData.summary.refundAmount * 100).toFixed(2)}% 
+                        ({formatCurrency(firstData.summary.refundAmount - secondData.summary.refundAmount)})
+                      </p>
+                    )}
                   </div>
                   <div className="pl-2">
                     <p className="text-xl font-bold text-blue-500 dark:text-blue-400">
@@ -1219,6 +1326,21 @@ function ComparativoPage() {
                     <p className="text-sm text-gray-500 dark:text-gray-400">
                       {getSecondLabel()}
                     </p>
+                    {/* Adicionado: Comparação em relação ao primeiro valor */}
+                    {firstData.summary.refunds > 0 && (
+                      <p className={`text-xs font-medium mt-1 ${getDiffStyle(-1 * (secondData.summary.refunds - firstData.summary.refunds))}`}>
+                        {secondData.summary.refunds < firstData.summary.refunds ? '-' : '+'}
+                        {((secondData.summary.refunds - firstData.summary.refunds) / firstData.summary.refunds * 100).toFixed(2)}% 
+                        ({secondData.summary.refunds - firstData.summary.refunds})
+                      </p>
+                    )}
+                    {firstData.summary.refundAmount > 0 && (
+                      <p className={`text-xs font-medium ${getDiffStyle(-1 * (secondData.summary.refundAmount - firstData.summary.refundAmount))}`}>
+                        {secondData.summary.refundAmount < firstData.summary.refundAmount ? '-' : '+'}
+                        {((secondData.summary.refundAmount - firstData.summary.refundAmount) / firstData.summary.refundAmount * 100).toFixed(2)}% 
+                        ({formatCurrency(secondData.summary.refundAmount - firstData.summary.refundAmount)})
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="mt-3 flex items-center">
@@ -1234,99 +1356,364 @@ function ComparativoPage() {
 
             {/* Gráficos Comparativos */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-              {/* Comparativo de Vendas por Hora */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
-                  Comparativo de Vendas por Hora
-                </h3>
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={comparativeResults.hourlyComparison}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="hour" tickFormatter={(hour) => `${hour}h`} />
-                      <YAxis />
-                      <Tooltip 
-                        formatter={(value, name) => {
-                          return [`${value} vendas`, name.includes('first') ? getFirstLabel() : getSecondLabel()];
-                        }}
-                        labelFormatter={(hour) => `${hour}:00h`}
-                      />
-                      <Legend 
-                        formatter={(value) => {
-                          if (value === 'firstSales') return getFirstLabel();
-                          if (value === 'secondSales') return getSecondLabel();
-                          return value;
-                        }}
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="firstSales" 
-                        name="firstSales" 
-                        stroke={PRIMARY_COLOR} 
-                        strokeWidth={2} 
-                        dot={true} 
-                        activeDot={{ r: 6 }}
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="secondSales" 
-                        name="secondSales" 
-                        stroke={SECONDARY_COLOR} 
-                        strokeWidth={2} 
-                        dot={true} 
-                        activeDot={{ r: 6 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
+              {/* Comparativo de Vendas por Hora - Apenas mostrar quando comparando dias */}
+              {compareType === 'days' && (
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                  <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
+                    Comparativo de Vendas por Hora
+                  </h3>
+                  <div className="h-80">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={comparativeResults.hourlyComparison}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="hour" tickFormatter={(hour) => `${hour}h`} />
+                        <YAxis />
+                        <Tooltip 
+                          content={({ active, payload, label }) => {
+                            if (!active || !payload || !payload.length) return null;
+                            
+                            // Ordenar para mostrar o maior valor primeiro
+                            const sortedPayload = [...payload].sort((a, b) => b.value - a.value);
+                            const hour = label;
+                            
+                            return (
+                              <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded shadow-md">
+                                <p className="font-bold text-gray-800 dark:text-white">{`${hour}:00h`}</p>
+                                {sortedPayload.map((entry, index) => {
+                                  const isFirst = entry.dataKey === 'firstSales';
+                                  const salesValue = entry.value;
+                                  const monetaryValue = isFirst 
+                                    ? comparativeResults.hourlyComparison[hour].firstValue 
+                                    : comparativeResults.hourlyComparison[hour].secondValue;
+                                  const period = isFirst ? getFirstLabel() : getSecondLabel();
+                                  const color = isFirst ? PRIMARY_COLOR : SECONDARY_COLOR;
+                                  
+                                  return (
+                                    <div key={index} className="flex items-center mt-1">
+                                      <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: color }}></div>
+                                      <p className="text-sm">
+                                        <span className="font-medium">{period}:</span>{' '}
+                                        {`${salesValue} vendas (${formatCurrency(monetaryValue)})`}
+                                      </p>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          }}
+                        />
+                        <Legend 
+                          formatter={(value) => {
+                            if (value === 'firstSales') return getFirstLabel();
+                            if (value === 'secondSales') return getSecondLabel();
+                            return value;
+                          }}
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="firstSales" 
+                          name="firstSales" 
+                          stroke={PRIMARY_COLOR} 
+                          strokeWidth={2} 
+                          dot={true} 
+                          activeDot={{ r: 6 }}
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="secondSales" 
+                          name="secondSales" 
+                          stroke={SECONDARY_COLOR} 
+                          strokeWidth={2} 
+                          dot={true} 
+                          activeDot={{ r: 6 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
-              </div>
+              )}
 
-              {/* Comparativo de Valor por Hora */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
-                  Comparativo de Valor por Hora
-                </h3>
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={comparativeResults.hourlyComparison}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="hour" tickFormatter={(hour) => `${hour}h`} />
-                      <YAxis tickFormatter={(value) => formatCurrency(value).slice(0, -3)} />
-                      <Tooltip 
-                        formatter={(value, name) => {
-                          return [formatCurrency(value), name.includes('first') ? getFirstLabel() : getSecondLabel()];
-                        }}
-                        labelFormatter={(hour) => `${hour}:00h`}
-                      />
-                      <Legend 
-                        formatter={(value) => {
-                          if (value === 'firstValue') return getFirstLabel();
-                          if (value === 'secondValue') return getSecondLabel();
-                          return value;
-                        }}
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="firstValue" 
-                        name="firstValue" 
-                        stroke={PRIMARY_COLOR} 
-                        strokeWidth={2} 
-                        dot={true} 
-                        activeDot={{ r: 6 }}
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="secondValue" 
-                        name="secondValue" 
-                        stroke={SECONDARY_COLOR} 
-                        strokeWidth={2} 
-                        dot={true} 
-                        activeDot={{ r: 6 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
+              {/* Comparativo de Valor por Hora - Apenas mostrar quando comparando dias */}
+              {compareType === 'days' && (
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                  <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
+                    Comparativo de Valor por Hora
+                  </h3>
+                  <div className="h-80">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={comparativeResults.hourlyComparison}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="hour" tickFormatter={(hour) => `${hour}h`} />
+                        <YAxis tickFormatter={(value) => formatCurrency(value).slice(0, -3)} />
+                        <Tooltip 
+                          content={({ active, payload, label }) => {
+                            if (!active || !payload || !payload.length) return null;
+                            
+                            // Ordenar para mostrar o maior valor primeiro
+                            const sortedPayload = [...payload].sort((a, b) => b.value - a.value);
+                            const hour = label;
+                            
+                            return (
+                              <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded shadow-md">
+                                <p className="font-bold text-gray-800 dark:text-white">{`${hour}:00h`}</p>
+                                {sortedPayload.map((entry, index) => {
+                                  const isFirst = entry.dataKey === 'firstValue';
+                                  const monetaryValue = entry.value;
+                                  const salesValue = isFirst 
+                                    ? comparativeResults.hourlyComparison[hour].firstSales 
+                                    : comparativeResults.hourlyComparison[hour].secondSales;
+                                  const period = isFirst ? getFirstLabel() : getSecondLabel();
+                                  const color = isFirst ? PRIMARY_COLOR : SECONDARY_COLOR;
+                                  
+                                  return (
+                                    <div key={index} className="flex items-center mt-1">
+                                      <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: color }}></div>
+                                      <p className="text-sm">
+                                        <span className="font-medium">{period}:</span>{' '}
+                                        {`${formatCurrency(monetaryValue)} (${salesValue} vendas)`}
+                                      </p>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          }}
+                        />
+                        <Legend 
+                          formatter={(value) => {
+                            if (value === 'firstValue') return getFirstLabel();
+                            if (value === 'secondValue') return getSecondLabel();
+                            return value;
+                          }}
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="firstValue" 
+                          name="firstValue" 
+                          stroke={PRIMARY_COLOR} 
+                          strokeWidth={2} 
+                          dot={true} 
+                          activeDot={{ r: 6 }}
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="secondValue" 
+                          name="secondValue" 
+                          stroke={SECONDARY_COLOR} 
+                          strokeWidth={2} 
+                          dot={true} 
+                          activeDot={{ r: 6 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* Comparativo de vendas por dia (para períodos) */}
+              {compareType === 'periods' && comparativeResults.dailyComparison && (
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                  <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
+                    Comparativo de Vendas por Dia
+                  </h3>
+                  <div className="h-80">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={comparativeResults.dailyComparison}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis 
+                          dataKey="dayNumber" 
+                          tickFormatter={(day) => `Dia ${day}`}
+                        />
+                        <YAxis />
+                        <Tooltip 
+                          content={({ active, payload, label }) => {
+                            if (!active || !payload || !payload.length) return null;
+                            
+                            // Ordenar para mostrar o maior valor primeiro
+                            const sortedPayload = [...payload].sort((a, b) => b.value - a.value);
+                            const dayIndex = parseInt(label) - 1;
+                            
+                            return (
+                              <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded shadow-md">
+                                <p className="font-bold text-gray-800 dark:text-white">
+                                  {`Dia ${label} (${formatDateBR(comparativeResults.dailyComparison[dayIndex].firstDate)})`}
+                                </p>
+                                {sortedPayload.map((entry, index) => {
+                                  const isFirst = entry.dataKey === 'firstSales';
+                                  const salesValue = entry.value;
+                                  const monetaryValue = isFirst 
+                                    ? comparativeResults.dailyComparison[dayIndex].firstValue 
+                                    : comparativeResults.dailyComparison[dayIndex].secondValue;
+                                  const period = isFirst ? getFirstLabel() : getSecondLabel();
+                                  const color = isFirst ? PRIMARY_COLOR : SECONDARY_COLOR;
+                                  
+                                  return (
+                                    <div key={index} className="flex items-center mt-1">
+                                      <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: color }}></div>
+                                      <p className="text-sm">
+                                        <span className="font-medium">{period}:</span>{' '}
+                                        {`${salesValue} vendas (${formatCurrency(monetaryValue)})`}
+                                      </p>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            );
+                          }}
+                        />
+                        <Legend 
+                          formatter={(value) => {
+                            if (value === 'firstSales') return getFirstLabel();
+                            if (value === 'secondSales') return getSecondLabel();
+                            return value;
+                          }}
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="firstSales" 
+                          name="firstSales" 
+                          stroke={PRIMARY_COLOR} 
+                          strokeWidth={2} 
+                          dot={true} 
+                          activeDot={{ r: 6 }}
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="secondSales" 
+                          name="secondSales" 
+                          stroke={SECONDARY_COLOR} 
+                          strokeWidth={2} 
+                          dot={true} 
+                          activeDot={{ r: 6 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
+              
+              {/* Comparativo de Valor por Dia (para períodos) - VISUALIZAÇÃO ALTERNATIVA */}
+              {compareType === 'periods' && comparativeResults.dailyComparison && (
+                <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                  <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
+                    Comparativo de Valor por Dia
+                  </h3>
+                  <div className="h-80">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart data={comparativeResults.dailyComparison}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis 
+                          dataKey="dayNumber" 
+                          tickFormatter={(day) => `Dia ${day}`}
+                        />
+                        <YAxis 
+                          yAxisId="left"
+                          tickFormatter={(value) => formatCurrency(value).slice(0, -3)} 
+                        />
+                        <YAxis 
+                          yAxisId="right"
+                          orientation="right"
+                          tickFormatter={(value) => formatCurrency(value).slice(0, -3)} 
+                        />
+                        <Tooltip 
+                          content={({ active, payload, label }) => {
+                            if (!active || !payload || !payload.length) return null;
+                            
+                            // Ordenar para mostrar o maior valor primeiro
+                            const sortedPayload = [...payload].sort((a, b) => {
+                              // Apenas ordenar os valores (não os pontos de comparação)
+                              if (a.dataKey === 'diffBar') return 1; // Sempre por último
+                              if (b.dataKey === 'diffBar') return -1;
+                              return b.value - a.value;
+                            });
+                            
+                            const dayIndex = parseInt(label) - 1;
+                            const firstValue = comparativeResults.dailyComparison[dayIndex].firstValue;
+                            const secondValue = comparativeResults.dailyComparison[dayIndex].secondValue;
+                            const diffValue = firstValue - secondValue;
+                            const diffPercent = secondValue !== 0 
+                              ? (diffValue / secondValue) * 100 
+                              : (diffValue > 0 ? 100 : 0);
+                            
+                            return (
+                              <div className="bg-white dark:bg-gray-800 p-3 border border-gray-200 dark:border-gray-700 rounded shadow-md">
+                                <p className="font-bold text-gray-800 dark:text-white">
+                                  {`Dia ${label} (${formatDateBR(comparativeResults.dailyComparison[dayIndex].firstDate)})`}
+                                </p>
+                                
+                                {/* Valores individuais */}
+                                {sortedPayload.map((entry, index) => {
+                                  if (entry.dataKey === 'diffBar') return null; // Não mostrar a barra de diferença aqui
+                                  
+                                  const isFirst = entry.dataKey === 'firstValue';
+                                  const monetaryValue = entry.value;
+                                  const salesValue = isFirst 
+                                    ? comparativeResults.dailyComparison[dayIndex].firstSales 
+                                    : comparativeResults.dailyComparison[dayIndex].secondSales;
+                                  const period = isFirst ? getFirstLabel() : getSecondLabel();
+                                  const color = isFirst ? PRIMARY_COLOR : SECONDARY_COLOR;
+                                  
+                                  return (
+                                    <div key={index} className="flex items-center mt-1">
+                                      <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: color }}></div>
+                                      <p className="text-sm">
+                                        <span className="font-medium">{period}:</span>{' '}
+                                        {`${formatCurrency(monetaryValue)} (${salesValue} vendas)`}
+                                      </p>
+                                    </div>
+                                  );
+                                })}
+                                
+                                {/* Diferença */}
+                                <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                                  <p className={`text-sm font-semibold ${getDiffStyle(diffValue)}`}>
+                                    Diferença: {formatCurrency(diffValue)} ({diffValue > 0 ? '+' : ''}{diffPercent.toFixed(2)}%)
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                          }}
+                        />
+                        <Legend 
+                          formatter={(value) => {
+                            if (value === 'firstValue') return getFirstLabel();
+                            if (value === 'secondValue') return getSecondLabel();
+                            if (value === 'diffBar') return 'Diferença';
+                            return value;
+                          }}
+                        />
+                        <Bar 
+                          dataKey="firstValue" 
+                          name="firstValue" 
+                          yAxisId="left"
+                          fill={PRIMARY_COLOR} 
+                          fillOpacity={0.7}
+                          barSize={20}
+                        />
+                        <Bar 
+                          dataKey="secondValue" 
+                          name="secondValue" 
+                          yAxisId="left"
+                          fill={SECONDARY_COLOR} 
+                          fillOpacity={0.7}
+                          barSize={20}
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey={(dataPoint) => dataPoint.firstValue - dataPoint.secondValue}
+                          name="diffBar"
+                          yAxisId="right"
+                          stroke="#FF6B6B" 
+                          strokeWidth={2}
+                          dot={{ fill: '#FF6B6B', r: 6 }}
+                          activeDot={{ r: 8 }}
+                        />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
+              
 
               {/* Comparativo de Cartão vs Boleto */}
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
