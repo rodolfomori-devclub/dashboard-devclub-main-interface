@@ -16,6 +16,7 @@ import AccessDeniedPage from './pages/AccessDeniedPage'
 import Today from './pages/Today'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import ComparativoPage from './pages/ComparativoPage'
+import LaunchPro from './pages/LaunchPro'
 
 // Update the imports in App.jsx by adding these lines:
 import CommercialDashboardPage from './pages/CommercialDashboardPage'
@@ -189,6 +190,18 @@ function AppRouter() {
           </ProtectedRoute>
         }
       />
+
+<Route
+        path="/launch"
+        element={
+          <ProtectedRoute requiredPermission="dre">
+            <AuthenticatedLayout>
+              <LaunchPro />
+            </AuthenticatedLayout>
+          </ProtectedRoute>
+        }
+      />
+
 
       <Route
         path="/admin/users"
