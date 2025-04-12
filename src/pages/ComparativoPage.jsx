@@ -22,6 +22,7 @@ import {
   ComposedChart
 } from 'recharts';
 import { formatCurrency } from '../utils/currencyUtils';
+import DateRangePicker from '../components/DateRangePicker';
 
 // Cores para os gráficos
 const COLORS = ['#37E359', '#051626', '#FF4500', '#1E90FF', '#FFD700', '#FF1493'];
@@ -94,7 +95,7 @@ function ComparativoPage() {
       return firstPeriodDays === secondPeriodDays;
     }
     return true;
-  }, [compareType, firstPeriodStart, firstPeriodEnd, secondPeriodStart, secondPeriodEnd, calculateDaysDifference]);
+  }, [compareType, firstPeriodStart, firstPeriodEnd, secondPeriodStart, secondPeriodEnd]);
 
   // Estado para mensagem de validação
   const [periodValidationMessage, setPeriodValidationMessage] = useState("");
@@ -865,6 +866,17 @@ function ComparativoPage() {
     return `${sign}${percent.toFixed(2)}%`;
   };
 
+  // Handlers para o DateRangePicker
+  const handleFirstPeriodChange = (start, end) => {
+    setFirstPeriodStart(start);
+    setFirstPeriodEnd(end);
+  };
+
+  const handleSecondPeriodChange = (start, end) => {
+    setSecondPeriodStart(start);
+    setSecondPeriodEnd(end);
+  };
+
   return (
     <div className="min-h-screen bg-background-light dark:bg-background-dark p-6">
       <div className="max-w-7xl mx-auto">
@@ -914,7 +926,44 @@ function ComparativoPage() {
           </div>
 
           {/* Seleção de dias ou períodos */}
-          {compareType === 'days' ? (
+          {compareType === 'periods' ? (
+            <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="bg-gray-50 dark:bg-gray-750 p-4 rounded-lg">
+                <h3 className="text-lg font-medium text-primary dark:text-secondary mb-3">
+                  Primeiro Período
+                </h3>
+                <DateRangePicker 
+                  startDate={firstPeriodStart}
+                  endDate={firstPeriodEnd}
+                  onDateChange={handleFirstPeriodChange}
+                />
+                <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                  Duração: {calculateDaysDifference(firstPeriodStart, firstPeriodEnd)} dias
+                </div>
+              </div>
+              
+              <div className="bg-gray-50 dark:bg-gray-750 p-4 rounded-lg">
+                <h3 className="text-lg font-medium text-primary dark:text-secondary mb-3">
+                  Segundo Período
+                </h3>
+                <DateRangePicker 
+                  startDate={secondPeriodStart}
+                  endDate={secondPeriodEnd}
+                  onDateChange={handleSecondPeriodChange}
+                />
+                <div className="mt-2 flex flex-col">
+                  <div className="text-sm text-gray-500 dark:text-gray-400">
+                    Duração: {calculateDaysDifference(secondPeriodStart, secondPeriodEnd)} dias
+                  </div>
+                  {periodValidationMessage && (
+                    <div className="mt-2 text-sm text-red-500 dark:text-red-400">
+                      {periodValidationMessage}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
             <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -937,81 +986,6 @@ function ComparativoPage() {
                   onChange={(e) => setSecondDate(e.target.value)}
                   className="w-full border rounded-lg bg-white dark:bg-gray-700 text-text-light dark:text-text-dark px-3 py-2"
                 />
-              </div>
-            </div>
-          ) : (
-            <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-gray-50 dark:bg-gray-750 p-4 rounded-lg">
-                <h3 className="text-lg font-medium text-primary dark:text-secondary mb-3">
-                  Primeiro Período
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Data Inicial
-                    </label>
-                    <input
-                      type="date"
-                      value={firstPeriodStart}
-                      onChange={(e) => setFirstPeriodStart(e.target.value)}
-                      className="w-full border rounded-lg bg-white dark:bg-gray-700 text-text-light dark:text-text-dark px-3 py-2"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Data Final
-                    </label>
-                    <input
-                      type="date"
-                      value={firstPeriodEnd}
-                      onChange={(e) => setFirstPeriodEnd(e.target.value)}
-                      className="w-full border rounded-lg bg-white dark:bg-gray-700 text-text-light dark:text-text-dark px-3 py-2"
-                    />
-                  </div>
-                </div>
-                <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                  Duração: {calculateDaysDifference(firstPeriodStart, firstPeriodEnd)} dias
-                </div>
-              </div>
-              
-              <div className="bg-gray-50 dark:bg-gray-750 p-4 rounded-lg">
-                <h3 className="text-lg font-medium text-primary dark:text-secondary mb-3">
-                  Segundo Período
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Data Inicial
-                    </label>
-                    <input
-                      type="date"
-                      value={secondPeriodStart}
-                      onChange={(e) => setSecondPeriodStart(e.target.value)}
-                      className="w-full border rounded-lg bg-white dark:bg-gray-700 text-text-light dark:text-text-dark px-3 py-2"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Data Final
-                    </label>
-                    <input
-                      type="date"
-                      value={secondPeriodEnd}
-                      onChange={(e) => setSecondPeriodEnd(e.target.value)}
-                      className="w-full border rounded-lg bg-white dark:bg-gray-700 text-text-light dark:text-text-dark px-3 py-2"
-                    />
-                  </div>
-                </div>
-                <div className="mt-2 flex flex-col">
-                  <div className="text-sm text-gray-500 dark:text-gray-400">
-                    Duração: {calculateDaysDifference(secondPeriodStart, secondPeriodEnd)} dias
-                  </div>
-                  {periodValidationMessage && (
-                    <div className="mt-2 text-sm text-red-500 dark:text-red-400">
-                      {periodValidationMessage}
-                    </div>
-                  )}
-                </div>
               </div>
             </div>
           )}
@@ -1048,7 +1022,7 @@ function ComparativoPage() {
           </div>
         )}
 
-        {/* Resultados Comparativos */}
+        {/* Restante do código permanece o mesmo - visualizações dos dados comparativos */}
         {!loading && comparativeResults && (
           <>
             {/* Legenda de Cores */}
@@ -1067,7 +1041,7 @@ function ComparativoPage() {
                 </div>
               </div>
             </div>
-
+            
             {/* CORREÇÃO: Cards de Resumo - Alterados para máximo 3 por linha */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
               {/* Total de Vendas */}
@@ -1109,13 +1083,7 @@ function ComparativoPage() {
                     )}
                   </div>
                 </div>
-                <div className="mt-3 flex items-center">
-                  <span className={`font-semibold ${getDiffStyle(comparativeResults.differences.sales.absolute)}`}>
-                    {comparativeResults.differences.sales.absolute > 0 ? '+' : ''}
-                    {comparativeResults.differences.sales.absolute} 
-                    ({formatPercentage(comparativeResults.differences.sales.percent)})
-                  </span>
-                </div>
+       
               </div>
 
               {/* Valor Total */}
@@ -1157,13 +1125,7 @@ function ComparativoPage() {
                     )}
                   </div>
                 </div>
-                <div className="mt-3 flex items-center">
-                  <span className={`font-semibold ${getDiffStyle(comparativeResults.differences.value.absolute)}`}>
-                    {comparativeResults.differences.value.absolute > 0 ? '+' : ''}
-                    {formatCurrency(comparativeResults.differences.value.absolute)} 
-                    ({formatPercentage(comparativeResults.differences.value.percent)})
-                  </span>
-                </div>
+         
               </div>
 
               {/* Vendas por Cartão */}
@@ -1219,13 +1181,7 @@ function ComparativoPage() {
                     )}
                   </div>
                 </div>
-                <div className="mt-3 flex items-center">
-                  <span className={`font-semibold ${getDiffStyle(comparativeResults.differences.cardSales.absolute)}`}>
-                    {comparativeResults.differences.cardSales.absolute > 0 ? '+' : ''}
-                    {comparativeResults.differences.cardSales.absolute} 
-                    ({formatPercentage(comparativeResults.differences.cardSales.percent)})
-                  </span>
-                </div>
+   
               </div>
 
               {/* Vendas por Boleto */}
@@ -1281,13 +1237,7 @@ function ComparativoPage() {
                     )}
                   </div>
                 </div>
-                <div className="mt-3 flex items-center">
-                  <span className={`font-semibold ${getDiffStyle(comparativeResults.differences.boletoSales.absolute)}`}>
-                    {comparativeResults.differences.boletoSales.absolute > 0 ? '+' : ''}
-                    {comparativeResults.differences.boletoSales.absolute} 
-                    ({formatPercentage(comparativeResults.differences.boletoSales.percent)})
-                  </span>
-                </div>
+
               </div>
 
               {/* Reembolsos */}
@@ -1343,14 +1293,7 @@ function ComparativoPage() {
                     )}
                   </div>
                 </div>
-                <div className="mt-3 flex items-center">
-                  {/* Para reembolsos, menos é melhor, então invertemos a lógica de cores */}
-                  <span className={`font-semibold ${getDiffStyle(-comparativeResults.differences.refunds.absolute)}`}>
-                    {comparativeResults.differences.refunds.absolute > 0 ? '+' : ''}
-                    {comparativeResults.differences.refunds.absolute} 
-                    ({formatPercentage(comparativeResults.differences.refunds.percent)})
-                  </span>
-                </div>
+    
               </div>
             </div>
 
