@@ -85,40 +85,63 @@ function ComparativoPage() {
     return Math.ceil(differenceInTime / (1000 * 3600 * 24)) + 1; // +1 para incluir o dia final
   };
 
-  // Função para ajustar automaticamente o período 2 ao mudar o período 1
-  const adjustSecondPeriod = useCallback(() => {
+  // Função para validar que o segundo período tem a mesma duração que o primeiro
+  const validatePeriods = useCallback(() => {
     if (compareType === 'periods') {
-      const days = calculateDaysDifference(firstPeriodStart, firstPeriodEnd);
+      const firstPeriodDays = calculateDaysDifference(firstPeriodStart, firstPeriodEnd);
+      const secondPeriodDays = calculateDaysDifference(secondPeriodStart, secondPeriodEnd);
       
-      const newSecondPeriodEnd = new Date(firstPeriodStart);
-      newSecondPeriodEnd.setDate(newSecondPeriodEnd.getDate() - 1);
-      
-      const newSecondPeriodStart = new Date(newSecondPeriodEnd);
-      newSecondPeriodStart.setDate(newSecondPeriodStart.getDate() - days + 1);
-      
-      setSecondPeriodEnd(newSecondPeriodEnd.toISOString().split('T')[0]);
-      setSecondPeriodStart(newSecondPeriodStart.toISOString().split('T')[0]);
+      return firstPeriodDays === secondPeriodDays;
     }
-  }, [compareType, firstPeriodStart, firstPeriodEnd]);
+    return true;
+  }, [compareType, firstPeriodStart, firstPeriodEnd, secondPeriodStart, secondPeriodEnd, calculateDaysDifference]);
 
-  // Verificar e ajustar os períodos quando necessário
+  // Estado para mensagem de validação
+  const [periodValidationMessage, setPeriodValidationMessage] = useState("");
+
+  // Verificar e mostrar mensagem de validação quando necessário
   useEffect(() => {
     if (compareType === 'periods') {
-      adjustSecondPeriod();
+      const firstPeriodDays = calculateDaysDifference(firstPeriodStart, firstPeriodEnd);
+      const secondPeriodDays = calculateDaysDifference(secondPeriodStart, secondPeriodEnd);
+      
+      if (firstPeriodDays !== secondPeriodDays) {
+        setPeriodValidationMessage(`Os períodos devem ter a mesma duração. O primeiro período tem ${firstPeriodDays} dias, mas o segundo tem ${secondPeriodDays} dias.`);
+      } else {
+        setPeriodValidationMessage("");
+      }
     }
-  }, [firstPeriodStart, firstPeriodEnd, compareType, adjustSecondPeriod]);
+  }, [firstPeriodStart, firstPeriodEnd, secondPeriodStart, secondPeriodEnd, compareType, calculateDaysDifference]);
+
+  // CORREÇÃO: Função auxiliar para ajustar a data para o fuso horário local
+  const adjustDateToLocalTimezone = (dateString) => {
+    // Criar uma data com a string fornecida, mas forçando o horário para meio-dia
+    // para evitar problemas com o fuso horário
+    const dateParts = dateString.split('-');
+    const year = parseInt(dateParts[0]);
+    const month = parseInt(dateParts[1]) - 1; // Mês em JavaScript é de 0-11
+    const day = parseInt(dateParts[2]);
+    
+    // Criar uma data às 12:00 (meio-dia) no fuso horário local
+    const date = new Date(year, month, day, 12, 0, 0);
+    return date;
+  };
 
   // Função para buscar dados de um dia específico
   const fetchDayData = useCallback(async (date) => {
     try {
       setLoading(true);
 
+      // CORREÇÃO: Ajustar a data para o fuso horário local
+      const selectedDate = adjustDateToLocalTimezone(date);
+      const apiDateString = date; // formato YYYY-MM-DD para a API
+
       // Buscar transações aprovadas
       const transactionsResponse = await axios.post(
         `${import.meta.env.VITE_API_URL}/transactions`,
         {
-          ordered_at_ini: date,
-          ordered_at_end: date,
+          ordered_at_ini: apiDateString,
+          ordered_at_end: apiDateString,
         }
       );
 
@@ -126,13 +149,12 @@ function ComparativoPage() {
       const refundsResponse = await axios.post(
         `${import.meta.env.VITE_API_URL}/refunds`,
         {
-          ordered_at_ini: date,
-          ordered_at_end: date,
+          ordered_at_ini: apiDateString,
+          ordered_at_end: apiDateString,
         }
       );
 
       // Buscar vendas de boleto (TMB)
-      const selectedDate = new Date(date);
       const boletoSales = await boletoService.getSalesByDate(selectedDate);
 
       // Processar dados de transações
@@ -291,7 +313,7 @@ function ComparativoPage() {
           commercialValue: totalCommercialValue,
           refunds: totalRefunds,
           refundAmount: totalRefundAmount,
-          date
+          date: apiDateString // Usar a data original para exibição consistente
         }
       };
     } catch (error) {
@@ -304,6 +326,10 @@ function ComparativoPage() {
   const fetchPeriodData = useCallback(async (startDate, endDate) => {
     try {
       setLoading(true);
+
+      // CORREÇÃO: Ajustar as datas para o fuso horário local
+      const startDateObj = adjustDateToLocalTimezone(startDate);
+      const endDateObj = adjustDateToLocalTimezone(endDate);
 
       // Buscar transações aprovadas
       const transactionsResponse = await axios.post(
@@ -324,14 +350,12 @@ function ComparativoPage() {
       );
 
       // Buscar vendas de boleto (TMB)
-      const startDateObj = new Date(startDate);
-      const endDateObj = new Date(endDate);
       const boletoSales = await boletoService.getSalesByDateRange(startDateObj, endDateObj);
 
       // Inicializar dados por dia
       const dailyData = {};
-      const currentDate = new Date(startDate);
-      const lastDate = new Date(endDate);
+      const currentDate = new Date(startDateObj);
+      const lastDate = new Date(endDateObj);
       
       while (currentDate <= lastDate) {
         const dateStr = currentDate.toISOString().split('T')[0];
@@ -774,23 +798,45 @@ function ComparativoPage() {
 
   // Atualizar os dados quando o usuário clicar em "Comparar"
   const handleCompare = () => {
+    // Verificar se os períodos têm a mesma duração quando em modo de comparação de períodos
+    if (compareType === 'periods' && !validatePeriods()) {
+      setError("Os dois períodos precisam ter o mesmo número de dias para uma comparação válida.");
+      return;
+    }
+    
+    // Limpar qualquer erro anterior
+    setError(null);
     fetchComparativeData();
+  };
+
+  // CORREÇÃO: Função para formatar data para exibição brasileira
+  const formatDateBR = (dateString) => {
+    if (!dateString) return '';
+    
+    // Garantir que estamos usando uma string de data no formato YYYY-MM-DD
+    const parts = dateString.split('-');
+    if (parts.length !== 3) return dateString; // Retornar a data original se não estiver no formato esperado
+    
+    // Retornar no formato DD/MM/YYYY
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
   };
 
   // Formatar rótulos para os períodos de comparação
   const getFirstLabel = () => {
     if (compareType === 'days') {
-      return new Date(firstDate).toLocaleDateString('pt-BR');
+      // CORREÇÃO: Usar a função formatDateBR para exibir a data corretamente
+      return formatDateBR(firstDate);
     } else {
-      return `${new Date(firstPeriodStart).toLocaleDateString('pt-BR')} a ${new Date(firstPeriodEnd).toLocaleDateString('pt-BR')}`;
+      return `${formatDateBR(firstPeriodStart)} a ${formatDateBR(firstPeriodEnd)}`;
     }
   };
 
   const getSecondLabel = () => {
     if (compareType === 'days') {
-      return new Date(secondDate).toLocaleDateString('pt-BR');
+      // CORREÇÃO: Usar a função formatDateBR para exibir a data corretamente
+      return formatDateBR(secondDate);
     } else {
-      return `${new Date(secondPeriodStart).toLocaleDateString('pt-BR')} a ${new Date(secondPeriodEnd).toLocaleDateString('pt-BR')}`;
+      return `${formatDateBR(secondPeriodStart)} a ${formatDateBR(secondPeriodEnd)}`;
     }
   };
 
@@ -802,7 +848,8 @@ function ComparativoPage() {
     const item = results[dayNumber - 1];
     const date = dataKey.startsWith('first') ? item.firstDate : item.secondDate;
     
-    return `${dayNumber} (${new Date(date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })})`;
+    // CORREÇÃO: Usar a função formatDateBR para exibir a data corretamente
+    return `${dayNumber} (${formatDateBR(date).slice(0, 5)})`;
   };
 
   // Estilo condicional para indicar aumento/diminuição
@@ -941,7 +988,6 @@ function ComparativoPage() {
                       value={secondPeriodStart}
                       onChange={(e) => setSecondPeriodStart(e.target.value)}
                       className="w-full border rounded-lg bg-white dark:bg-gray-700 text-text-light dark:text-text-dark px-3 py-2"
-                      readOnly={true} // Calculado automaticamente
                     />
                   </div>
                   <div>
@@ -953,12 +999,18 @@ function ComparativoPage() {
                       value={secondPeriodEnd}
                       onChange={(e) => setSecondPeriodEnd(e.target.value)}
                       className="w-full border rounded-lg bg-white dark:bg-gray-700 text-text-light dark:text-text-dark px-3 py-2"
-                      readOnly={true} // Calculado automaticamente
                     />
                   </div>
                 </div>
-                <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                  Duração: {calculateDaysDifference(secondPeriodStart, secondPeriodEnd)} dias
+                <div className="mt-2 flex flex-col">
+                  <div className="text-sm text-gray-500 dark:text-gray-400">
+                    Duração: {calculateDaysDifference(secondPeriodStart, secondPeriodEnd)} dias
+                  </div>
+                  {periodValidationMessage && (
+                    <div className="mt-2 text-sm text-red-500 dark:text-red-400">
+                      {periodValidationMessage}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1016,14 +1068,14 @@ function ComparativoPage() {
               </div>
             </div>
 
-            {/* Cards de Resumo */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {/* CORREÇÃO: Cards de Resumo - Alterados para máximo 3 por linha */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
               {/* Total de Vendas */}
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
                 <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
                   Total de Vendas
                 </h3>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-4">
                   <div className="border-r border-gray-200 dark:border-gray-700 pr-2">
                     <p className="text-2xl font-bold text-green-500 dark:text-green-400">
                       {firstData.summary.totalSales}
@@ -1041,7 +1093,7 @@ function ComparativoPage() {
                     </p>
                   </div>
                 </div>
-                <div className="mt-2 flex items-center">
+                <div className="mt-3 flex items-center">
                   <span className={`font-semibold ${getDiffStyle(comparativeResults.differences.sales.absolute)}`}>
                     {comparativeResults.differences.sales.absolute > 0 ? '+' : ''}
                     {comparativeResults.differences.sales.absolute} 
@@ -1055,7 +1107,7 @@ function ComparativoPage() {
                 <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
                   Valor Total
                 </h3>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-4">
                   <div className="border-r border-gray-200 dark:border-gray-700 pr-2">
                     <p className="text-2xl font-bold text-green-500 dark:text-green-400">
                       {formatCurrency(firstData.summary.totalValue)}
@@ -1073,7 +1125,7 @@ function ComparativoPage() {
                     </p>
                   </div>
                 </div>
-                <div className="mt-2 flex items-center">
+                <div className="mt-3 flex items-center">
                   <span className={`font-semibold ${getDiffStyle(comparativeResults.differences.value.absolute)}`}>
                     {comparativeResults.differences.value.absolute > 0 ? '+' : ''}
                     {formatCurrency(comparativeResults.differences.value.absolute)} 
@@ -1087,7 +1139,7 @@ function ComparativoPage() {
                 <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
                   Vendas por Cartão
                 </h3>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-4">
                   <div className="border-r border-gray-200 dark:border-gray-700 pr-2">
                     <p className="text-xl font-bold text-green-500 dark:text-green-400">
                       {firstData.summary.cardSales} / {formatCurrency(firstData.summary.cardValue)}
@@ -1105,7 +1157,7 @@ function ComparativoPage() {
                     </p>
                   </div>
                 </div>
-                <div className="mt-2 flex items-center">
+                <div className="mt-3 flex items-center">
                   <span className={`font-semibold ${getDiffStyle(comparativeResults.differences.cardSales.absolute)}`}>
                     {comparativeResults.differences.cardSales.absolute > 0 ? '+' : ''}
                     {comparativeResults.differences.cardSales.absolute} 
@@ -1119,7 +1171,7 @@ function ComparativoPage() {
                 <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
                   Vendas por Boleto
                 </h3>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-4">
                   <div className="border-r border-gray-200 dark:border-gray-700 pr-2">
                     <p className="text-xl font-bold text-green-500 dark:text-green-400">
                       {firstData.summary.boletoSales} / {formatCurrency(firstData.summary.boletoValue)}
@@ -1137,7 +1189,7 @@ function ComparativoPage() {
                     </p>
                   </div>
                 </div>
-                <div className="mt-2 flex items-center">
+                <div className="mt-3 flex items-center">
                   <span className={`font-semibold ${getDiffStyle(comparativeResults.differences.boletoSales.absolute)}`}>
                     {comparativeResults.differences.boletoSales.absolute > 0 ? '+' : ''}
                     {comparativeResults.differences.boletoSales.absolute} 
@@ -1151,7 +1203,7 @@ function ComparativoPage() {
                 <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
                   Reembolsos
                 </h3>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-4">
                   <div className="border-r border-gray-200 dark:border-gray-700 pr-2">
                     <p className="text-xl font-bold text-green-500 dark:text-green-400">
                       {firstData.summary.refunds} / {formatCurrency(firstData.summary.refundAmount)}
@@ -1169,7 +1221,7 @@ function ComparativoPage() {
                     </p>
                   </div>
                 </div>
-                <div className="mt-2 flex items-center">
+                <div className="mt-3 flex items-center">
                   {/* Para reembolsos, menos é melhor, então invertemos a lógica de cores */}
                   <span className={`font-semibold ${getDiffStyle(-comparativeResults.differences.refunds.absolute)}`}>
                     {comparativeResults.differences.refunds.absolute > 0 ? '+' : ''}
