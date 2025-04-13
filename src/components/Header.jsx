@@ -121,7 +121,7 @@ export default function Header() {
                   '/monthly',
                 )}`}
               >
-                Consolidado Mensal
+                Mensal
               </Link>
             </li>
           )}
@@ -134,7 +134,7 @@ export default function Header() {
                   '/yearly',
                 )}`}
               >
-                Consolidado Anual
+                 Anual
               </Link>
             </li>
           )}
@@ -161,6 +161,32 @@ export default function Header() {
                 )}`}
               >
                 Comparativo
+              </Link>
+            </li>
+          )}
+
+          {(userRoles?.dre !== false || userRoles?.isAdmin) && (
+            <li>
+              <Link
+                to="/dre"
+                className={`px-4 py-2 rounded hover:bg-secondary hover:text-primary transition-colors ${isActive(
+                  '/dre',
+                )}`}
+              >
+                DRE
+              </Link>
+            </li>
+          )}
+
+          {(userRoles?.dre !== false || userRoles?.isAdmin) && (
+            <li>
+              <Link
+                to="/launch"
+                className={`px-4 py-2 rounded hover:bg-secondary hover:text-primary transition-colors ${isActive(
+                  '/launch',
+                )}`}
+              >
+                LaunchPro
               </Link>
             </li>
           )}
@@ -358,6 +384,37 @@ export default function Header() {
                     </Link>
                   </li>
                 )}
+
+                {(userRoles?.dre !== false || userRoles?.isAdmin) && (
+                  <li>
+                    <Link
+                      to="/dre"
+                      className={`block px-4 py-2 rounded text-primary dark:text-text-dark hover:bg-gray-100 dark:hover:bg-gray-700 ${isActive(
+                        '/dre',
+                      )}`}
+                      onClick={closeMobileMenu}
+                    >
+                      <FaChartPie className="inline mr-2" />
+                      DRE
+                    </Link>
+                  </li>
+                )}
+
+                {(userRoles?.dre !== false || userRoles?.isAdmin) && (
+                  <li>
+                    <Link
+                      to="/launch"
+                      className={`block px-4 py-2 rounded text-primary dark:text-text-dark hover:bg-gray-100 dark:hover:bg-gray-700 ${isActive(
+                        '/launch',
+                      )}`}
+                      onClick={closeMobileMenu}
+                    >
+                      <FaChartPie className="inline mr-2" />
+                      LaunchPro
+                    </Link>
+                  </li>
+                )}
+
 
                 {(userRoles?.dre !== false || userRoles?.isAdmin) && (
                   <li>

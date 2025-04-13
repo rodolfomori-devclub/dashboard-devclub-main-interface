@@ -128,37 +128,48 @@ export const launchService = {
     }
   },
   
-  /**
+/**
    * Processar um valor para o formato adequado (número, texto, etc)
    * @param {string} value - Valor a ser processado
    * @returns {number|string|null} Valor processado
    * @private
    */
-  _processValue(value) {
-    if (value === null || value === undefined || value === '') {
-      return null;
-    }
-    
-    // Tentar converter para número se for valor monetário ou percentual
-    if (typeof value === 'string') {
-      // Verificar se é um valor monetário (R$) ou percentual (%)
-      if (value.includes('R$') || value.includes('%') || 
-          value.match(/^[\d.,]+$/) || 
-          value.match(/^-[\d.,]+$/)) {
-        
-        // Remover formatação
-        const numericValue = value.replace(/[^\d.,\-+]/g, '').replace(',', '.');
-        const parsedValue = parseFloat(numericValue);
-        
-        if (!isNaN(parsedValue)) {
-          return parsedValue;
-        }
+_processValue(value) {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+  
+  // Tentar converter para número se for valor monetário ou percentual
+  if (typeof value === 'string') {
+    // Verificar se é um valor monetário (R$) ou percentual (%)
+    if (value.includes('R$') || value.includes('%') || 
+        value.match(/^[\d.,]+$/) || 
+        value.match(/^-[\d.,]+$/)) {
+      
+      // Remover formatação, mantendo apenas números, ponto e vírgula
+      let numericValue = value.replace(/[^\d.,\-+]/g, '');
+      
+      // Converter vírgula para ponto, mas apenas a última (formato brasileiro)
+      const lastCommaIndex = numericValue.lastIndexOf(',');
+      if (lastCommaIndex !== -1) {
+        numericValue = numericValue.substring(0, lastCommaIndex).replace(/\./g, '') + 
+                      '.' + numericValue.substring(lastCommaIndex + 1);
+      }
+      
+      // Remover pontos de milhar que sobraram
+      numericValue = numericValue.replace(/,/g, '');
+      
+      const parsedValue = parseFloat(numericValue);
+      
+      if (!isNaN(parsedValue)) {
+        return parsedValue;
       }
     }
-    
-    // Se não for um número válido, retornar como string
-    return value;
-  },
+  }
+  
+  // Se não for um número válido, retornar como string
+  return value;
+},
   
   /**
    * Obter lista de lançamentos disponíveis
