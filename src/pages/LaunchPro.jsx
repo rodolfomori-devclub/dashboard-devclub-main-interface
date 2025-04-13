@@ -1,3 +1,4 @@
+// src/pages/LaunchPro.jsx
 import React, { useEffect, useState } from 'react';
 import { 
   Box, 
@@ -64,6 +65,8 @@ import {
 } from '@mui/icons-material';
 import { formatCurrency } from '../utils/currencyUtils';
 import launchService from '../services/launchService';
+import LaunchComparisonModal from '../components/LaunchComparisonModal';
+import CompareButton from '../components/CompareButton';
 
 // Cores para os gráficos
 const COLORS = ['#37E359', '#051626', '#FF4500', '#1E90FF', '#FFD700', '#FF1493'];
@@ -130,6 +133,7 @@ const LaunchPro = () => {
   const [expandedSections, setExpandedSections] = useState({});
   const [filteredMetrics, setFilteredMetrics] = useState([]);
   const [categoryMap, setCategoryMap] = useState({});
+  const [compareModalOpen, setCompareModalOpen] = useState(false);
 
   // Carregar dados ao montar o componente
   useEffect(() => {
@@ -236,6 +240,15 @@ const LaunchPro = () => {
       setFilteredMetrics(metrics);
     }
   }, [searchQuery, metrics]);
+
+  // Funções para o modal de comparação
+  const handleOpenCompareModal = () => {
+    setCompareModalOpen(true);
+  };
+
+  const handleCloseCompareModal = () => {
+    setCompareModalOpen(false);
+  };
 
   // Alternar a expansão de uma seção
   const toggleSection = (section) => {
@@ -463,7 +476,6 @@ const LaunchPro = () => {
       return 0;
     }
     
-    // Função para obter dados de distribuição de investimento
     // Função para obter dados de distribuição de investimento
     function getInvestmentDistribution() {
       const distribution = [];
@@ -738,7 +750,7 @@ const LaunchPro = () => {
                   >
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="name" />
-                    <YAxis tickFormatter={(value) => value >= 1000 ? `${(value/1000).toFixed(0)}k` : value} />
+                    <YAxis tickFormatter={(value) => formatCurrency(value).replace('R$', '').trim()} />
                     <RechartsTooltip formatter={(value) => formatCurrency(value)} />
                     <Legend />
                     <Bar 
@@ -757,8 +769,7 @@ const LaunchPro = () => {
           </Grid>
           
           {/* Gráfico de Distribuição de Investimento */}
-         {/* Gráfico de Distribuição de Investimento */}
-         <Grid item xs={12}>
+          <Grid item xs={12}>
             <Paper sx={{ p: 2 }}>
               <Typography variant="h6" gutterBottom>Distribuição de Investimento</Typography>
               <Box height={400}>
@@ -1408,6 +1419,12 @@ const LaunchPro = () => {
             </Select>
           </FormControl>
           
+          <CompareButton 
+            onClick={handleOpenCompareModal} 
+            selectedLaunch={selectedLaunch}
+            disabled={loading}
+          />
+          
           {loading && selectedLaunch && (
             <CircularProgress size={24} sx={{ ml: 2 }} />
           )}
@@ -1435,6 +1452,14 @@ const LaunchPro = () => {
             {renderTabContent()}
           </>
         )}
+        
+        {/* Modal de Comparação */}
+        <LaunchComparisonModal
+          open={compareModalOpen}
+          onClose={handleCloseCompareModal}
+          launchOptions={launchOptions}
+          initialLaunch={selectedLaunch}
+        />
       </Box>
     </Container>
   );
