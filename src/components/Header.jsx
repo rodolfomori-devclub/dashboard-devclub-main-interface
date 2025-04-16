@@ -168,19 +168,6 @@ export default function Header() {
           {(userRoles?.dre !== false || userRoles?.isAdmin) && (
             <li>
               <Link
-                to="/dre"
-                className={`px-4 py-2 rounded hover:bg-secondary hover:text-primary transition-colors ${isActive(
-                  '/dre',
-                )}`}
-              >
-                DRE
-              </Link>
-            </li>
-          )}
-
-          {(userRoles?.dre !== false || userRoles?.isAdmin) && (
-            <li>
-              <Link
                 to="/launch"
                 className={`px-4 py-2 rounded hover:bg-secondary hover:text-primary transition-colors ${isActive(
                   '/launch',

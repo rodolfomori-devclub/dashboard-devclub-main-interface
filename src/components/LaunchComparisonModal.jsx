@@ -166,10 +166,33 @@ const LaunchComparisonModal = ({ open, onClose, launchOptions = [], initialLaunc
     return parseFloat(numericValue) || 0;
   };
   
+  // Função para verificar se uma métrica é do tipo percentual
+  const isPercentageMetric = (metricName) => {
+    if (!metricName) return false;
+    
+    const lowerMetric = metricName.toLowerCase();
+    return lowerMetric.includes('faixa') || 
+           lowerMetric.includes('taxa') ||
+           lowerMetric.includes('percentual') ||
+           lowerMetric.includes('pico') ||
+           lowerMetric.includes('% ') ||
+           lowerMetric.match(/^cpl\d*$/i); // Captura CPL, CPL1, CPL2, etc.
+  };
+  
   // Função para calcular a diferença percentual entre dois valores
   const calculateDiffPercent = (value1, value2) => {
     if (value2 === 0) return value1 === 0 ? 0 : 100;
     return ((value1 - value2) / Math.abs(value2)) * 100;
+  };
+  
+  // Função para determinar se uma métrica é inversamente proporcional (menor é melhor)
+  const isInverseDiff = (metricName) => {
+    if (!metricName) return false;
+    
+    const lowerMetric = metricName.toLowerCase();
+    return lowerMetric.includes('cpl') || 
+           lowerMetric.includes('custo por lead') ||
+           lowerMetric.includes('taxa de rejeição');
   };
   
   // Função para obter a cor com base na diferença (verde para melhor, vermelho para pior)
@@ -244,7 +267,7 @@ const LaunchComparisonModal = ({ open, onClose, launchOptions = [], initialLaunc
         const diffPercent = calculateDiffPercent(value1, value2);
         
         // Determinar se valores menores são melhores (como CPL)
-        const inverseDiff = metricName.toLowerCase().includes('cpl');
+        const inverseDiff = isInverseDiff(metricName);
         
         categorizedMetrics[category].push({
           name: metricName,
@@ -252,7 +275,8 @@ const LaunchComparisonModal = ({ open, onClose, launchOptions = [], initialLaunc
           value2,
           diff: value1 - value2,
           diffPercent,
-          inverseDiff
+          inverseDiff,
+          isPercentage: isPercentageMetric(metricName)
         });
         
         // Remover da lista geral
@@ -272,8 +296,7 @@ const LaunchComparisonModal = ({ open, onClose, launchOptions = [], initialLaunc
       const diffPercent = calculateDiffPercent(value1, value2);
       
       // Determinar se valores menores são melhores
-      const inverseDiff = metricName.toLowerCase().includes('cpl') || 
-                         metricName.toLowerCase().includes('custo');
+      const inverseDiff = isInverseDiff(metricName);
       
       categorizedMetrics[category].push({
         name: metricName,
@@ -281,7 +304,8 @@ const LaunchComparisonModal = ({ open, onClose, launchOptions = [], initialLaunc
         value2,
         diff: value1 - value2,
         diffPercent,
-        inverseDiff
+        inverseDiff,
+        isPercentage: isPercentageMetric(metricName)
       });
     });
     
@@ -312,11 +336,13 @@ const LaunchComparisonModal = ({ open, onClose, launchOptions = [], initialLaunc
           <TableBody>
             {metrics.map((metric, index) => {
               // Determinar se é uma métrica monetária
-              const isMonetary = metric.name.toLowerCase().includes('investimento') || 
-                                metric.name.toLowerCase().includes('receita') || 
-                                metric.name.toLowerCase().includes('faturamento') ||
-                                metric.name.toLowerCase().includes('custo') ||
-                                metric.name.toLowerCase().includes('cpl');
+              const isMonetary = !metric.isPercentage && (
+                metric.name.toLowerCase().includes('investimento') || 
+                metric.name.toLowerCase().includes('receita') || 
+                metric.name.toLowerCase().includes('faturamento') ||
+                metric.name.toLowerCase().includes('custo') ||
+                metric.name.toLowerCase().includes('valor')
+              );
               
               return (
                 <TableRow key={index} hover>
@@ -329,14 +355,18 @@ const LaunchComparisonModal = ({ open, onClose, launchOptions = [], initialLaunc
                     )}
                   </TableCell>
                   <TableCell align="right">
-                    {isMonetary 
-                      ? formatCurrency(metric.value1) 
-                      : metric.value1.toLocaleString('pt-BR')}
+                    {metric.isPercentage 
+                      ? `${metric.value1.toFixed(2)}%` 
+                      : isMonetary 
+                        ? formatCurrency(metric.value1) 
+                        : metric.value1.toLocaleString('pt-BR')}
                   </TableCell>
                   <TableCell align="right">
-                    {isMonetary 
-                      ? formatCurrency(metric.value2) 
-                      : metric.value2.toLocaleString('pt-BR')}
+                    {metric.isPercentage 
+                      ? `${metric.value2.toFixed(2)}%` 
+                      : isMonetary 
+                        ? formatCurrency(metric.value2) 
+                        : metric.value2.toLocaleString('pt-BR')}
                   </TableCell>
                   <TableCell align="right">
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
@@ -370,7 +400,7 @@ const LaunchComparisonModal = ({ open, onClose, launchOptions = [], initialLaunc
                         }}
                       >
                         {formatDiffPercent(metric.diffPercent)}
-                        {isMonetary && (
+                        {!metric.isPercentage && isMonetary && (
                           <Typography
                             component="span"
                             variant="caption"
