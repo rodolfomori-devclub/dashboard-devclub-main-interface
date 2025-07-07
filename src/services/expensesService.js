@@ -146,8 +146,13 @@ export const expensesService = {
             // Processar o valor
             let expenseValue = 0;
             if (row[valueIndex]) {
-              // Converter para número, removendo possíveis formatações (R$, ., etc)
-              const rawValue = row[valueIndex].toString().replace(/[^\d,.-]/g, '').replace(',', '.');
+              // Converter para número, considerando formato brasileiro (13.912,10)
+              // Primeiro remove símbolos de moeda e espaços
+              let rawValue = row[valueIndex].toString().replace(/[R$\s]/g, '').trim();
+              // Remove pontos que são separadores de milhares
+              rawValue = rawValue.replace(/\./g, '');
+              // Substitui vírgula por ponto para separador decimal
+              rawValue = rawValue.replace(',', '.');
               expenseValue = parseFloat(rawValue) || 0;
             }
             

@@ -1,5 +1,3 @@
-import { colors } from './src/styles/colors.js';
-
 /** @type {import('tailwindcss').Config} */
 export default {
   content: [
@@ -10,22 +8,31 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Cores principais
         primary: {
-          DEFAULT: colors.primary.DEFAULT,
-          dark: colors.primary.dark,
-          light: colors.primary.light,
+          DEFAULT: '#37E359', // Verde DevClub
+          dark: '#2BC348',
+          light: '#52FF74',
         },
         secondary: {
-          DEFAULT: colors.secondary.DEFAULT,
-          dark: colors.secondary.dark,
-          light: colors.secondary.light,
+          DEFAULT: '#051626', // Azul escuro DevClub
+          dark: '#020A13',
+          light: '#0A2E4D',
         },
-        background: colors.background,
-        text: colors.text,
-        accent1: colors.accent1,
-        accent2: colors.accent2,
-        accent3: colors.accent3,
-        accent4: colors.accent4,
+        // Cores de fundo
+        background: {
+          light: '#F8F9FA',
+          dark: '#121212',
+        },
+        // Cores de texto
+        text: {
+          light: '#051626',
+          dark: '#F8F9FA',
+          muted: {
+            light: '#64748B',
+            dark: '#94A3B8',
+          },
+        },
       },
       fontFamily: {
         sans: ['Inter', 'sans-serif'],

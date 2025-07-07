@@ -86,40 +86,93 @@ function YearlyDashboard() {
       setError(null)
 
       // Buscando transações aprovadas
-      const transactionsResponse = await axios.post(
-        `${import.meta.env.VITE_API_URL}/transactions`,
-        {
-          ordered_at_ini: firstDayOfYear,
-          ordered_at_end: lastDayOfYear,
-        },
-        {
-          timeout: 30000,
-          headers: {
-            'X-Debug-Request': 'YearlyDashboard',
+      let transactionsResponse = { data: { data: [] } }
+      try {
+        transactionsResponse = await axios.post(
+          `${import.meta.env.VITE_API_URL}/transactions`,
+          {
+            ordered_at_ini: firstDayOfYear,
+            ordered_at_end: lastDayOfYear,
           },
-        },
-      )
+          {
+            timeout: 60000,
+            headers: {
+              'X-Debug-Request': 'YearlyDashboard',
+            },
+          },
+        )
+      } catch (error) {
+        console.warn('Erro ao buscar transações:', error.message)
+      }
 
       // Buscando reembolsos
-      const refundsResponse = await axios.post(
-        `${import.meta.env.VITE_API_URL}/refunds`,
-        {
-          ordered_at_ini: firstDayOfYear,
-          ordered_at_end: lastDayOfYear,
-        },
-        {
-          timeout: 30000,
-          headers: {
-            'X-Debug-Request': 'YearlyDashboard-Refunds',
+      let refundsResponse = { data: { data: [] } }
+      try {
+        refundsResponse = await axios.post(
+          `${import.meta.env.VITE_API_URL}/refunds`,
+          {
+            ordered_at_ini: firstDayOfYear,
+            ordered_at_end: lastDayOfYear,
           },
-        },
-      )
-      
-      // Buscar vendas de boleto do ano
-      const boletoSales = await boletoService.getSalesByYear(currentYear)
+          {
+            timeout: 60000,
+            headers: {
+              'X-Debug-Request': 'YearlyDashboard-Refunds',
+            },
+          },
+        )
+      } catch (error) {
+        console.warn('Erro ao buscar reembolsos:', error.message)
+      }
 
-      // Processar dados similar ao código anterior
+      // Buscando vendas comerciais
+      let commercialResponse = { data: { data: [] } }
+      try {
+        commercialResponse = await axios.post(
+          `${import.meta.env.VITE_API_URL}/commercial`,
+          {
+            ordered_at_ini: firstDayOfYear,
+            ordered_at_end: lastDayOfYear,
+          },
+          {
+            timeout: 60000,
+            headers: {
+              'X-Debug-Request': 'YearlyDashboard-Commercial',
+            },
+          },
+        )
+      } catch (error) {
+        console.warn('Erro ao buscar vendas comerciais:', error.message)
+      }
+
+      // Buscando vendas de boleto
+      let boletoSales = []
+      try {
+        boletoSales = await boletoService.getSalesByYear(currentYear)
+      } catch (error) {
+        console.warn('Erro ao buscar vendas de boleto:', error.message)
+      }
+
+      const transactions = transactionsResponse.data.data || []
+      const refunds = refundsResponse.data.data || []
+      const commercial = commercialResponse.data.data || []
+
+      // Calcular totais de vendas comerciais
+      let totalCommercialValue = 0
+      let totalCommercialQuantity = 0
+
+      commercial.forEach((sale) => {
+        const saleValue = Number(sale.calculation_details?.net_amount || 0)
+        totalCommercialValue += saleValue
+        totalCommercialQuantity += 1
+      })
+
+      // Processar dados mensais
       const monthlyDataMap = {}
+      let totalBoletoValue = 0
+      let totalBoletoQuantity = 0
+
+      // Inicializar todos os meses
       for (let month = 1; month <= 12; month++) {
         const monthStr = String(month).padStart(2, '0')
         monthlyDataMap[monthStr] = {
@@ -132,55 +185,47 @@ function YearlyDashboard() {
           commercial_value: 0,
           commercial_quantity: 0,
           boleto_value: 0,
-          boleto_quantity: 0
+          boleto_quantity: 0,
         }
       }
 
       // Processar transações
-      let totalCommercialValue = 0
-      let totalCommercialQuantity = 0
-      let totalBoletoValue = 0
-      let totalBoletoQuantity = 0
-      
-      transactionsResponse.data.data.forEach((transaction) => {
-        const fullDate = new Date(transaction.dates.created_at * 1000)
-        const monthStr = String(fullDate.getMonth() + 1).padStart(2, '0')
-
-        const netAmount = Number(
-          transaction?.calculation_details?.net_amount || 0,
-        )
+      transactions.forEach((transaction) => {
+        const date = new Date(transaction.dates.created_at * 1000)
+        const monthStr = String(date.getMonth() + 1).padStart(2, '0')
+        const netAmount = Number(transaction.calculation_details?.net_amount || 0)
         const affiliateValue = Number(
-          transaction?.calculation_details?.net_affiliate_value || 0,
+          transaction.calculation_details?.net_affiliate_value || 0,
         )
-        
-        // Verificar se é uma venda do comercial
-        const isCommercial = transaction.trackings?.utm_source === 'comercial'
 
         if (monthlyDataMap[monthStr]) {
           monthlyDataMap[monthStr].net_amount += netAmount
           monthlyDataMap[monthStr].quantity += 1
           monthlyDataMap[monthStr].affiliate_value += affiliateValue
-          
-          if (isCommercial) {
-            monthlyDataMap[monthStr].commercial_value += netAmount
-            monthlyDataMap[monthStr].commercial_quantity += 1
-            totalCommercialValue += netAmount
-            totalCommercialQuantity += 1
-          }
         }
       })
 
       // Processar reembolsos
-      refundsResponse.data.data.forEach((refund) => {
-        const fullDate = new Date(refund.dates.created_at * 1000)
-        const monthStr = String(fullDate.getMonth() + 1).padStart(2, '0')
-
-        // Usar o valor líquido calculado pelo backend que aplica as mesmas regras de transações
+      refunds.forEach((refund) => {
+        const date = new Date(refund.dates.created_at * 1000)
+        const monthStr = String(date.getMonth() + 1).padStart(2, '0')
         const refundAmount = Number(refund.calculation_details?.net_amount || 0)
 
         if (monthlyDataMap[monthStr]) {
           monthlyDataMap[monthStr].refund_amount += refundAmount
           monthlyDataMap[monthStr].refund_quantity += 1
+        }
+      })
+
+      // Processar vendas comerciais
+      commercial.forEach((sale) => {
+        const date = new Date(sale.dates.created_at * 1000)
+        const monthStr = String(date.getMonth() + 1).padStart(2, '0')
+        const saleValue = Number(sale.calculation_details?.net_amount || 0)
+
+        if (monthlyDataMap[monthStr]) {
+          monthlyDataMap[monthStr].commercial_value += saleValue
+          monthlyDataMap[monthStr].commercial_quantity += 1
         }
       })
       
@@ -286,204 +331,151 @@ function YearlyDashboard() {
     }
   }, [yearlyData, goals, calculateProgress])
 
-  // Renderização dos dados
   return (
-    <div className="min-h-screen bg-background-light dark:bg-background-dark p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-primary dark:text-secondary mb-4">
-            Consolidade Anual de Vendas
-          </h1>
+    <div className="min-h-screen bg-gradient-to-br from-background-light via-slate-50 to-blue-50 dark:from-background-dark dark:via-gray-900 dark:to-slate-900 p-6">
+      <div className="max-w-7xl mx-auto relative">
+        {loading && (
+          <div className="absolute inset-0 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-sm flex items-start justify-center pt-32 z-50">
+            <div className="flex flex-col items-center animate-fade-in">
+              <div className="relative">
+                <div className="animate-spin rounded-full h-32 w-32 border-4 border-primary/20"></div>
+                <div className="animate-spin rounded-full h-32 w-32 border-4 border-primary border-t-transparent absolute top-0 left-0"></div>
+                <div className="absolute inset-0 rounded-full bg-primary/10 animate-pulse"></div>
+              </div>
+              <p className="mt-6 text-xl text-text-light dark:text-text-dark font-medium animate-pulse">
+                Carregando dados do ano...
+              </p>
+            </div>
+          </div>
+        )}
+        
+        <div className="mb-12 relative">
+          <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-blue-500/5 to-purple-500/10 dark:from-primary/20 dark:via-blue-500/10 dark:to-purple-500/20 rounded-3xl blur-xl"></div>
+          <div className="relative bg-white/70 dark:bg-secondary/70 backdrop-blur-lg rounded-3xl p-8 border border-white/20 dark:border-gray-700/50 shadow-xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-4xl font-bold bg-gradient-to-r from-text-light to-primary dark:from-text-dark dark:to-primary bg-clip-text text-transparent mb-2">
+                  Consolidado Anual de Vendas
+                </h1>
+                <p className="text-text-muted-light dark:text-text-muted-dark text-lg">
+                  Análise completa do desempenho anual
+                </p>
+              </div>
+              <div className="hidden md:flex items-center space-x-4">
+                <div className="w-16 h-16 bg-gradient-to-br from-primary to-primary-dark rounded-2xl flex items-center justify-center shadow-lg">
+                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
-          {/* Resumo de Vendas */}
-          <div className="grid grid-cols-1 md:grid-cols-9 gap-6 mb-8">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 md:col-span-3">
-              <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+          <div className="group relative animate-slide-up">
+            <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-blue-500/20 rounded-2xl blur-lg group-hover:blur-xl transition-all duration-300"></div>
+            <div className="relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-2xl p-8 border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
+              <div className="flex items-start justify-between mb-6">
+                <div className="w-14 h-14 bg-gradient-to-br from-primary to-primary-dark rounded-xl flex items-center justify-center shadow-lg">
+                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                  </svg>
+                </div>
+                <div className="text-right">
+                  <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
+                </div>
+              </div>
+              <h3 className="text-lg font-semibold text-text-light dark:text-text-dark mb-3">
                 Valor Total de Vendas
               </h3>
-              <p className="mt-2 text-3xl font-bold text-accent1 dark:text-accent2">
+              <p className="text-4xl font-bold bg-gradient-to-r from-primary to-primary-dark bg-clip-text text-transparent mb-2">
                 {formatCurrency(yearlyData?.totals?.total_net_amount || 0)}
               </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Total <br/>
-                {yearlyData?.totals?.total_transactions || 0} venda(s)
+              <p className="text-sm text-text-muted-light dark:text-text-muted-dark flex items-center">
+                <span className="w-2 h-2 bg-primary rounded-full mr-2"></span>
+                {yearlyData?.totals?.total_transactions || 0} vendas realizadas
               </p>
             </div>
+          </div>
 
-            
-            {/* Card vendas cartão */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 md:col-span-3">
-              <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
+          <div className="group relative animate-slide-up" style={{animationDelay: '0.1s'}}>
+            <div className="absolute inset-0 bg-gradient-to-r from-green-500/20 to-emerald-500/20 rounded-2xl blur-lg group-hover:blur-xl transition-all duration-300"></div>
+            <div className="relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-2xl p-8 border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
+              <div className="flex items-start justify-between mb-6">
+                <div className="w-14 h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                  </svg>
+                </div>
+                <div className="text-right">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                </div>
+              </div>
+              <h3 className="text-lg font-semibold text-text-light dark:text-text-dark mb-3">
                 Vendas Cartão
               </h3>
-              <p className="mt-2 text-3xl font-bold text-green-500 dark:text-green-400">
+              <p className="text-4xl font-bold text-green-500 mb-2">
                 {formatCurrency(yearlyData?.totals?.total_card_amount || 0)}
               </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                {yearlyData?.totals?.total_card_transactions || 0} venda(s)
+              <p className="text-sm text-text-muted-light dark:text-text-muted-dark flex items-center">
+                <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                {yearlyData?.totals?.total_card_transactions || 0} transações
               </p>
             </div>
-            
-            {/* Card vendas boleto */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 md:col-span-3">
-              <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
-                Vendas Boleto
-              </h3>
-              <p className="mt-2 text-3xl font-bold text-yellow-500 dark:text-yellow-400">
-                {formatCurrency(boletoData?.total_boleto_value || 0)}
-              </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                {boletoData?.total_boleto_quantity || 0} venda(s)
-              </p>
-            </div>
-            
-        
           </div>
           
-          {/* Segunda linha de cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 md:hidden">
-              <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
-                Valor Total de Afiliações
+          <div className="group relative animate-slide-up" style={{animationDelay: '0.2s'}}>
+            <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 rounded-2xl blur-lg group-hover:blur-xl transition-all duration-300"></div>
+            <div className="relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-2xl p-8 border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
+              <div className="flex items-start justify-between mb-6">
+                <div className="w-14 h-14 bg-gradient-to-br from-yellow-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <div className="text-right">
+                  <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
+                </div>
+              </div>
+              <h3 className="text-lg font-semibold text-text-light dark:text-text-dark mb-3">
+                Vendas Boleto
               </h3>
-              <p className="mt-2 text-3xl font-bold text-secondary dark:text-primary">
-                {formatCurrency(
-                  yearlyData?.totals?.total_net_affiliate_value || 0,
-                )}
+              <p className="text-4xl font-bold text-yellow-500 mb-2">
+                {formatCurrency(boletoData?.total_boleto_value || 0)}
               </p>
-            </div>
-
-            {/* Valor de afiliações */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 hidden md:block">
-              <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
-                Valor Total de Afiliações
-              </h3>
-              <p className="mt-2 text-3xl font-bold text-secondary dark:text-primary">
-                {formatCurrency(
-                  yearlyData?.totals?.total_net_affiliate_value || 0,
-                )}
-              </p>
-            </div>
-            
-            {/* Card de reembolsos */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-              <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
-                Reembolsos
-              </h3>
-              <p className="mt-2 text-3xl font-bold text-red-500 dark:text-red-400">
-                {formatCurrency(refundsData?.total_refund_amount || 0)}
-              </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                {refundsData?.total_refund_quantity || 0} reembolso(s)
-              </p>
-            </div>
-            
-            {/* Vendas do comercial */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-              <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
-                Vendas Comercial
-              </h3>
-              <p className="mt-2 text-3xl font-bold text-blue-500 dark:text-blue-400">
-                {formatCurrency(commercialData?.total_commercial_value || 0)}
-              </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                {commercialData?.total_commercial_quantity || 0} venda(s)
+              <p className="text-sm text-text-muted-light dark:text-text-muted-dark flex items-center">
+                <span className="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
+                {boletoData?.total_boleto_quantity || 0} boletos
               </p>
             </div>
           </div>
+        </div>
 
-          {/* Metas */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            {['meta', 'superMeta', 'ultraMeta'].map((metaType) => (
-              <div
-                key={metaType}
-                className="bg-white dark:bg-gray-800 rounded-lg shadow p-6"
-              >
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
-                    {metaType === 'meta'
-                      ? 'Meta'
-                      : metaType === 'superMeta'
-                      ? 'Super Meta'
-                      : 'Ultra Meta'}
-                  </h3>
-                  {editingGoal !== metaType ? (
-                    <button
-                      onClick={() => setEditingGoal(metaType)}
-                      className="text-primary dark:text-secondary hover:text-secondary dark:hover:text-primary"
-                    >
-                      Editar
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => saveGoal(metaType)}
-                      className="text-green-500 hover:text-green-600 dark:text-green-400 dark:hover:text-green-300"
-                    >
-                      OK
-                    </button>
-                  )}
+        <div className="group relative animate-slide-up mb-12" style={{animationDelay: '0.9s'}}>
+          <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-purple-500/5 to-primary/10 rounded-3xl blur-xl"></div>
+          <div className="relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-3xl p-8 border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300">
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center space-x-4">
+                <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
                 </div>
-                {editingGoal === metaType ? (
-                  <input
-                    type="text"
-                    value={goals[metaType]}
-                    onChange={(e) => handleGoalChange(metaType, e.target.value)}
-                    className="w-full border rounded px-2 py-1 bg-background-light dark:bg-background-dark text-text-light dark:text-text-dark"
-                  />
-                ) : (
-                  <p className="text-2xl font-bold text-accent1 dark:text-accent2">
-                    {goals[metaType]}
-                  </p>
-                )}
-                <div className="mt-2">
-                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
-                    <div
-                      className="bg-primary dark:bg-secondary h-2.5 rounded-full"
-                      style={{
-                        width: `${Math.min(
-                          metaProgress[metaType].actualProgress,
-                          100,
-                        )}%`,
-                      }}
-                    ></div>
-                  </div>
-                  <p
-                    className={`text-sm mt-1 ${
-                      metaProgress[metaType].difference >= 0
-                        ? 'text-green-500 dark:text-green-400'
-                        : 'text-red-500 dark:text-red-400'
-                    }`}
-                  >
-                    {metaProgress[metaType].difference >= 0 ? '+' : ''}
-                    {metaProgress[metaType].difference}%
-                    {metaProgress[metaType].difference >= 0
-                      ? ' adiantado'
-                      : ' atrasado'}
+                <div>
+                  <h3 className="text-2xl font-bold text-text-light dark:text-text-dark">
+                    Vendas Mensais
+                  </h3>
+                  <p className="text-text-muted-light dark:text-text-muted-dark">
+                    Análise detalhada por mês do ano
                   </p>
                 </div>
               </div>
-            ))}
-          </div>
-
-          {/* Gráfico de Barras Mensal */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 relative mb-8">
-            <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
-              Vendas Mensais
-            </h3>
-            <div className="h-96 relative">
-              {loading && (
-                <div className="absolute inset-0 bg-white dark:bg-gray-800 bg-opacity-75 flex items-center justify-center z-10">
-                  <div className="flex flex-col items-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-                    <p className="mt-4 text-text-light dark:text-text-dark">
-                      Carregando dados...
-                    </p>
-                  </div>
-                </div>
-              )}
+            </div>
+            <div className="bg-gradient-to-br from-background-light/50 to-slate-50/50 dark:from-background-dark/50 dark:to-gray-800/50 rounded-2xl p-6 h-96">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={yearlyData?.monthlyData || []}>
-                  <CartesianGrid strokeDasharray="3 3" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.3} />
                   <XAxis
                     dataKey="month"
                     tickFormatter={(monthStr) => {
@@ -558,190 +550,6 @@ function YearlyDashboard() {
                     radius={[4, 4, 0, 0]}
                     barSize={40}
                   />
-                  <Bar
-                    yAxisId="left"
-                    dataKey="affiliate_value"
-                    name="Valor de Afiliação"
-                    fill="#F97316"
-                    radius={[4, 4, 0, 0]}
-                    barSize={40}
-                  />
-                  <Bar
-                    yAxisId="left"
-                    dataKey="refund_amount"
-                    name="Valor de Reembolso"
-                    fill="#EF4444"
-                    radius={[4, 4, 0, 0]}
-                    barSize={40}
-                  />
-                  <Bar
-                    yAxisId="left"
-                    dataKey="commercial_value"
-                    name="Valor Comercial"
-                    fill="#3B82F6"
-                    radius={[4, 4, 0, 0]}
-                    barSize={40}
-                  />
-                  <Bar
-                    yAxisId="left"
-                    dataKey="boleto_value"
-                    name="Valor Boleto"
-                    fill="#EAB308"
-                    radius={[4, 4, 0, 0]}
-                    barSize={40}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-          
-          {/* Gráfico comparativo comercial vs total */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 relative">
-            <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
-              Comparativo Mensal: Vendas Totais vs Comercial
-            </h3>
-            <div className="h-96 relative">
-              {loading && (
-                <div className="absolute inset-0 bg-white dark:bg-gray-800 bg-opacity-75 flex items-center justify-center z-10">
-                  <div className="flex flex-col items-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-                    <p className="mt-4 text-text-light dark:text-text-dark">
-                      Carregando dados...
-                    </p>
-                  </div>
-                </div>
-              )}
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={yearlyData?.monthlyData || []}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis
-                    dataKey="month"
-                    tickFormatter={(monthStr) => {
-                      const monthNames = [
-                        'Jan',
-                        'Fev',
-                        'Mar',
-                        'Abr',
-                        'Mai',
-                        'Jun',
-                        'Jul',
-                        'Ago',
-                        'Set',
-                        'Out',
-                        'Nov',
-                        'Dez',
-                      ]
-                      return monthNames[parseInt(monthStr) - 1]
-                    }}
-                  />
-                  <YAxis
-                    tickFormatter={(value) => formatCurrency(value)}
-                  />
-                  <Tooltip
-                    formatter={(value) => formatCurrency(value)}
-                    labelFormatter={(monthStr) => {
-                      const monthNames = [
-                        'Janeiro',
-                        'Fevereiro',
-                        'Março',
-                        'Abril',
-                        'Maio',
-                        'Junho',
-                        'Julho',
-                        'Agosto',
-                        'Setembro',
-                        'Outubro',
-                        'Novembro',
-                        'Dezembro',
-                      ]
-                      return monthNames[parseInt(monthStr) - 1]
-                    }}
-                  />
-                  <Legend />
-                  <Bar
-                    dataKey="net_amount"
-                    name="Valor Total"
-                    fill="#2563EB"
-                  />
-                  <Bar
-                    dataKey="commercial_value"
-                    name="Valor Comercial"
-                    fill="#3B82F6"
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-          
-          {/* Gráfico comparativo cartão vs boleto */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 relative mt-6">
-            <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
-              Comparativo Mensal: Vendas Cartão vs Boleto
-            </h3>
-            <div className="h-96 relative">
-              {loading && (
-                <div className="absolute inset-0 bg-white dark:bg-gray-800 bg-opacity-75 flex items-center justify-center z-10">
-                  <div className="flex flex-col items-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-                    <p className="mt-4 text-text-light dark:text-text-dark">
-                      Carregando dados...
-                    </p>
-                  </div>
-                </div>
-              )}
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={yearlyData?.monthlyData || []}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis
-                    dataKey="month"
-                    tickFormatter={(monthStr) => {
-                      const monthNames = [
-                        'Jan',
-                        'Fev',
-                        'Mar',
-                        'Abr',
-                        'Mai',
-                        'Jun',
-                        'Jul',
-                        'Ago',
-                        'Set',
-                        'Out',
-                        'Nov',
-                        'Dez',
-                      ]
-                      return monthNames[parseInt(monthStr) - 1]
-                    }}
-                  />
-                  <YAxis
-                    tickFormatter={(value) => formatCurrency(value)}
-                  />
-                  <Tooltip
-                    formatter={(value) => formatCurrency(value)}
-                    labelFormatter={(monthStr) => {
-                      const monthNames = [
-                        'Janeiro',
-                        'Fevereiro',
-                        'Março',
-                        'Abril',
-                        'Maio',
-                        'Junho',
-                        'Julho',
-                        'Agosto',
-                        'Setembro',
-                        'Outubro',
-                        'Novembro',
-                        'Dezembro',
-                      ]
-                      return monthNames[parseInt(monthStr) - 1]
-                    }}
-                  />
-                  <Legend />
-                  <Bar 
-                    dataKey={(entry) => entry.net_amount - entry.boleto_value}
-                    name="Vendas Cartão" 
-                    fill="#2563EB" 
-                  />
-                  <Bar dataKey="boleto_value" name="Vendas Boleto" fill="#EAB308" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
