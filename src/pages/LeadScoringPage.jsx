@@ -17,6 +17,16 @@ function LeadScoringPage() {
   const [processingAll, setProcessingAll] = useState(false);
   const [showGenderBars, setShowGenderBars] = useState(false);
   const [showAgeBars, setShowAgeBars] = useState(false);
+  // Estados para os novos gráficos
+  const [showCurrentJobBars, setShowCurrentJobBars] = useState(false);
+  const [showSalaryBars, setShowSalaryBars] = useState(false);
+  const [showCreditCardBars, setShowCreditCardBars] = useState(false);
+  const [showProgrammingStudyBars, setShowProgrammingStudyBars] = useState(false);
+  const [showCollegeBars, setShowCollegeBars] = useState(false);
+  const [showOnlineCourseBars, setShowOnlineCourseBars] = useState(false);
+  const [showProgrammingInterestBars, setShowProgrammingInterestBars] = useState(false);
+  const [showEventInterestBars, setShowEventInterestBars] = useState(false);
+  const [showComputerBars, setShowComputerBars] = useState(false);
 
   const fetchData = async (limit = null) => {
     try {
@@ -385,7 +395,7 @@ function LeadScoringPage() {
                     dataKey="masculino" 
                     stroke="#3B82F6" 
                     strokeWidth={3}
-                    dot={{ fill: '#3B82F6', r: 6 }}
+                    dot={{ fill: '#3B82F6', r: 3 }}
                     name="Masculino"
                   />
                   <Line 
@@ -393,7 +403,7 @@ function LeadScoringPage() {
                     dataKey="feminino" 
                     stroke="#EF4444" 
                     strokeWidth={3}
-                    dot={{ fill: '#EF4444', r: 6 }}
+                    dot={{ fill: '#EF4444', r: 3 }}
                     name="Feminino"
                   />
                 </LineChart>
@@ -516,7 +526,7 @@ function LeadScoringPage() {
                     dataKey="18-24" 
                     stroke="#10B981" 
                     strokeWidth={3}
-                    dot={{ fill: '#10B981', r: 6 }}
+                    dot={{ fill: '#10B981', r: 3 }}
                     name="18-24 anos"
                   />
                   <Line 
@@ -524,7 +534,7 @@ function LeadScoringPage() {
                     dataKey="25-34" 
                     stroke="#F59E0B" 
                     strokeWidth={3}
-                    dot={{ fill: '#F59E0B', r: 6 }}
+                    dot={{ fill: '#F59E0B', r: 3 }}
                     name="25-34 anos"
                   />
                   <Line 
@@ -532,7 +542,7 @@ function LeadScoringPage() {
                     dataKey="35-44" 
                     stroke="#8B5CF6" 
                     strokeWidth={3}
-                    dot={{ fill: '#8B5CF6', r: 6 }}
+                    dot={{ fill: '#8B5CF6', r: 3 }}
                     name="35-44 anos"
                   />
                   <Line 
@@ -540,7 +550,7 @@ function LeadScoringPage() {
                     dataKey="45-54" 
                     stroke="#EC4899" 
                     strokeWidth={3}
-                    dot={{ fill: '#EC4899', r: 6 }}
+                    dot={{ fill: '#EC4899', r: 3 }}
                     name="45-54 anos"
                   />
                   <Line 
@@ -548,7 +558,7 @@ function LeadScoringPage() {
                     dataKey="55+" 
                     stroke="#6B7280" 
                     strokeWidth={3}
-                    dot={{ fill: '#6B7280', r: 6 }}
+                    dot={{ fill: '#6B7280', r: 3 }}
                     name="55+ anos"
                   />
                 </LineChart>
@@ -557,23 +567,381 @@ function LeadScoringPage() {
           </div>
         )}
 
+        {/* NOVOS GRÁFICOS - PROFISSÃO ATUAL */}
+        {processedData && processedData.currentJobByLaunch && processedData.currentJobByLaunch.length > 0 && (
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-text-light dark:text-text-dark">
+                O que você faz atualmente?
+              </h2>
+              <button
+                onClick={() => setShowCurrentJobBars(!showCurrentJobBars)}
+                className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors text-sm font-medium"
+              >
+                {showCurrentJobBars ? 'LINHAS' : 'BARRAS'}
+              </button>
+            </div>
+            <ResponsiveContainer width="100%" height={400}>
+              {showCurrentJobBars ? (
+                <BarChart data={processedData.currentJobByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
+                  <Legend />
+                  {Object.keys(processedData.currentJobByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => (
+                    <Bar key={key} dataKey={key} fill={`hsl(${idx * 40}, 70%, 50%)`} name={key} stackId="a" />
+                  ))}
+                </BarChart>
+              ) : (
+                <LineChart data={processedData.currentJobByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
+                  <Legend />
+                  {Object.keys(processedData.currentJobByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => (
+                    <Line key={key} type="monotone" dataKey={key} stroke={`hsl(${idx * 40}, 70%, 50%)`} strokeWidth={3} dot={{ fill: `hsl(${idx * 40}, 70%, 50%)`, r: 3 }} name={key} />
+                  ))}
+                </LineChart>
+              )}
+            </ResponsiveContainer>
+          </div>
+        )}
 
+        {/* NOVOS GRÁFICOS - FAIXA SALARIAL */}
+        {processedData && processedData.salaryRangeByLaunch && processedData.salaryRangeByLaunch.length > 0 && (
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-text-light dark:text-text-dark">
+                Faixa Salarial
+              </h2>
+              <button
+                onClick={() => setShowSalaryBars(!showSalaryBars)}
+                className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors text-sm font-medium"
+              >
+                {showSalaryBars ? 'LINHAS' : 'BARRAS'}
+              </button>
+            </div>
+            <ResponsiveContainer width="100%" height={400}>
+              {showSalaryBars ? (
+                <BarChart data={processedData.salaryRangeByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
+                  <Legend />
+                  {Object.keys(processedData.salaryRangeByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => (
+                    <Bar key={key} dataKey={key} fill={`hsl(${idx * 40}, 70%, 50%)`} name={key} stackId="a" />
+                  ))}
+                </BarChart>
+              ) : (
+                <LineChart data={processedData.salaryRangeByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
+                  <Legend />
+                  {Object.keys(processedData.salaryRangeByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => (
+                    <Line key={key} type="monotone" dataKey={key} stroke={`hsl(${idx * 40}, 70%, 50%)`} strokeWidth={3} dot={{ fill: `hsl(${idx * 40}, 70%, 50%)`, r: 3 }} name={key} />
+                  ))}
+                </LineChart>
+              )}
+            </ResponsiveContainer>
+          </div>
+        )}
 
+        {/* NOVOS GRÁFICOS - CARTÃO DE CRÉDITO */}
+        {processedData && processedData.creditCardByLaunch && processedData.creditCardByLaunch.length > 0 && (
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-text-light dark:text-text-dark">
+                Possui Cartão de Crédito?
+              </h2>
+              <button
+                onClick={() => setShowCreditCardBars(!showCreditCardBars)}
+                className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors text-sm font-medium"
+              >
+                {showCreditCardBars ? 'LINHAS' : 'BARRAS'}
+              </button>
+            </div>
+            <ResponsiveContainer width="100%" height={400}>
+              {showCreditCardBars ? (
+                <BarChart data={processedData.creditCardByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
+                  <Legend />
+                  {Object.keys(processedData.creditCardByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => (
+                    <Bar key={key} dataKey={key} fill={`hsl(${idx * 40}, 70%, 50%)`} name={key} stackId="a" />
+                  ))}
+                </BarChart>
+              ) : (
+                <LineChart data={processedData.creditCardByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
+                  <Legend />
+                  {Object.keys(processedData.creditCardByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => (
+                    <Line key={key} type="monotone" dataKey={key} stroke={`hsl(${idx * 40}, 70%, 50%)`} strokeWidth={3} dot={{ fill: `hsl(${idx * 40}, 70%, 50%)`, r: 3 }} name={key} />
+                  ))}
+                </LineChart>
+              )}
+            </ResponsiveContainer>
+          </div>
+        )}
 
+        {/* NOVOS GRÁFICOS - JÁ ESTUDOU PROGRAMAÇÃO */}
+        {processedData && processedData.programmingStudyByLaunch && processedData.programmingStudyByLaunch.length > 0 && (
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-text-light dark:text-text-dark">
+                Já estudou programação?
+              </h2>
+              <button
+                onClick={() => setShowProgrammingStudyBars(!showProgrammingStudyBars)}
+                className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors text-sm font-medium"
+              >
+                {showProgrammingStudyBars ? 'LINHAS' : 'BARRAS'}
+              </button>
+            </div>
+            <ResponsiveContainer width="100%" height={400}>
+              {showProgrammingStudyBars ? (
+                <BarChart data={processedData.programmingStudyByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
+                  <Legend />
+                  {Object.keys(processedData.programmingStudyByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => (
+                    <Bar key={key} dataKey={key} fill={`hsl(${idx * 40}, 70%, 50%)`} name={key} stackId="a" />
+                  ))}
+                </BarChart>
+              ) : (
+                <LineChart data={processedData.programmingStudyByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
+                  <Legend />
+                  {Object.keys(processedData.programmingStudyByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => (
+                    <Line key={key} type="monotone" dataKey={key} stroke={`hsl(${idx * 40}, 70%, 50%)`} strokeWidth={3} dot={{ fill: `hsl(${idx * 40}, 70%, 50%)`, r: 3 }} name={key} />
+                  ))}
+                </LineChart>
+              )}
+            </ResponsiveContainer>
+          </div>
+        )}
 
-        {/* Erros de Carregamento */}
-        {allLaunchesData?.errors && allLaunchesData.errors.length > 0 && (
-          <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-400 dark:border-yellow-600 p-4 rounded-lg mb-6">
-            <h3 className="text-lg font-semibold text-yellow-800 dark:text-yellow-400 mb-2">
-              Planilhas com Erro de Carregamento
-            </h3>
-            <ul className="list-disc list-inside text-sm text-yellow-700 dark:text-yellow-300">
-              {allLaunchesData.errors.map((error, index) => (
-                <li key={index}>
-                  {error.launchName}: {error.error}
-                </li>
-              ))}
-            </ul>
+        {/* NOVOS GRÁFICOS - FACULDADE */}
+        {processedData && processedData.collegeByLaunch && processedData.collegeByLaunch.length > 0 && (
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-text-light dark:text-text-dark">
+                Já fez/faz/pretende fazer faculdade?
+              </h2>
+              <button
+                onClick={() => setShowCollegeBars(!showCollegeBars)}
+                className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors text-sm font-medium"
+              >
+                {showCollegeBars ? 'LINHAS' : 'BARRAS'}
+              </button>
+            </div>
+            <ResponsiveContainer width="100%" height={400}>
+              {showCollegeBars ? (
+                <BarChart data={processedData.collegeByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
+                  <Legend />
+                  {Object.keys(processedData.collegeByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => (
+                    <Bar key={key} dataKey={key} fill={`hsl(${idx * 40}, 70%, 50%)`} name={key} stackId="a" />
+                  ))}
+                </BarChart>
+              ) : (
+                <LineChart data={processedData.collegeByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
+                  <Legend />
+                  {Object.keys(processedData.collegeByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => (
+                    <Line key={key} type="monotone" dataKey={key} stroke={`hsl(${idx * 40}, 70%, 50%)`} strokeWidth={3} dot={{ fill: `hsl(${idx * 40}, 70%, 50%)`, r: 3 }} name={key} />
+                  ))}
+                </LineChart>
+              )}
+            </ResponsiveContainer>
+          </div>
+        )}
+
+        {/* NOVOS GRÁFICOS - CURSO ONLINE */}
+        {processedData && processedData.onlineCourseByLaunch && processedData.onlineCourseByLaunch.length > 0 && (
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-text-light dark:text-text-dark">
+                Já investiu em curso online?
+              </h2>
+              <button
+                onClick={() => setShowOnlineCourseBars(!showOnlineCourseBars)}
+                className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors text-sm font-medium"
+              >
+                {showOnlineCourseBars ? 'LINHAS' : 'BARRAS'}
+              </button>
+            </div>
+            <ResponsiveContainer width="100%" height={400}>
+              {showOnlineCourseBars ? (
+                <BarChart data={processedData.onlineCourseByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
+                  <Legend />
+                  {Object.keys(processedData.onlineCourseByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => (
+                    <Bar key={key} dataKey={key} fill={`hsl(${idx * 40}, 70%, 50%)`} name={key} stackId="a" />
+                  ))}
+                </BarChart>
+              ) : (
+                <LineChart data={processedData.onlineCourseByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
+                  <Legend />
+                  {Object.keys(processedData.onlineCourseByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => (
+                    <Line key={key} type="monotone" dataKey={key} stroke={`hsl(${idx * 40}, 70%, 50%)`} strokeWidth={3} dot={{ fill: `hsl(${idx * 40}, 70%, 50%)`, r: 3 }} name={key} />
+                  ))}
+                </LineChart>
+              )}
+            </ResponsiveContainer>
+          </div>
+        )}
+
+        {/* NOVOS GRÁFICOS - INTERESSE NA PROFISSÃO DE PROGRAMADOR */}
+        {processedData && processedData.programmingInterestByLaunch && processedData.programmingInterestByLaunch.length > 0 && (
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-text-light dark:text-text-dark">
+                O que mais te chama atenção na profissão de Programador?
+              </h2>
+              <button
+                onClick={() => setShowProgrammingInterestBars(!showProgrammingInterestBars)}
+                className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors text-sm font-medium"
+              >
+                {showProgrammingInterestBars ? 'LINHAS' : 'BARRAS'}
+              </button>
+            </div>
+            <ResponsiveContainer width="100%" height={400}>
+              {showProgrammingInterestBars ? (
+                <BarChart data={processedData.programmingInterestByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
+                  <Legend />
+                  {Object.keys(processedData.programmingInterestByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => (
+                    <Bar key={key} dataKey={key} fill={`hsl(${idx * 40}, 70%, 50%)`} name={key} stackId="a" />
+                  ))}
+                </BarChart>
+              ) : (
+                <LineChart data={processedData.programmingInterestByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
+                  <Legend />
+                  {Object.keys(processedData.programmingInterestByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => (
+                    <Line key={key} type="monotone" dataKey={key} stroke={`hsl(${idx * 40}, 70%, 50%)`} strokeWidth={3} dot={{ fill: `hsl(${idx * 40}, 70%, 50%)`, r: 3 }} name={key} />
+                  ))}
+                </LineChart>
+              )}
+            </ResponsiveContainer>
+          </div>
+        )}
+
+        {/* NOVOS GRÁFICOS - INTERESSE NO EVENTO */}
+        {processedData && processedData.eventInterestByLaunch && processedData.eventInterestByLaunch.length > 0 && (
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-text-light dark:text-text-dark">
+                O que mais você quer ver no evento?
+              </h2>
+              <button
+                onClick={() => setShowEventInterestBars(!showEventInterestBars)}
+                className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors text-sm font-medium"
+              >
+                {showEventInterestBars ? 'LINHAS' : 'BARRAS'}
+              </button>
+            </div>
+            <ResponsiveContainer width="100%" height={400}>
+              {showEventInterestBars ? (
+                <BarChart data={processedData.eventInterestByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
+                  <Legend />
+                  {Object.keys(processedData.eventInterestByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => (
+                    <Bar key={key} dataKey={key} fill={`hsl(${idx * 40}, 70%, 50%)`} name={key} stackId="a" />
+                  ))}
+                </BarChart>
+              ) : (
+                <LineChart data={processedData.eventInterestByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
+                  <Legend />
+                  {Object.keys(processedData.eventInterestByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => (
+                    <Line key={key} type="monotone" dataKey={key} stroke={`hsl(${idx * 40}, 70%, 50%)`} strokeWidth={3} dot={{ fill: `hsl(${idx * 40}, 70%, 50%)`, r: 3 }} name={key} />
+                  ))}
+                </LineChart>
+              )}
+            </ResponsiveContainer>
+          </div>
+        )}
+
+        {/* NOVOS GRÁFICOS - TEM COMPUTADOR/NOTEBOOK */}
+        {processedData && processedData.computerByLaunch && processedData.computerByLaunch.length > 0 && (
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-text-light dark:text-text-dark">
+                Tem computador/notebook?
+              </h2>
+              <button
+                onClick={() => setShowComputerBars(!showComputerBars)}
+                className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors text-sm font-medium"
+              >
+                {showComputerBars ? 'LINHAS' : 'BARRAS'}
+              </button>
+            </div>
+            <ResponsiveContainer width="100%" height={400}>
+              {showComputerBars ? (
+                <BarChart data={processedData.computerByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
+                  <Legend />
+                  {Object.keys(processedData.computerByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => (
+                    <Bar key={key} dataKey={key} fill={`hsl(${idx * 40}, 70%, 50%)`} name={key} stackId="a" />
+                  ))}
+                </BarChart>
+              ) : (
+                <LineChart data={processedData.computerByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
+                  <Legend />
+                  {Object.keys(processedData.computerByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => (
+                    <Line key={key} type="monotone" dataKey={key} stroke={`hsl(${idx * 40}, 70%, 50%)`} strokeWidth={3} dot={{ fill: `hsl(${idx * 40}, 70%, 50%)`, r: 3 }} name={key} />
+                  ))}
+                </LineChart>
+              )}
+            </ResponsiveContainer>
           </div>
         )}
 

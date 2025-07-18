@@ -217,7 +217,17 @@ export const leadScoringService = {
       leadsBySource: {},
       conversionByLaunch: [],
       genderByLaunch: [], // Dados de gênero por lançamento
-      ageByLaunch: [] // Novo: dados de idade por lançamento
+      ageByLaunch: [], // Novo: dados de idade por lançamento
+      // Novos campos para as colunas solicitadas
+      currentJobByLaunch: [],
+      salaryRangeByLaunch: [],
+      creditCardByLaunch: [],
+      programmingStudyByLaunch: [],
+      collegeByLaunch: [],
+      onlineCourseByLaunch: [],
+      programmingInterestByLaunch: [],
+      eventInterestByLaunch: [],
+      computerByLaunch: []
     };
 
         allLaunchesData.launches.forEach((launch, index) => {
@@ -372,6 +382,100 @@ export const leadScoringService = {
         } else {
           console.log(`   ❌ Nenhum dado de idade válido para ${launch['Lançamento']}`);
         }
+
+        // Processar dados das novas colunas solicitadas
+        console.log(`🔍 Processando novas colunas para ${launch['Lançamento']}:`);
+        
+        // 1. O que você faz atualmente?
+        const currentJobData = this.processCategoricalData(launch, 'O que você faz atualmente?', 'O que você faz atualmente', 'Profissão', 'profissão', 'Trabalho', 'trabalho');
+        if (currentJobData.total > 0) {
+          aggregatedData.currentJobByLaunch.push({
+            name: launch['Lançamento'],
+            ...currentJobData.percentages,
+            totalLeads: currentJobData.total
+          });
+        }
+
+        // 2. Atualmente, qual a sua faixa salarial?
+        const salaryData = this.processCategoricalData(launch, 'Atualmente, qual a sua faixa salarial?', 'Atualmente, qual a sua faixa salarial', 'Faixa salarial', 'faixa salarial', 'Salário', 'salário');
+        if (salaryData.total > 0) {
+          aggregatedData.salaryRangeByLaunch.push({
+            name: launch['Lançamento'],
+            ...salaryData.percentages,
+            totalLeads: salaryData.total
+          });
+        }
+
+        // 3. Você possui cartão de crédito?
+        const creditCardData = this.processCategoricalData(launch, 'Você possui cartão de crédito?', 'Você possui cartão de crédito', 'Cartão de crédito', 'cartão de crédito', 'Cartão', 'cartão');
+        if (creditCardData.total > 0) {
+          aggregatedData.creditCardByLaunch.push({
+            name: launch['Lançamento'],
+            ...creditCardData.percentages,
+            totalLeads: creditCardData.total
+          });
+        }
+
+        // 4. Já estudou programação?
+        const programmingStudyData = this.processCategoricalData(launch, 'Já estudou programação?', 'Já estudou programação', 'Estudou programação', 'estudou programação', 'Programação', 'programação');
+        if (programmingStudyData.total > 0) {
+          aggregatedData.programmingStudyByLaunch.push({
+            name: launch['Lançamento'],
+            ...programmingStudyData.percentages,
+            totalLeads: programmingStudyData.total
+          });
+        }
+
+        // 5. Você já fez/faz/pretende fazer faculdade?
+        const collegeData = this.processCategoricalData(launch, 'Você já fez/faz/pretende fazer faculdade?', 'Você já fez/faz/pretende fazer faculdade', 'Faculdade', 'faculdade', 'Ensino superior', 'ensino superior');
+        if (collegeData.total > 0) {
+          aggregatedData.collegeByLaunch.push({
+            name: launch['Lançamento'],
+            ...collegeData.percentages,
+            totalLeads: collegeData.total
+          });
+        }
+
+        // 6. Já investiu em algum curso online para aprender uma nova forma de ganhar dinheiro?
+        const onlineCourseData = this.processCategoricalData(launch, 'Já investiu em algum curso online para aprender uma nova forma de ganhar dinheiro?', 'Já investiu em algum curso online para aprender uma nova forma de ganhar dinheiro', 'Curso online', 'curso online', 'Investimento curso', 'investimento curso');
+        if (onlineCourseData.total > 0) {
+          aggregatedData.onlineCourseByLaunch.push({
+            name: launch['Lançamento'],
+            ...onlineCourseData.percentages,
+            totalLeads: onlineCourseData.total
+          });
+        }
+
+        // 7. O que mais te chama atenção na profissão de Programador?
+        const programmingInterestData = this.processCategoricalData(launch, 'O que mais te chama atenção na profissão de Programador?', 'O que mais te chama atenção na profissão de Programador', 'Interesse programação', 'interesse programação', 'Programador', 'programador');
+        if (programmingInterestData.total > 0) {
+          aggregatedData.programmingInterestByLaunch.push({
+            name: launch['Lançamento'],
+            ...programmingInterestData.percentages,
+            totalLeads: programmingInterestData.total
+          });
+        }
+
+        // 8. O que mais você quer ver no evento?
+        const eventInterestData = this.processCategoricalData(launch, 'O que mais você quer ver no evento?', 'O que mais você quer ver no evento', 'Interesse evento', 'interesse evento', 'Evento', 'evento');
+        if (eventInterestData.total > 0) {
+          aggregatedData.eventInterestByLaunch.push({
+            name: launch['Lançamento'],
+            ...eventInterestData.percentages,
+            totalLeads: eventInterestData.total
+          });
+        }
+
+        // 9. Tem computador/notebook?
+        const computerData = this.processCategoricalData(launch, 'Tem computador/notebook?', 'Tem computador/notebook', 'Computador', 'computador', 'Notebook', 'notebook');
+        if (computerData.total > 0) {
+          aggregatedData.computerByLaunch.push({
+            name: launch['Lançamento'],
+            ...computerData.percentages,
+            totalLeads: computerData.total
+          });
+        }
+
       } else {
         console.log(`  ❌ ${launch['Lançamento']}: sem dados de planilha`);
       }
@@ -385,10 +489,54 @@ export const leadScoringService = {
     console.log(`   ✅ Lançamentos com dados válidos: ${aggregatedData.leadsByLaunch.length}`);
     console.log(`   📊 Dados de gênero processados: ${aggregatedData.genderByLaunch.length}`);
     console.log(`   📊 Dados de idade processados: ${aggregatedData.ageByLaunch.length}`);
-    console.log(`   📈 Dados de gênero:`, aggregatedData.genderByLaunch);
-    console.log(`   📈 Dados de idade:`, aggregatedData.ageByLaunch);
+    console.log(`   📊 Dados de profissão processados: ${aggregatedData.currentJobByLaunch.length}`);
+    console.log(`   📊 Dados de salário processados: ${aggregatedData.salaryRangeByLaunch.length}`);
+    console.log(`   📊 Dados de cartão de crédito processados: ${aggregatedData.creditCardByLaunch.length}`);
+    console.log(`   📊 Dados de estudo de programação processados: ${aggregatedData.programmingStudyByLaunch.length}`);
+    console.log(`   📊 Dados de faculdade processados: ${aggregatedData.collegeByLaunch.length}`);
+    console.log(`   📊 Dados de curso online processados: ${aggregatedData.onlineCourseByLaunch.length}`);
+    console.log(`   📊 Dados de interesse em programação processados: ${aggregatedData.programmingInterestByLaunch.length}`);
+    console.log(`   📊 Dados de interesse no evento processados: ${aggregatedData.eventInterestByLaunch.length}`);
+    console.log(`   📊 Dados de computador processados: ${aggregatedData.computerByLaunch.length}`);
 
     return aggregatedData;
+  },
+
+  // Função auxiliar para processar dados categóricos
+  processCategoricalData(launch, ...fieldNames) {
+    const categories = {};
+    let total = 0;
+
+    // Buscar o campo correto nos headers
+    const field = fieldNames.find(fieldName => launch.sheetData.headers.includes(fieldName));
+    
+    if (!field) {
+      console.log(`   ❌ Campo não encontrado para: ${fieldNames[0]}`);
+      return { total: 0, percentages: {} };
+    }
+
+    console.log(`   ✅ Campo encontrado: "${field}"`);
+
+    // Processar dados
+    launch.sheetData.data.forEach(lead => {
+      if (lead[field]) {
+        const value = lead[field].trim();
+        if (value) {
+          categories[value] = (categories[value] || 0) + 1;
+          total++;
+        }
+      }
+    });
+
+    // Calcular percentuais
+    const percentages = {};
+    Object.keys(categories).forEach(category => {
+      percentages[category] = Number(((categories[category] / total) * 100).toFixed(1));
+    });
+
+    console.log(`   📊 Resultado ${fieldNames[0]}:`, categories, `Total: ${total}`);
+
+    return { total, percentages };
   },
 
   // Função para verificar se um lançamento tem dados válidos de gênero
