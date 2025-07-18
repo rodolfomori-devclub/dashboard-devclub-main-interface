@@ -4,9 +4,9 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import leadScoringService from '../services/leadScoringService';
 
 
-function LeadScoringPage() {
-  const [loading, setLoading] = useState(true);
-  const [loadingProgress, setLoadingProgress] = useState(null);
+  function LeadScoringPage() {
+    const [loading, setLoading] = useState(true);
+    const [loadingProgress, setLoadingProgress] = useState(null);
   const [error, setError] = useState(null);
 
   const [allLaunchesData, setAllLaunchesData] = useState(null);

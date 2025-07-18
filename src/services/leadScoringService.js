@@ -484,6 +484,60 @@ export const leadScoringService = {
     // Ordenar por quantidade de leads
     aggregatedData.leadsByLaunch.sort((a, b) => b.leads - a.leads);
 
+    // Ordenar todos os dados de gráficos para que os mais novos fiquem à direita
+    // Função para extrair número do lançamento
+    const getLaunchNumber = (launchName) => {
+      const match = launchName.match(/(\d+)/);
+      return match ? parseInt(match[1]) : 0;
+    };
+
+    // Ordenar dados de gênero
+    if (aggregatedData.genderByLaunch.length > 0) {
+      aggregatedData.genderByLaunch.sort((a, b) => getLaunchNumber(a.name) - getLaunchNumber(b.name));
+    }
+
+    // Ordenar dados de idade
+    if (aggregatedData.ageByLaunch.length > 0) {
+      aggregatedData.ageByLaunch.sort((a, b) => getLaunchNumber(a.name) - getLaunchNumber(b.name));
+    }
+
+    // Ordenar dados das novas colunas
+    if (aggregatedData.currentJobByLaunch.length > 0) {
+      aggregatedData.currentJobByLaunch.sort((a, b) => getLaunchNumber(a.name) - getLaunchNumber(b.name));
+    }
+
+    if (aggregatedData.salaryRangeByLaunch.length > 0) {
+      aggregatedData.salaryRangeByLaunch.sort((a, b) => getLaunchNumber(a.name) - getLaunchNumber(b.name));
+    }
+
+    if (aggregatedData.creditCardByLaunch.length > 0) {
+      aggregatedData.creditCardByLaunch.sort((a, b) => getLaunchNumber(a.name) - getLaunchNumber(b.name));
+    }
+
+    if (aggregatedData.programmingStudyByLaunch.length > 0) {
+      aggregatedData.programmingStudyByLaunch.sort((a, b) => getLaunchNumber(a.name) - getLaunchNumber(b.name));
+    }
+
+    if (aggregatedData.collegeByLaunch.length > 0) {
+      aggregatedData.collegeByLaunch.sort((a, b) => getLaunchNumber(a.name) - getLaunchNumber(b.name));
+    }
+
+    if (aggregatedData.onlineCourseByLaunch.length > 0) {
+      aggregatedData.onlineCourseByLaunch.sort((a, b) => getLaunchNumber(a.name) - getLaunchNumber(b.name));
+    }
+
+    if (aggregatedData.programmingInterestByLaunch.length > 0) {
+      aggregatedData.programmingInterestByLaunch.sort((a, b) => getLaunchNumber(a.name) - getLaunchNumber(b.name));
+    }
+
+    if (aggregatedData.eventInterestByLaunch.length > 0) {
+      aggregatedData.eventInterestByLaunch.sort((a, b) => getLaunchNumber(a.name) - getLaunchNumber(b.name));
+    }
+
+    if (aggregatedData.computerByLaunch.length > 0) {
+      aggregatedData.computerByLaunch.sort((a, b) => getLaunchNumber(a.name) - getLaunchNumber(b.name));
+    }
+
     console.log(`🎯 RESUMO FINAL:`);
     console.log(`   📥 Lançamentos carregados: ${allLaunchesData.launches.length}`);
     console.log(`   ✅ Lançamentos com dados válidos: ${aggregatedData.leadsByLaunch.length}`);
