@@ -2,20 +2,18 @@ import axios from 'axios';
 
 const MAIN_SHEET_ID = '1kLgVsNcc8OmPMvxaTN7KM0cTB5hC0KtL02lSZMYRHBw';
 const API_KEY = 'AIzaSyDefktRla6Q-o9k-yfKaLxW1nFMgAJfDt8';
-const MAIN_RANGE = 'A:Z'; // Pega todas as colunas da planilha principal
-const LF_PESQUISA_RANGE = "'[LF] Pesquisa'!A:Z"; // Range da aba [LF] Pesquisa com aspas simples
+const MAIN_RANGE = 'A:Z';
+const LF_PESQUISA_RANGE = "'[LF] Pesquisa'!A:AI";
 
 const cache = new Map();
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
+const CACHE_DURATION = 5 * 60 * 1000;
 
-// Função para extrair o ID da planilha a partir do URL
 function extractSheetId(url) {
   const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
   return match ? match[1] : null;
 }
 
 export const leadScoringService = {
-  // Busca os dados da planilha principal
   async fetchMainSheetData() {
     const cacheKey = 'mainSheet';
     const cached = cache.get(cacheKey);
@@ -62,7 +60,6 @@ export const leadScoringService = {
     }
   },
 
-  // Busca dados de uma planilha específica
   async fetchSheetData(sheetUrl, launchName) {
     const sheetId = extractSheetId(sheetUrl);
     if (!sheetId) {
@@ -89,9 +86,13 @@ export const leadScoringService = {
       const headers = response.data.values[0];
       const rows = response.data.values.slice(1);
       
+      console.log(`📊 Headers carregados para ${launchName}:`, headers);
+      console.log(`📊 Total de colunas: ${headers.length}`);
+      console.log(`📊 Últimas 10 colunas:`, headers.slice(-10));
+      
       const data = rows.map(row => {
         const obj = {
-          launch: launchName // Adiciona o nome do lançamento
+          launch: launchName
         };
         headers.forEach((header, index) => {
           obj[header] = row[index] || '';
@@ -119,18 +120,12 @@ export const leadScoringService = {
     }
   },
 
-  // Busca dados de todas as planilhas listadas
   async fetchAllLaunchesData(onProgress, limit = null) {
     try {
-      // Primeiro busca a planilha principal
       const mainData = await this.fetchMainSheetData();
       
-      // Se limit for especificado, ordenar e limitar os lançamentos
       let launchesToProcess = [...mainData.data];
       if (limit) {
-        console.log(`🎯 Limitando a ${limit} lançamentos mais recentes`);
-        
-        // Ordenar por número do LF (maior = mais recente)
         launchesToProcess.sort((a, b) => {
           const getNum = (name) => {
             const match = name.match(/(\d+)/);
@@ -142,13 +137,11 @@ export const leadScoringService = {
         });
         
         launchesToProcess = launchesToProcess.slice(0, limit);
-        console.log(`📊 Lançamentos selecionados:`, launchesToProcess.map(l => l['Lançamento']));
       }
       
       const allLaunchesData = [];
       const errors = [];
       
-      // Para cada lançamento, busca os dados da planilha correspondente
       for (let i = 0; i < launchesToProcess.length; i++) {
         const launch = launchesToProcess[i];
         const sheetUrl = launch['Link Planilha'];
@@ -166,8 +159,8 @@ export const leadScoringService = {
           const launchData = await this.fetchSheetData(sheetUrl, launchName);
           if (launchData) {
             allLaunchesData.push({
-              ...launch, // Dados da planilha principal
-              sheetData: launchData // Dados da aba [LF] Pesquisa
+              ...launch,
+              sheetData: launchData
             });
           } else {
             errors.push({
@@ -176,7 +169,6 @@ export const leadScoringService = {
             });
           }
         } else {
-          // URL inválido ou não fornecido
           allLaunchesData.push({
             ...launch,
             sheetData: null
@@ -187,7 +179,6 @@ export const leadScoringService = {
           });
         }
         
-        // Pequeno delay para evitar rate limiting
         await new Promise(resolve => setTimeout(resolve, 100));
       }
 
@@ -203,22 +194,15 @@ export const leadScoringService = {
     }
   },
 
-  // Função para processar e agregar dados para gráficos
   processDataForCharts(allLaunchesData) {
-    console.log('🚀 processDataForCharts iniciado');
-    console.log('📊 Total de lançamentos recebidos:', allLaunchesData.launches.length);
-    console.log('📊 Lançamentos:', allLaunchesData.launches.map(l => l['Lançamento']));
-    console.log('📊 RESUMO: Processando dados de gênero para', allLaunchesData.launches.length, 'lançamentos...');
-    
     const aggregatedData = {
       totalLeads: 0,
       leadsByLaunch: [],
       leadsByDate: {},
       leadsBySource: {},
       conversionByLaunch: [],
-      genderByLaunch: [], // Dados de gênero por lançamento
-      ageByLaunch: [], // Novo: dados de idade por lançamento
-      // Novos campos para as colunas solicitadas
+      genderByLaunch: [],
+      ageByLaunch: [],
       currentJobByLaunch: [],
       salaryRangeByLaunch: [],
       creditCardByLaunch: [],
@@ -227,21 +211,15 @@ export const leadScoringService = {
       onlineCourseByLaunch: [],
       programmingInterestByLaunch: [],
       eventInterestByLaunch: [],
-      computerByLaunch: []
+      computerByLaunch: [],
+      faixaByLaunch: []
     };
 
-        allLaunchesData.launches.forEach((launch, index) => {
-      console.log(`📋 Processando lançamento ${index + 1}/${allLaunchesData.launches.length}: ${launch['Lançamento']}`);
-      console.log(`  📋 sheetData existe:`, !!launch.sheetData);
-      console.log(`  📋 sheetData.data existe:`, !!launch.sheetData?.data);
-      console.log(`  📋 sheetData.data length:`, launch.sheetData?.data?.length);
-      
+    allLaunchesData.launches.forEach((launch) => {
       if (launch.sheetData && launch.sheetData.data) {
-          const launchLeadsCount = launch.sheetData.totalRows;
-          console.log(`  ✅ ${launch['Lançamento']}: ${launchLeadsCount} leads, dados disponíveis`);
-          aggregatedData.totalLeads += launchLeadsCount;
+        const launchLeadsCount = launch.sheetData.totalRows;
+        aggregatedData.totalLeads += launchLeadsCount;
         
-        // Leads por lançamento
         aggregatedData.leadsByLaunch.push({
           name: launch['Lançamento'],
           leads: launchLeadsCount,
@@ -249,29 +227,13 @@ export const leadScoringService = {
           endDate: launch['Fim Captação']
         });
 
-        // Processar dados de gênero
         let masculino = 0;
         let feminino = 0;
         let outros = 0;
 
-        // Debug: verificar headers disponíveis
-        console.log(`🔍 Processando gênero para ${launch['Lançamento']}:`);
-        console.log(`   Headers disponíveis:`, launch.sheetData.headers);
-
-        // Processar dados detalhados se disponíveis
         launch.sheetData.data.forEach(lead => {
-          // Buscar campo de sexo/gênero - verificar se existe nos headers primeiro
           const genderFields = ['O seu gênero:', 'O seu gênero', 'Sexo', 'sexo', 'Gênero', 'gênero', 'Gender', 'gender', 'Genero', 'genero'];
           const genderField = genderFields.find(field => launch.sheetData.headers.includes(field));
-          
-          // Debug: verificar se encontrou o campo
-          if (genderField) {
-            console.log(`   ✅ Campo de gênero encontrado: "${genderField}"`);
-            // Mostrar alguns valores de exemplo (apenas na primeira iteração)
-            if (launch.sheetData.data.indexOf(lead) < 5) {
-              console.log(`   📝 Valor de exemplo: "${lead[genderField]}"`);
-            }
-          }
           
           if (genderField && lead[genderField]) {
             const gender = lead[genderField].toLowerCase().trim();
@@ -284,7 +246,6 @@ export const leadScoringService = {
             }
           }
 
-          // Agregar por data se houver campo de data
           const dateFields = ['Data', 'data', 'Date', 'Timestamp', 'timestamp'];
           const dateField = dateFields.find(field => lead[field]);
           if (dateField && lead[dateField]) {
@@ -292,7 +253,6 @@ export const leadScoringService = {
             aggregatedData.leadsByDate[date] = (aggregatedData.leadsByDate[date] || 0) + 1;
           }
 
-          // Agregar por fonte se houver
           const sourceFields = ['Fonte', 'fonte', 'Source', 'source', 'Canal', 'canal'];
           const sourceField = sourceFields.find(field => lead[field]);
           if (sourceField && lead[sourceField]) {
@@ -301,9 +261,7 @@ export const leadScoringService = {
           }
         });
 
-        // Calcular percentuais
         const total = masculino + feminino + outros;
-        console.log(`   📊 Resultado gênero: Masculino=${masculino}, Feminino=${feminino}, Outros=${outros}, Total=${total}`);
         
         if (total > 0) {
           aggregatedData.genderByLaunch.push({
@@ -313,12 +271,8 @@ export const leadScoringService = {
             outros: Number(((outros / total) * 100).toFixed(1)),
             totalLeads: total
           });
-          console.log(`   ✅ Dados de gênero adicionados para ${launch['Lançamento']}`);
-                } else {
-          console.log(`   ❌ Nenhum dado de gênero válido para ${launch['Lançamento']}`);
         }
 
-        // Processar dados de idade
         let ageGroups = {
           '18-24': 0,
           '25-34': 0,
@@ -327,24 +281,9 @@ export const leadScoringService = {
           '55+': 0
         };
 
-        // Debug: verificar headers disponíveis para idade
-        console.log(`🔍 Processando idade para ${launch['Lançamento']}:`);
-        console.log(`   Headers disponíveis:`, launch.sheetData.headers);
-
-        // Processar dados detalhados se disponíveis
         launch.sheetData.data.forEach(lead => {
-          // Buscar campo de idade - verificar se existe nos headers primeiro
           const ageFields = ['Qual a sua idade?', 'Qual a sua idade', 'Idade', 'idade', 'Age', 'age'];
           const ageField = ageFields.find(field => launch.sheetData.headers.includes(field));
-          
-          // Debug: verificar se encontrou o campo
-          if (ageField) {
-            console.log(`   ✅ Campo de idade encontrado: "${ageField}"`);
-            // Mostrar alguns valores de exemplo (apenas na primeira iteração)
-            if (launch.sheetData.data.indexOf(lead) < 5) {
-              console.log(`   📝 Valor de exemplo: "${lead[ageField]}"`);
-            }
-          }
           
           if (ageField && lead[ageField]) {
             const age = parseInt(lead[ageField]);
@@ -364,9 +303,7 @@ export const leadScoringService = {
           }
         });
 
-        // Calcular percentuais de idade
         const totalAge = Object.values(ageGroups).reduce((sum, count) => sum + count, 0);
-        console.log(`   📊 Resultado idade: 18-24=${ageGroups['18-24']}, 25-34=${ageGroups['25-34']}, 35-44=${ageGroups['35-44']}, 45-54=${ageGroups['45-54']}, 55+=${ageGroups['55+']}, Total=${totalAge}`);
         
         if (totalAge > 0) {
           aggregatedData.ageByLaunch.push({
@@ -378,15 +315,8 @@ export const leadScoringService = {
             '55+': Number(((ageGroups['55+'] / totalAge) * 100).toFixed(1)),
             totalLeads: totalAge
           });
-          console.log(`   ✅ Dados de idade adicionados para ${launch['Lançamento']}`);
-        } else {
-          console.log(`   ❌ Nenhum dado de idade válido para ${launch['Lançamento']}`);
         }
 
-        // Processar dados das novas colunas solicitadas
-        console.log(`🔍 Processando novas colunas para ${launch['Lançamento']}:`);
-        
-        // 1. O que você faz atualmente?
         const currentJobData = this.processCategoricalData(launch, 'O que você faz atualmente?', 'O que você faz atualmente', 'Profissão', 'profissão', 'Trabalho', 'trabalho');
         if (currentJobData.total > 0) {
           aggregatedData.currentJobByLaunch.push({
@@ -396,7 +326,6 @@ export const leadScoringService = {
           });
         }
 
-        // 2. Atualmente, qual a sua faixa salarial?
         const salaryData = this.processCategoricalData(launch, 'Atualmente, qual a sua faixa salarial?', 'Atualmente, qual a sua faixa salarial', 'Faixa salarial', 'faixa salarial', 'Salário', 'salário');
         if (salaryData.total > 0) {
           aggregatedData.salaryRangeByLaunch.push({
@@ -406,7 +335,6 @@ export const leadScoringService = {
           });
         }
 
-        // 3. Você possui cartão de crédito?
         const creditCardData = this.processCategoricalData(launch, 'Você possui cartão de crédito?', 'Você possui cartão de crédito', 'Cartão de crédito', 'cartão de crédito', 'Cartão', 'cartão');
         if (creditCardData.total > 0) {
           aggregatedData.creditCardByLaunch.push({
@@ -416,7 +344,6 @@ export const leadScoringService = {
           });
         }
 
-        // 4. Já estudou programação?
         const programmingStudyData = this.processCategoricalData(launch, 'Já estudou programação?', 'Já estudou programação', 'Estudou programação', 'estudou programação', 'Programação', 'programação');
         if (programmingStudyData.total > 0) {
           aggregatedData.programmingStudyByLaunch.push({
@@ -426,7 +353,6 @@ export const leadScoringService = {
           });
         }
 
-        // 5. Você já fez/faz/pretende fazer faculdade?
         const collegeData = this.processCategoricalData(launch, 'Você já fez/faz/pretende fazer faculdade?', 'Você já fez/faz/pretende fazer faculdade', 'Faculdade', 'faculdade', 'Ensino superior', 'ensino superior');
         if (collegeData.total > 0) {
           aggregatedData.collegeByLaunch.push({
@@ -436,7 +362,6 @@ export const leadScoringService = {
           });
         }
 
-        // 6. Já investiu em algum curso online para aprender uma nova forma de ganhar dinheiro?
         const onlineCourseData = this.processCategoricalData(launch, 'Já investiu em algum curso online para aprender uma nova forma de ganhar dinheiro?', 'Já investiu em algum curso online para aprender uma nova forma de ganhar dinheiro', 'Curso online', 'curso online', 'Investimento curso', 'investimento curso');
         if (onlineCourseData.total > 0) {
           aggregatedData.onlineCourseByLaunch.push({
@@ -446,7 +371,6 @@ export const leadScoringService = {
           });
         }
 
-        // 7. O que mais te chama atenção na profissão de Programador?
         const programmingInterestData = this.processCategoricalData(launch, 'O que mais te chama atenção na profissão de Programador?', 'O que mais te chama atenção na profissão de Programador', 'Interesse programação', 'interesse programação', 'Programador', 'programador');
         if (programmingInterestData.total > 0) {
           aggregatedData.programmingInterestByLaunch.push({
@@ -456,7 +380,6 @@ export const leadScoringService = {
           });
         }
 
-        // 8. O que mais você quer ver no evento?
         const eventInterestData = this.processCategoricalData(launch, 'O que mais você quer ver no evento?', 'O que mais você quer ver no evento', 'Interesse evento', 'interesse evento', 'Evento', 'evento');
         if (eventInterestData.total > 0) {
           aggregatedData.eventInterestByLaunch.push({
@@ -466,7 +389,6 @@ export const leadScoringService = {
           });
         }
 
-        // 9. Tem computador/notebook?
         const computerData = this.processCategoricalData(launch, 'Tem computador/notebook?', 'Tem computador/notebook', 'Computador', 'computador', 'Notebook', 'notebook');
         if (computerData.total > 0) {
           aggregatedData.computerByLaunch.push({
@@ -476,32 +398,70 @@ export const leadScoringService = {
           });
         }
 
-      } else {
-        console.log(`  ❌ ${launch['Lançamento']}: sem dados de planilha`);
+        const faixaData = this.processCategoricalData(launch, 'Faixa', 'FAIXA', 'faixa', 'Faixa A', 'Faixa B', 'Faixa C', 'Faixa D', 'Faixa E', 'Score', 'score', 'Pontuação', 'pontuação');
+        if (faixaData.total > 0) {
+          console.log(`📊 Processando faixa para ${launch['Lançamento']}:`, faixaData);
+          
+          // Ordenar as faixas para melhor visualização
+          const sortedPercentages = {};
+          const faixaOrder = ['A', 'B', 'C', 'D', 'E'];
+          
+          faixaOrder.forEach(faixa => {
+            const faixaKey = Object.keys(faixaData.percentages).find(key => 
+              key.includes(faixa) || key.toUpperCase().includes(faixa)
+            );
+            if (faixaKey) {
+              sortedPercentages[faixaKey] = faixaData.percentages[faixaKey];
+            }
+          });
+          
+          // Adicionar outras faixas que não estão na ordem padrão
+          Object.keys(faixaData.percentages).forEach(key => {
+            if (!Object.keys(sortedPercentages).includes(key)) {
+              sortedPercentages[key] = faixaData.percentages[key];
+            }
+          });
+          
+          console.log(`📊 Faixas ordenadas para ${launch['Lançamento']}:`, sortedPercentages);
+          
+          aggregatedData.faixaByLaunch.push({
+            name: launch['Lançamento'],
+            ...sortedPercentages,
+            totalLeads: faixaData.total
+          });
+        } else {
+          console.log(`⚠️ Nenhum dado de faixa encontrado para ${launch['Lançamento']}`);
+          console.log(`🔍 Headers disponíveis:`, launch.sheetData?.headers);
+          
+          // Verificar se há alguma coluna que possa ser faixa
+          if (launch.sheetData?.headers) {
+            const possibleFaixaHeaders = launch.sheetData.headers.filter(header => 
+              header.toLowerCase().includes('faixa') || 
+              header.toLowerCase().includes('score') ||
+              header.toLowerCase().includes('pontuação') ||
+              header.toLowerCase().includes('classificação')
+            );
+            console.log(`🔍 Possíveis colunas de faixa encontradas:`, possibleFaixaHeaders);
+          }
+        }
       }
     });
 
-    // Ordenar por quantidade de leads
     aggregatedData.leadsByLaunch.sort((a, b) => b.leads - a.leads);
 
-    // Ordenar todos os dados de gráficos para que os mais novos fiquem à direita
-    // Função para extrair número do lançamento
     const getLaunchNumber = (launchName) => {
       const match = launchName.match(/(\d+)/);
       return match ? parseInt(match[1]) : 0;
     };
 
-    // Ordenar dados de gênero
     if (aggregatedData.genderByLaunch.length > 0) {
       aggregatedData.genderByLaunch.sort((a, b) => getLaunchNumber(a.name) - getLaunchNumber(b.name));
     }
 
-    // Ordenar dados de idade
     if (aggregatedData.ageByLaunch.length > 0) {
       aggregatedData.ageByLaunch.sort((a, b) => getLaunchNumber(a.name) - getLaunchNumber(b.name));
     }
 
-    // Ordenar dados das novas colunas
     if (aggregatedData.currentJobByLaunch.length > 0) {
       aggregatedData.currentJobByLaunch.sort((a, b) => getLaunchNumber(a.name) - getLaunchNumber(b.name));
     }
@@ -538,40 +498,29 @@ export const leadScoringService = {
       aggregatedData.computerByLaunch.sort((a, b) => getLaunchNumber(a.name) - getLaunchNumber(b.name));
     }
 
-    console.log(`🎯 RESUMO FINAL:`);
-    console.log(`   📥 Lançamentos carregados: ${allLaunchesData.launches.length}`);
-    console.log(`   ✅ Lançamentos com dados válidos: ${aggregatedData.leadsByLaunch.length}`);
-    console.log(`   📊 Dados de gênero processados: ${aggregatedData.genderByLaunch.length}`);
-    console.log(`   📊 Dados de idade processados: ${aggregatedData.ageByLaunch.length}`);
-    console.log(`   📊 Dados de profissão processados: ${aggregatedData.currentJobByLaunch.length}`);
-    console.log(`   📊 Dados de salário processados: ${aggregatedData.salaryRangeByLaunch.length}`);
-    console.log(`   📊 Dados de cartão de crédito processados: ${aggregatedData.creditCardByLaunch.length}`);
-    console.log(`   📊 Dados de estudo de programação processados: ${aggregatedData.programmingStudyByLaunch.length}`);
-    console.log(`   📊 Dados de faculdade processados: ${aggregatedData.collegeByLaunch.length}`);
-    console.log(`   📊 Dados de curso online processados: ${aggregatedData.onlineCourseByLaunch.length}`);
-    console.log(`   📊 Dados de interesse em programação processados: ${aggregatedData.programmingInterestByLaunch.length}`);
-    console.log(`   📊 Dados de interesse no evento processados: ${aggregatedData.eventInterestByLaunch.length}`);
-    console.log(`   📊 Dados de computador processados: ${aggregatedData.computerByLaunch.length}`);
+    if (aggregatedData.faixaByLaunch.length > 0) {
+      aggregatedData.faixaByLaunch.sort((a, b) => getLaunchNumber(a.name) - getLaunchNumber(b.name));
+    }
+
+    console.log(`   📊 Dados de faixa processados: ${aggregatedData.faixaByLaunch.length}`);
 
     return aggregatedData;
   },
 
-  // Função auxiliar para processar dados categóricos
   processCategoricalData(launch, ...fieldNames) {
     const categories = {};
     let total = 0;
 
-    // Buscar o campo correto nos headers
     const field = fieldNames.find(fieldName => launch.sheetData.headers.includes(fieldName));
     
     if (!field) {
-      console.log(`   ❌ Campo não encontrado para: ${fieldNames[0]}`);
+      console.log(`🔍 Campo não encontrado para:`, fieldNames);
+      console.log(`🔍 Headers disponíveis:`, launch.sheetData.headers);
       return { total: 0, percentages: {} };
     }
 
-    console.log(`   ✅ Campo encontrado: "${field}"`);
+    console.log(`✅ Campo encontrado: "${field}" para ${launch['Lançamento']}`);
 
-    // Processar dados
     launch.sheetData.data.forEach(lead => {
       if (lead[field]) {
         const value = lead[field].trim();
@@ -582,24 +531,22 @@ export const leadScoringService = {
       }
     });
 
-    // Calcular percentuais
     const percentages = {};
     Object.keys(categories).forEach(category => {
       percentages[category] = Number(((categories[category] / total) * 100).toFixed(1));
     });
 
-    console.log(`   📊 Resultado ${fieldNames[0]}:`, categories, `Total: ${total}`);
+    console.log(`📊 Categorias encontradas para "${field}":`, categories);
+    console.log(`📊 Percentuais calculados:`, percentages);
 
     return { total, percentages };
   },
 
-  // Função para verificar se um lançamento tem dados válidos de gênero
   hasValidGenderData(launch) {
     if (!launch.sheetData || !launch.sheetData.data || launch.sheetData.data.length === 0) {
       return false;
     }
 
-    // Verificar se tem campo de gênero
     const genderFields = ['O seu gênero:', 'O seu gênero', 'Sexo', 'sexo', 'Gênero', 'gênero', 'Gender', 'gender', 'Genero', 'genero'];
     const genderField = genderFields.find(field => launch.sheetData.headers.includes(field));
     
@@ -607,7 +554,6 @@ export const leadScoringService = {
       return false;
     }
 
-    // Verificar se tem pelo menos um lead com dados de gênero válidos
     let hasValidData = false;
     for (const row of launch.sheetData.data) {
       if (row[genderField]) {
@@ -619,13 +565,11 @@ export const leadScoringService = {
     return hasValidData;
   },
 
-  // Função para verificar se um lançamento tem dados válidos de idade
   hasValidAgeData(launch) {
     if (!launch.sheetData || !launch.sheetData.data || launch.sheetData.data.length === 0) {
       return false;
     }
 
-    // Verificar se tem campo de idade
     const ageFields = ['Qual a sua idade?', 'Qual a sua idade', 'Idade', 'idade', 'Age', 'age'];
     const ageField = ageFields.find(field => launch.sheetData.headers.includes(field));
     
@@ -633,7 +577,6 @@ export const leadScoringService = {
       return false;
     }
 
-    // Verificar se tem pelo menos um lead com dados de idade válidos
     let hasValidData = false;
     for (const row of launch.sheetData.data) {
       if (row[ageField]) {
@@ -646,6 +589,7 @@ export const leadScoringService = {
   },
 
   clearCache() {
+    console.log('🧹 Cache limpo - forçando recarregamento dos dados');
     cache.clear();
   }
 };

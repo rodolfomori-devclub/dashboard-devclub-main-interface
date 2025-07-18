@@ -27,6 +27,7 @@ import leadScoringService from '../services/leadScoringService';
   const [showProgrammingInterestBars, setShowProgrammingInterestBars] = useState(false);
   const [showEventInterestBars, setShowEventInterestBars] = useState(false);
   const [showComputerBars, setShowComputerBars] = useState(false);
+  const [showFaixaBars, setShowFaixaBars] = useState(false);
 
   const fetchData = async (limit = null) => {
     try {
@@ -51,6 +52,12 @@ import leadScoringService from '../services/leadScoringService';
       console.log('Dados de gênero:', processed.genderByLaunch);
       console.log('Dados de gênero length:', processed.genderByLaunch?.length);
       console.log('Condição para mostrar gráfico:', processed.genderByLaunch && processed.genderByLaunch.length > 0);
+      
+      // Logs específicos para faixa
+      console.log('🔍 Dados de faixa:', processed.faixaByLaunch);
+      console.log('🔍 Dados de faixa length:', processed.faixaByLaunch?.length);
+      console.log('🔍 Condição para mostrar gráfico de faixa:', processed.faixaByLaunch && processed.faixaByLaunch.length > 0);
+      
       setProcessedData(processed);
       
       setLastUpdate(new Date().toLocaleString('pt-BR'));
@@ -154,6 +161,12 @@ import leadScoringService from '../services/leadScoringService';
       console.log('🔄 Chamando processDataForCharts...');
       const processed = leadScoringService.processDataForCharts(filteredData);
       console.log('✅ processDataForCharts concluído');
+      
+      // Logs específicos para faixa no filtro
+      console.log('🔍 Dados de faixa (filtro):', processed.faixaByLaunch);
+      console.log('🔍 Dados de faixa length (filtro):', processed.faixaByLaunch?.length);
+      console.log('🔍 Condição para mostrar gráfico de faixa (filtro):', processed.faixaByLaunch && processed.faixaByLaunch.length > 0);
+      
       setProcessedData(processed);
     }
   };
@@ -299,6 +312,80 @@ import leadScoringService from '../services/leadScoringService';
                 {allLaunchesData?.errors?.length || 0}
               </p>
             </div>
+          </div>
+        )}
+
+        {/* Gráfico de Faixa de Lead Scoring - PRIMEIRO GRÁFICO */}
+        {processedData && processedData.faixaByLaunch && processedData.faixaByLaunch.length > 0 && (
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-text-light dark:text-text-dark">
+                Distribuição por Faixa de Lead Scoring
+              </h2>
+              <button
+                onClick={() => setShowFaixaBars(!showFaixaBars)}
+                className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors text-sm font-medium"
+              >
+                {showFaixaBars ? 'LINHAS' : 'BARRAS'}
+              </button>
+            </div>
+            <ResponsiveContainer width="100%" height={400}>
+              {showFaixaBars ? (
+                <BarChart data={processedData.faixaByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
+                  <Legend />
+                  {Object.keys(processedData.faixaByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => {
+                    // Definir cores específicas para cada faixa
+                    let color = `hsl(${idx * 40}, 70%, 50%)`;
+                    if (key.includes('A') || key.toUpperCase().includes('A')) {
+                      color = '#37E359'; // Verde forte
+                    } else if (key.includes('B') || key.toUpperCase().includes('B')) {
+                      color = '#4CAF50'; // Verde médio
+                    } else if (key.includes('C') || key.toUpperCase().includes('C')) {
+                      color = '#FFC107'; // Amarelo
+                    } else if (key.includes('D') || key.toUpperCase().includes('D')) {
+                      color = '#FF5722'; // Laranja/vermelho
+                    } else if (key.includes('E') || key.toUpperCase().includes('E')) {
+                      color = '#F44336'; // Vermelho
+                    }
+                    
+                    return (
+                      <Bar key={key} dataKey={key} fill={color} name={key} stackId="a" />
+                    );
+                  })}
+                </BarChart>
+              ) : (
+                <LineChart data={processedData.faixaByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
+                  <Legend />
+                  {Object.keys(processedData.faixaByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => {
+                    // Definir cores específicas para cada faixa
+                    let color = `hsl(${idx * 40}, 70%, 50%)`;
+                    if (key.includes('A') || key.toUpperCase().includes('A')) {
+                      color = '#37E359'; // Verde forte
+                    } else if (key.includes('B') || key.toUpperCase().includes('B')) {
+                      color = '#4CAF50'; // Verde médio
+                    } else if (key.includes('C') || key.toUpperCase().includes('C')) {
+                      color = '#FFC107'; // Amarelo
+                    } else if (key.includes('D') || key.toUpperCase().includes('D')) {
+                      color = '#FF5722'; // Laranja/vermelho
+                    } else if (key.includes('E') || key.toUpperCase().includes('E')) {
+                      color = '#F44336'; // Vermelho
+                    }
+                    
+                    return (
+                      <Line key={key} type="monotone" dataKey={key} stroke={color} strokeWidth={3} dot={{ fill: color, r: 3 }} name={key} />
+                    );
+                  })}
+                </LineChart>
+              )}
+            </ResponsiveContainer>
           </div>
         )}
 
