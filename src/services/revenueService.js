@@ -12,7 +12,7 @@ export const revenueService = {
    */
   async getRevenueByDateRange(startDate, endDate) {
     try {
-      console.log(`💰 Buscando faturamento de ${startDate} a ${endDate}`);
+    
 
       // 1. Buscar transações de cartão (GURU)
       let cardTransactions = [];
@@ -22,7 +22,7 @@ export const revenueService = {
           ordered_at_end: endDate,
         });
         cardTransactions = cardResponse.data.data || [];
-        console.log(`💳 Transações de cartão encontradas: ${cardTransactions.length}`);
+
       } catch (error) {
         console.error('Erro ao buscar transações de cartão:', error);
       }
@@ -33,7 +33,7 @@ export const revenueService = {
         const startDateObj = new Date(startDate);
         const endDateObj = new Date(endDate);
         boletoSales = await boletoService.getSalesByDateRange(startDateObj, endDateObj);
-        console.log(`📄 Vendas de boleto encontradas: ${boletoSales.length}`);
+
       } catch (error) {
         console.error('Erro ao buscar vendas de boleto:', error);
       }
@@ -114,8 +114,7 @@ export const revenueService = {
         }
       };
 
-      console.log(`💰 Faturamento total: R$ ${(totalCardRevenue + totalBoletoRevenue).toFixed(2)}`);
-      console.log(`💰 Vendas totais: ${totalCardSales + totalBoletoSales}`);
+
 
       return result;
     } catch (error) {
@@ -131,7 +130,7 @@ export const revenueService = {
    */
   async getRevenueByLaunch(launches) {
     try {
-      console.log(`🚀 Buscando faturamento para ${launches.length} lançamentos`);
+
 
       const revenueByLaunch = [];
 
@@ -167,13 +166,11 @@ export const revenueService = {
           openDate = this.convertBrazilianDateToISO(openingDate.value);
           closeDate = this.convertBrazilianDateToISO(closingDate.value);
           
-          console.log(`📅 ${launchName}: Abertura ${openingDate.value} (${openDate}), Fechamento ${closingDate.value} (${closeDate})`);
+
         }
 
         if (!openDate || !closeDate) {
-          console.warn(`⚠️ Datas não encontradas para ${launchName}`);
-          console.log(`🔍 Colunas disponíveis:`, allColumns);
-          console.log(`📅 Valores de data encontrados:`, dateValues);
+
           
           revenueByLaunch.push({
             launch: launchName,
@@ -186,7 +183,7 @@ export const revenueService = {
         }
 
         try {
-          console.log(`💰 Buscando faturamento para ${launchName}: ${openDate} a ${closeDate}`);
+
           
           const revenueData = await this.getRevenueByDateRange(openDate, closeDate);
           
@@ -204,7 +201,7 @@ export const revenueService = {
             period: revenueData.period
           });
 
-          console.log(`✅ ${launchName}: R$ ${revenueData.totals.totalRevenue.toFixed(2)}`);
+
         } catch (error) {
           console.error(`❌ Erro ao buscar faturamento para ${launchName}:`, error);
           revenueByLaunch.push({

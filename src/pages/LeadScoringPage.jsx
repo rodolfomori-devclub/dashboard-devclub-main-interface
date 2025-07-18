@@ -54,21 +54,8 @@ import { revenueService } from '../services/revenueService';
       
       setAllLaunchesData(allData);
       
-      console.log('📊 Dados carregados:', allData.launches.length, 'lançamentos');
-      console.log('📊 Lançamentos carregados:', allData.launches.map(l => l['Lançamento']));
-      
       // Processa os dados para gráficos
-      console.log('🔄 Processando dados iniciais...');
       const processed = leadScoringService.processDataForCharts(allData);
-      console.log('Dados processados:', processed);
-      console.log('Dados de gênero:', processed.genderByLaunch);
-      console.log('Dados de gênero length:', processed.genderByLaunch?.length);
-      console.log('Condição para mostrar gráfico:', processed.genderByLaunch && processed.genderByLaunch.length > 0);
-      
-      // Logs específicos para faixa
-      console.log('🔍 Dados de faixa:', processed.faixaByLaunch);
-      console.log('🔍 Dados de faixa length:', processed.faixaByLaunch?.length);
-      console.log('🔍 Condição para mostrar gráfico de faixa:', processed.faixaByLaunch && processed.faixaByLaunch.length > 0);
       
       setProcessedData(processed);
       
@@ -112,8 +99,6 @@ import { revenueService } from '../services/revenueService';
       const launches = allLaunchesData.launches;
       const totalLaunches = launches.length;
       
-      console.log(`💰 Iniciando busca de faturamento para ${totalLaunches} lançamentos`);
-      
       const revenueByLaunch = [];
       
       for (let i = 0; i < launches.length; i++) {
@@ -128,16 +113,14 @@ import { revenueService } from '../services/revenueService';
           percentage: Math.round(((i + 1) / totalLaunches) * 100)
         });
         
-        console.log(`💰 Processando ${i + 1}/${totalLaunches}: ${launchName}`);
-        
         try {
           // Buscar faturamento para este lançamento
           const revenue = await revenueService.getRevenueByLaunch([launch]);
           if (revenue && revenue.length > 0) {
             revenueByLaunch.push(revenue[0]);
           }
-        } catch (error) {
-          console.error(`❌ Erro ao buscar faturamento para ${launchName}:`, error);
+        } catch {
+          // Erro silencioso para produção
         }
         
         // Pequena pausa para não sobrecarregar as APIs
@@ -154,8 +137,6 @@ import { revenueService } from '../services/revenueService';
         const numB = getNum(b.launch);
         return numA - numB; // Ordem crescente: mais antigo primeiro
       });
-      
-      console.log(`✅ Faturamento carregado: ${sortedRevenueData.length} lançamentos`);
       setRevenueData(sortedRevenueData);
       
     } catch (error) {
@@ -173,7 +154,6 @@ import { revenueService } from '../services/revenueService';
     // Se for "todos", buscar todos os dados primeiro
     if (filter === 'todos') {
       setProcessingAll(true);
-      console.log('🔄 Buscando todos os lançamentos...');
       await fetchData(null); // null = sem limite, buscar todos
       setProcessingAll(false);
       return;
@@ -181,26 +161,18 @@ import { revenueService } from '../services/revenueService';
     
     // Se for "10" e já temos dados carregados, apenas aplicar o filtro
     if (allLaunchesData) {
-      console.log(`🔍 Aplicando filtro: ${filter}`);
-      console.log(`📊 Total de lançamentos disponíveis: ${allLaunchesData.launches.length}`);
-      
       // Primeiro: filtrar apenas lançamentos com dados válidos de gênero OU idade
       let validLaunches = allLaunchesData.launches.filter(launch => {
         const hasValidGenderData = leadScoringService.hasValidGenderData(launch);
         const hasValidAgeData = leadScoringService.hasValidAgeData(launch);
         const hasValidData = hasValidGenderData || hasValidAgeData;
-        console.log(`🔍 ${launch['Lançamento']}: Gênero=${hasValidGenderData ? '✅' : '❌'}, Idade=${hasValidAgeData ? '✅' : '❌'}, Válido=${hasValidData ? '✅' : '❌'}`);
         return hasValidData;
       });
-      
-      console.log(`📊 Lançamentos com dados válidos: ${validLaunches.length}`);
-      console.log(`📊 Lançamentos válidos:`, validLaunches.map(l => l['Lançamento']));
       
       // Segundo: aplicar filtro de quantidade nos lançamentos válidos
       let filteredLaunches = [...validLaunches];
       
       const count = parseInt(filter);
-      console.log(`🎯 Quantidade solicitada: ${count}`);
       
       // Ordenar por número do LF (maior = mais recente)
       filteredLaunches.sort((a, b) => {
@@ -210,17 +182,10 @@ import { revenueService } from '../services/revenueService';
         };
         const numA = getNum(a['Lançamento']);
         const numB = getNum(b['Lançamento']);
-        console.log(`📋 Comparando: ${a['Lançamento']} (${numA}) vs ${b['Lançamento']} (${numB})`);
         return numB - numA;
       });
       
-      console.log(`📋 Lançamentos válidos ordenados:`, filteredLaunches.map(l => l['Lançamento']));
-      console.log(`📋 Antes do slice: ${filteredLaunches.length} lançamentos`);
-      
       filteredLaunches = filteredLaunches.slice(0, count);
-      
-      console.log(`📋 Depois do slice: ${filteredLaunches.length} lançamentos`);
-      console.log(`📋 Lançamentos filtrados:`, filteredLaunches.map(l => l['Lançamento']));
       
       // Criar novo objeto com dados filtrados
       const filteredData = {
@@ -229,18 +194,8 @@ import { revenueService } from '../services/revenueService';
         totalLaunches: filteredLaunches.length
       };
       
-      console.log(`✅ Resultado final: ${filteredData.totalLaunches} lançamentos`);
-      console.log(`📊 Lançamentos finais:`, filteredData.launches.map(l => l['Lançamento']));
-      
       // Processar dados filtrados para gráficos
-      console.log('🔄 Chamando processDataForCharts...');
       const processed = leadScoringService.processDataForCharts(filteredData);
-      console.log('✅ processDataForCharts concluído');
-      
-      // Logs específicos para faixa no filtro
-      console.log('🔍 Dados de faixa (filtro):', processed.faixaByLaunch);
-      console.log('🔍 Dados de faixa length (filtro):', processed.faixaByLaunch?.length);
-      console.log('🔍 Condição para mostrar gráfico de faixa (filtro):', processed.faixaByLaunch && processed.faixaByLaunch.length > 0);
       
       setProcessedData(processed);
     }

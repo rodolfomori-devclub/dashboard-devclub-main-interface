@@ -86,9 +86,7 @@ export const leadScoringService = {
       const headers = response.data.values[0];
       const rows = response.data.values.slice(1);
       
-      console.log(`📊 Headers carregados para ${launchName}:`, headers);
-      console.log(`📊 Total de colunas: ${headers.length}`);
-      console.log(`📊 Últimas 10 colunas:`, headers.slice(-10));
+      
       
       const data = rows.map(row => {
         const obj = {
@@ -401,7 +399,7 @@ export const leadScoringService = {
 
         const faixaData = this.processCategoricalData(launch, 'Faixa', 'FAIXA', 'faixa', 'Faixa A', 'Faixa B', 'Faixa C', 'Faixa D', 'Faixa E', 'Score', 'score', 'Pontuação', 'pontuação');
         if (faixaData.total > 0) {
-          console.log(`📊 Processando faixa para ${launch['Lançamento']}:`, faixaData);
+  
           
           // Ordenar as faixas para melhor visualização
           const sortedPercentages = {};
@@ -423,7 +421,7 @@ export const leadScoringService = {
             }
           });
           
-          console.log(`📊 Faixas ordenadas para ${launch['Lançamento']}:`, sortedPercentages);
+          
           
           aggregatedData.faixaByLaunch.push({
             name: launch['Lançamento'],
@@ -431,8 +429,7 @@ export const leadScoringService = {
             totalLeads: faixaData.total
           });
         } else {
-          console.log(`⚠️ Nenhum dado de faixa encontrado para ${launch['Lançamento']}`);
-          console.log(`🔍 Headers disponíveis:`, launch.sheetData?.headers);
+
           
           // Verificar se há alguma coluna que possa ser faixa
           if (launch.sheetData?.headers) {
