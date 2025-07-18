@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { FaSync, FaChartLine, FaSpinner } from 'react-icons/fa';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import leadScoringService from '../services/leadScoringService';
+import { revenueService } from '../services/revenueService';
 
 
   function LeadScoringPage() {
@@ -28,6 +29,17 @@ import leadScoringService from '../services/leadScoringService';
   const [showEventInterestBars, setShowEventInterestBars] = useState(false);
   const [showComputerBars, setShowComputerBars] = useState(false);
   const [showFaixaBars, setShowFaixaBars] = useState(false);
+  
+  // Estados para o gráfico de faturamento
+  const [revenueData, setRevenueData] = useState(null);
+  const [loadingRevenue, setLoadingRevenue] = useState(false);
+  const [showRevenueBars, setShowRevenueBars] = useState(true);
+  const [revenueProgress, setRevenueProgress] = useState(null);
+  
+  // Estados para o gráfico de tráfego
+  const [showTrafficBars, setShowTrafficBars] = useState(false);
+  
+
 
   const fetchData = async (limit = null) => {
     try {
@@ -89,6 +101,69 @@ import leadScoringService from '../services/leadScoringService';
   const handleRefresh = () => {
     leadScoringService.clearCache();
     fetchData();
+  };
+
+  // Função para buscar dados de faturamento
+  const fetchRevenueData = async () => {
+    try {
+      setLoadingRevenue(true);
+      setRevenueProgress(null);
+      
+      const launches = allLaunchesData.launches;
+      const totalLaunches = launches.length;
+      
+      console.log(`💰 Iniciando busca de faturamento para ${totalLaunches} lançamentos`);
+      
+      const revenueByLaunch = [];
+      
+      for (let i = 0; i < launches.length; i++) {
+        const launch = launches[i];
+        const launchName = launch['Lançamento'];
+        
+        // Atualizar progresso
+        setRevenueProgress({
+          current: i + 1,
+          total: totalLaunches,
+          launchName: launchName,
+          percentage: Math.round(((i + 1) / totalLaunches) * 100)
+        });
+        
+        console.log(`💰 Processando ${i + 1}/${totalLaunches}: ${launchName}`);
+        
+        try {
+          // Buscar faturamento para este lançamento
+          const revenue = await revenueService.getRevenueByLaunch([launch]);
+          if (revenue && revenue.length > 0) {
+            revenueByLaunch.push(revenue[0]);
+          }
+        } catch (error) {
+          console.error(`❌ Erro ao buscar faturamento para ${launchName}:`, error);
+        }
+        
+        // Pequena pausa para não sobrecarregar as APIs
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      
+      // Ordenar por número do LF (mais antigo primeiro)
+      const sortedRevenueData = revenueByLaunch.sort((a, b) => {
+        const getNum = (name) => {
+          const match = name.match(/(\d+)/);
+          return match ? parseInt(match[1]) : 0;
+        };
+        const numA = getNum(a.launch);
+        const numB = getNum(b.launch);
+        return numA - numB; // Ordem crescente: mais antigo primeiro
+      });
+      
+      console.log(`✅ Faturamento carregado: ${sortedRevenueData.length} lançamentos`);
+      setRevenueData(sortedRevenueData);
+      
+    } catch (error) {
+      console.error('Erro ao buscar dados de faturamento:', error);
+    } finally {
+      setLoadingRevenue(false);
+      setRevenueProgress(null);
+    }
   };
 
   // Função para aplicar filtro de quantidade
@@ -383,6 +458,266 @@ import leadScoringService from '../services/leadScoringService';
                       <Line key={key} type="monotone" dataKey={key} stroke={color} strokeWidth={3} dot={{ fill: color, r: 3 }} name={key} />
                     );
                   })}
+                </LineChart>
+              )}
+            </ResponsiveContainer>
+          </div>
+        )}
+
+        {/* Gráfico de Faturamento por LF */}
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold text-text-light dark:text-text-dark">
+              Faturamento por Lançamento
+            </h2>
+            <div className="flex gap-2">
+              <button
+                onClick={fetchRevenueData}
+                disabled={loadingRevenue}
+                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-sm font-medium disabled:opacity-50"
+              >
+                {loadingRevenue ? (
+                  <FaSpinner className="animate-spin" />
+                ) : (
+                  '💰 Buscar Faturamento'
+                )}
+              </button>
+              <button
+                onClick={() => setShowRevenueBars(!showRevenueBars)}
+                className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors text-sm font-medium"
+              >
+                {showRevenueBars ? 'LINHAS' : 'BARRAS'}
+              </button>
+            </div>
+          </div>
+          
+          {loadingRevenue && (
+            <div className="text-center py-8">
+              <FaSpinner className="animate-spin text-4xl text-primary mx-auto mb-4" />
+              <p className="text-text-light dark:text-text-dark">Buscando dados de faturamento...</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                Isso pode levar alguns minutos dependendo do número de lançamentos
+              </p>
+              
+              {revenueProgress && (
+                <div className="mt-4">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                    Processando: {revenueProgress.launchName}
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                    {revenueProgress.current} de {revenueProgress.total} lançamentos ({revenueProgress.percentage}%)
+                  </p>
+                  <div className="w-64 bg-gray-200 dark:bg-gray-700 rounded-full h-3 mt-2 mx-auto">
+                    <div 
+                      className="bg-green-600 h-3 rounded-full transition-all duration-300"
+                      style={{ width: `${revenueProgress.percentage}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          
+          {!loadingRevenue && revenueData && revenueData.length > 0 && (
+            <ResponsiveContainer width="100%" height={400}>
+              {showRevenueBars ? (
+                <BarChart data={revenueData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis 
+                    dataKey="launch" 
+                    stroke="#9CA3AF" 
+                    tick={{ fill: '#9CA3AF' }} 
+                    angle={-45} 
+                    textAnchor="end" 
+                    height={100} 
+                  />
+                  <YAxis 
+                    stroke="#9CA3AF" 
+                    tick={{ fill: '#9CA3AF' }}
+                    tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: '#1F2937', 
+                      border: 'none',
+                      borderRadius: '8px'
+                    }}
+                    formatter={(value, name) => [
+                      revenueService.formatCurrency(value),
+                      name === 'cardRevenue' ? 'Cartão (GURU)' : 
+                      name === 'boletoRevenue' ? 'Boleto (TMB)' : 
+                      name === 'revenue' ? 'Total' : name
+                    ]}
+                    labelFormatter={(label) => `LF: ${label}`}
+                  />
+                  <Legend />
+                  <Bar 
+                    dataKey="cardRevenue" 
+                    fill="#3B82F6" 
+                    name="Cartão (GURU)"
+                    stackId="a"
+                    radius={[4, 4, 0, 0]}
+                  />
+                  <Bar 
+                    dataKey="boletoRevenue" 
+                    fill="#F59E0B" 
+                    name="Boleto (TMB)"
+                    stackId="a"
+                    radius={[0, 0, 4, 4]}
+                  />
+                </BarChart>
+              ) : (
+                <LineChart data={revenueData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis 
+                    dataKey="launch" 
+                    stroke="#9CA3AF" 
+                    tick={{ fill: '#9CA3AF' }} 
+                    angle={-45} 
+                    textAnchor="end" 
+                    height={100} 
+                  />
+                  <YAxis 
+                    stroke="#9CA3AF" 
+                    tick={{ fill: '#9CA3AF' }}
+                    tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: '#1F2937', 
+                      border: 'none',
+                      borderRadius: '8px'
+                    }}
+                    formatter={(value, name) => [
+                      revenueService.formatCurrency(value),
+                      name === 'cardRevenue' ? 'Cartão (GURU)' : 
+                      name === 'boletoRevenue' ? 'Boleto (TMB)' : 
+                      name === 'revenue' ? 'Total' : name
+                    ]}
+                    labelFormatter={(label) => `LF: ${label}`}
+                  />
+                  <Legend />
+                  <Line 
+                    type="monotone" 
+                    dataKey="cardRevenue" 
+                    stroke="#3B82F6" 
+                    strokeWidth={3}
+                    dot={{ fill: '#3B82F6', r: 4 }}
+                    name="Cartão (GURU)"
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="boletoRevenue" 
+                    stroke="#F59E0B" 
+                    strokeWidth={3}
+                    dot={{ fill: '#F59E0B', r: 4 }}
+                    name="Boleto (TMB)"
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="revenue" 
+                    stroke="#10B981" 
+                    strokeWidth={3}
+                    dot={{ fill: '#10B981', r: 4 }}
+                    name="Total"
+                  />
+                </LineChart>
+              )}
+            </ResponsiveContainer>
+          )}
+          
+          {!loadingRevenue && (!revenueData || revenueData.length === 0) && (
+            <div className="text-center py-8">
+              <p className="text-text-light dark:text-text-dark mb-4">
+                Clique em "💰 Buscar Faturamento" para carregar os dados de faturamento por lançamento
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Os dados serão buscados usando as datas de abertura e fechamento de cada LF
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Gráfico de Gasto em Tráfego por LF */}
+        {processedData && processedData.trafficByLaunch && processedData.trafficByLaunch.length > 0 && (
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-text-light dark:text-text-dark">
+                Gasto em Tráfego por Lançamento
+              </h2>
+              <button
+                onClick={() => setShowTrafficBars(!showTrafficBars)}
+                className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors text-sm font-medium"
+              >
+                {showTrafficBars ? 'LINHAS' : 'BARRAS'}
+              </button>
+            </div>
+            <ResponsiveContainer width="100%" height={400}>
+              {showTrafficBars ? (
+                <BarChart data={processedData.trafficByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis 
+                    dataKey="name" 
+                    stroke="#9CA3AF" 
+                    tick={{ fill: '#9CA3AF' }} 
+                    angle={-45} 
+                    textAnchor="end" 
+                    height={100} 
+                  />
+                  <YAxis 
+                    stroke="#9CA3AF" 
+                    tick={{ fill: '#9CA3AF' }}
+                    tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: '#1F2937', 
+                      border: 'none',
+                      borderRadius: '8px'
+                    }}
+                    formatter={(value) => [revenueService.formatCurrency(value), 'Gasto em Tráfego']}
+                  />
+                  <Legend />
+                  <Bar 
+                    dataKey="traffic" 
+                    fill="#8B5CF6" 
+                    name="Gasto em Tráfego"
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              ) : (
+                <LineChart data={processedData.trafficByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis 
+                    dataKey="name" 
+                    stroke="#9CA3AF" 
+                    tick={{ fill: '#9CA3AF' }} 
+                    angle={-45} 
+                    textAnchor="end" 
+                    height={100} 
+                  />
+                  <YAxis 
+                    stroke="#9CA3AF" 
+                    tick={{ fill: '#9CA3AF' }}
+                    tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: '#1F2937', 
+                      border: 'none',
+                      borderRadius: '8px'
+                    }}
+                    formatter={(value) => [revenueService.formatCurrency(value), 'Gasto em Tráfego']}
+                  />
+                  <Legend />
+                  <Line 
+                    type="monotone" 
+                    dataKey="traffic" 
+                    stroke="#8B5CF6" 
+                    strokeWidth={3}
+                    dot={{ fill: '#8B5CF6', r: 4 }}
+                    name="Gasto em Tráfego"
+                  />
                 </LineChart>
               )}
             </ResponsiveContainer>
@@ -1024,6 +1359,48 @@ import leadScoringService from '../services/leadScoringService';
                   <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                   <Legend />
                   {Object.keys(processedData.computerByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => (
+                    <Line key={key} type="monotone" dataKey={key} stroke={`hsl(${idx * 40}, 70%, 50%)`} strokeWidth={3} dot={{ fill: `hsl(${idx * 40}, 70%, 50%)`, r: 3 }} name={key} />
+                  ))}
+                </LineChart>
+              )}
+            </ResponsiveContainer>
+          </div>
+        )}
+
+        {/* NOVOS GRÁFICOS - FATURAMENTO POR LF */}
+        {processedData && processedData.revenueByLaunch && processedData.revenueByLaunch.length > 0 && (
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-text-light dark:text-text-dark">
+                Faturamento por Lançamento
+              </h2>
+              <button
+                onClick={() => setShowFaixaBars(!showFaixaBars)}
+                className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors text-sm font-medium"
+              >
+                {showFaixaBars ? 'LINHAS' : 'BARRAS'}
+              </button>
+            </div>
+            <ResponsiveContainer width="100%" height={400}>
+              {showFaixaBars ? (
+                <BarChart data={processedData.revenueByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
+                  <Legend />
+                  {Object.keys(processedData.revenueByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => (
+                    <Bar key={key} dataKey={key} fill={`hsl(${idx * 40}, 70%, 50%)`} name={key} stackId="a" />
+                  ))}
+                </BarChart>
+              ) : (
+                <LineChart data={processedData.revenueByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
+                  <Legend />
+                  {Object.keys(processedData.revenueByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => (
                     <Line key={key} type="monotone" dataKey={key} stroke={`hsl(${idx * 40}, 70%, 50%)`} strokeWidth={3} dot={{ fill: `hsl(${idx * 40}, 70%, 50%)`, r: 3 }} name={key} />
                   ))}
                 </LineChart>

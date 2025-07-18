@@ -212,7 +212,8 @@ export const leadScoringService = {
       programmingInterestByLaunch: [],
       eventInterestByLaunch: [],
       computerByLaunch: [],
-      faixaByLaunch: []
+      faixaByLaunch: [],
+      trafficByLaunch: []
     };
 
     allLaunchesData.launches.forEach((launch) => {
@@ -444,6 +445,20 @@ export const leadScoringService = {
             console.log(`🔍 Possíveis colunas de faixa encontradas:`, possibleFaixaHeaders);
           }
         }
+
+        // Processar dados de tráfego da planilha principal
+        const trafficData = this.processMainSheetTrafficData(launch);
+        if (trafficData.total > 0) {
+          console.log(`🚦 Processando tráfego da planilha principal para ${launch['Lançamento']}:`, trafficData);
+          
+          aggregatedData.trafficByLaunch.push({
+            name: launch['Lançamento'],
+            traffic: trafficData.total,
+            trafficFormatted: this.formatCurrency(trafficData.total)
+          });
+        } else {
+          console.log(`⚠️ Nenhum dado de tráfego encontrado na planilha principal para ${launch['Lançamento']}`);
+        }
       }
     });
 
@@ -502,7 +517,12 @@ export const leadScoringService = {
       aggregatedData.faixaByLaunch.sort((a, b) => getLaunchNumber(a.name) - getLaunchNumber(b.name));
     }
 
+    if (aggregatedData.trafficByLaunch.length > 0) {
+      aggregatedData.trafficByLaunch.sort((a, b) => getLaunchNumber(a.name) - getLaunchNumber(b.name));
+    }
+
     console.log(`   📊 Dados de faixa processados: ${aggregatedData.faixaByLaunch.length}`);
+    console.log(`   🚦 Dados de tráfego processados: ${aggregatedData.trafficByLaunch.length}`);
 
     return aggregatedData;
   },
@@ -540,6 +560,82 @@ export const leadScoringService = {
     console.log(`📊 Percentuais calculados:`, percentages);
 
     return { total, percentages };
+  },
+
+  processTrafficData(launch) {
+    const categories = {};
+    let total = 0;
+
+    const trafficFields = ['Fonte', 'fonte', 'Source', 'source', 'Canal', 'canal'];
+    const trafficField = trafficFields.find(field => launch.sheetData.headers.includes(field));
+    
+    if (!trafficField) {
+      console.log(`🔍 Campo de tráfego não encontrado para ${launch['Lançamento']}`);
+      console.log(`🔍 Headers disponíveis:`, launch.sheetData.headers);
+      return { total: 0, categories: {} };
+    }
+
+    console.log(`✅ Campo de tráfego encontrado: "${trafficField}" para ${launch['Lançamento']}`);
+
+    launch.sheetData.data.forEach(lead => {
+      if (lead[trafficField]) {
+        const value = lead[trafficField].trim();
+        if (value) {
+          categories[value] = (categories[value] || 0) + 1;
+          total++;
+        }
+      }
+    });
+
+    const percentages = {};
+    Object.keys(categories).forEach(category => {
+      percentages[category] = Number(((categories[category] / total) * 100).toFixed(1));
+    });
+
+    console.log(`📊 Categorias de tráfego encontradas para "${trafficField}":`, categories);
+    console.log(`📊 Percentuais calculados:`, percentages);
+
+    return { total, categories: percentages };
+  },
+
+  processMainSheetTrafficData(launch) {
+    // Buscar dados de tráfego diretamente da planilha principal
+    const trafficValue = launch['Tráfego'] || launch['Trafico'] || launch['tráfego'] || launch['trafico'];
+    
+    if (!trafficValue) {
+      console.log(`🔍 Campo de tráfego não encontrado na planilha principal para ${launch['Lançamento']}`);
+      console.log(`🔍 Colunas disponíveis:`, Object.keys(launch));
+      return { total: 0 };
+    }
+
+    console.log(`✅ Campo de tráfego encontrado na planilha principal para ${launch['Lançamento']}: "${trafficValue}"`);
+
+    // Converter valor monetário para número
+    let numericValue = 0;
+    
+    if (typeof trafficValue === 'string') {
+      // Remover R$, pontos, vírgulas e espaços
+      const cleanValue = trafficValue.replace(/[R$\s.]/g, '').replace(',', '.');
+      numericValue = parseFloat(cleanValue);
+    } else if (typeof trafficValue === 'number') {
+      numericValue = trafficValue;
+    }
+
+    if (isNaN(numericValue) || numericValue <= 0) {
+      console.log(`⚠️ Valor de tráfego inválido para ${launch['Lançamento']}: "${trafficValue}"`);
+      return { total: 0 };
+    }
+
+    console.log(`💰 Valor de tráfego processado para ${launch['Lançamento']}: R$ ${numericValue.toFixed(2)}`);
+
+    return { total: numericValue };
+  },
+
+  formatCurrency(value) {
+    if (typeof value !== 'number') {
+      return value;
+    }
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
   },
 
   hasValidGenderData(launch) {
