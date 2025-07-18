@@ -17,6 +17,7 @@ import Today from './pages/Today'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import ComparativoPage from './pages/ComparativoPage'
 import LaunchPro from './pages/LaunchPro'
+import LeadScoringPage from './pages/LeadScoringPage'
 
 // Update the imports in App.jsx by adding these lines:
 import CommercialDashboardPage from './pages/CommercialDashboardPage'
@@ -202,6 +203,16 @@ function AppRouter() {
         }
       />
 
+      <Route
+        path="/lead-scoring"
+        element={
+          <ProtectedRoute requiredPermission="lead-scoring">
+            <AuthenticatedLayout>
+              <LeadScoringPage />
+            </AuthenticatedLayout>
+          </ProtectedRoute>
+        }
+      />
 
       <Route
         path="/admin/users"

@@ -75,6 +75,7 @@ export default function Header() {
     { path: '/comparativo', label: 'Comparativo', icon: FaChartLine, condition: userRoles?.commercial !== false },
     { path: '/launch', label: 'LaunchPro', icon: FaRocket, condition: userRoles?.dre !== false || userRoles?.isAdmin },
     { path: '/dre', label: 'DRE', icon: FaChartPie, condition: userRoles?.dre !== false || userRoles?.isAdmin },
+    { path: '/lead-scoring', label: 'Lead Scoring', icon: FaChartLine, condition: userRoles?.['lead-scoring'] !== false },
     { path: '/data-sources', label: 'Fontes de Dados', icon: FaDatabase, condition: userRoles?.['data-sources'] !== false },
   ]
 
