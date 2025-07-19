@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FaSync, FaChartLine, FaSpinner } from 'react-icons/fa';
+import { FaSync, FaChartLine, FaSpinner, FaCalendarDay, FaList } from 'react-icons/fa';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
 import leadScoringService from '../services/leadScoringService';
 import { revenueService } from '../services/revenueService';
@@ -39,6 +39,13 @@ import { revenueService } from '../services/revenueService';
   // Estados para o gráfico de tráfego
   const [showTrafficBars, setShowTrafficBars] = useState(false);
   
+  // Estado para controlar a aba ativa (geral ou diário)
+  const [activeView, setActiveView] = useState('geral');
+  
+  // Função para alternar entre as views
+  const toggleView = () => {
+    setActiveView(activeView === 'geral' ? 'diario' : 'geral');
+  };
 
 
   const fetchData = async (limit = null) => {
@@ -238,6 +245,22 @@ import { revenueService } from '../services/revenueService';
             </h1>
             <div className="flex gap-2">
               <button
+                onClick={toggleView}
+                className="flex items-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+              >
+                {activeView === 'geral' ? (
+                  <>
+                    <FaCalendarDay className="mr-2" />
+                    Diário
+                  </>
+                ) : (
+                  <>
+                    <FaList className="mr-2" />
+                    Geral
+                  </>
+                )}
+              </button>
+              <button
                 onClick={handleRefresh}
                 className="flex items-center px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors"
                 disabled={loading}
@@ -264,9 +287,10 @@ import { revenueService } from '../services/revenueService';
           </div>
         )}
 
-
-
-        {/* Filtros de Quantidade */}
+        {/* Renderizar conteúdo baseado na view ativa */}
+        {activeView === 'geral' ? (
+          <>
+            {/* Filtros de Quantidade */}
         {allLaunchesData && (
           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
             <h2 className="text-xl font-semibold mb-4 text-text-light dark:text-text-dark">
@@ -1364,6 +1388,24 @@ import { revenueService } from '../services/revenueService';
           </div>
         )}
 
+          </>
+        ) : (
+          /* View Diário - Por enquanto vazia */
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+            <h2 className="text-xl font-semibold text-text-light dark:text-text-dark mb-4">
+              Análise Diária - Em Desenvolvimento
+            </h2>
+            <div className="text-center py-12">
+              <FaCalendarDay className="text-6xl text-gray-400 dark:text-gray-600 mx-auto mb-4" />
+              <p className="text-gray-500 dark:text-gray-400 text-lg">
+                Esta seção mostrará análises filtradas por dia.
+              </p>
+              <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">
+                Funcionalidade em desenvolvimento...
+              </p>
+            </div>
+          </div>
+        )}
 
       </div>
     </div>
