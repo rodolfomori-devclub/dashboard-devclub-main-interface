@@ -1912,9 +1912,8 @@ import { revenueService } from '../services/revenueService';
 
           </>
         ) : (
-          <>
-            {/* View Diário */}
-            <div>
+          {/* View Diário */}
+          <div>
             {/* Filtros do Diário */}
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
               <h2 className="text-xl font-semibold text-text-light dark:text-text-dark mb-4">
@@ -1933,7 +1932,7 @@ import { revenueService } from '../services/revenueService';
                     className="w-full max-w-md px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     <option value="">Escolha um lançamento...</option>
-                    {(allLaunchesData && allLaunchesData.launches
+                    {allLaunchesData && allLaunchesData.launches
                       .filter(launch => leadScoringService.hasValidGenderData(launch) || leadScoringService.hasValidAgeData(launch))
                       .sort((a, b) => {
                         const getNum = (name) => {
@@ -1948,7 +1947,8 @@ import { revenueService } from '../services/revenueService';
                         <option key={launch['Lançamento']} value={launch['Lançamento']}>
                           {launch['Lançamento']}
                         </option>
-                      )))}
+                      ))
+                    }
                   </select>
                 </div>
               </div>
@@ -2180,7 +2180,6 @@ import { revenueService } from '../services/revenueService';
                 </div>
                 
                 {/* Gráfico de Faixa Salarial */}
-                {diaryData && diaryData.salaryData && (
                 <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
                   <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl font-semibold text-text-light dark:text-text-dark">
@@ -2228,11 +2227,9 @@ import { revenueService } from '../services/revenueService';
                     averages={calculateCategoricalAverages(diaryData.salaryData)}
                   />
                 </div>
-                )}
                 
-                {/* Gráfico de Cartão de Crédito */}
-                {diaryData && diaryData.creditCardData && (
-                  <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
+                {/* Gráfico de Cartão de Crédito */
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
                   <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl font-semibold text-text-light dark:text-text-dark">
                       Possui Cartão de Crédito?
@@ -2273,11 +2270,9 @@ import { revenueService } from '../services/revenueService';
                     averages={calculateCategoricalAverages(diaryData.creditCardData)}
                   />
                 </div>
-                )}
                 
                 {/* Gráfico de Já Estudou Programação */}
-                {diaryData && diaryData.programmingStudyData && (
-                  <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
                   <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl font-semibold text-text-light dark:text-text-dark">
                       Já estudou programação?
@@ -2318,11 +2313,9 @@ import { revenueService } from '../services/revenueService';
                     averages={calculateCategoricalAverages(diaryData.programmingStudyData)}
                   />
                 </div>
-                )}
                 
-                {/* Gráfico de Faculdade */}
-                {diaryData && diaryData.collegeData && (
-                  <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
+                {/* Gráfico de Faculdade */
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
                   <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl font-semibold text-text-light dark:text-text-dark">
                       Já fez/faz/pretende fazer faculdade?
@@ -2367,11 +2360,9 @@ import { revenueService } from '../services/revenueService';
                     averages={calculateCategoricalAverages(diaryData.collegeData)}
                   />
                 </div>
-                )}
                 
-                {/* Gráfico de Curso Online */}
-                {diaryData && diaryData.onlineCourseData && (
-                  <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
+                {/* Gráfico de Curso Online */
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
                   <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl font-semibold text-text-light dark:text-text-dark">
                       Já investiu em curso online?
@@ -2412,11 +2403,9 @@ import { revenueService } from '../services/revenueService';
                     averages={calculateCategoricalAverages(diaryData.onlineCourseData)}
                   />
                 </div>
-                )}
                 
                 {/* Gráfico de Interesse na Profissão */}
-                {diaryData && diaryData.programmingInterestData && (
-                  <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
                   <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl font-semibold text-text-light dark:text-text-dark">
                       O que mais te chama atenção na profissão de Programador?
@@ -2461,11 +2450,9 @@ import { revenueService } from '../services/revenueService';
                     averages={calculateCategoricalAverages(diaryData.programmingInterestData)}
                   />
                 </div>
-                )}
                 
                 {/* Gráfico de Interesse no Evento */}
-                {diaryData && diaryData.eventInterestData && (
-                  <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
                   <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl font-semibold text-text-light dark:text-text-dark">
                       O que mais você quer ver no evento?
@@ -2510,11 +2497,9 @@ import { revenueService } from '../services/revenueService';
                     averages={calculateCategoricalAverages(diaryData.eventInterestData)}
                   />
                 </div>
-                )}
                 
-                {/* Gráfico de Computador/Notebook */}
-                {diaryData && diaryData.computerData && (
-                  <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
+                {/* Gráfico de Computador/Notebook */
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
                   <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl font-semibold text-text-light dark:text-text-dark">
                       Tem computador/notebook?
@@ -2555,7 +2540,6 @@ import { revenueService } from '../services/revenueService';
                     averages={calculateCategoricalAverages(diaryData.computerData)}
                   />
                 </div>
-                )}
               </>
             ) : (
               <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
@@ -2568,7 +2552,8 @@ import { revenueService } from '../services/revenueService';
               </div>
             )}
           </div>
-          </>
+        )}
+
         )}
 
       </div>
