@@ -39,13 +39,19 @@ import { revenueService } from '../services/revenueService';
   // Estados para o gráfico de tráfego
   const [showTrafficBars, setShowTrafficBars] = useState(false);
   
-  // Estado para controlar a aba ativa (geral ou diário)
+  // Estado para controlar a aba ativa (geral, diário ou criativo)
   const [activeView, setActiveView] = useState('diario');
   
   // Estados para filtros do diário
   const [selectedLaunch, setSelectedLaunch] = useState('');
   const [diaryData, setDiaryData] = useState(null);
   const [loadingDiary, setLoadingDiary] = useState(false);
+  
+  // Estados para filtros do criativo
+  const [selectedLaunchCreativo, setSelectedLaunchCreativo] = useState('');
+  const [selectedContent, setSelectedContent] = useState('');
+  const [criativoData, setCriativoData] = useState(null);
+  const [loadingCriativo, setLoadingCriativo] = useState(false);
   
   // Estados para controlar visualização de gráficos no diário
   const [showDiaryGenderBars, setShowDiaryGenderBars] = useState(false);
@@ -61,17 +67,33 @@ import { revenueService } from '../services/revenueService';
   const [showDiaryEventInterestBars, setShowDiaryEventInterestBars] = useState(false);
   const [showDiaryComputerBars, setShowDiaryComputerBars] = useState(false);
   
-  // Função para alternar entre as views
-  const toggleView = () => {
-    const newView = activeView === 'geral' ? 'diario' : 'geral';
-    setActiveView(newView);
-    
-    // Limpar dados do diário quando sair da view diário
-    if (newView === 'geral') {
+  // Estados para controlar visualização de gráficos no criativo
+  const [showCriativoGenderBars, setShowCriativoGenderBars] = useState(false);
+  const [showCriativoAgeBars, setShowCriativoAgeBars] = useState(false);
+  const [showCriativoFaixaBars, setShowCriativoFaixaBars] = useState(false);
+  const [showCriativoCurrentJobBars, setShowCriativoCurrentJobBars] = useState(false);
+  const [showCriativoSalaryBars, setShowCriativoSalaryBars] = useState(false);
+  const [showCriativoCreditCardBars, setShowCriativoCreditCardBars] = useState(false);
+  const [showCriativoProgrammingStudyBars, setShowCriativoProgrammingStudyBars] = useState(false);
+  const [showCriativoCollegeBars, setShowCriativoCollegeBars] = useState(false);
+  const [showCriativoOnlineCourseBars, setShowCriativoOnlineCourseBars] = useState(false);
+  const [showCriativoProgrammingInterestBars, setShowCriativoProgrammingInterestBars] = useState(false);
+  const [showCriativoEventInterestBars, setShowCriativoEventInterestBars] = useState(false);
+  const [showCriativoComputerBars, setShowCriativoComputerBars] = useState(false);
+  
+  // Effect para limpar dados quando trocar de view
+  useEffect(() => {
+    // Limpar dados quando sair das views específicas
+    if (activeView !== 'diario') {
       setSelectedLaunch('');
       setDiaryData(null);
     }
-  };
+    if (activeView !== 'criativo') {
+      setSelectedLaunchCreativo('');
+      setSelectedContent('');
+      setCriativoData(null);
+    }
+  }, [activeView]);
   
   // Função para formatar data mostrando "Hoje" e "Ontem"
   const formatDateLabel = (dateStr) => {
@@ -308,6 +330,291 @@ import { revenueService } from '../services/revenueService';
   };
   
   // Função para buscar dados diários
+  const fetchCriativoData = async () => {
+    if (!selectedLaunchCreativo) return;
+    
+    try {
+      setLoadingCriativo(true);
+      
+      // Encontrar o lançamento selecionado nos dados já carregados
+      const launch = allLaunchesData.launches.find(l => l['Lançamento'] === selectedLaunchCreativo);
+      if (!launch) {
+        console.log('Lançamento não encontrado:', selectedLaunchCreativo);
+        return;
+      }
+      
+      // Buscar dados do lançamento nos sheetData
+      let launchData = launch.sheetData && launch.sheetData.data ? launch.sheetData.data : [];
+      
+      if (!launchData || !launchData.length) {
+        console.log('Nenhum dado encontrado para o lançamento:', selectedLaunchCreativo);
+        return;
+      }
+      
+      // Encontrar o campo de content nos headers
+      const launchHeaders = launch.sheetData.headers || [];
+      const contentFields = ['Content', 'content', 'CONTENT', 'Conteúdo', 'conteúdo', 'Criativo', 'criativo'];
+      const contentField = contentFields.find(field => launchHeaders.includes(field));
+      
+      console.log('Headers disponíveis para criativo:', launchHeaders);
+      console.log('Campo de content encontrado para criativo:', contentField);
+      
+      // Filtrar por content se selecionado
+      if (selectedContent && contentField) {
+        launchData = launchData.filter(lead => {
+          const leadContent = lead[contentField];
+          return leadContent && leadContent.trim() === selectedContent.trim();
+        });
+        console.log(`Dados filtrados por content "${selectedContent}":`, launchData.length, 'leads');
+      }
+      
+      console.log('Dados encontrados para o lançamento:', launchData.length, 'leads');
+      
+      // Agrupar dados por data
+      const dataByDate = {};
+      
+      // Encontrar o campo de data nos headers
+      const dateFields = [
+        'Data', 'data', 'Date', 'Timestamp', 'timestamp', 'Data/Hora', 'Data de cadastro',
+        'Data de inscrição', 'Created at', 'Registro', 'Carimbo de data/hora',
+        'Submitted at', 'Date submitted', 'Datetime'
+      ];
+      const dateHeaders = launch.sheetData.headers || [];
+      const dateField = dateFields.find(field => dateHeaders.includes(field));
+      
+      launchData.forEach(lead => {
+        const leadDate = dateField ? lead[dateField] : null;
+        if (!leadDate) return;
+        
+        // Normalizar a data para formato YYYY-MM-DD
+        let dateStr;
+        try {
+          let date;
+          
+          if (typeof leadDate === 'string') {
+            if (leadDate.includes('/')) {
+              const parts = leadDate.split('/');
+              if (parts.length === 3) {
+                date = new Date(parts[2], parts[1] - 1, parts[0]);
+              }
+            } else if (leadDate.includes('-')) {
+              const parts = leadDate.split('-');
+              if (parts.length === 3) {
+                if (parts[0].length === 4) {
+                  date = new Date(leadDate);
+                } else {
+                  date = new Date(parts[2], parts[1] - 1, parts[0]);
+                }
+              }
+            } else if (leadDate.includes(' ')) {
+              date = new Date(leadDate);
+            } else {
+              date = new Date(leadDate);
+            }
+          } else if (typeof leadDate === 'number') {
+            if (leadDate > 25000 && leadDate < 50000) {
+              date = new Date((leadDate - 25569) * 86400 * 1000);
+            } else {
+              date = new Date(leadDate);
+            }
+          } else {
+            date = new Date(leadDate);
+          }
+          
+          if (isNaN(date.getTime())) {
+            return;
+          }
+          
+          dateStr = date.toISOString().split('T')[0];
+        } catch (error) {
+          return;
+        }
+        
+        if (!dataByDate[dateStr]) {
+          dataByDate[dateStr] = [];
+        }
+        dataByDate[dateStr].push(lead);
+      });
+      
+      // Converter para array de dados diários processados
+      const dailyData = [];
+      const sortedDates = Object.keys(dataByDate).sort();
+      
+      sortedDates.forEach(dateStr => {
+        const leadsForDate = dataByDate[dateStr];
+        const totalLeads = leadsForDate.length;
+        
+        if (totalLeads === 0) return;
+        
+        // Criar objeto de dados para este dia
+        const dayData = {
+          date: dateStr,
+          name: formatDateLabel(dateStr),
+          totalLeads: totalLeads
+        };
+        
+        // Processar distribuição por faixa de lead scoring (A, B, C, D)
+        const faixaFields = ['Faixa', 'FAIXA', 'faixa', 'Faixa A', 'Classificação', 'classificação'];
+        const faixaField = faixaFields.find(field => launchHeaders.includes(field));
+        
+        console.log('Procurando campo de faixa nos headers:', launchHeaders);
+        console.log('Campo de faixa encontrado:', faixaField);
+        
+        if (faixaField) {
+          let faixaA = 0, faixaB = 0, faixaC = 0, faixaD = 0, faixaE = 0, invalidFaixas = 0;
+          
+          leadsForDate.forEach((lead, index) => {
+            const faixaValue = lead[faixaField];
+            
+            if (index < 5) { // Log dos primeiros 5 para debug
+              console.log(`Lead ${index + 1} - Faixa: "${faixaValue}"`);
+            }
+            
+            if (faixaValue) {
+              const faixaUpper = faixaValue.toString().toUpperCase().trim();
+              if (faixaUpper.includes('A')) faixaA++;
+              else if (faixaUpper.includes('B')) faixaB++;
+              else if (faixaUpper.includes('C')) faixaC++;
+              else if (faixaUpper.includes('D')) faixaD++;
+              else if (faixaUpper.includes('E')) faixaE++;
+              else invalidFaixas++;
+            } else {
+              invalidFaixas++;
+            }
+          });
+          
+          const total = faixaA + faixaB + faixaC + faixaD + faixaE;
+          console.log(`Distribuição de faixas para ${dateStr}:`, {
+            'A': faixaA,
+            'B': faixaB, 
+            'C': faixaC,
+            'D': faixaD,
+            'E': faixaE,
+            invalid: invalidFaixas,
+            total: total
+          });
+          
+          if (total > 0) {
+            dayData['A'] = parseFloat(((faixaA / total) * 100).toFixed(1));
+            dayData['B'] = parseFloat(((faixaB / total) * 100).toFixed(1));
+            dayData['C'] = parseFloat(((faixaC / total) * 100).toFixed(1));
+            dayData['D'] = parseFloat(((faixaD / total) * 100).toFixed(1));
+            if (faixaE > 0) {
+              dayData['E'] = parseFloat(((faixaE / total) * 100).toFixed(1));
+            }
+          }
+        } else {
+          console.log('Campo de faixa não encontrado. Headers disponíveis:', launchHeaders);
+        }
+        
+        dailyData.push(dayData);
+      });
+      
+      // Calcular porcentagem que este content representa do total
+      let contentPercentage = null;
+      let allContentsStats = [];
+      const totalLaunchLeads = launch.sheetData && launch.sheetData.data ? launch.sheetData.data.length : 0;
+      
+      if (selectedContent && totalLaunchLeads > 0) {
+        contentPercentage = ((launchData.length / totalLaunchLeads) * 100).toFixed(1);
+      }
+      
+      // Calcular estatísticas de todos os contents e suas faixas
+      let contentsFaixaStats = [];
+      if (totalLaunchLeads > 0 && contentField) {
+        const contentCounts = {};
+        const contentFaixas = {};
+        
+        // Encontrar campo de faixa
+        const faixaFields = ['Faixa', 'FAIXA', 'faixa', 'Faixa A', 'Classificação', 'classificação'];
+        const faixaField = faixaFields.find(field => launchHeaders.includes(field));
+        
+        launch.sheetData.data.forEach(lead => {
+          const leadContent = lead[contentField];
+          if (leadContent && leadContent.trim() !== '') {
+            const content = leadContent.trim();
+            contentCounts[content] = (contentCounts[content] || 0) + 1;
+            
+            // Inicializar faixas para este content se não existir
+            if (!contentFaixas[content]) {
+              contentFaixas[content] = { A: 0, B: 0, C: 0, D: 0, E: 0, total: 0 };
+            }
+            
+            // Contar faixas se o campo existir
+            if (faixaField) {
+              const faixaValue = lead[faixaField];
+              if (faixaValue) {
+                const faixaUpper = faixaValue.toString().toUpperCase().trim();
+                if (faixaUpper.includes('A')) contentFaixas[content].A++;
+                else if (faixaUpper.includes('B')) contentFaixas[content].B++;
+                else if (faixaUpper.includes('C')) contentFaixas[content].C++;
+                else if (faixaUpper.includes('D')) contentFaixas[content].D++;
+                else if (faixaUpper.includes('E')) contentFaixas[content].E++;
+                contentFaixas[content].total++;
+              }
+            }
+          }
+        });
+        
+        allContentsStats = Object.entries(contentCounts)
+          .map(([content, count]) => ({
+            content,
+            count,
+            percentage: ((count / totalLaunchLeads) * 100).toFixed(1)
+          }))
+          .sort((a, b) => parseFloat(b.percentage) - parseFloat(a.percentage));
+          
+        // Calcular estatísticas de faixa por content
+        if (faixaField) {
+          contentsFaixaStats = Object.entries(contentFaixas)
+            .map(([content, faixas]) => {
+              const total = faixas.total;
+              return {
+                content,
+                totalLeads: contentCounts[content],
+                faixaTotal: total,
+                faixaA: total > 0 ? ((faixas.A / total) * 100).toFixed(1) : '0.0',
+                faixaB: total > 0 ? ((faixas.B / total) * 100).toFixed(1) : '0.0',
+                faixaC: total > 0 ? ((faixas.C / total) * 100).toFixed(1) : '0.0',
+                faixaD: total > 0 ? ((faixas.D / total) * 100).toFixed(1) : '0.0',
+                faixaE: total > 0 ? ((faixas.E / total) * 100).toFixed(1) : '0.0',
+                countA: faixas.A,
+                countB: faixas.B,
+                countC: faixas.C,
+                countD: faixas.D,
+                countE: faixas.E
+              };
+            })
+            .sort((a, b) => parseFloat(b.faixaA) - parseFloat(a.faixaA));
+        }
+      }
+
+      const result = {
+        dailyData,
+        startDate: sortedDates[0],
+        endDate: sortedDates[sortedDates.length - 1],
+        totalDays: sortedDates.length,
+        totalLeads: launchData.length,
+        contentPercentage: contentPercentage,
+        selectedContent: selectedContent,
+        allContentsStats: allContentsStats,
+        contentsFaixaStats: contentsFaixaStats,
+        totalLaunchLeads: totalLaunchLeads
+      };
+      
+      console.log('Dados finais do criativo processados:', result);
+      console.log('Primeiros 3 dias de dados:', dailyData.slice(0, 3));
+      
+      setCriativoData(result);
+      
+    } catch (error) {
+      console.error('Erro ao buscar dados do criativo:', error);
+      setError('Erro ao carregar dados do criativo');
+    } finally {
+      setLoadingCriativo(false);
+    }
+  };
+
   const fetchDiaryData = async () => {
     if (!selectedLaunch) return;
     
@@ -344,11 +651,11 @@ import { revenueService } from '../services/revenueService';
         'Data de inscrição', 'Created at', 'Registro', 'Carimbo de data/hora',
         'Submitted at', 'Date submitted', 'Datetime'
       ];
-      const headers = launch.sheetData.headers || [];
-      const dateField = dateFields.find(field => headers.includes(field));
+      const dateHeaders = launch.sheetData.headers || [];
+      const dateField = dateFields.find(field => dateHeaders.includes(field));
       
       console.log('Campo de data encontrado:', dateField);
-      console.log('Headers disponíveis:', headers.slice(0, 10)); // Mostrar primeiros 10 headers
+      console.log('Headers disponíveis:', dateHeaders.slice(0, 10)); // Mostrar primeiros 10 headers
       
       // Log para debug - mostrar algumas datas dos leads
       console.log('Primeiras 5 datas encontradas:');
@@ -452,7 +759,7 @@ import { revenueService } from '../services/revenueService';
         // Processar dados de gênero manualmente
         let masculino = 0, feminino = 0;
         const genderFields = ['O seu gênero:', 'O seu gênero', 'Sexo', 'sexo', 'Gênero', 'gênero'];
-        const genderField = genderFields.find(field => headers.includes(field));
+        const genderField = genderFields.find(field => dateHeaders.includes(field));
         
         if (genderField) {
           leadsForDate.forEach(lead => {
@@ -476,7 +783,7 @@ import { revenueService } from '../services/revenueService';
         
         // Processar dados de idade manualmente
         const ageFields = ['Qual a sua idade?', 'Idade', 'idade', 'Age', 'age'];
-        const ageField = ageFields.find(field => headers.includes(field));
+        const ageField = ageFields.find(field => dateHeaders.includes(field));
         
         if (ageField) {
           let age18_24 = 0, age25_34 = 0, age35_44 = 0, age45_54 = 0, age55plus = 0;
@@ -613,6 +920,36 @@ import { revenueService } from '../services/revenueService';
       fetchDiaryData();
     }
   }, [selectedLaunch, activeView]);
+
+  // Effect para carregar automaticamente o último lançamento quando estiver na view criativo
+  useEffect(() => {
+    if (activeView === 'criativo' && allLaunchesData && allLaunchesData.launches && !selectedLaunchCreativo) {
+      // Encontrar o lançamento mais recente (maior número)
+      const validLaunches = allLaunchesData.launches
+        .filter(launch => leadScoringService.hasValidGenderData(launch) || leadScoringService.hasValidAgeData(launch))
+        .sort((a, b) => {
+          const getNum = (name) => {
+            const match = name.match(/(\d+)/);
+            return match ? parseInt(match[1]) : 0;
+          };
+          const numA = getNum(a['Lançamento']);
+          const numB = getNum(b['Lançamento']);
+          return numB - numA; // Ordem decrescente (mais recente primeiro)
+        });
+      
+      if (validLaunches.length > 0) {
+        const latestLaunch = validLaunches[0]['Lançamento'];
+        setSelectedLaunchCreativo(latestLaunch);
+      }
+    }
+  }, [activeView, allLaunchesData]);
+
+  // Effect separado para buscar dados quando o lançamento for selecionado automaticamente no criativo
+  useEffect(() => {
+    if (activeView === 'criativo' && selectedLaunchCreativo && allLaunchesData) {
+      fetchCriativoData();
+    }
+  }, [selectedLaunchCreativo, selectedContent, activeView]);
 
   const handleRefresh = () => {
     leadScoringService.clearCache();
@@ -766,22 +1103,15 @@ import { revenueService } from '../services/revenueService';
               Lead Scoring
             </h1>
             <div className="flex gap-2">
-              <button
-                onClick={toggleView}
-                className="flex items-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+              <select
+                value={activeView}
+                onChange={(e) => setActiveView(e.target.value)}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors border-none outline-none cursor-pointer"
               >
-                {activeView === 'geral' ? (
-                  <>
-                    <FaCalendarDay className="mr-2" />
-                    Diário
-                  </>
-                ) : (
-                  <>
-                    <FaList className="mr-2" />
-                    Geral
-                  </>
-                )}
-              </button>
+                <option value="geral">📊 Geral</option>
+                <option value="diario">📅 Diário</option>
+                <option value="criativo">🎨 Criativo</option>
+              </select>
               <button
                 onClick={handleRefresh}
                 className="flex items-center px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors"
@@ -1911,7 +2241,7 @@ import { revenueService } from '../services/revenueService';
         )}
 
           </>
-        ) : (
+        ) : activeView === 'diario' ? (
           <>
             {/* View Diário */}
             <div>
@@ -2563,6 +2893,460 @@ import { revenueService } from '../services/revenueService';
                   <FaCalendarDay className="text-6xl text-gray-400 dark:text-gray-600 mx-auto mb-4" />
                   <p className="text-gray-500 dark:text-gray-400 text-lg">
                     Selecione um lançamento e uma data para visualizar os dados
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+          </>
+        ) : (
+          <>
+            {/* View Criativo */}
+            <div>
+            {/* Filtros do Criativo */}
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
+              <h2 className="text-xl font-semibold text-text-light dark:text-text-dark mb-4">
+                Filtros de Análise por Criativo
+              </h2>
+              
+              <div className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Seleção de Lançamento */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Selecione o Lançamento
+                  </label>
+                  <select
+                    value={selectedLaunchCreativo}
+                    onChange={(e) => setSelectedLaunchCreativo(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="">Escolha um lançamento...</option>
+                    {(allLaunchesData && allLaunchesData.launches
+                      .filter(launch => leadScoringService.hasValidGenderData(launch) || leadScoringService.hasValidAgeData(launch))
+                      .sort((a, b) => {
+                        const getNum = (name) => {
+                          const match = name.match(/(\d+)/);
+                          return match ? parseInt(match[1]) : 0;
+                        };
+                        const numA = getNum(a['Lançamento']);
+                        const numB = getNum(b['Lançamento']);
+                        return numB - numA; // Ordem decrescente (mais recente primeiro)
+                      })
+                      .map((launch) => (
+                        <option key={launch['Lançamento']} value={launch['Lançamento']}>
+                          {launch['Lançamento']}
+                        </option>
+                      )))}
+                  </select>
+                </div>
+
+                {/* Seleção de Content */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Filtrar por Content
+                  </label>
+                  <select
+                    value={selectedContent}
+                    onChange={(e) => setSelectedContent(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
+                    disabled={!selectedLaunchCreativo}
+                  >
+                    <option value="">Todos os conteúdos...</option>
+                    {selectedLaunchCreativo && allLaunchesData && (() => {
+                      const selectedLaunchData = allLaunchesData.launches.find(
+                        launch => launch['Lançamento'] === selectedLaunchCreativo
+                      );
+                      if (selectedLaunchData && selectedLaunchData.sheetData && selectedLaunchData.sheetData.data) {
+                        // Encontrar o campo de content nos headers
+                        const selectHeaders = selectedLaunchData.sheetData.headers || [];
+                        const contentFields = ['Content', 'content', 'CONTENT', 'Conteúdo', 'conteúdo', 'Criativo', 'criativo'];
+                        const contentField = contentFields.find(field => selectHeaders.includes(field));
+                        
+                        console.log('Headers disponíveis:', selectHeaders);
+                        console.log('Campo de content encontrado:', contentField);
+                        
+                        if (!contentField) {
+                          console.log('Campo de content não encontrado nos headers');
+                          return null;
+                        }
+                        
+                        const uniqueContents = [...new Set(
+                          selectedLaunchData.sheetData.data
+                            .map(row => row[contentField])
+                            .filter(content => content && content.trim() !== '')
+                        )].sort();
+                        return uniqueContents.map(content => (
+                          <option key={content} value={content}>
+                            {content}
+                          </option>
+                        ));
+                      }
+                      return null;
+                    })()}
+                  </select>
+                </div>
+              </div>
+              
+              {/* Botão de Atualizar */}
+              <div className="mt-4">
+                <button
+                  onClick={fetchCriativoData}
+                  disabled={!selectedLaunchCreativo || loadingCriativo}
+                  className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                >
+                  {loadingCriativo ? (
+                    <>
+                      <FaSpinner className="animate-spin mr-2" />
+                      Carregando...
+                    </>
+                  ) : (
+                    <>
+                      <FaSync className="mr-2" />
+                      Atualizar Dados
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+            
+            {/* Área de Resultados */}
+            {criativoData && criativoData.dailyData ? (
+              <>
+                {/* Resumo */}
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
+                  <h3 className="text-lg font-semibold text-text-light dark:text-text-dark mb-4">
+                    Análise por Criativo - {selectedLaunchCreativo}
+                    {selectedContent && ` - ${selectedContent}`}
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Período: {new Date(criativoData.startDate).toLocaleDateString('pt-BR')} até {new Date(criativoData.endDate).toLocaleDateString('pt-BR')}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                    Total de {criativoData.dailyData.length} dias{selectedContent ? ` para o conteúdo: ${selectedContent}` : ''}
+                  </p>
+                </div>
+                
+                {/* Gráfico de Faixa de Lead Scoring */}
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-semibold text-text-light dark:text-text-dark">
+                      Distribuição por Faixa de Lead Scoring
+                    </h2>
+                    <button
+                      onClick={() => setShowCriativoFaixaBars(!showCriativoFaixaBars)}
+                      className="px-4 py-2 bg-primary text-white rounded hover:bg-primary-dark transition-colors text-sm font-medium"
+                    >
+                      {showCriativoFaixaBars ? 'LINHAS' : 'BARRAS'}
+                    </button>
+                  </div>
+                  <ResponsiveContainer width="100%" height={400}>
+                    {showCriativoFaixaBars ? (
+                      <BarChart data={criativoData.dailyData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                        <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} />
+                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                        <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
+                        <Legend />
+                        <Bar dataKey="A" fill="#10B981" name="Faixa A" stackId="a" />
+                        <Bar dataKey="B" fill="#3B82F6" name="Faixa B" stackId="a" />
+                        <Bar dataKey="C" fill="#F59E0B" name="Faixa C" stackId="a" />
+                        <Bar dataKey="D" fill="#EF4444" name="Faixa D" stackId="a" />
+                        <Bar dataKey="E" fill="#8B5CF6" name="Faixa E" stackId="a" />
+                      </BarChart>
+                    ) : (
+                      <LineChart data={criativoData.dailyData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                        <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} />
+                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                        <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
+                        <Legend />
+                        <Line type="monotone" dataKey="A" stroke="#10B981" strokeWidth={3} dot={{ fill: '#10B981', r: 3 }} name="Faixa A" />
+                        <Line type="monotone" dataKey="B" stroke="#3B82F6" strokeWidth={3} dot={{ fill: '#3B82F6', r: 3 }} name="Faixa B" />
+                        <Line type="monotone" dataKey="C" stroke="#F59E0B" strokeWidth={3} dot={{ fill: '#F59E0B', r: 3 }} name="Faixa C" />
+                        <Line type="monotone" dataKey="D" stroke="#EF4444" strokeWidth={3} dot={{ fill: '#EF4444', r: 3 }} name="Faixa D" />
+                        <Line type="monotone" dataKey="E" stroke="#8B5CF6" strokeWidth={3} dot={{ fill: '#8B5CF6', r: 3 }} name="Faixa E" />
+                      </LineChart>
+                    )}
+                  </ResponsiveContainer>
+                </div>
+                
+                {/* Card de Porcentagem do Content */}
+                {criativoData.contentPercentage && (
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-700 p-6 rounded-lg shadow-lg mb-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        <div className="bg-blue-100 dark:bg-blue-800 p-3 rounded-full mr-4">
+                          <svg className="w-6 h-6 text-blue-600 dark:text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-1">
+                            Representatividade do Conteúdo
+                          </h3>
+                          <p className="text-sm text-blue-700 dark:text-blue-300">
+                            {selectedContent}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                          {criativoData.contentPercentage}%
+                        </div>
+                        <div className="text-sm text-blue-600 dark:text-blue-400 font-medium">
+                          do total de leads
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-4 bg-blue-100 dark:bg-blue-800/30 rounded-lg p-3">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-blue-800 dark:text-blue-200">Leads deste conteúdo:</span>
+                        <span className="font-semibold text-blue-900 dark:text-blue-100">{criativoData.totalLeads}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Card de Lista de Todos os Contents */}
+                {criativoData.allContentsStats && criativoData.allContentsStats.length > 0 && (
+                  <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
+                    <div className="flex items-center mb-4">
+                      <div className="bg-green-100 dark:bg-green-800 p-2 rounded-full mr-3">
+                        <svg className="w-5 h-5 text-green-600 dark:text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                        </svg>
+                      </div>
+                      <h3 className="text-lg font-semibold text-text-light dark:text-text-dark">
+                        Distribuição de Contents - {selectedLaunchCreativo}
+                      </h3>
+                    </div>
+                    
+                    <div className="mb-3 text-sm text-gray-600 dark:text-gray-400">
+                      Total de leads do lançamento: <span className="font-semibold">{criativoData.totalLaunchLeads}</span>
+                    </div>
+                    
+                    <div className="space-y-3 max-h-96 overflow-y-auto">
+                      {criativoData.allContentsStats.map((contentStat, index) => {
+                        // Encontrar dados de faixa para este content
+                        const faixaData = criativoData.contentsFaixaStats?.find(
+                          faixa => faixa.content === contentStat.content
+                        );
+                        
+                        return (
+                          <div 
+                            key={contentStat.content}
+                            className={`p-3 rounded-lg border transition-colors ${
+                              contentStat.content === selectedContent 
+                                ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700' 
+                                : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center flex-1 min-w-0">
+                                <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold mr-3 ${
+                                  contentStat.content === selectedContent
+                                    ? 'bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-300'
+                                    : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
+                                }`}>
+                                  #{index + 1}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className={`text-sm font-medium truncate ${
+                                    contentStat.content === selectedContent
+                                      ? 'text-blue-900 dark:text-blue-100'
+                                      : 'text-gray-900 dark:text-gray-100'
+                                  }`} title={contentStat.content}>
+                                    {contentStat.content}
+                                  </p>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                                    {contentStat.count} leads {faixaData ? `• ${faixaData.faixaTotal} com faixa` : ''}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex-shrink-0 text-right ml-4">
+                                <div className={`text-lg font-bold ${
+                                  contentStat.content === selectedContent
+                                    ? 'text-blue-600 dark:text-blue-400'
+                                    : 'text-gray-900 dark:text-gray-100'
+                                }`}>
+                                  {contentStat.percentage}%
+                                </div>
+                                <div className="w-20 bg-gray-200 dark:bg-gray-600 rounded-full h-2 mt-1">
+                                  <div 
+                                    className={`h-2 rounded-full ${
+                                      contentStat.content === selectedContent
+                                        ? 'bg-blue-500'
+                                        : 'bg-green-500'
+                                    }`}
+                                    style={{ width: `${Math.min(100, contentStat.percentage)}%` }}
+                                  ></div>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Distribuição de Faixas */}
+                            {faixaData && (
+                              <div className="grid grid-cols-4 gap-2 text-xs mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
+                                <div className="text-center">
+                                  <div className="text-green-600 dark:text-green-400 font-medium">
+                                    A: {faixaData.faixaA}%
+                                  </div>
+                                  <div className="text-gray-500 dark:text-gray-400 text-xs">
+                                    ({faixaData.countA})
+                                  </div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="text-blue-600 dark:text-blue-400 font-medium">
+                                    B: {faixaData.faixaB}%
+                                  </div>
+                                  <div className="text-gray-500 dark:text-gray-400 text-xs">
+                                    ({faixaData.countB})
+                                  </div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="text-orange-600 dark:text-orange-400 font-medium">
+                                    C: {faixaData.faixaC}%
+                                  </div>
+                                  <div className="text-gray-500 dark:text-gray-400 text-xs">
+                                    ({faixaData.countC})
+                                  </div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="text-red-600 dark:text-red-400 font-medium">
+                                    D: {faixaData.faixaD}%
+                                  </div>
+                                  <div className="text-gray-500 dark:text-gray-400 text-xs">
+                                    ({faixaData.countD})
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Card de Ranking por Faixa A */}
+                {criativoData.contentsFaixaStats && criativoData.contentsFaixaStats.length > 0 && (
+                  <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow mb-6">
+                    <div className="flex items-center mb-4">
+                      <div className="bg-green-100 dark:bg-green-800 p-2 rounded-full mr-3">
+                        <svg className="w-5 h-5 text-green-600 dark:text-green-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                        </svg>
+                      </div>
+                      <h3 className="text-lg font-semibold text-text-light dark:text-text-dark">
+                        Ranking por Faixa A - {selectedLaunchCreativo}
+                      </h3>
+                    </div>
+                    
+                    <div className="mb-3 text-sm text-gray-600 dark:text-gray-400">
+                      Ordenado pela maior porcentagem de Faixa A (melhor qualificação)
+                    </div>
+                    
+                    <div className="space-y-4 max-h-96 overflow-y-auto">
+                      {criativoData.contentsFaixaStats.map((contentStat, index) => (
+                        <div 
+                          key={contentStat.content}
+                          className={`p-4 rounded-lg border transition-colors ${
+                            contentStat.content === selectedContent 
+                              ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700' 
+                              : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center flex-1 min-w-0">
+                              <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold mr-3 ${
+                                contentStat.content === selectedContent
+                                  ? 'bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-300'
+                                  : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
+                              }`}>
+                                #{index + 1}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-sm font-medium truncate ${
+                                  contentStat.content === selectedContent
+                                    ? 'text-green-900 dark:text-green-100'
+                                    : 'text-gray-900 dark:text-gray-100'
+                                }`} title={contentStat.content}>
+                                  {contentStat.content}
+                                </p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                  {contentStat.totalLeads} leads total • {contentStat.faixaTotal} com faixa
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex-shrink-0 text-right ml-4">
+                              <div className={`text-lg font-bold ${
+                                contentStat.content === selectedContent
+                                  ? 'text-green-600 dark:text-green-400'
+                                  : 'text-gray-900 dark:text-gray-100'
+                              }`}>
+                                {contentStat.faixaA}%
+                              </div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400">
+                                Faixa A
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Barras de distribuição das faixas */}
+                          <div className="grid grid-cols-4 gap-2 text-xs">
+                            <div className="text-center">
+                              <div className="bg-green-200 dark:bg-green-700 rounded-full h-2 mb-1">
+                                <div 
+                                  className="bg-green-500 h-2 rounded-full"
+                                  style={{ width: `${Math.min(100, contentStat.faixaA)}%` }}
+                                ></div>
+                              </div>
+                              <div className="font-medium text-green-600 dark:text-green-400">A: {contentStat.faixaA}%</div>
+                              <div className="text-gray-500 dark:text-gray-400">({contentStat.countA})</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="bg-blue-200 dark:bg-blue-700 rounded-full h-2 mb-1">
+                                <div 
+                                  className="bg-blue-500 h-2 rounded-full"
+                                  style={{ width: `${Math.min(100, contentStat.faixaB)}%` }}
+                                ></div>
+                              </div>
+                              <div className="font-medium text-blue-600 dark:text-blue-400">B: {contentStat.faixaB}%</div>
+                              <div className="text-gray-500 dark:text-gray-400">({contentStat.countB})</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="bg-orange-200 dark:bg-orange-700 rounded-full h-2 mb-1">
+                                <div 
+                                  className="bg-orange-500 h-2 rounded-full"
+                                  style={{ width: `${Math.min(100, contentStat.faixaC)}%` }}
+                                ></div>
+                              </div>
+                              <div className="font-medium text-orange-600 dark:text-orange-400">C: {contentStat.faixaC}%</div>
+                              <div className="text-gray-500 dark:text-gray-400">({contentStat.countC})</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="bg-red-200 dark:bg-red-700 rounded-full h-2 mb-1">
+                                <div 
+                                  className="bg-red-500 h-2 rounded-full"
+                                  style={{ width: `${Math.min(100, contentStat.faixaD)}%` }}
+                                ></div>
+                              </div>
+                              <div className="font-medium text-red-600 dark:text-red-400">D: {contentStat.faixaD}%</div>
+                              <div className="text-gray-500 dark:text-gray-400">({contentStat.countD})</div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+                <div className="text-center py-12">
+                  <FaChartLine className="text-6xl text-gray-400 dark:text-gray-600 mx-auto mb-4" />
+                  <p className="text-gray-500 dark:text-gray-400 text-lg">
+                    Selecione um lançamento para visualizar os dados por criativo
                   </p>
                 </div>
               </div>
