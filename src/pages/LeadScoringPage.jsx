@@ -1235,12 +1235,12 @@ import { revenueService } from '../services/revenueService';
                 {showFaixaBars ? 'LINHAS' : 'BARRAS'}
               </button>
             </div>
-            <ResponsiveContainer width="100%" height={400}>
+            <ResponsiveContainer width="100%" height={800}>
               {showFaixaBars ? (
                 <BarChart data={processedData.faixaByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
-                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                   <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                   <Legend />
                   {Object.keys(processedData.faixaByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => {
@@ -1267,7 +1267,7 @@ import { revenueService } from '../services/revenueService';
                 <LineChart data={processedData.faixaByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
-                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                   <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                   <Legend />
                   {Object.keys(processedData.faixaByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => {
@@ -1350,7 +1350,7 @@ import { revenueService } from '../services/revenueService';
           )}
           
           {!loadingRevenue && revenueData && revenueData.length > 0 && (
-            <ResponsiveContainer width="100%" height={400}>
+            <ResponsiveContainer width="100%" height={800}>
               {showRevenueBars ? (
                 <BarChart data={revenueData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -1483,7 +1483,7 @@ import { revenueService } from '../services/revenueService';
                 {showTrafficBars ? 'LINHAS' : 'BARRAS'}
               </button>
             </div>
-            <ResponsiveContainer width="100%" height={400}>
+            <ResponsiveContainer width="100%" height={800}>
               {showTrafficBars ? (
                 <BarChart data={processedData.trafficByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -1569,7 +1569,7 @@ import { revenueService } from '../services/revenueService';
                 {showGenderBars ? 'LINHAS' : 'BARRAS'}
               </button>
             </div>
-            <ResponsiveContainer width="100%" height={400}>
+            <ResponsiveContainer width="100%" height={800}>
               {showGenderBars ? (
                 <BarChart 
                   data={processedData.genderByLaunch}
@@ -1679,7 +1679,7 @@ import { revenueService } from '../services/revenueService';
                 {showAgeBars ? 'LINHAS' : 'BARRAS'}
               </button>
             </div>
-            <ResponsiveContainer width="100%" height={400}>
+            <ResponsiveContainer width="100%" height={800}>
               {showAgeBars ? (
                 <BarChart 
                   data={processedData.ageByLaunch}
@@ -1834,12 +1834,12 @@ import { revenueService } from '../services/revenueService';
                 {showCurrentJobBars ? 'LINHAS' : 'BARRAS'}
               </button>
             </div>
-            <ResponsiveContainer width="100%" height={400}>
+            <ResponsiveContainer width="100%" height={800}>
               {showCurrentJobBars ? (
                 <BarChart data={processedData.currentJobByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
-                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                   <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                   <Legend />
                   {Object.keys(processedData.currentJobByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => (
@@ -1850,7 +1850,7 @@ import { revenueService } from '../services/revenueService';
                 <LineChart data={processedData.currentJobByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
-                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                   <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                   <Legend />
                   {Object.keys(processedData.currentJobByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => (
@@ -1876,12 +1876,12 @@ import { revenueService } from '../services/revenueService';
                 {showSalaryBars ? 'LINHAS' : 'BARRAS'}
               </button>
             </div>
-            <ResponsiveContainer width="100%" height={400}>
+            <ResponsiveContainer width="100%" height={800}>
               {showSalaryBars ? (
                 <BarChart data={processedData.salaryRangeByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
-                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                   <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                   <Legend />
                   {Object.keys(processedData.salaryRangeByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => (
@@ -1892,7 +1892,7 @@ import { revenueService } from '../services/revenueService';
                 <LineChart data={processedData.salaryRangeByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
-                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                   <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                   <Legend />
                   {Object.keys(processedData.salaryRangeByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => (
@@ -1918,12 +1918,12 @@ import { revenueService } from '../services/revenueService';
                 {showCreditCardBars ? 'LINHAS' : 'BARRAS'}
               </button>
             </div>
-            <ResponsiveContainer width="100%" height={400}>
+            <ResponsiveContainer width="100%" height={800}>
               {showCreditCardBars ? (
                 <BarChart data={processedData.creditCardByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
-                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                   <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                   <Legend />
                   {Object.keys(processedData.creditCardByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => (
@@ -1934,7 +1934,7 @@ import { revenueService } from '../services/revenueService';
                 <LineChart data={processedData.creditCardByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
-                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                   <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                   <Legend />
                   {Object.keys(processedData.creditCardByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => (
@@ -1960,12 +1960,12 @@ import { revenueService } from '../services/revenueService';
                 {showProgrammingStudyBars ? 'LINHAS' : 'BARRAS'}
               </button>
             </div>
-            <ResponsiveContainer width="100%" height={400}>
+            <ResponsiveContainer width="100%" height={800}>
               {showProgrammingStudyBars ? (
                 <BarChart data={processedData.programmingStudyByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
-                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                   <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                   <Legend />
                   {Object.keys(processedData.programmingStudyByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => (
@@ -1976,7 +1976,7 @@ import { revenueService } from '../services/revenueService';
                 <LineChart data={processedData.programmingStudyByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
-                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                   <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                   <Legend />
                   {Object.keys(processedData.programmingStudyByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => (
@@ -2002,12 +2002,12 @@ import { revenueService } from '../services/revenueService';
                 {showCollegeBars ? 'LINHAS' : 'BARRAS'}
               </button>
             </div>
-            <ResponsiveContainer width="100%" height={400}>
+            <ResponsiveContainer width="100%" height={800}>
               {showCollegeBars ? (
                 <BarChart data={processedData.collegeByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
-                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                   <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                   <Legend />
                   {Object.keys(processedData.collegeByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => (
@@ -2018,7 +2018,7 @@ import { revenueService } from '../services/revenueService';
                 <LineChart data={processedData.collegeByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
-                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                   <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                   <Legend />
                   {Object.keys(processedData.collegeByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => (
@@ -2044,12 +2044,12 @@ import { revenueService } from '../services/revenueService';
                 {showOnlineCourseBars ? 'LINHAS' : 'BARRAS'}
               </button>
             </div>
-            <ResponsiveContainer width="100%" height={400}>
+            <ResponsiveContainer width="100%" height={800}>
               {showOnlineCourseBars ? (
                 <BarChart data={processedData.onlineCourseByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
-                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                   <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                   <Legend />
                   {Object.keys(processedData.onlineCourseByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => (
@@ -2060,7 +2060,7 @@ import { revenueService } from '../services/revenueService';
                 <LineChart data={processedData.onlineCourseByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
-                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                   <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                   <Legend />
                   {Object.keys(processedData.onlineCourseByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => (
@@ -2086,12 +2086,12 @@ import { revenueService } from '../services/revenueService';
                 {showProgrammingInterestBars ? 'LINHAS' : 'BARRAS'}
               </button>
             </div>
-            <ResponsiveContainer width="100%" height={400}>
+            <ResponsiveContainer width="100%" height={800}>
               {showProgrammingInterestBars ? (
                 <BarChart data={processedData.programmingInterestByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
-                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                   <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                   <Legend />
                   {Object.keys(processedData.programmingInterestByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => (
@@ -2102,7 +2102,7 @@ import { revenueService } from '../services/revenueService';
                 <LineChart data={processedData.programmingInterestByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
-                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                   <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                   <Legend />
                   {Object.keys(processedData.programmingInterestByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => (
@@ -2128,12 +2128,12 @@ import { revenueService } from '../services/revenueService';
                 {showEventInterestBars ? 'LINHAS' : 'BARRAS'}
               </button>
             </div>
-            <ResponsiveContainer width="100%" height={400}>
+            <ResponsiveContainer width="100%" height={800}>
               {showEventInterestBars ? (
                 <BarChart data={processedData.eventInterestByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
-                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                   <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                   <Legend />
                   {Object.keys(processedData.eventInterestByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => (
@@ -2144,7 +2144,7 @@ import { revenueService } from '../services/revenueService';
                 <LineChart data={processedData.eventInterestByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
-                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                   <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                   <Legend />
                   {Object.keys(processedData.eventInterestByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => (
@@ -2170,12 +2170,12 @@ import { revenueService } from '../services/revenueService';
                 {showComputerBars ? 'LINHAS' : 'BARRAS'}
               </button>
             </div>
-            <ResponsiveContainer width="100%" height={400}>
+            <ResponsiveContainer width="100%" height={800}>
               {showComputerBars ? (
                 <BarChart data={processedData.computerByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
-                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                   <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                   <Legend />
                   {Object.keys(processedData.computerByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => (
@@ -2186,7 +2186,7 @@ import { revenueService } from '../services/revenueService';
                 <LineChart data={processedData.computerByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
-                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                   <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                   <Legend />
                   {Object.keys(processedData.computerByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => (
@@ -2212,12 +2212,12 @@ import { revenueService } from '../services/revenueService';
                 {showFaixaBars ? 'LINHAS' : 'BARRAS'}
               </button>
             </div>
-            <ResponsiveContainer width="100%" height={400}>
+            <ResponsiveContainer width="100%" height={800}>
               {showFaixaBars ? (
                 <BarChart data={processedData.revenueByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
-                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                   <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                   <Legend />
                   {Object.keys(processedData.revenueByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => (
@@ -2228,7 +2228,7 @@ import { revenueService } from '../services/revenueService';
                 <LineChart data={processedData.revenueByLaunch} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} angle={-45} textAnchor="end" height={100} />
-                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                  <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                   <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                   <Legend />
                   {Object.keys(processedData.revenueByLaunch[0]).filter(key => key !== 'name' && key !== 'totalLeads').map((key, idx) => (
@@ -2334,12 +2334,12 @@ import { revenueService } from '../services/revenueService';
                       {showDiaryFaixaBars ? 'LINHAS' : 'BARRAS'}
                     </button>
                   </div>
-                  <ResponsiveContainer width="100%" height={400}>
+                  <ResponsiveContainer width="100%" height={800}>
                     {showDiaryFaixaBars ? (
                       <BarChart data={diaryData.dailyData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                         <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} />
-                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                         <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                         <Legend />
                         <Bar dataKey="Faixa A" fill="#37E359" name="Faixa A" stackId="a" />
@@ -2351,7 +2351,7 @@ import { revenueService } from '../services/revenueService';
                       <LineChart data={diaryData.dailyData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                         <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} />
-                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                         <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                         <Legend />
                         <Line type="monotone" dataKey="Faixa A" stroke="#37E359" strokeWidth={3} dot={{ fill: '#37E359', r: 3 }} name="Faixa A" />
@@ -2381,12 +2381,12 @@ import { revenueService } from '../services/revenueService';
                       {showDiaryGenderBars ? 'LINHAS' : 'BARRAS'}
                     </button>
                   </div>
-                  <ResponsiveContainer width="100%" height={400}>
+                  <ResponsiveContainer width="100%" height={800}>
                     {showDiaryGenderBars ? (
                       <BarChart data={diaryData.dailyData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                         <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} />
-                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                         <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                         <Legend />
                         <Bar dataKey="masculino" fill="#3B82F6" name="Masculino" stackId="a" />
@@ -2396,7 +2396,7 @@ import { revenueService } from '../services/revenueService';
                       <LineChart data={diaryData.dailyData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                         <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} />
-                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                         <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                         <Legend />
                         <Line type="monotone" dataKey="masculino" stroke="#3B82F6" strokeWidth={3} dot={{ fill: '#3B82F6', r: 3 }} name="Masculino" />
@@ -2424,12 +2424,12 @@ import { revenueService } from '../services/revenueService';
                       {showDiaryAgeBars ? 'LINHAS' : 'BARRAS'}
                     </button>
                   </div>
-                  <ResponsiveContainer width="100%" height={400}>
+                  <ResponsiveContainer width="100%" height={800}>
                     {showDiaryAgeBars ? (
                       <BarChart data={diaryData.dailyData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                         <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} />
-                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                         <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                         <Legend />
                         <Bar dataKey="18-24" fill="#10B981" name="18-24 anos" stackId="a" />
@@ -2442,7 +2442,7 @@ import { revenueService } from '../services/revenueService';
                       <LineChart data={diaryData.dailyData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                         <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} />
-                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                         <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                         <Legend />
                         <Line type="monotone" dataKey="18-24" stroke="#10B981" strokeWidth={3} dot={{ fill: '#10B981', r: 3 }} name="18-24 anos" />
@@ -2473,12 +2473,12 @@ import { revenueService } from '../services/revenueService';
                       {showDiaryCurrentJobBars ? 'LINHAS' : 'BARRAS'}
                     </button>
                   </div>
-                  <ResponsiveContainer width="100%" height={400}>
+                  <ResponsiveContainer width="100%" height={800}>
                     {showDiaryCurrentJobBars ? (
                       <BarChart data={diaryData.dailyData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                         <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} />
-                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                         <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                         <Legend />
                         <Bar dataKey="Funcionário CLT" fill="#10B981" name="Funcionário CLT" stackId="a" />
@@ -2491,7 +2491,7 @@ import { revenueService } from '../services/revenueService';
                       <LineChart data={diaryData.dailyData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                         <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} />
-                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                         <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                         <Legend />
                         <Line type="monotone" dataKey="Funcionário CLT" stroke="#10B981" strokeWidth={3} dot={{ fill: '#10B981', r: 3 }} name="Funcionário CLT" />
@@ -2523,12 +2523,12 @@ import { revenueService } from '../services/revenueService';
                       {showDiarySalaryBars ? 'LINHAS' : 'BARRAS'}
                     </button>
                   </div>
-                  <ResponsiveContainer width="100%" height={400}>
+                  <ResponsiveContainer width="100%" height={800}>
                     {showDiarySalaryBars ? (
                       <BarChart data={diaryData.dailyData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                         <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} />
-                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                         <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                         <Legend />
                         <Bar dataKey="Até R$ 1.500" fill="#EF4444" name="Até R$ 1.500" stackId="a" />
@@ -2541,7 +2541,7 @@ import { revenueService } from '../services/revenueService';
                       <LineChart data={diaryData.dailyData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                         <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} />
-                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                         <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                         <Legend />
                         <Line type="monotone" dataKey="Até R$ 1.500" stroke="#EF4444" strokeWidth={3} dot={{ fill: '#EF4444', r: 3 }} name="Até R$ 1.500" />
@@ -2574,12 +2574,12 @@ import { revenueService } from '../services/revenueService';
                       {showDiaryCreditCardBars ? 'LINHAS' : 'BARRAS'}
                     </button>
                   </div>
-                  <ResponsiveContainer width="100%" height={400}>
+                  <ResponsiveContainer width="100%" height={800}>
                     {showDiaryCreditCardBars ? (
                       <BarChart data={diaryData.dailyData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                         <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} />
-                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                         <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                         <Legend />
                         <Bar dataKey="Sim (Cartão)" fill="#10B981" name="Sim" stackId="a" />
@@ -2589,7 +2589,7 @@ import { revenueService } from '../services/revenueService';
                       <LineChart data={diaryData.dailyData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                         <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} />
-                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                         <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                         <Legend />
                         <Line type="monotone" dataKey="Sim (Cartão)" stroke="#10B981" strokeWidth={3} dot={{ fill: '#10B981', r: 3 }} name="Sim" />
@@ -2619,12 +2619,12 @@ import { revenueService } from '../services/revenueService';
                       {showDiaryProgrammingStudyBars ? 'LINHAS' : 'BARRAS'}
                     </button>
                   </div>
-                  <ResponsiveContainer width="100%" height={400}>
+                  <ResponsiveContainer width="100%" height={800}>
                     {showDiaryProgrammingStudyBars ? (
                       <BarChart data={diaryData.dailyData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                         <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} />
-                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                         <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                         <Legend />
                         <Bar dataKey="Sim (Programação)" fill="#10B981" name="Sim" stackId="a" />
@@ -2634,7 +2634,7 @@ import { revenueService } from '../services/revenueService';
                       <LineChart data={diaryData.dailyData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                         <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} />
-                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                         <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                         <Legend />
                         <Line type="monotone" dataKey="Sim (Programação)" stroke="#10B981" strokeWidth={3} dot={{ fill: '#10B981', r: 3 }} name="Sim" />
@@ -2664,12 +2664,12 @@ import { revenueService } from '../services/revenueService';
                       {showDiaryCollegeBars ? 'LINHAS' : 'BARRAS'}
                     </button>
                   </div>
-                  <ResponsiveContainer width="100%" height={400}>
+                  <ResponsiveContainer width="100%" height={800}>
                     {showDiaryCollegeBars ? (
                       <BarChart data={diaryData.dailyData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                         <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} />
-                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                         <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                         <Legend />
                         <Bar dataKey="Já fiz" fill="#10B981" name="Já fiz" stackId="a" />
@@ -2681,7 +2681,7 @@ import { revenueService } from '../services/revenueService';
                       <LineChart data={diaryData.dailyData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                         <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} />
-                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                         <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                         <Legend />
                         <Line type="monotone" dataKey="Já fiz" stroke="#10B981" strokeWidth={3} dot={{ fill: '#10B981', r: 3 }} name="Já fiz" />
@@ -2713,12 +2713,12 @@ import { revenueService } from '../services/revenueService';
                       {showDiaryOnlineCourseBars ? 'LINHAS' : 'BARRAS'}
                     </button>
                   </div>
-                  <ResponsiveContainer width="100%" height={400}>
+                  <ResponsiveContainer width="100%" height={800}>
                     {showDiaryOnlineCourseBars ? (
                       <BarChart data={diaryData.dailyData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                         <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} />
-                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                         <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                         <Legend />
                         <Bar dataKey="Sim (Curso Online)" fill="#10B981" name="Sim" stackId="a" />
@@ -2728,7 +2728,7 @@ import { revenueService } from '../services/revenueService';
                       <LineChart data={diaryData.dailyData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                         <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} />
-                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                         <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                         <Legend />
                         <Line type="monotone" dataKey="Sim (Curso Online)" stroke="#10B981" strokeWidth={3} dot={{ fill: '#10B981', r: 3 }} name="Sim" />
@@ -2758,12 +2758,12 @@ import { revenueService } from '../services/revenueService';
                       {showDiaryProgrammingInterestBars ? 'LINHAS' : 'BARRAS'}
                     </button>
                   </div>
-                  <ResponsiveContainer width="100%" height={400}>
+                  <ResponsiveContainer width="100%" height={800}>
                     {showDiaryProgrammingInterestBars ? (
                       <BarChart data={diaryData.dailyData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                         <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} />
-                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                         <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                         <Legend />
                         <Bar dataKey="Salários altos" fill="#10B981" name="Salários altos" stackId="a" />
@@ -2775,7 +2775,7 @@ import { revenueService } from '../services/revenueService';
                       <LineChart data={diaryData.dailyData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                         <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} />
-                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                         <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                         <Legend />
                         <Line type="monotone" dataKey="Salários altos" stroke="#10B981" strokeWidth={3} dot={{ fill: '#10B981', r: 3 }} name="Salários altos" />
@@ -2807,12 +2807,12 @@ import { revenueService } from '../services/revenueService';
                       {showDiaryEventInterestBars ? 'LINHAS' : 'BARRAS'}
                     </button>
                   </div>
-                  <ResponsiveContainer width="100%" height={400}>
+                  <ResponsiveContainer width="100%" height={800}>
                     {showDiaryEventInterestBars ? (
                       <BarChart data={diaryData.dailyData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                         <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} />
-                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                         <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                         <Legend />
                         <Bar dataKey="Projetos práticos" fill="#10B981" name="Projetos práticos" stackId="a" />
@@ -2824,7 +2824,7 @@ import { revenueService } from '../services/revenueService';
                       <LineChart data={diaryData.dailyData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                         <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} />
-                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                         <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                         <Legend />
                         <Line type="monotone" dataKey="Projetos práticos" stroke="#10B981" strokeWidth={3} dot={{ fill: '#10B981', r: 3 }} name="Projetos práticos" />
@@ -2856,12 +2856,12 @@ import { revenueService } from '../services/revenueService';
                       {showDiaryComputerBars ? 'LINHAS' : 'BARRAS'}
                     </button>
                   </div>
-                  <ResponsiveContainer width="100%" height={400}>
+                  <ResponsiveContainer width="100%" height={800}>
                     {showDiaryComputerBars ? (
                       <BarChart data={diaryData.dailyData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                         <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} />
-                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                         <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                         <Legend />
                         <Bar dataKey="Sim (Computador)" fill="#10B981" name="Sim" stackId="a" />
@@ -2871,7 +2871,7 @@ import { revenueService } from '../services/revenueService';
                       <LineChart data={diaryData.dailyData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                         <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} />
-                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                         <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                         <Legend />
                         <Line type="monotone" dataKey="Sim (Computador)" stroke="#10B981" strokeWidth={3} dot={{ fill: '#10B981', r: 3 }} name="Sim" />
@@ -3039,12 +3039,12 @@ import { revenueService } from '../services/revenueService';
                       {showCriativoFaixaBars ? 'LINHAS' : 'BARRAS'}
                     </button>
                   </div>
-                  <ResponsiveContainer width="100%" height={400}>
+                  <ResponsiveContainer width="100%" height={800}>
                     {showCriativoFaixaBars ? (
                       <BarChart data={criativoData.dailyData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                         <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} />
-                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                         <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                         <Legend />
                         <Bar dataKey="A" fill="#10B981" name="Faixa A" stackId="a" />
@@ -3057,7 +3057,7 @@ import { revenueService } from '../services/revenueService';
                       <LineChart data={criativoData.dailyData} margin={{ top: 5, right: 30, left: 20, bottom: 60 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                         <XAxis dataKey="name" stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} />
-                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF' }} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                        <YAxis stroke="#9CA3AF" tick={{ fill: '#9CA3AF', fontSize: 10 }} domain={[0, 100]} type="number" ticks={[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]} tickCount={21} allowDecimals={false} tickFormatter={(value) => `${value}%`} />
                         <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '8px' }} formatter={(value) => `${value}%`} />
                         <Legend />
                         <Line type="monotone" dataKey="A" stroke="#10B981" strokeWidth={3} dot={{ fill: '#10B981', r: 3 }} name="Faixa A" />
