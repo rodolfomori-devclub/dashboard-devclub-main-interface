@@ -189,7 +189,18 @@ export const commercialService = {
             // Tratar valor: remover formatação e converter para número
             let valor = 0;
             if (row[valorIndex]) {
-              const valorStr = row[valorIndex].toString().replace(/[^0-9.,]/g, '').replace(',', '.');
+              // Primeiro, converte para string se não for
+              let valorStr = row[valorIndex].toString();
+              
+              // Remove R$, espaços e outros caracteres não numéricos exceto vírgula e ponto
+              valorStr = valorStr.replace(/[R$\s]/g, '');
+              
+              // Detecta se usa vírgula como separador decimal (formato brasileiro)
+              if (valorStr.includes(',')) {
+                // Remove pontos (separadores de milhar) e substitui vírgula por ponto
+                valorStr = valorStr.replace(/\./g, '').replace(',', '.');
+              }
+              
               valor = parseFloat(valorStr) || 0;
             }
             

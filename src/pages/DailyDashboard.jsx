@@ -22,6 +22,9 @@ function DailyDashboard() {
   const [commercialData, setCommercialData] = useState(null)
   const [boletoData, setBoletoData] = useState(null)
   const [productData, setProductData] = useState([])
+  const [offerData, setOfferData] = useState([])
+  const [selectedOffers, setSelectedOffers] = useState([])
+  const [availableOffers, setAvailableOffers] = useState([])
   const [loading, setLoading] = useState(true)
   const [dateRange, setDateRange] = useState(() => {
     // Get current date in local format
@@ -105,6 +108,9 @@ function DailyDashboard() {
 
       // Object to track product information
       const productSummary = {}
+      
+      // Object to track offer information
+      const offerSummary = {}
 
       // Initialize daily data map
       const start_date = new Date(startDate + 'T00:00:00')
@@ -135,6 +141,11 @@ function DailyDashboard() {
 
       // Process transactions
       if (Array.isArray(transactionsResponse.data.data)) {
+        // Debug: log first transaction to see structure (desativado em produção)
+        // if (transactionsResponse.data.data.length > 0) {
+        //   console.log('Sample transaction structure:', transactionsResponse.data.data[0])
+        // }
+        
         transactionsResponse.data.data.forEach((transaction) => {
           // Convert timestamp to local date
           const transactionDate = convertTimestampToDate(
@@ -201,6 +212,54 @@ function DailyDashboard() {
             productSummary[productName].commercialQuantity += 1
             productSummary[productName].commercialValue += netAmount
           }
+          
+          // Track offer data (Guru/Cartão)
+          // Debug: log offer fields to understand structure (desativado em produção)
+          // if (Math.random() < 0.01) { // Log 1% of transactions
+          //   console.log('Transaction offer fields:', {
+          //     utm_campaign: transaction.trackings?.utm_campaign,
+          //     utm_content: transaction.trackings?.utm_content,
+          //     utm_term: transaction.trackings?.utm_term,
+          //     offer_code: transaction.trackings?.offer_code,
+          //     order_offer: transaction.order?.offer_code,
+          //     offer_name: transaction.offer?.name,
+          //     product_offer: transaction.product?.offer,
+          //     full_transaction: transaction
+          //   })
+          // }
+          
+          // Para o Guru, a oferta pode estar em diferentes campos
+          // Vamos tentar identificar a oferta corretamente
+          const offerName = transaction.offer?.name || 
+                          transaction.product?.offer?.name ||
+                          transaction.trackings?.utm_campaign || 
+                          transaction.trackings?.utm_content ||
+                          transaction.trackings?.offer_code || 
+                          transaction.order?.offer_code ||
+                          'Oferta não identificada'
+          
+          if (!offerSummary[offerName]) {
+            offerSummary[offerName] = {
+              name: offerName,
+              quantity: 0,
+              value: 0,
+              source: 'Guru',
+              products: {}
+            }
+          }
+          
+          offerSummary[offerName].quantity += 1
+          offerSummary[offerName].value += netAmount
+          
+          // Track product within offer
+          if (!offerSummary[offerName].products[productName]) {
+            offerSummary[offerName].products[productName] = {
+              quantity: 0,
+              value: 0
+            }
+          }
+          offerSummary[offerName].products[productName].quantity += 1
+          offerSummary[offerName].products[productName].value += netAmount
         })
       }
 
@@ -231,6 +290,12 @@ function DailyDashboard() {
       }
 
       // Process boleto sales
+      // Debug: log first boleto sale to see structure
+      if (boletoSales.length > 0) {
+        console.log('Sample boleto sale structure:', boletoSales[0])
+        console.log('Boleto raw data:', boletoSales[0].raw)
+      }
+      
       boletoSales.forEach((sale) => {
         if (!sale || !sale.timestamp) return
 
@@ -255,11 +320,11 @@ function DailyDashboard() {
         totalBoletoQuantity += 1
 
         // Track boleto product data
-        const productName = sale.product || 'Unidentified product'
+        const productNameBoleto = sale.product || sale.raw?.produto || 'Produto não identificado'
         
-        if (!productSummary[productName]) {
-          productSummary[productName] = {
-            name: productName,
+        if (!productSummary[productNameBoleto]) {
+          productSummary[productNameBoleto] = {
+            name: productNameBoleto,
             quantity: 0,
             cardQuantity: 0,
             boletoQuantity: 0,
@@ -271,10 +336,62 @@ function DailyDashboard() {
           }
         }
         
-        productSummary[productName].quantity += 1
-        productSummary[productName].boletoQuantity += 1
-        productSummary[productName].value += saleValue
-        productSummary[productName].boletoValue += saleValue
+        productSummary[productNameBoleto].quantity += 1
+        productSummary[productNameBoleto].boletoQuantity += 1
+        productSummary[productNameBoleto].value += saleValue
+        productSummary[productNameBoleto].boletoValue += saleValue
+        
+        // Track offer data (TMB/Boleto)
+        // Debug para entender estrutura da oferta no TMB
+        if (Math.random() < 0.1) { // Log 10% das vendas TMB
+          console.log('TMB Sale Debug:', {
+            product: productNameBoleto,
+            raw: sale.raw,
+            fullSale: sale
+          })
+        }
+        
+        // Para o TMB, vamos tentar extrair a oferta do campo produto
+        // Assumindo que o formato pode ser algo como "Produto - Oferta" ou similar
+        let offerNameBoleto = productNameBoleto
+        
+        // Verificar se existe um padrão no nome do produto que indique a oferta
+        // Por exemplo: "DevClub - Black Friday" ou "DevClub (Oferta X)"
+        if (productNameBoleto.includes(' - ')) {
+          // Se tiver " - ", pegar a parte após o hífen como oferta
+          const parts = productNameBoleto.split(' - ')
+          offerNameBoleto = parts.length > 1 ? `TMB - ${parts[1]}` : `TMB - ${productNameBoleto}`
+        } else if (productNameBoleto.includes('(') && productNameBoleto.includes(')')) {
+          // Se tiver parênteses, extrair o conteúdo como oferta
+          const match = productNameBoleto.match(/\(([^)]+)\)/)
+          offerNameBoleto = match ? `TMB - ${match[1]}` : `TMB - ${productNameBoleto}`
+        } else {
+          // Se não houver padrão, usar o produto completo
+          offerNameBoleto = `TMB - ${productNameBoleto}`
+        }
+        
+        if (!offerSummary[offerNameBoleto]) {
+          offerSummary[offerNameBoleto] = {
+            name: offerNameBoleto,
+            quantity: 0,
+            value: 0,
+            source: 'TMB',
+            products: {}
+          }
+        }
+        
+        offerSummary[offerNameBoleto].quantity += 1
+        offerSummary[offerNameBoleto].value += saleValue
+        
+        // Track product within offer
+        if (!offerSummary[offerNameBoleto].products[productNameBoleto]) {
+          offerSummary[offerNameBoleto].products[productNameBoleto] = {
+            quantity: 0,
+            value: 0
+          }
+        }
+        offerSummary[offerNameBoleto].products[productNameBoleto].quantity += 1
+        offerSummary[offerNameBoleto].products[productNameBoleto].value += saleValue
       })
 
       const chartData = Object.values(dailyDataMap)
@@ -286,6 +403,9 @@ function DailyDashboard() {
 
       // Convert product summary to array and sort by value descending
       const productDataArray = Object.values(productSummary).sort((a, b) => b.value - a.value)
+      
+      // Convert offer summary to array and sort by value descending
+      const offerDataArray = Object.values(offerSummary).sort((a, b) => b.value - a.value)
       
       setData({
         dailyData: chartData,
@@ -320,6 +440,13 @@ function DailyDashboard() {
 
       // Store product data
       setProductData(productDataArray)
+      
+      // Store offer data
+      setOfferData(offerDataArray)
+      
+      // Extract unique offer names for filter
+      const uniqueOffers = [...new Set(offerDataArray.map(offer => offer.name))]
+      setAvailableOffers(uniqueOffers)
 
       setLoading(false)
     } catch (error) {
@@ -350,6 +477,124 @@ function DailyDashboard() {
       return prev
     })
   }
+
+  // Function to handle offer selection
+  const handleOfferChange = (offerName) => {
+    setSelectedOffers(prev => {
+      if (prev.includes(offerName)) {
+        return prev.filter(o => o !== offerName)
+      } else {
+        return [...prev, offerName]
+      }
+    })
+  }
+
+  // Function to clear all offer filters
+  const clearOfferFilters = () => {
+    setSelectedOffers([])
+  }
+
+  // Filter data based on selected offers
+  const getFilteredData = () => {
+    if (selectedOffers.length === 0) {
+      return {
+        dailyData: data?.dailyData || [],
+        productData: productData,
+        offerData: offerData
+      }
+    }
+
+    // Filter offer data
+    const filteredOffers = offerData.filter(offer => selectedOffers.includes(offer.name))
+    
+    // Get products from filtered offers
+    const productsInOffers = new Set()
+    filteredOffers.forEach(offer => {
+      Object.keys(offer.products).forEach(productName => {
+        productsInOffers.add(productName)
+      })
+    })
+    
+    // Filter product data
+    const filteredProducts = productData.filter(product => productsInOffers.has(product.name))
+    
+    // Recalculate daily data based on filtered offers
+    // This is a simplified version - in production you might want to recalculate from raw transactions
+    const filteredDailyData = data?.dailyData?.map(day => {
+      const totalValue = filteredOffers.reduce((sum, offer) => sum + offer.value, 0)
+      const totalQuantity = filteredOffers.reduce((sum, offer) => sum + offer.quantity, 0)
+      const ratio = data.totals.total_net_amount > 0 ? totalValue / data.totals.total_net_amount : 0
+      
+      return {
+        ...day,
+        net_amount: day.net_amount * ratio,
+        quantity: Math.round(day.quantity * ratio),
+        affiliate_value: day.affiliate_value * ratio,
+        commercial_value: day.commercial_value * ratio,
+        boleto_value: day.boleto_value * ratio
+      }
+    }) || []
+    
+    return {
+      dailyData: filteredDailyData,
+      productData: filteredProducts,
+      offerData: filteredOffers
+    }
+  }
+
+  const filteredData = getFilteredData()
+
+  // Calculate filtered totals
+  const getFilteredTotals = () => {
+    if (selectedOffers.length === 0) {
+      return {
+        total_net_amount: data?.totals?.total_net_amount || 0,
+        total_transactions: data?.totals?.total_transactions || 0,
+        total_card_amount: data?.totals?.total_card_amount || 0,
+        total_card_transactions: data?.totals?.total_card_transactions || 0,
+        total_net_affiliate_value: data?.totals?.total_net_affiliate_value || 0,
+        total_boleto_value: boletoData?.total_boleto_value || 0,
+        total_boleto_quantity: boletoData?.total_boleto_quantity || 0,
+        total_refund_amount: refundsData?.total_refund_amount || 0,
+        total_refund_quantity: refundsData?.total_refund_quantity || 0,
+        total_commercial_value: commercialData?.total_commercial_value || 0,
+        total_commercial_quantity: commercialData?.total_commercial_quantity || 0
+      }
+    }
+
+    // Calculate totals from filtered data
+    const filteredOffers = offerData.filter(offer => selectedOffers.includes(offer.name))
+    const totalFilteredValue = filteredOffers.reduce((sum, offer) => sum + offer.value, 0)
+    const totalFilteredQuantity = filteredOffers.reduce((sum, offer) => sum + offer.quantity, 0)
+    
+    // Separate by source
+    const tmbOffers = filteredOffers.filter(o => o.source === 'TMB')
+    const guruOffers = filteredOffers.filter(o => o.source === 'Guru')
+    
+    const tmbValue = tmbOffers.reduce((sum, offer) => sum + offer.value, 0)
+    const tmbQuantity = tmbOffers.reduce((sum, offer) => sum + offer.quantity, 0)
+    const guruValue = guruOffers.reduce((sum, offer) => sum + offer.value, 0)
+    const guruQuantity = guruOffers.reduce((sum, offer) => sum + offer.quantity, 0)
+
+    // For simplified calculation, assume proportional distribution of other metrics
+    const ratio = data?.totals?.total_net_amount > 0 ? totalFilteredValue / data.totals.total_net_amount : 0
+
+    return {
+      total_net_amount: totalFilteredValue,
+      total_transactions: totalFilteredQuantity,
+      total_card_amount: guruValue, // Guru = Card
+      total_card_transactions: guruQuantity,
+      total_net_affiliate_value: (data?.totals?.total_net_affiliate_value || 0) * ratio,
+      total_boleto_value: tmbValue, // TMB = Boleto
+      total_boleto_quantity: tmbQuantity,
+      total_refund_amount: (refundsData?.total_refund_amount || 0) * ratio,
+      total_refund_quantity: Math.round((refundsData?.total_refund_quantity || 0) * ratio),
+      total_commercial_value: (commercialData?.total_commercial_value || 0) * ratio,
+      total_commercial_quantity: Math.round((commercialData?.total_commercial_quantity || 0) * ratio)
+    }
+  }
+
+  const filteredTotals = getFilteredTotals()
 
   // Function to open refund details modal
   const handleOpenRefundsModal = () => {
@@ -417,10 +662,10 @@ function DailyDashboard() {
               Valor Líquido Total
             </h3>
             <p className="mt-2 text-3xl font-bold text-accent1 dark:text-accent2">
-              {formatCurrency(data?.totals?.total_net_amount || 0)}
+              {formatCurrency(filteredTotals.total_net_amount)}
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Total: {data?.totals?.total_transactions || 0} venda(s)
+              Total: {filteredTotals.total_transactions} venda(s)
             </p>
           </div>
 
@@ -430,10 +675,10 @@ function DailyDashboard() {
               Vendas Cartão
             </h3>
             <p className="mt-2 text-3xl font-bold text-green-500 dark:text-green-400">
-              {formatCurrency(data?.totals?.total_card_amount || 0)}
+              {formatCurrency(filteredTotals.total_card_amount)}
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              {data?.totals?.total_card_transactions || 0} venda(s)
+              {filteredTotals.total_card_transactions} venda(s)
             </p>
           </div>
 
@@ -443,23 +688,22 @@ function DailyDashboard() {
               Vendas Boleto
             </h3>
             <p className="mt-2 text-3xl font-bold text-yellow-500 dark:text-yellow-400">
-              {formatCurrency(boletoData?.total_boleto_value || 0)}
+              {formatCurrency(filteredTotals.total_boleto_value)}
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              {boletoData?.total_boleto_quantity || 0} venda(s)
+              {filteredTotals.total_boleto_quantity} venda(s)
             </p>
           </div>
         </div>
 
         {/* Second row of cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          {/* Affiliate value */}
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
               Valor de Afiliações
             </h3>
             <p className="mt-2 text-3xl font-bold text-secondary dark:text-primary">
-              {formatCurrency(data?.totals?.total_net_affiliate_value || 0)}
+              {formatCurrency(filteredTotals.total_net_affiliate_value)}
             </p>
           </div>
 
@@ -477,10 +721,10 @@ function DailyDashboard() {
               </button>
             </div>
             <p className="mt-2 text-3xl font-bold text-red-500 dark:text-red-400">
-              {formatCurrency(refundsData?.total_refund_amount || 0)}
+              {formatCurrency(filteredTotals.total_refund_amount)}
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              {refundsData?.total_refund_quantity || 0} reembolso(s)
+              {filteredTotals.total_refund_quantity} reembolso(s)
             </p>
           </div>
 
@@ -490,12 +734,105 @@ function DailyDashboard() {
               Vendas Comercial
             </h3>
             <p className="mt-2 text-3xl font-bold text-blue-500 dark:text-blue-400">
-              {formatCurrency(commercialData?.total_commercial_value || 0)}
+              {formatCurrency(filteredTotals.total_commercial_value)}
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              {commercialData?.total_commercial_quantity || 0} venda(s)
+              {filteredTotals.total_commercial_quantity} venda(s)
             </p>
           </div>
+        </div>
+
+        {/* Offer Filter Section */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
+              Filtrar por Ofertas
+            </h3>
+            {selectedOffers.length > 0 && (
+              <button
+                onClick={clearOfferFilters}
+                className="text-sm px-3 py-1 rounded bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors"
+              >
+                Limpar Filtros ({selectedOffers.length})
+              </button>
+            )}
+          </div>
+          
+          {availableOffers.length === 0 ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Carregando ofertas disponíveis...
+            </p>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              {availableOffers.map((offerName, index) => {
+                const offer = offerData.find(o => o.name === offerName)
+                const isSelected = selectedOffers.includes(offerName)
+                
+                return (
+                  <div
+                    key={index}
+                    onClick={() => handleOfferChange(offerName)}
+                    className={`
+                      relative p-3 rounded-lg border-2 cursor-pointer transition-all
+                      ${isSelected 
+                        ? 'border-primary bg-primary/10 dark:border-primary-dark dark:bg-primary-dark/10' 
+                        : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+                      }
+                    `}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-medium truncate ${
+                          isSelected 
+                            ? 'text-primary dark:text-primary-dark' 
+                            : 'text-gray-900 dark:text-white'
+                        }`}>
+                          {offerName.length > 30 ? offerName.substring(0, 30) + '...' : offerName}
+                        </p>
+                        {offer && (
+                          <>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              {offer.quantity} vendas
+                            </p>
+                            <p className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                              {formatCurrency(offer.value)}
+                            </p>
+                            <span className={`inline-flex mt-1 px-1.5 py-0.5 text-xs font-semibold rounded ${{
+                              'TMB': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+                              'Guru': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                            }[offer.source] || 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'}`}>
+                              {offer.source}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                      <div className={`
+                        ml-2 w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0
+                        ${isSelected 
+                          ? 'bg-primary border-primary dark:bg-primary-dark dark:border-primary-dark' 
+                          : 'bg-white border-gray-300 dark:bg-gray-700 dark:border-gray-600'
+                        }
+                      `}>
+                        {isSelected && (
+                          <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 12 12">
+                            <path d="M3.707 5.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4a1 1 0 00-1.414-1.414L5 6.586 3.707 5.293z"/>
+                          </svg>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          
+          {selectedOffers.length > 0 && (
+            <div className="mt-4 p-3 bg-primary/5 dark:bg-primary-dark/5 rounded-lg">
+              <p className="text-sm text-primary dark:text-primary-dark">
+                <strong>Filtros ativos:</strong> Mostrando dados de {selectedOffers.length} oferta(s) selecionada(s)
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Main chart - Sales by day */}
@@ -515,7 +852,7 @@ function DailyDashboard() {
               </div>
             )}
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data?.dailyData || []}>
+              <BarChart data={filteredData.dailyData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" tickFormatter={formatDate} />
                 <YAxis
@@ -612,7 +949,7 @@ function DailyDashboard() {
               </div>
             )}
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data?.dailyData || []}>
+              <BarChart data={filteredData.dailyData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" tickFormatter={formatDate} />
                 <YAxis tickFormatter={(value) => formatCurrency(value)} />
@@ -657,7 +994,7 @@ function DailyDashboard() {
               </div>
             )}
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data?.dailyData || []}>
+              <BarChart data={filteredData.dailyData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
                   dataKey="date"
@@ -720,14 +1057,14 @@ function DailyDashboard() {
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {productData.length === 0 ? (
+                {filteredData.productData.length === 0 ? (
                   <tr>
                     <td colSpan="6" className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500 dark:text-gray-400">
                       Nenhum produto encontrado no período selecionado
                     </td>
                   </tr>
                 ) : (
-                  productData.map((product, index) => (
+                  filteredData.productData.map((product, index) => (
                     <tr key={index} className={index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-700' : ''}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                         {product.name}
@@ -752,27 +1089,126 @@ function DailyDashboard() {
                 )}
 
                 {/* Totals row */}
-                {productData.length > 0 && (
+                {filteredData.productData.length > 0 && (
                   <tr className="bg-gray-100 dark:bg-gray-600 font-bold">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 dark:text-white">
                       TOTAL
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-center font-bold text-gray-900 dark:text-white">
-                      {productData.reduce((sum, product) => sum + product.quantity, 0)}
+                      {filteredData.productData.reduce((sum, product) => sum + product.quantity, 0)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-center font-bold text-gray-900 dark:text-white">
-                      {productData.reduce((sum, product) => sum + product.cardQuantity, 0)}
+                      {filteredData.productData.reduce((sum, product) => sum + product.cardQuantity, 0)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-center font-bold text-gray-900 dark:text-white">
-                      {productData.reduce((sum, product) => sum + product.boletoQuantity, 0)}
+                      {filteredData.productData.reduce((sum, product) => sum + product.boletoQuantity, 0)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-center font-bold text-gray-900 dark:text-white">
-                      {productData.reduce((sum, product) => sum + product.commercialQuantity, 0)}
+                      {filteredData.productData.reduce((sum, product) => sum + product.commercialQuantity, 0)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-gray-900 dark:text-white">
-                      {formatCurrency(productData.reduce((sum, product) => sum + product.value, 0))}
+                      {formatCurrency(filteredData.productData.reduce((sum, product) => sum + product.value, 0))}
                     </td>
                   </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Offer sales summary table */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+          <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
+            Resumo de Vendas por Oferta
+          </h3>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-700">
+                <tr>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Oferta
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Origem
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Quantidade
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Faturamento
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Produtos
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                {filteredData.offerData.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500 dark:text-gray-400">
+                      Nenhuma oferta encontrada no período selecionado
+                    </td>
+                  </tr>
+                ) : (
+                  <>
+                    {filteredData.offerData.map((offer, index) => (
+                      <tr key={index} className={index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-700' : ''}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                          {offer.name}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            offer.source === 'TMB' 
+                              ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' 
+                              : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                          }`}>
+                            {offer.source}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500 dark:text-gray-400">
+                          {offer.quantity}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-gray-900 dark:text-white">
+                          {formatCurrency(offer.value)}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                          <div className="max-w-xs">
+                            {Object.entries(offer.products).map(([productName, productInfo], pIndex) => (
+                              <div key={pIndex} className="text-xs">
+                                <span className="font-medium">{productName}:</span> {productInfo.quantity}x
+                              </div>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    
+                    {/* Totals row for offers */}
+                    <tr className="bg-gray-100 dark:bg-gray-600 font-bold">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 dark:text-white">
+                        TOTAL
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                        <div className="flex justify-center gap-2">
+                          <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+                            TMB: {filteredData.offerData.filter(o => o.source === 'TMB').length}
+                          </span>
+                          <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                            Guru: {filteredData.offerData.filter(o => o.source === 'Guru').length}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center font-bold text-gray-900 dark:text-white">
+                        {filteredData.offerData.reduce((sum, offer) => sum + offer.quantity, 0)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-gray-900 dark:text-white">
+                        {formatCurrency(filteredData.offerData.reduce((sum, offer) => sum + offer.value, 0))}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500 dark:text-gray-400">
+                        -
+                      </td>
+                    </tr>
+                  </>
                 )}
               </tbody>
             </table>

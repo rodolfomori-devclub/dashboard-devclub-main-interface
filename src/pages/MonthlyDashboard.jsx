@@ -24,6 +24,8 @@ function MonthlyDashboard() {
   const [refundsData, setRefundsData] = useState(null)
   const [commercialData, setCommercialData] = useState(null)
   const [boletoData, setBoletoData] = useState(null)
+  const [productData, setProductData] = useState([])
+  const [offerData, setOfferData] = useState([])
   const [loading, setLoading] = useState(true)
   const [goals, setGoals] = useState({
     meta: localStorage.getItem('monthlyMeta') || 'R$ 0,00',
@@ -163,6 +165,12 @@ function MonthlyDashboard() {
         }
       }
 
+      // Object to track product information
+      const productSummary = {}
+      
+      // Object to track offer information
+      const offerSummary = {}
+      
       // Processar transações de cartão
       let totalCardAmount = 0;
       let totalCardQuantity = 0;
@@ -204,6 +212,63 @@ function MonthlyDashboard() {
             totalCommercialQuantity += 1
           }
         }
+        
+        // Track product data
+        const productName = transaction.product?.name || 'Produto não identificado'
+        
+        if (!productSummary[productName]) {
+          productSummary[productName] = {
+            name: productName,
+            quantity: 0,
+            cardQuantity: 0,
+            boletoQuantity: 0,
+            value: 0,
+            cardValue: 0,
+            boletoValue: 0,
+            commercialQuantity: 0,
+            commercialValue: 0
+          }
+        }
+        
+        productSummary[productName].quantity += 1
+        productSummary[productName].cardQuantity += 1
+        productSummary[productName].value += netAmount
+        productSummary[productName].cardValue += netAmount
+        
+        if (isCommercial) {
+          productSummary[productName].commercialQuantity += 1
+          productSummary[productName].commercialValue += netAmount
+        }
+        
+        // Track offer data (Guru/Cartão)
+        const offerName = transaction.trackings?.utm_campaign || 
+                        transaction.trackings?.offer_code || 
+                        transaction.order?.offer_code ||
+                        transaction.offer?.name ||
+                        'Oferta não identificada'
+        
+        if (!offerSummary[offerName]) {
+          offerSummary[offerName] = {
+            name: offerName,
+            quantity: 0,
+            value: 0,
+            source: 'Guru',
+            products: {}
+          }
+        }
+        
+        offerSummary[offerName].quantity += 1
+        offerSummary[offerName].value += netAmount
+        
+        // Track product within offer
+        if (!offerSummary[offerName].products[productName]) {
+          offerSummary[offerName].products[productName] = {
+            quantity: 0,
+            value: 0
+          }
+        }
+        offerSummary[offerName].products[productName].quantity += 1
+        offerSummary[offerName].products[productName].value += netAmount
       })
 
       // Processar reembolsos
@@ -239,6 +304,58 @@ function MonthlyDashboard() {
           totalBoletoValue += saleValue;
           totalBoletoQuantity += 1;
         }
+        
+        // Track boleto product data
+        const productName = boletoSale.product || 'Produto não identificado'
+        
+        if (!productSummary[productName]) {
+          productSummary[productName] = {
+            name: productName,
+            quantity: 0,
+            cardQuantity: 0,
+            boletoQuantity: 0,
+            value: 0,
+            cardValue: 0,
+            boletoValue: 0,
+            commercialQuantity: 0,
+            commercialValue: 0
+          }
+        }
+        
+        productSummary[productName].quantity += 1
+        productSummary[productName].boletoQuantity += 1
+        productSummary[productName].value += saleValue
+        productSummary[productName].boletoValue += saleValue
+        
+        // Track offer data (TMB/Boleto)
+        const offerNameBoleto = boletoSale.raw?.oferta || 
+                               boletoSale.raw?.campanha ||
+                               boletoSale.offer ||
+                               boletoSale.campaign ||
+                               'TMB - Oferta não identificada'
+        
+        if (!offerSummary[offerNameBoleto]) {
+          offerSummary[offerNameBoleto] = {
+            name: offerNameBoleto,
+            quantity: 0,
+            value: 0,
+            source: 'TMB',
+            products: {}
+          }
+        }
+        
+        offerSummary[offerNameBoleto].quantity += 1
+        offerSummary[offerNameBoleto].value += saleValue
+        
+        // Track product within offer
+        if (!offerSummary[offerNameBoleto].products[productName]) {
+          offerSummary[offerNameBoleto].products[productName] = {
+            quantity: 0,
+            value: 0
+          }
+        }
+        offerSummary[offerNameBoleto].products[productName].quantity += 1
+        offerSummary[offerNameBoleto].products[productName].value += saleValue
       });
 
       // Converter para array e ordenar
@@ -298,6 +415,14 @@ function MonthlyDashboard() {
         total_boleto_value: totalBoletoValue,
         total_boleto_quantity: totalBoletoQuantity,
       })
+      
+      // Convert product summary to array and sort by value descending
+      const productDataArray = Object.values(productSummary).sort((a, b) => b.value - a.value)
+      setProductData(productDataArray)
+      
+      // Convert offer summary to array and sort by value descending
+      const offerDataArray = Object.values(offerSummary).sort((a, b) => b.value - a.value)
+      setOfferData(offerDataArray)
 
       // Forçar atualização do estado de carregamento
       setLoading(false)
@@ -999,6 +1124,194 @@ function MonthlyDashboard() {
                 </ResponsiveContainer>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Product sales summary table */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+          <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
+            Resumo de Vendas por Produto - {new Date(selectedYear, selectedMonth - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+          </h3>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-700">
+                <tr>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Produto
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Total Vendas
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Cartão
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Boleto
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Comercial
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Faturamento Total
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                {productData.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500 dark:text-gray-400">
+                      Nenhum produto encontrado no período selecionado
+                    </td>
+                  </tr>
+                ) : (
+                  productData.map((product, index) => (
+                    <tr key={index} className={index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-700' : ''}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                        {product.name}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500 dark:text-gray-400">
+                        {product.quantity}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-green-500 dark:text-green-400">
+                        {product.cardQuantity}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-yellow-500 dark:text-yellow-400">
+                        {product.boletoQuantity}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-blue-500 dark:text-blue-400">
+                        {product.commercialQuantity}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-gray-900 dark:text-white">
+                        {formatCurrency(product.value)}
+                      </td>
+                    </tr>
+                  ))
+                )}
+
+                {/* Totals row */}
+                {productData.length > 0 && (
+                  <tr className="bg-gray-100 dark:bg-gray-600 font-bold">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 dark:text-white">
+                      TOTAL
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-center font-bold text-gray-900 dark:text-white">
+                      {productData.reduce((sum, product) => sum + product.quantity, 0)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-center font-bold text-gray-900 dark:text-white">
+                      {productData.reduce((sum, product) => sum + product.cardQuantity, 0)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-center font-bold text-gray-900 dark:text-white">
+                      {productData.reduce((sum, product) => sum + product.boletoQuantity, 0)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-center font-bold text-gray-900 dark:text-white">
+                      {productData.reduce((sum, product) => sum + product.commercialQuantity, 0)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-gray-900 dark:text-white">
+                      {formatCurrency(productData.reduce((sum, product) => sum + product.value, 0))}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Offer sales summary table */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+          <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
+            Resumo de Vendas por Oferta - {new Date(selectedYear, selectedMonth - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+          </h3>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-700">
+                <tr>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Oferta
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Origem
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Quantidade
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Faturamento
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Produtos
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                {offerData.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500 dark:text-gray-400">
+                      Nenhuma oferta encontrada no período selecionado
+                    </td>
+                  </tr>
+                ) : (
+                  <>
+                    {offerData.map((offer, index) => (
+                      <tr key={index} className={index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-700' : ''}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                          {offer.name}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            offer.source === 'TMB' 
+                              ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' 
+                              : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                          }`}>
+                            {offer.source}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500 dark:text-gray-400">
+                          {offer.quantity}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-gray-900 dark:text-white">
+                          {formatCurrency(offer.value)}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                          <div className="max-w-xs">
+                            {Object.entries(offer.products).map(([productName, productInfo], pIndex) => (
+                              <div key={pIndex} className="text-xs">
+                                <span className="font-medium">{productName}:</span> {productInfo.quantity}x
+                              </div>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    
+                    {/* Totals row for offers */}
+                    <tr className="bg-gray-100 dark:bg-gray-600 font-bold">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 dark:text-white">
+                        TOTAL
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                        <div className="flex justify-center gap-2">
+                          <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+                            TMB: {offerData.filter(o => o.source === 'TMB').length}
+                          </span>
+                          <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                            Guru: {offerData.filter(o => o.source === 'Guru').length}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center font-bold text-gray-900 dark:text-white">
+                        {offerData.reduce((sum, offer) => sum + offer.quantity, 0)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-gray-900 dark:text-white">
+                        {formatCurrency(offerData.reduce((sum, offer) => sum + offer.value, 0))}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500 dark:text-gray-400">
+                        -
+                      </td>
+                    </tr>
+                  </>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
