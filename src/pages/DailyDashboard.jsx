@@ -606,6 +606,23 @@ function DailyDashboard() {
     setShowRefundsModal(false)
   }
 
+  // Full screen loading overlay
+  if (loading) {
+    return (
+      <div className="fixed inset-0 bg-background-light dark:bg-background-dark z-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-20 w-20 border-4 border-primary border-t-transparent mx-auto mb-4"></div>
+          <p className="text-xl font-medium text-text-light dark:text-text-dark mb-2">
+            Carregando Dashboard
+          </p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Aguarde enquanto buscamos os dados...
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-background-light dark:bg-background-dark p-6">
       <div className="max-w-7xl mx-auto">
@@ -840,17 +857,7 @@ function DailyDashboard() {
           <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
             Vendas por Dia
           </h3>
-          <div className="h-96 relative">
-            {loading && (
-              <div className="absolute inset-0 bg-white dark:bg-gray-800 bg-opacity-75 flex items-center justify-center z-10">
-                <div className="flex flex-col items-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-                  <p className="mt-4 text-text-light dark:text-text-dark">
-                    Carregando dados...
-                  </p>
-                </div>
-              </div>
-            )}
+          <div className="h-96">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={filteredData.dailyData}>
                 <CartesianGrid strokeDasharray="3 3" />
@@ -937,17 +944,7 @@ function DailyDashboard() {
           <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
             Comparativo: Vendas Normais vs Comercial
           </h3>
-          <div className="h-96 relative">
-            {loading && (
-              <div className="absolute inset-0 bg-white dark:bg-gray-800 bg-opacity-75 flex items-center justify-center z-10">
-                <div className="flex flex-col items-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-                  <p className="mt-4 text-text-light dark:text-text-dark">
-                    Carregando dados...
-                  </p>
-                </div>
-              </div>
-            )}
+          <div className="h-96">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={filteredData.dailyData}>
                 <CartesianGrid strokeDasharray="3 3" />
@@ -982,17 +979,7 @@ function DailyDashboard() {
           <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
             Comparativo: Vendas Cartão vs Boleto
           </h3>
-          <div className="h-96 relative">
-            {loading && (
-              <div className="absolute inset-0 bg-white dark:bg-gray-800 bg-opacity-75 flex items-center justify-center z-10">
-                <div className="flex flex-col items-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-                  <p className="mt-4 text-text-light dark:text-text-dark">
-                    Carregando dados...
-                  </p>
-                </div>
-              </div>
-            )}
+          <div className="h-96">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={filteredData.dailyData}>
                 <CartesianGrid strokeDasharray="3 3" />

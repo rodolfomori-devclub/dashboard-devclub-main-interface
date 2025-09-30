@@ -23,6 +23,7 @@ import LeadScoringPage from './pages/LeadScoringPage'
 import CommercialDashboardPage from './pages/CommercialDashboardPage'
 import CommercialSellersPage from './pages/CommercialSellersPage'
 import CommercialSalesListPage from './pages/CommercialSalesListPage'
+import TSDashboard from './pages/TSDashboard'
 
 // Protected route component
 const ProtectedRoute = ({ children, requiredPermission }) => {
@@ -209,6 +210,17 @@ function AppRouter() {
           <ProtectedRoute requiredPermission="lead-scoring">
             <AuthenticatedLayout>
               <LeadScoringPage />
+            </AuthenticatedLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/ts"
+        element={
+          <ProtectedRoute requiredPermission="ts">
+            <AuthenticatedLayout>
+              <TSDashboard />
             </AuthenticatedLayout>
           </ProtectedRoute>
         }

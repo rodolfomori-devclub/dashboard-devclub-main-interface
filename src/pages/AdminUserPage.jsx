@@ -9,13 +9,17 @@ import { FaEdit, FaTrash, FaUserPlus, FaTimes, FaSave, FaUserShield, FaInfoCircl
 
 // Define the available app routes for permissions
 const APP_ROUTES = [
-  { id: 'today', name: 'Today Dashboard', icon: null },
-  { id: 'daily', name: 'Daily Dashboard', icon: null },
-  { id: 'monthly', name: 'Monthly Dashboard', icon: null },
-  { id: 'yearly', name: 'Yearly Dashboard', icon: null },
-  { id: 'commercial', name: 'Commercial Dashboard', icon: null },
-  { id: 'dre', name: 'DRE Dashboard', icon: <FaChartPie className="mr-1 text-blue-500" /> },
-  { id: 'data-sources', name: 'Data Sources', icon: null }
+  { id: 'today', name: 'Diário', icon: null, description: 'Dashboard de vendas diárias' },
+  { id: 'daily', name: 'Global', icon: null, description: 'Dashboard global de vendas' },
+  { id: 'monthly', name: 'Mensal', icon: null, description: 'Dashboard de vendas mensais' },
+  { id: 'yearly', name: 'Anual', icon: null, description: 'Dashboard de vendas anuais' },
+  { id: 'commercial', name: 'Comercial', icon: null, description: 'Dashboard comercial e vendedores' },
+  { id: 'comparativo', name: 'Comparativo', icon: null, description: 'Comparação de períodos' },
+  { id: 'dre', name: 'DRE', icon: <FaChartPie className="mr-1 text-blue-500" />, description: 'Demonstrativo de resultados' },
+  { id: 'launch', name: 'LaunchPro', icon: null, description: 'Sistema LaunchPro' },
+  { id: 'lead-scoring', name: 'Lead Scoring', icon: null, description: 'Pontuação de leads' },
+  { id: 'ts', name: 'T$ (Toca o Sino)', icon: null, description: 'Dashboard de vendas T$ e dados gerais' },
+  { id: 'data-sources', name: 'Fontes de Dados', icon: null, description: 'Gerenciamento de fontes de dados' }
 ];
 
 const AdminUserPage = () => {

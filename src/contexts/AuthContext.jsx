@@ -135,10 +135,24 @@ export const AuthProvider = ({ children }) => {
 
   // Check if user has permission to access a specific route
   const hasPermission = (route) => {
-    if (!userRoles) return false;
-    if (userRoles.isAdmin) return true; // Admins can access everything
+    console.log('Checking permission for route:', route);
+    console.log('User roles:', userRoles);
     
-    return userRoles[route] === true;
+    if (!userRoles) {
+      console.log('No user roles found');
+      return false;
+    }
+    
+    if (userRoles.isAdmin) {
+      console.log('User is admin, granting access');
+      return true; // Admins can access everything
+    }
+    
+    const hasAccess = userRoles[route] === true;
+    console.log(`Permission for route "${route}":`, hasAccess);
+    console.log(`userRoles[${route}] =`, userRoles[route]);
+    
+    return hasAccess;
   };
 
   // Check token validity on first load

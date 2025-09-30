@@ -18,6 +18,7 @@ import {
   FaRocket,
   FaDatabase,
   FaUser,
+  FaBell,
 } from 'react-icons/fa'
 
 export default function Header() {
@@ -76,6 +77,7 @@ export default function Header() {
     { path: '/launch', label: 'LaunchPro', icon: FaRocket, condition: userRoles?.dre !== false || userRoles?.isAdmin },
     { path: '/dre', label: 'DRE', icon: FaChartPie, condition: userRoles?.dre !== false || userRoles?.isAdmin },
     { path: '/lead-scoring', label: 'Lead Scoring', icon: FaChartLine, condition: userRoles?.['lead-scoring'] !== false },
+    { path: '/ts', label: 'T$', icon: FaBell, condition: userRoles?.ts !== false },
     { path: '/data-sources', label: 'Fontes de Dados', icon: FaDatabase, condition: userRoles?.['data-sources'] !== false },
   ]
 

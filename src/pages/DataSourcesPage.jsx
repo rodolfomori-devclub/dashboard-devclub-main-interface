@@ -8,7 +8,7 @@ function DataSourcesPage() {
           Fontes de Dados
         </h1>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <h2 className="text-xl font-bold text-primary dark:text-secondary mb-4">
               Vendas por Cartão
@@ -51,6 +51,31 @@ function DataSourcesPage() {
 
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
             <h2 className="text-xl font-bold text-primary dark:text-secondary mb-4">
+              Vendas por Boleto TMB
+            </h2>
+            <p className="text-text-light dark:text-text-dark mb-4">
+              Dados específicos de vendas por boleto do canal TMB via Google Sheets.
+            </p>
+            <p className="text-text-light dark:text-text-dark mb-4">
+              <a 
+                href="https://docs.google.com/spreadsheets/d/1jPCyVkRImt8yYPgMlBAeMZPqwdyQvy9P_KpWmo2PHBU/edit" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                Ver planilha
+              </a>
+            </p>
+            <div className="flex items-center text-green-600 dark:text-green-400">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              <span>Conexão ativa</span>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h2 className="text-xl font-bold text-primary dark:text-secondary mb-4">
               Despesas
             </h2>
             <p className="text-text-light dark:text-text-dark mb-4">
@@ -74,7 +99,82 @@ function DataSourcesPage() {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 md:col-span-2">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h2 className="text-xl font-bold text-primary dark:text-secondary mb-4">
+              Dados Comerciais
+            </h2>
+            <p className="text-text-light dark:text-text-dark mb-4">
+              Planilha com dados de vendas comerciais e vendedores via Google Sheets.
+            </p>
+            <p className="text-text-light dark:text-text-dark mb-4">
+              <a 
+                href="https://docs.google.com/spreadsheets/d/1sLPgeIYpAGWnUXolgWqSskKhbWYmwZZXo-86EDHZ8lI/edit" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                Ver planilha
+              </a>
+            </p>
+            <div className="flex items-center text-green-600 dark:text-green-400">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              <span>Conexão ativa</span>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h2 className="text-xl font-bold text-primary dark:text-secondary mb-4">
+              Dados de Launches
+            </h2>
+            <p className="text-text-light dark:text-text-dark mb-4">
+              Planilha com dados de launches e métricas de performance via Google Sheets.
+            </p>
+            <p className="text-text-light dark:text-text-dark mb-4">
+              <a 
+                href="https://docs.google.com/spreadsheets/d/11l2oWgWgOzZHKVSCh3HQanVirSvQPLT11UGr1IYZoeY/edit" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                Ver planilha
+              </a>
+            </p>
+            <div className="flex items-center text-green-600 dark:text-green-400">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              <span>Conexão ativa</span>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h2 className="text-xl font-bold text-primary dark:text-secondary mb-4">
+              Lead Scoring (Principal)
+            </h2>
+            <p className="text-text-light dark:text-text-dark mb-4">
+              Planilha principal do Lead Scoring com links para outras planilhas de launches via Google Sheets.
+            </p>
+            <p className="text-text-light dark:text-text-dark mb-4">
+              <a 
+                href="https://docs.google.com/spreadsheets/d/1kLgVsNcc8OmPMvxaTN7KM0cTB5hC0KtL02lSZMYRHBw/edit" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                Ver planilha
+              </a>
+            </p>
+            <div className="flex items-center text-green-600 dark:text-green-400">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              <span>Conexão ativa</span>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 lg:col-span-3">
             <h2 className="text-xl font-bold text-primary dark:text-secondary mb-4">
               Formato dos Dados da Planilha de Boletos
             </h2>
@@ -126,7 +226,7 @@ function DataSourcesPage() {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 md:col-span-2">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 lg:col-span-3">
             <h2 className="text-xl font-bold text-primary dark:text-secondary mb-4">
               Formato dos Dados da Planilha de Despesas
             </h2>
