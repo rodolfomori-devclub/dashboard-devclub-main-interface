@@ -36,6 +36,32 @@ function MonthlyDashboard() {
   const [error, setError] = useState(null)
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1)
+  const [categoryData, setCategoryData] = useState({ ia: {}, programacao: {} })
+
+  // Function to categorize products by type
+  const categorizeProduct = (productName) => {
+    if (!productName) return 'programacao'
+    
+    const lowerName = productName.toLowerCase()
+    
+    // IA Club products - be very specific
+    if (lowerName.includes('ia club') || 
+        lowerName.includes('gestor de ia') ||
+        lowerName.includes('formação gestor de ia')) {
+      return 'ia'
+    }
+    
+    // DevClub products (programming) - check these first to avoid conflicts
+    if (lowerName.includes('devclub') || 
+        lowerName.includes('full stack') ||
+        lowerName.includes('vitalício') ||
+        lowerName.includes('vitalicio')) {
+      return 'programacao'
+    }
+    
+    // Default to programming if not clearly IA
+    return 'programacao'
+  }
 
   // Definir o primeiro e último dia do mês selecionado
   const firstDayOfMonth = `${selectedYear}-${String(selectedMonth).padStart(
@@ -171,6 +197,34 @@ function MonthlyDashboard() {
       // Object to track offer information
       const offerSummary = {}
       
+      // Category tracking
+      const categoryTotals = {
+        ia: {
+          totalValue: 0,
+          totalQuantity: 0,
+          cardValue: 0,
+          cardQuantity: 0,
+          boletoValue: 0,
+          boletoQuantity: 0,
+          commercialValue: 0,
+          commercialQuantity: 0,
+          affiliateValue: 0,
+          sales: []
+        },
+        programacao: {
+          totalValue: 0,
+          totalQuantity: 0,
+          cardValue: 0,
+          cardQuantity: 0,
+          boletoValue: 0,
+          boletoQuantity: 0,
+          commercialValue: 0,
+          commercialQuantity: 0,
+          affiliateValue: 0,
+          sales: []
+        }
+      }
+      
       // Processar transações de cartão
       let totalCardAmount = 0;
       let totalCardQuantity = 0;
@@ -215,6 +269,7 @@ function MonthlyDashboard() {
         
         // Track product data
         const productName = transaction.product?.name || 'Produto não identificado'
+        const productCategory = categorizeProduct(productName)
         
         if (!productSummary[productName]) {
           productSummary[productName] = {
@@ -238,6 +293,29 @@ function MonthlyDashboard() {
         if (isCommercial) {
           productSummary[productName].commercialQuantity += 1
           productSummary[productName].commercialValue += netAmount
+        }
+
+        // Update category totals
+        categoryTotals[productCategory].totalValue += netAmount
+        categoryTotals[productCategory].totalQuantity += 1
+        categoryTotals[productCategory].cardValue += netAmount
+        categoryTotals[productCategory].cardQuantity += 1
+        categoryTotals[productCategory].affiliateValue += affiliateValue
+
+        // Add individual sale to category
+        categoryTotals[productCategory].sales.push({
+          id: transaction.hash || `card-${Date.now()}-${Math.random()}`,
+          productName: productName,
+          value: netAmount,
+          method: 'Cartão',
+          timestamp: transaction.dates.created_at,
+          isCommercial: isCommercial,
+          affiliateValue: affiliateValue
+        })
+
+        if (isCommercial) {
+          categoryTotals[productCategory].commercialValue += netAmount
+          categoryTotals[productCategory].commercialQuantity += 1
         }
         
         // Track offer data (Guru/Cartão)
@@ -307,6 +385,7 @@ function MonthlyDashboard() {
         
         // Track boleto product data
         const productName = boletoSale.product || 'Produto não identificado'
+        const productCategory = categorizeProduct(productName)
         
         if (!productSummary[productName]) {
           productSummary[productName] = {
@@ -326,6 +405,23 @@ function MonthlyDashboard() {
         productSummary[productName].boletoQuantity += 1
         productSummary[productName].value += saleValue
         productSummary[productName].boletoValue += saleValue
+
+        // Update category totals for boleto
+        categoryTotals[productCategory].totalValue += saleValue
+        categoryTotals[productCategory].totalQuantity += 1
+        categoryTotals[productCategory].boletoValue += saleValue
+        categoryTotals[productCategory].boletoQuantity += 1
+        
+        // Add individual boleto sale to category
+        categoryTotals[productCategory].sales.push({
+          id: `boleto-${Date.now()}-${Math.random()}`,
+          productName: productName,
+          value: saleValue,
+          method: 'Boleto',
+          timestamp: Math.floor(saleDate.getTime() / 1000),
+          isCommercial: false,
+          affiliateValue: 0
+        })
         
         // Track offer data (TMB/Boleto)
         const offerNameBoleto = boletoSale.raw?.oferta || 
@@ -423,6 +519,8 @@ function MonthlyDashboard() {
       // Convert offer summary to array and sort by value descending
       const offerDataArray = Object.values(offerSummary).sort((a, b) => b.value - a.value)
       setOfferData(offerDataArray)
+
+      setCategoryData(categoryTotals)
 
       // Forçar atualização do estado de carregamento
       setLoading(false)
@@ -688,6 +786,97 @@ function MonthlyDashboard() {
                 <span className="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
                 {boletoData?.total_boleto_quantity || 0} boletos
               </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Category summary cards - IA vs Programming */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+          {/* IA Club card */}
+          <div className="group relative animate-slide-up" style={{animationDelay: '0.3s'}}>
+            <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-purple-600/20 rounded-2xl blur-lg group-hover:blur-xl transition-all duration-300"></div>
+            <div className="relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-2xl p-8 border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
+              <div className="flex items-start justify-between mb-6">
+                <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                  </svg>
+                </div>
+                <div className="text-right">
+                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
+                </div>
+              </div>
+              <h3 className="text-lg font-semibold text-text-light dark:text-text-dark mb-3">
+                IA Club - Mensal
+              </h3>
+              <p className="text-4xl font-bold bg-gradient-to-r from-purple-500 to-purple-600 bg-clip-text text-transparent mb-2">
+                {formatCurrency(categoryData.ia?.totalValue || 0)}
+              </p>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-4 py-2 border-t border-white/20">
+                  <div className="text-center">
+                    <div className="text-sm text-text-muted-light dark:text-text-muted-dark mb-1">💳 Cartão</div>
+                    <div className="font-bold text-lg text-text-light dark:text-text-dark">{formatCurrency(categoryData.ia?.cardValue || 0)}</div>
+                    <div className="text-xs text-text-muted-light dark:text-text-muted-dark">{categoryData.ia?.cardQuantity || 0} vendas</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-sm text-text-muted-light dark:text-text-muted-dark mb-1">📄 Boleto</div>
+                    <div className="font-bold text-lg text-text-light dark:text-text-dark">{formatCurrency(categoryData.ia?.boletoValue || 0)}</div>
+                    <div className="text-xs text-text-muted-light dark:text-text-muted-dark">{categoryData.ia?.boletoQuantity || 0} vendas</div>
+                  </div>
+                </div>
+                
+                <div className="text-xs text-text-muted-light dark:text-text-muted-dark pt-2 border-t border-white/20">
+                  💼 Comercial: {formatCurrency(categoryData.ia?.commercialValue || 0)} ({categoryData.ia?.commercialQuantity || 0} vendas)
+                </div>
+                <div className="text-xs text-text-muted-light dark:text-text-muted-dark">
+                  Total: {categoryData.ia?.totalQuantity || 0} vendas no mês
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* DevClub card */}
+          <div className="group relative animate-slide-up" style={{animationDelay: '0.4s'}}>
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-blue-600/20 rounded-2xl blur-lg group-hover:blur-xl transition-all duration-300"></div>
+            <div className="relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-2xl p-8 border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
+              <div className="flex items-start justify-between mb-6">
+                <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>
+                  </svg>
+                </div>
+                <div className="text-right">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                </div>
+              </div>
+              <h3 className="text-lg font-semibold text-text-light dark:text-text-dark mb-3">
+                DevClub - Mensal
+              </h3>
+              <p className="text-4xl font-bold bg-gradient-to-r from-blue-500 to-blue-600 bg-clip-text text-transparent mb-2">
+                {formatCurrency(categoryData.programacao?.totalValue || 0)}
+              </p>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-4 py-2 border-t border-white/20">
+                  <div className="text-center">
+                    <div className="text-sm text-text-muted-light dark:text-text-muted-dark mb-1">💳 Cartão</div>
+                    <div className="font-bold text-lg text-text-light dark:text-text-dark">{formatCurrency(categoryData.programacao?.cardValue || 0)}</div>
+                    <div className="text-xs text-text-muted-light dark:text-text-muted-dark">{categoryData.programacao?.cardQuantity || 0} vendas</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-sm text-text-muted-light dark:text-text-muted-dark mb-1">📄 Boleto</div>
+                    <div className="font-bold text-lg text-text-light dark:text-text-dark">{formatCurrency(categoryData.programacao?.boletoValue || 0)}</div>
+                    <div className="text-xs text-text-muted-light dark:text-text-muted-dark">{categoryData.programacao?.boletoQuantity || 0} vendas</div>
+                  </div>
+                </div>
+                
+                <div className="text-xs text-text-muted-light dark:text-text-muted-dark pt-2 border-t border-white/20">
+                  💼 Comercial: {formatCurrency(categoryData.programacao?.commercialValue || 0)} ({categoryData.programacao?.commercialQuantity || 0} vendas)
+                </div>
+                <div className="text-xs text-text-muted-light dark:text-text-muted-dark">
+                  Total: {categoryData.programacao?.totalQuantity || 0} vendas no mês
+                </div>
+              </div>
             </div>
           </div>
         </div>

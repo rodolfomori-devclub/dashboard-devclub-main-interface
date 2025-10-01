@@ -39,7 +39,33 @@ function Today() {
   const [refundsData, setRefundsData] = useState(null)
   const [commercialData, setCommercialData] = useState(null)
   const [boletoData, setBoletoData] = useState(null)
+  const [categoryData, setCategoryData] = useState({ ia: {}, programacao: {} })
   const [loading, setLoading] = useState(true)
+
+  // Function to categorize products by type
+  const categorizeProduct = (productName) => {
+    if (!productName) return 'programacao'
+    
+    const lowerName = productName.toLowerCase()
+    
+    // IA Club products - be very specific
+    if (lowerName.includes('ia club') || 
+        lowerName.includes('gestor de ia') ||
+        lowerName.includes('formação gestor de ia')) {
+      return 'ia'
+    }
+    
+    // DevClub products (programming) - check these first to avoid conflicts
+    if (lowerName.includes('devclub') || 
+        lowerName.includes('full stack') ||
+        lowerName.includes('vitalício') ||
+        lowerName.includes('vitalicio')) {
+      return 'programacao'
+    }
+    
+    // Default to programming if not clearly IA
+    return 'programacao'
+  }
 
   const fetchDayData = useCallback(async (date) => {
     try {
@@ -114,6 +140,34 @@ function Today() {
       let totalBoletoValue = 0
       const productSales = {}
 
+      // Category tracking
+      const categoryTotals = {
+        ia: {
+          totalValue: 0,
+          totalQuantity: 0,
+          cardValue: 0,
+          cardQuantity: 0,
+          boletoValue: 0,
+          boletoQuantity: 0,
+          commercialValue: 0,
+          commercialQuantity: 0,
+          affiliateValue: 0,
+          sales: []
+        },
+        programacao: {
+          totalValue: 0,
+          totalQuantity: 0,
+          cardValue: 0,
+          cardQuantity: 0,
+          boletoValue: 0,
+          boletoQuantity: 0,
+          commercialValue: 0,
+          commercialQuantity: 0,
+          affiliateValue: 0,
+          sales: []
+        }
+      }
+
       transactionsResponse.data.data.forEach((transaction) => {
         const timestamp = transaction.dates.created_at * 1000
         const date = new Date(timestamp)
@@ -133,6 +187,8 @@ function Today() {
         hourlyData[hour].affiliateValue += affiliateValue
 
         const productName = transaction.product.name
+        const productCategory = categorizeProduct(productName)
+        
         if (!hourlyData[hour].productSales[productName]) {
           hourlyData[hour].productSales[productName] = 0
         }
@@ -149,8 +205,33 @@ function Today() {
         totalValue += netAmount
         totalAffiliateValue += affiliateValue
 
+        // Update category totals
+        categoryTotals[productCategory].totalValue += netAmount
+        categoryTotals[productCategory].totalQuantity += 1
+        categoryTotals[productCategory].cardValue += netAmount
+        categoryTotals[productCategory].cardQuantity += 1
+        categoryTotals[productCategory].affiliateValue += affiliateValue
+
+        // Add individual sale to category
+        categoryTotals[productCategory].sales.push({
+          id: transaction.hash || `card-${Date.now()}-${Math.random()}`,
+          productName: productName,
+          value: netAmount,
+          method: 'Cartão',
+          timestamp: transaction.dates.created_at,
+          isCommercial: isCommercial,
+          affiliateValue: affiliateValue
+        })
+
+        if (isCommercial) {
+          categoryTotals[productCategory].commercialValue += netAmount
+          categoryTotals[productCategory].commercialQuantity += 1
+        }
+
         if (!productSales[productName]) {
           productSales[productName] = {
+            name: productName,
+            category: productCategory,
             quantity: 0,
             value: 0,
             commercialQuantity: 0,
@@ -182,8 +263,12 @@ function Today() {
         totalBoletoValue += saleValue
 
         const productName = boletoSale.product
+        const productCategory = categorizeProduct(productName)
+        
         if (!productSales[productName]) {
           productSales[productName] = {
+            name: productName,
+            category: productCategory,
             quantity: 0,
             value: 0,
             commercialQuantity: 0,
@@ -199,6 +284,23 @@ function Today() {
           (productSales[productName].boletoValue || 0) + saleValue
         productSales[productName].quantity += 1
         productSales[productName].value += saleValue
+
+        // Update category totals for boleto
+        categoryTotals[productCategory].totalValue += saleValue
+        categoryTotals[productCategory].totalQuantity += 1
+        categoryTotals[productCategory].boletoValue += saleValue
+        categoryTotals[productCategory].boletoQuantity += 1
+        
+        // Add individual boleto sale to category
+        categoryTotals[productCategory].sales.push({
+          id: `boleto-${Date.now()}-${Math.random()}`,
+          productName: productName,
+          value: saleValue,
+          method: 'Boleto',
+          timestamp: Math.floor(date.getTime() / 1000),
+          isCommercial: false,
+          affiliateValue: 0
+        })
       })
 
       // Processar dados de reembolsos
@@ -236,6 +338,7 @@ function Today() {
 
       const productData = Object.entries(productSales).map(([name, data]) => ({
         name,
+        category: data.category,
         quantity: data.quantity,
         value: data.value,
         commercialQuantity: data.commercialQuantity || 0,
@@ -282,6 +385,8 @@ function Today() {
         totalBoletoSales,
         totalBoletoValue,
       })
+
+      setCategoryData(categoryTotals)
 
       setLoading(false)
     } catch (error) {
@@ -527,10 +632,95 @@ function Today() {
           </div>
         </div>
 
+        {/* Category summary cards - IA vs Programming */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+          {/* IA Club card */}
+          <div className="group relative animate-slide-up" style={{animationDelay: '0.3s'}}>
+            <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-purple-600/20 rounded-2xl blur-lg group-hover:blur-xl transition-all duration-300"></div>
+            <div className="relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-2xl p-8 border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
+              <div className="flex items-start justify-between mb-6">
+                <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                  </svg>
+                </div>
+                <div className="text-right">
+                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
+                </div>
+              </div>
+              <h3 className="text-lg font-semibold text-text-light dark:text-text-dark mb-3">
+                IA Club
+              </h3>
+              <p className="text-4xl font-bold bg-gradient-to-r from-purple-500 to-purple-600 bg-clip-text text-transparent mb-2">
+                {formatCurrency(categoryData.ia?.totalValue || 0)}
+              </p>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-4 py-2 border-t border-white/20">
+                  <div className="text-center">
+                    <div className="text-sm text-white/80 mb-1">💳 Cartão</div>
+                    <div className="font-bold text-lg">{formatCurrency(categoryData.ia?.cardValue || 0)}</div>
+                    <div className="text-xs text-white/70">{categoryData.ia?.cardQuantity || 0} vendas</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-sm text-white/80 mb-1">📄 Boleto</div>
+                    <div className="font-bold text-lg">{formatCurrency(categoryData.ia?.boletoValue || 0)}</div>
+                    <div className="text-xs text-white/70">{categoryData.ia?.boletoQuantity || 0} vendas</div>
+                  </div>
+                </div>
+                
+                <div className="text-xs text-white/70 pt-2 border-t border-white/20">
+                  💼 Comercial: {formatCurrency(categoryData.ia?.commercialValue || 0)} ({categoryData.ia?.commercialQuantity || 0} vendas)
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* DevClub card */}
+          <div className="group relative animate-slide-up" style={{animationDelay: '0.4s'}}>
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-blue-600/20 rounded-2xl blur-lg group-hover:blur-xl transition-all duration-300"></div>
+            <div className="relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-2xl p-8 border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
+              <div className="flex items-start justify-between mb-6">
+                <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>
+                  </svg>
+                </div>
+                <div className="text-right">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                </div>
+              </div>
+              <h3 className="text-lg font-semibold text-text-light dark:text-text-dark mb-3">
+                DevClub
+              </h3>
+              <p className="text-4xl font-bold bg-gradient-to-r from-blue-500 to-blue-600 bg-clip-text text-transparent mb-2">
+                {formatCurrency(categoryData.programacao?.totalValue || 0)}
+              </p>
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-4 py-2 border-t border-white/20">
+                  <div className="text-center">
+                    <div className="text-sm text-white/80 mb-1">💳 Cartão</div>
+                    <div className="font-bold text-lg">{formatCurrency(categoryData.programacao?.cardValue || 0)}</div>
+                    <div className="text-xs text-white/70">{categoryData.programacao?.cardQuantity || 0} vendas</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-sm text-white/80 mb-1">📄 Boleto</div>
+                    <div className="font-bold text-lg">{formatCurrency(categoryData.programacao?.boletoValue || 0)}</div>
+                    <div className="text-xs text-white/70">{categoryData.programacao?.boletoQuantity || 0} vendas</div>
+                  </div>
+                </div>
+                
+                <div className="text-xs text-white/70 pt-2 border-t border-white/20">
+                  💼 Comercial: {formatCurrency(categoryData.programacao?.commercialValue || 0)} ({categoryData.programacao?.commercialQuantity || 0} vendas)
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Cards secundários */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
           {/* Card Afiliações */}
-          <div className="group relative animate-slide-up" style={{animationDelay: '0.3s'}}>
+          <div className="group relative animate-slide-up" style={{animationDelay: '0.5s'}}>
             <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-2xl blur-lg group-hover:blur-xl transition-all duration-300"></div>
             <div className="relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-2xl p-8 border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
               <div className="flex items-start justify-between mb-6">
@@ -557,7 +747,7 @@ function Today() {
           </div>
 
           {/* Card Reembolsos */}
-          <div className="group relative animate-slide-up" style={{animationDelay: '0.4s'}}>
+          <div className="group relative animate-slide-up" style={{animationDelay: '0.6s'}}>
             <div className="absolute inset-0 bg-gradient-to-r from-red-500/20 to-rose-500/20 rounded-2xl blur-lg group-hover:blur-xl transition-all duration-300"></div>
             <div className="relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-2xl p-8 border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
               <div className="flex items-start justify-between mb-6">
@@ -584,7 +774,7 @@ function Today() {
           </div>
 
           {/* Card Vendas Comercial */}
-          <div className="group relative animate-slide-up" style={{animationDelay: '0.5s'}}>
+          <div className="group relative animate-slide-up" style={{animationDelay: '0.7s'}}>
             <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-indigo-500/20 rounded-2xl blur-lg group-hover:blur-xl transition-all duration-300"></div>
             <div className="relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-2xl p-8 border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
               <div className="flex items-start justify-between mb-6">
@@ -611,10 +801,172 @@ function Today() {
           </div>
         </div>
 
+
+        {/* Detailed sales by category */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+          {/* IA Club detailed sales */}
+          <div className="group relative animate-slide-up" style={{animationDelay: '1.0s'}}>
+            <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 via-purple-500/5 to-purple-500/10 rounded-3xl blur-xl"></div>
+            <div className="relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-3xl p-8 border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300">
+              <div className="flex items-center space-x-4 mb-6">
+                <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
+                  <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold text-text-light dark:text-text-dark">
+                    Vendas IA Club - Hoje
+                  </h3>
+                  <p className="text-text-muted-light dark:text-text-muted-dark">
+                    {categoryData.ia?.sales?.length || 0} vendas realizadas
+                  </p>
+                </div>
+              </div>
+              <div className="bg-gradient-to-br from-background-light/50 to-slate-50/50 dark:from-background-dark/50 dark:to-gray-800/50 rounded-2xl p-6 max-h-96 overflow-y-auto">
+                {categoryData.ia?.sales?.length > 0 ? (
+                  <div className="space-y-3">
+                    {categoryData.ia.sales
+                      .sort((a, b) => b.timestamp - a.timestamp)
+                      .map((sale, index) => (
+                      <div key={sale.id} className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-xl p-4 border border-purple-200/50 dark:border-purple-700/50 hover:shadow-md transition-all duration-200">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-gray-900 dark:text-white text-sm mb-2">
+                              {sale.productName}
+                            </h4>
+                            <div className="flex items-center space-x-3 text-xs">
+                              <span className="flex items-center text-gray-600 dark:text-gray-400">
+                                <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 6c.55 0 1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V9c0-.55.45-1 1-1zm0-4c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1z"/>
+                                </svg>
+                                {new Date(sale.timestamp * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                              <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${
+                                sale.method === 'Cartão' 
+                                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
+                                  : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                              }`}>
+                                {sale.method === 'Cartão' ? '💳' : '📄'} {sale.method}
+                              </span>
+                              {sale.isCommercial && (
+                                <span className="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                                  💼 Comercial
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-right ml-4">
+                            <div className="font-bold text-lg text-purple-600 dark:text-purple-400">
+                              {formatCurrency(sale.value)}
+                            </div>
+                            {sale.affiliateValue > 0 && (
+                              <div className="text-xs text-gray-500 dark:text-gray-400">
+                                Afiliação: {formatCurrency(sale.affiliateValue)}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                    <svg className="w-16 h-16 mx-auto mb-4 opacity-50" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                    </svg>
+                    <p className="text-lg font-medium mb-2">Nenhuma venda IA Club hoje</p>
+                    <p className="text-sm">As vendas aparecerão aqui conforme forem realizadas</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* DevClub detailed sales */}
+          <div className="group relative animate-slide-up" style={{animationDelay: '1.1s'}}>
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-blue-500/5 to-blue-500/10 rounded-3xl blur-xl"></div>
+            <div className="relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-3xl p-8 border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300">
+              <div className="flex items-center space-x-4 mb-6">
+                <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
+                  <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold text-text-light dark:text-text-dark">
+                    Vendas DevClub - Hoje
+                  </h3>
+                  <p className="text-text-muted-light dark:text-text-muted-dark">
+                    {categoryData.programacao?.sales?.length || 0} vendas realizadas
+                  </p>
+                </div>
+              </div>
+              <div className="bg-gradient-to-br from-background-light/50 to-slate-50/50 dark:from-background-dark/50 dark:to-gray-800/50 rounded-2xl p-6 max-h-96 overflow-y-auto">
+                {categoryData.programacao?.sales?.length > 0 ? (
+                  <div className="space-y-3">
+                    {categoryData.programacao.sales
+                      .sort((a, b) => b.timestamp - a.timestamp)
+                      .map((sale, index) => (
+                      <div key={sale.id} className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-xl p-4 border border-blue-200/50 dark:border-blue-700/50 hover:shadow-md transition-all duration-200">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-gray-900 dark:text-white text-sm mb-2">
+                              {sale.productName}
+                            </h4>
+                            <div className="flex items-center space-x-3 text-xs">
+                              <span className="flex items-center text-gray-600 dark:text-gray-400">
+                                <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 6c.55 0 1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V9c0-.55.45-1 1-1zm0-4c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1z"/>
+                                </svg>
+                                {new Date(sale.timestamp * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                              <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${
+                                sale.method === 'Cartão' 
+                                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
+                                  : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                              }`}>
+                                {sale.method === 'Cartão' ? '💳' : '📄'} {sale.method}
+                              </span>
+                              {sale.isCommercial && (
+                                <span className="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                                  💼 Comercial
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-right ml-4">
+                            <div className="font-bold text-lg text-blue-600 dark:text-blue-400">
+                              {formatCurrency(sale.value)}
+                            </div>
+                            {sale.affiliateValue > 0 && (
+                              <div className="text-xs text-gray-500 dark:text-gray-400">
+                                Afiliação: {formatCurrency(sale.affiliateValue)}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                    <svg className="w-16 h-16 mx-auto mb-4 opacity-50" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                    </svg>
+                    <p className="text-lg font-medium mb-2">Nenhuma venda DevClub hoje</p>
+                    <p className="text-sm">As vendas aparecerão aqui conforme forem realizadas</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Gráficos */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
           {/* Gráfico de Progressão por Hora */}
-          <div className="group relative animate-slide-up" style={{animationDelay: '0.6s'}}>
+          <div className="group relative animate-slide-up" style={{animationDelay: '1.2s'}}>
             <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-purple-500/5 to-primary/10 rounded-3xl blur-xl"></div>
             <div className="relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-3xl p-8 border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300">
               <div className="flex items-center justify-between mb-8">
@@ -695,7 +1047,7 @@ function Today() {
           </div>
 
           {/* Gráfico de Vendas por Produto */}
-          <div className="group relative animate-slide-up" style={{animationDelay: '0.7s'}}>
+          <div className="group relative animate-slide-up" style={{animationDelay: '1.3s'}}>
             <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 via-green-500/5 to-teal-500/10 rounded-3xl blur-xl"></div>
             <div className="relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-3xl p-8 border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300">
               <div className="flex items-center justify-between mb-8">
@@ -724,10 +1076,9 @@ function Today() {
                       dataKey="value"
                       nameKey="name"
                       cx="50%"
-                      cy="50%"
-                      outerRadius={120}
+                      cy="45%"
+                      outerRadius={100}
                       fill="#8884d8"
-                      label
                     >
                       {todayData?.productData?.map((entry, index) => (
                         <Cell
@@ -737,7 +1088,14 @@ function Today() {
                       ))}
                     </Pie>
                     <Tooltip formatter={(value) => formatCurrency(value)} />
-                    <Legend />
+                    <Legend 
+                      verticalAlign="bottom" 
+                      height={36}
+                      wrapperStyle={{
+                        paddingTop: '20px',
+                        fontSize: '14px'
+                      }}
+                    />
                   </PieChart>
                 </ResponsiveContainer>
               </div>

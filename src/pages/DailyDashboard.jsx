@@ -25,14 +25,12 @@ function DailyDashboard() {
   const [offerData, setOfferData] = useState([])
   const [selectedOffers, setSelectedOffers] = useState([])
   const [availableOffers, setAvailableOffers] = useState([])
+  const [categoryData, setCategoryData] = useState({ ia: {}, programacao: {} })
   const [loading, setLoading] = useState(true)
   const [dateRange, setDateRange] = useState(() => {
     // Get current date in local format
     const today = new Date()
-    // Create date 7 days ago
-    const sevenDaysAgo = new Date(today)
-    sevenDaysAgo.setDate(today.getDate() - 7)
-
+    
     // Format to YYYY-MM-DD in local timezone
     const formatLocalDate = (date) => {
       const year = date.getFullYear()
@@ -41,9 +39,34 @@ function DailyDashboard() {
       return `${year}-${month}-${day}`
     }
 
+    // Get the day of the week (0 = Sunday, 1 = Monday, etc.)
+    const dayOfWeek = today.getDay()
+    
+    let startDate, endDate
+    
+    if (dayOfWeek === 1) {
+      // If today is Monday, get from last Monday to last Sunday
+      const lastMonday = new Date(today)
+      lastMonday.setDate(today.getDate() - 7)
+      
+      const lastSunday = new Date(today)
+      lastSunday.setDate(today.getDate() - 1)
+      
+      startDate = lastMonday
+      endDate = lastSunday
+    } else {
+      // For any other day, get from last Monday to today
+      const lastMonday = new Date(today)
+      const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1 // If Sunday (0), go back 6 days to Monday
+      lastMonday.setDate(today.getDate() - daysToSubtract)
+      
+      startDate = lastMonday
+      endDate = today
+    }
+
     return {
-      start: formatLocalDate(sevenDaysAgo),
-      end: formatLocalDate(today),
+      start: formatLocalDate(startDate),
+      end: formatLocalDate(endDate),
     }
   })
 
@@ -62,6 +85,31 @@ function DailyDashboard() {
     const month = String(date.getMonth() + 1).padStart(2, '0')
     const day = String(date.getDate()).padStart(2, '0')
     return `${year}-${month}-${day}`
+  }
+
+  // Function to categorize products by type
+  const categorizeProduct = (productName) => {
+    if (!productName) return 'programacao'
+    
+    const lowerName = productName.toLowerCase()
+    
+    // IA Club products - be very specific
+    if (lowerName.includes('ia club') || 
+        lowerName.includes('gestor de ia') ||
+        lowerName.includes('formação gestor de ia')) {
+      return 'ia'
+    }
+    
+    // DevClub products (programming) - check these first to avoid conflicts
+    if (lowerName.includes('devclub') || 
+        lowerName.includes('full stack') ||
+        lowerName.includes('vitalício') ||
+        lowerName.includes('vitalicio')) {
+      return 'programacao'
+    }
+    
+    // Default to programming if not clearly IA
+    return 'programacao'
   }
 
   const fetchData = useCallback(async (startDate, endDate) => {
@@ -105,6 +153,34 @@ function DailyDashboard() {
       let totalCommercialQuantity = 0
       let totalBoletoValue = 0
       let totalBoletoQuantity = 0
+
+      // Category tracking
+      const categoryTotals = {
+        ia: {
+          totalValue: 0,
+          totalQuantity: 0,
+          cardValue: 0,
+          cardQuantity: 0,
+          boletoValue: 0,
+          boletoQuantity: 0,
+          commercialValue: 0,
+          commercialQuantity: 0,
+          affiliateValue: 0,
+          sales: [] // Array of individual sales
+        },
+        programacao: {
+          totalValue: 0,
+          totalQuantity: 0,
+          cardValue: 0,
+          cardQuantity: 0,
+          boletoValue: 0,
+          boletoQuantity: 0,
+          commercialValue: 0,
+          commercialQuantity: 0,
+          affiliateValue: 0,
+          sales: [] // Array of individual sales
+        }
+      }
 
       // Object to track product information
       const productSummary = {}
@@ -188,10 +264,12 @@ function DailyDashboard() {
 
           // Track product data
           const productName = transaction.product?.name || 'Unidentified product'
+          const productCategory = categorizeProduct(productName)
           
           if (!productSummary[productName]) {
             productSummary[productName] = {
               name: productName,
+              category: productCategory,
               quantity: 0,
               cardQuantity: 0,
               boletoQuantity: 0,
@@ -208,9 +286,29 @@ function DailyDashboard() {
           productSummary[productName].value += netAmount
           productSummary[productName].cardValue += netAmount
           
+          // Update category totals
+          categoryTotals[productCategory].totalValue += netAmount
+          categoryTotals[productCategory].totalQuantity += 1
+          categoryTotals[productCategory].cardValue += netAmount
+          categoryTotals[productCategory].cardQuantity += 1
+          categoryTotals[productCategory].affiliateValue += affiliateValue
+          
+          // Add individual sale to category
+          categoryTotals[productCategory].sales.push({
+            id: transaction.hash || `card-${Date.now()}-${Math.random()}`,
+            productName: productName,
+            value: netAmount,
+            method: 'Cartão',
+            timestamp: transaction.dates.created_at,
+            isCommercial: isCommercial,
+            affiliateValue: affiliateValue
+          })
+          
           if (isCommercial) {
             productSummary[productName].commercialQuantity += 1
             productSummary[productName].commercialValue += netAmount
+            categoryTotals[productCategory].commercialValue += netAmount
+            categoryTotals[productCategory].commercialQuantity += 1
           }
           
           // Track offer data (Guru/Cartão)
@@ -321,10 +419,12 @@ function DailyDashboard() {
 
         // Track boleto product data
         const productNameBoleto = sale.product || sale.raw?.produto || 'Produto não identificado'
+        const productCategoryBoleto = categorizeProduct(productNameBoleto)
         
         if (!productSummary[productNameBoleto]) {
           productSummary[productNameBoleto] = {
             name: productNameBoleto,
+            category: productCategoryBoleto,
             quantity: 0,
             cardQuantity: 0,
             boletoQuantity: 0,
@@ -340,6 +440,23 @@ function DailyDashboard() {
         productSummary[productNameBoleto].boletoQuantity += 1
         productSummary[productNameBoleto].value += saleValue
         productSummary[productNameBoleto].boletoValue += saleValue
+        
+        // Update category totals for boleto
+        categoryTotals[productCategoryBoleto].totalValue += saleValue
+        categoryTotals[productCategoryBoleto].totalQuantity += 1
+        categoryTotals[productCategoryBoleto].boletoValue += saleValue
+        categoryTotals[productCategoryBoleto].boletoQuantity += 1
+        
+        // Add individual boleto sale to category
+        categoryTotals[productCategoryBoleto].sales.push({
+          id: sale.id || `boleto-${Date.now()}-${Math.random()}`,
+          productName: productNameBoleto,
+          value: saleValue,
+          method: 'Boleto',
+          timestamp: sale.timestamp ? Math.floor(sale.timestamp / 1000) : Date.now() / 1000,
+          isCommercial: false,
+          affiliateValue: 0
+        })
         
         // Track offer data (TMB/Boleto)
         // Debug para entender estrutura da oferta no TMB
@@ -443,6 +560,9 @@ function DailyDashboard() {
       
       // Store offer data
       setOfferData(offerDataArray)
+      
+      // Store category data
+      setCategoryData(categoryTotals)
       
       // Extract unique offer names for filter
       const uniqueOffers = [...new Set(offerDataArray.map(offer => offer.name))]
@@ -672,6 +792,79 @@ function DailyDashboard() {
           </div>
         </div>
 
+        {/* Category summary cards - IA vs Programming */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+          {/* IA Club card */}
+          <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg shadow p-6 text-white">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold">IA Club</h3>
+              <div className="bg-white/20 rounded-full p-2">
+                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                </svg>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-lg font-semibold">Faturamento Total:</span>
+                <span className="text-2xl font-bold">{formatCurrency(categoryData.ia?.totalValue || 0)}</span>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4 py-2 border-t border-white/20">
+                <div className="text-center">
+                  <div className="text-sm text-white/80 mb-1">💳 Cartão</div>
+                  <div className="font-bold text-lg">{formatCurrency(categoryData.ia?.cardValue || 0)}</div>
+                  <div className="text-xs text-white/70">{categoryData.ia?.cardQuantity || 0} vendas</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-sm text-white/80 mb-1">📄 Boleto</div>
+                  <div className="font-bold text-lg">{formatCurrency(categoryData.ia?.boletoValue || 0)}</div>
+                  <div className="text-xs text-white/70">{categoryData.ia?.boletoQuantity || 0} vendas</div>
+                </div>
+              </div>
+              
+              <div className="text-xs text-white/70 pt-2 border-t border-white/20">
+                💼 Comercial: {formatCurrency(categoryData.ia?.commercialValue || 0)} ({categoryData.ia?.commercialQuantity || 0} vendas)
+              </div>
+            </div>
+          </div>
+
+          {/* DevClub card */}
+          <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow p-6 text-white">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold">DevClub</h3>
+              <div className="bg-white/20 rounded-full p-2">
+                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>
+                </svg>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-lg font-semibold">Faturamento Total:</span>
+                <span className="text-2xl font-bold">{formatCurrency(categoryData.programacao?.totalValue || 0)}</span>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4 py-2 border-t border-white/20">
+                <div className="text-center">
+                  <div className="text-sm text-white/80 mb-1">💳 Cartão</div>
+                  <div className="font-bold text-lg">{formatCurrency(categoryData.programacao?.cardValue || 0)}</div>
+                  <div className="text-xs text-white/70">{categoryData.programacao?.cardQuantity || 0} vendas</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-sm text-white/80 mb-1">📄 Boleto</div>
+                  <div className="font-bold text-lg">{formatCurrency(categoryData.programacao?.boletoValue || 0)}</div>
+                  <div className="text-xs text-white/70">{categoryData.programacao?.boletoQuantity || 0} vendas</div>
+                </div>
+              </div>
+              
+              <div className="text-xs text-white/70 pt-2 border-t border-white/20">
+                💼 Comercial: {formatCurrency(categoryData.programacao?.commercialValue || 0)} ({categoryData.programacao?.commercialQuantity || 0} vendas)
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Main summary cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
@@ -852,6 +1045,356 @@ function DailyDashboard() {
           )}
         </div>
 
+
+        {/* Product sales summary table */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+          <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
+            Resumo de Vendas por Produto
+          </h3>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-700">
+                <tr>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Produto
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Categoria
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Total Vendas
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Cartão
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Boleto
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Comercial
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Faturamento Total
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                {filteredData.productData.length === 0 ? (
+                  <tr>
+                    <td colSpan="7" className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500 dark:text-gray-400">
+                      Nenhum produto encontrado no período selecionado
+                    </td>
+                  </tr>
+                ) : (
+                  filteredData.productData.map((product, index) => (
+                    <tr key={index} className={index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-700' : ''}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                        {product.name}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          product.category === 'ia' 
+                            ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' 
+                            : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                        }`}>
+                          {product.category === 'ia' ? 'IA Club' : 'DevClub'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500 dark:text-gray-400">
+                        {product.quantity}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-green-500 dark:text-green-400">
+                        {product.cardQuantity}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-yellow-500 dark:text-yellow-400">
+                        {product.boletoQuantity}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-blue-500 dark:text-blue-400">
+                        {product.commercialQuantity}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-gray-900 dark:text-white">
+                        {formatCurrency(product.value)}
+                      </td>
+                    </tr>
+                  ))
+                )}
+
+                {/* Totals row */}
+                {filteredData.productData.length > 0 && (
+                  <tr className="bg-gray-100 dark:bg-gray-600 font-bold">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 dark:text-white">
+                      TOTAL
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                      <div className="flex justify-center gap-2">
+                        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                          IA: {filteredData.productData.filter(p => p.category === 'ia').length}
+                        </span>
+                        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                          Dev: {filteredData.productData.filter(p => p.category === 'programacao').length}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-center font-bold text-gray-900 dark:text-white">
+                      {filteredData.productData.reduce((sum, product) => sum + product.quantity, 0)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-center font-bold text-gray-900 dark:text-white">
+                      {filteredData.productData.reduce((sum, product) => sum + product.cardQuantity, 0)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-center font-bold text-gray-900 dark:text-white">
+                      {filteredData.productData.reduce((sum, product) => sum + product.boletoQuantity, 0)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-center font-bold text-gray-900 dark:text-white">
+                      {filteredData.productData.reduce((sum, product) => sum + product.commercialQuantity, 0)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-gray-900 dark:text-white">
+                      {formatCurrency(filteredData.productData.reduce((sum, product) => sum + product.value, 0))}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Offer sales summary table */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+          <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
+            Resumo de Vendas por Oferta
+          </h3>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-700">
+                <tr>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Oferta
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Origem
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Quantidade
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Faturamento
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Produtos
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                {filteredData.offerData.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500 dark:text-gray-400">
+                      Nenhuma oferta encontrada no período selecionado
+                    </td>
+                  </tr>
+                ) : (
+                  <>
+                    {filteredData.offerData.map((offer, index) => (
+                      <tr key={index} className={index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-700' : ''}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                          {offer.name}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            offer.source === 'TMB' 
+                              ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' 
+                              : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                          }`}>
+                            {offer.source}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500 dark:text-gray-400">
+                          {offer.quantity}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-gray-900 dark:text-white">
+                          {formatCurrency(offer.value)}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                          <div className="max-w-xs">
+                            {Object.entries(offer.products).map(([productName, productInfo], pIndex) => (
+                              <div key={pIndex} className="text-xs">
+                                <span className="font-medium">{productName}:</span> {productInfo.quantity}x
+                              </div>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    
+                    {/* Totals row for offers */}
+                    <tr className="bg-gray-100 dark:bg-gray-600 font-bold">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 dark:text-white">
+                        TOTAL
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                        <div className="flex justify-center gap-2">
+                          <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+                            TMB: {filteredData.offerData.filter(o => o.source === 'TMB').length}
+                          </span>
+                          <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                            Guru: {filteredData.offerData.filter(o => o.source === 'Guru').length}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center font-bold text-gray-900 dark:text-white">
+                        {filteredData.offerData.reduce((sum, offer) => sum + offer.quantity, 0)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-gray-900 dark:text-white">
+                        {formatCurrency(filteredData.offerData.reduce((sum, offer) => sum + offer.value, 0))}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500 dark:text-gray-400">
+                        -
+                      </td>
+                    </tr>
+                  </>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Detailed sales by category */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          {/* IA Club detailed sales */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4 flex items-center">
+              <div className="w-6 h-6 bg-purple-500 rounded-full mr-3 flex items-center justify-center">
+                <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                </svg>
+              </div>
+              Vendas IA Club - Detalhamento ({categoryData.ia?.sales?.length || 0} vendas)
+            </h3>
+            <div className="max-h-96 overflow-y-auto">
+              {categoryData.ia?.sales?.length > 0 ? (
+                <div className="space-y-2">
+                  {categoryData.ia.sales
+                    .sort((a, b) => b.timestamp - a.timestamp)
+                    .map((sale, index) => (
+                    <div key={sale.id} className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-3 border border-purple-200 dark:border-purple-700/50">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900 dark:text-white text-sm">
+                            {sale.productName}
+                          </h4>
+                          <div className="flex items-center space-x-4 text-xs text-gray-600 dark:text-gray-400 mt-1">
+                            <span className="flex items-center">
+                              <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 6c.55 0 1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V9c0-.55.45-1 1-1zm0-4c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1z"/>
+                              </svg>
+                              {new Date(sale.timestamp * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${
+                              sale.method === 'Cartão' 
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
+                                : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                            }`}>
+                              {sale.method === 'Cartão' ? '💳' : '📄'} {sale.method}
+                            </span>
+                            {sale.isCommercial && (
+                              <span className="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                                💼 Comercial
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-bold text-purple-600 dark:text-purple-400">
+                            {formatCurrency(sale.value)}
+                          </div>
+                          {sale.affiliateValue > 0 && (
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                              Afiliação: {formatCurrency(sale.affiliateValue)}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  <svg className="w-12 h-12 mx-auto mb-4 opacity-50" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                  </svg>
+                  Nenhuma venda de IA Club no período selecionado
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* DevClub detailed sales */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4 flex items-center">
+              <div className="w-6 h-6 bg-blue-500 rounded-full mr-3 flex items-center justify-center">
+                <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>
+                </svg>
+              </div>
+              Vendas DevClub - Detalhamento ({categoryData.programacao?.sales?.length || 0} vendas)
+            </h3>
+            <div className="max-h-96 overflow-y-auto">
+              {categoryData.programacao?.sales?.length > 0 ? (
+                <div className="space-y-2">
+                  {categoryData.programacao.sales
+                    .sort((a, b) => b.timestamp - a.timestamp)
+                    .map((sale, index) => (
+                    <div key={sale.id} className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 border border-blue-200 dark:border-blue-700/50">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900 dark:text-white text-sm">
+                            {sale.productName}
+                          </h4>
+                          <div className="flex items-center space-x-4 text-xs text-gray-600 dark:text-gray-400 mt-1">
+                            <span className="flex items-center">
+                              <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 6c.55 0 1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V9c0-.55.45-1 1-1zm0-4c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1z"/>
+                              </svg>
+                              {new Date(sale.timestamp * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${
+                              sale.method === 'Cartão' 
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
+                                : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                            }`}>
+                              {sale.method === 'Cartão' ? '💳' : '📄'} {sale.method}
+                            </span>
+                            {sale.isCommercial && (
+                              <span className="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                                💼 Comercial
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-bold text-blue-600 dark:text-blue-400">
+                            {formatCurrency(sale.value)}
+                          </div>
+                          {sale.affiliateValue > 0 && (
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                              Afiliação: {formatCurrency(sale.affiliateValue)}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  <svg className="w-12 h-12 mx-auto mb-4 opacity-50" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                  </svg>
+                  Nenhuma venda de DevClub no período selecionado
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* Main chart - Sales by day */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
           <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
@@ -1011,194 +1554,6 @@ function DailyDashboard() {
                 />
               </BarChart>
             </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Product sales summary table */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
-          <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
-            Resumo de Vendas por Produto
-          </h3>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-700">
-                <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Produto
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Total Vendas
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Cartão
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Boleto
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Comercial
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Faturamento Total
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {filteredData.productData.length === 0 ? (
-                  <tr>
-                    <td colSpan="6" className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500 dark:text-gray-400">
-                      Nenhum produto encontrado no período selecionado
-                    </td>
-                  </tr>
-                ) : (
-                  filteredData.productData.map((product, index) => (
-                    <tr key={index} className={index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-700' : ''}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                        {product.name}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500 dark:text-gray-400">
-                        {product.quantity}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-green-500 dark:text-green-400">
-                        {product.cardQuantity}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-yellow-500 dark:text-yellow-400">
-                        {product.boletoQuantity}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-blue-500 dark:text-blue-400">
-                        {product.commercialQuantity}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-gray-900 dark:text-white">
-                        {formatCurrency(product.value)}
-                      </td>
-                    </tr>
-                  ))
-                )}
-
-                {/* Totals row */}
-                {filteredData.productData.length > 0 && (
-                  <tr className="bg-gray-100 dark:bg-gray-600 font-bold">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 dark:text-white">
-                      TOTAL
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-center font-bold text-gray-900 dark:text-white">
-                      {filteredData.productData.reduce((sum, product) => sum + product.quantity, 0)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-center font-bold text-gray-900 dark:text-white">
-                      {filteredData.productData.reduce((sum, product) => sum + product.cardQuantity, 0)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-center font-bold text-gray-900 dark:text-white">
-                      {filteredData.productData.reduce((sum, product) => sum + product.boletoQuantity, 0)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-center font-bold text-gray-900 dark:text-white">
-                      {filteredData.productData.reduce((sum, product) => sum + product.commercialQuantity, 0)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-gray-900 dark:text-white">
-                      {formatCurrency(filteredData.productData.reduce((sum, product) => sum + product.value, 0))}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Offer sales summary table */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
-          <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
-            Resumo de Vendas por Oferta
-          </h3>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-700">
-                <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Oferta
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Origem
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Quantidade
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Faturamento
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Produtos
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {filteredData.offerData.length === 0 ? (
-                  <tr>
-                    <td colSpan="5" className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500 dark:text-gray-400">
-                      Nenhuma oferta encontrada no período selecionado
-                    </td>
-                  </tr>
-                ) : (
-                  <>
-                    {filteredData.offerData.map((offer, index) => (
-                      <tr key={index} className={index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-700' : ''}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                          {offer.name}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            offer.source === 'TMB' 
-                              ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' 
-                              : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                          }`}>
-                            {offer.source}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500 dark:text-gray-400">
-                          {offer.quantity}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-gray-900 dark:text-white">
-                          {formatCurrency(offer.value)}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
-                          <div className="max-w-xs">
-                            {Object.entries(offer.products).map(([productName, productInfo], pIndex) => (
-                              <div key={pIndex} className="text-xs">
-                                <span className="font-medium">{productName}:</span> {productInfo.quantity}x
-                              </div>
-                            ))}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                    
-                    {/* Totals row for offers */}
-                    <tr className="bg-gray-100 dark:bg-gray-600 font-bold">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 dark:text-white">
-                        TOTAL
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
-                        <div className="flex justify-center gap-2">
-                          <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
-                            TMB: {filteredData.offerData.filter(o => o.source === 'TMB').length}
-                          </span>
-                          <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                            Guru: {filteredData.offerData.filter(o => o.source === 'Guru').length}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center font-bold text-gray-900 dark:text-white">
-                        {filteredData.offerData.reduce((sum, offer) => sum + offer.quantity, 0)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-bold text-gray-900 dark:text-white">
-                        {formatCurrency(filteredData.offerData.reduce((sum, offer) => sum + offer.value, 0))}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500 dark:text-gray-400">
-                        -
-                      </td>
-                    </tr>
-                  </>
-                )}
-              </tbody>
-            </table>
           </div>
         </div>
       </div>
