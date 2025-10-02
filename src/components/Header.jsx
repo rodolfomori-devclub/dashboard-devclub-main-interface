@@ -19,6 +19,7 @@ import {
   FaDatabase,
   FaUser,
   FaBell,
+  FaBullhorn,
 } from 'react-icons/fa'
 
 export default function Header() {
@@ -78,6 +79,7 @@ export default function Header() {
     { path: '/dre', label: 'DRE', icon: FaChartPie, condition: userRoles?.dre !== false || userRoles?.isAdmin },
     { path: '/lead-scoring', label: 'Lead Scoring', icon: FaChartLine, condition: userRoles?.['lead-scoring'] !== false },
     { path: '/ts', label: 'T$', icon: FaBell, condition: userRoles?.ts !== false },
+    { path: '/traffic', label: 'Tráfego', icon: FaBullhorn, condition: userRoles?.traffic !== false || userRoles?.isAdmin },
     { path: '/data-sources', label: 'Fontes de Dados', icon: FaDatabase, condition: userRoles?.['data-sources'] !== false },
   ]
 

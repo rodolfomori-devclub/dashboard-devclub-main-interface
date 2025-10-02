@@ -4,10 +4,31 @@ import { FaCalendarAlt } from 'react-icons/fa';
 
 const DateRangePicker = ({ startDate, endDate, onDateChange, label }) => {
   const [showCalendar, setShowCalendar] = useState(false);
-  const [dateRange, setDateRange] = useState({
-    startDate: new Date(startDate),
-    endDate: new Date(endDate)
-  });
+  
+  // Função para obter data válida ou padrão
+  const getValidDate = (date) => {
+    if (!date || date === null || isNaN(new Date(date).getTime())) {
+      return new Date(); // Retorna hoje se a data for inválida
+    }
+    return new Date(date);
+  };
+
+  // Inicializar com semana atual se não houver datas válidas
+  const getDefaultDateRange = () => {
+    const today = new Date();
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - today.getDay()); // Domingo da semana atual
+    
+    const endOfWeek = new Date(today);
+    endOfWeek.setDate(today.getDate() + (6 - today.getDay())); // Sábado da semana atual
+    
+    return {
+      startDate: startDate ? getValidDate(startDate) : startOfWeek,
+      endDate: endDate ? getValidDate(endDate) : endOfWeek
+    };
+  };
+
+  const [dateRange, setDateRange] = useState(getDefaultDateRange());
   const calendarRef = useRef(null);
 
   // Formatar data para exibição (DD/MM/YYYY)

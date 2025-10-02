@@ -13,6 +13,7 @@ import {
 } from 'recharts'
 import { formatCurrency } from '../utils/currencyUtils'
 import RefundDetailsModal from '../components/RefundDetailsModal'
+import WeekSelector from '../components/WeekSelector'
 
 function DailyDashboard() {
   const [data, setData] = useState(null)
@@ -27,6 +28,10 @@ function DailyDashboard() {
   const [availableOffers, setAvailableOffers] = useState([])
   const [categoryData, setCategoryData] = useState({ ia: {}, programacao: {} })
   const [loading, setLoading] = useState(true)
+  const [selectedWeek, setSelectedWeek] = useState(null)
+  const [trafficData, setTrafficData] = useState(null)
+  const [isLaunchMode, setIsLaunchMode] = useState(false)
+  const [autoSelectWeek, setAutoSelectWeek] = useState(true)
   const [dateRange, setDateRange] = useState(() => {
     // Get current date in local format
     const today = new Date()
@@ -86,6 +91,162 @@ function DailyDashboard() {
     const day = String(date.getDate()).padStart(2, '0')
     return `${year}-${month}-${day}`
   }
+
+  // Função para calcular datas de tráfego (terça 2 semanas atrás até segunda semana anterior)
+  const calculateTrafficDates = (selectedWeek) => {
+    if (!selectedWeek) return null;
+
+    // Semana escolhida: segunda a domingo
+    const weekStart = new Date(selectedWeek.startDate);
+    
+    // Voltar 2 semanas (14 dias) para chegar na semana 2 semanas atrás
+    const twoWeeksAgo = new Date(weekStart);
+    twoWeeksAgo.setDate(weekStart.getDate() - 14);
+    
+    // Encontrar a terça-feira da semana 2 semanas atrás
+    const dayOfWeek = twoWeeksAgo.getDay(); // 0=domingo, 1=segunda, 2=terça
+    const daysToTuesday = dayOfWeek <= 2 ? (2 - dayOfWeek) : (9 - dayOfWeek);
+    const trafficStart = new Date(twoWeeksAgo);
+    trafficStart.setDate(twoWeeksAgo.getDate() + daysToTuesday);
+    
+    // Encontrar a segunda-feira da semana anterior (7 dias antes da semana escolhida)
+    const oneWeekAgo = new Date(weekStart);
+    oneWeekAgo.setDate(weekStart.getDate() - 7);
+    
+    // A segunda-feira da semana anterior
+    const trafficEnd = new Date(oneWeekAgo);
+    
+    return {
+      startDate: trafficStart.toISOString().split('T')[0],
+      endDate: trafficEnd.toISOString().split('T')[0]
+    };
+  };
+
+  // Função para buscar dados de tráfego
+  const fetchTrafficData = async (trafficDates) => {
+    if (!trafficDates) return;
+    
+    try {
+      // Calcular número de dias entre as datas
+      const start = new Date(trafficDates.startDate);
+      const end = new Date(trafficDates.endDate);
+      const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+      
+      const response = await fetch(`http://localhost:3000/api/meta/all-accounts-spend/${days}`);
+      const data = await response.json();
+      
+      // Adicionar informações de período personalizadas
+      const enrichedData = {
+        ...data,
+        startDate: trafficDates.startDate,
+        endDate: trafficDates.endDate,
+        period: `${days} dias (${trafficDates.startDate} a ${trafficDates.endDate})`
+      };
+      
+      setTrafficData(enrichedData);
+    } catch (error) {
+      console.error('Erro ao buscar dados de tráfego:', error);
+    }
+  };
+
+  // Função para calcular ROI (como multiplicador X)
+  const calculateROI = (revenue, cost) => {
+    if (!cost || cost === 0) return 0;
+    return revenue / cost;
+  };
+
+  // Função para calcular ROIs por categoria
+  const calculateROIData = () => {
+    if (!trafficData || !data) return null;
+
+    const totalTrafficCost = parseFloat(trafficData.totalSpend || 0);
+    const totalRevenue = filteredTotals.total_net_amount || 0;
+    const cardRevenue = filteredTotals.total_card_amount || 0;
+
+    // ROI Total
+    const totalROI = calculateROI(totalRevenue, totalTrafficCost);
+    
+    // ROI Cartão
+    const cardROI = calculateROI(cardRevenue, totalTrafficCost);
+
+    // ROI por produto (IA vs DevClub)
+    const iaRevenue = categoryData.ia?.totalValue || 0;
+    const devclubRevenue = categoryData.programacao?.totalValue || 0;
+    
+    // ROI Cartão por produto
+    const iaCardRevenue = categoryData.ia?.cardValue || 0;
+    const devclubCardRevenue = categoryData.programacao?.cardValue || 0;
+    
+    // Calcular custos baseados no nome específico das contas de anúncios
+    let iaCost = 0;
+    let devclubCost = 0;
+    
+    if (trafficData.accountsWithSpend && trafficData.accountsWithSpend.length > 0) {
+      trafficData.accountsWithSpend.forEach(account => {
+        const accountName = (account.accountName || '');
+        
+        // Identificar contas específicas
+        if (accountName.includes('Gestor de IA')) {
+          // Conta "Ads - Gestor de IA" é para IA Club
+          iaCost += parseFloat(account.spend || 0);
+        } else if (accountName.includes('Rodolfo Mori')) {
+          // Conta "Ads - Rodolfo Mori" é para DevClub
+          devclubCost += parseFloat(account.spend || 0);
+        }
+        // Outras contas são ignoradas (não somam em nenhum dos custos)
+      });
+    } else {
+      // Se não houver detalhes das contas, usar zero para ambos
+      iaCost = 0;
+      devclubCost = 0;
+    }
+    
+    // ROI geral por produto
+    const iaROI = calculateROI(iaRevenue, iaCost);
+    const devclubROI = calculateROI(devclubRevenue, devclubCost);
+    
+    // ROI Cartão por produto
+    const iaCardROI = calculateROI(iaCardRevenue, iaCost);
+    const devclubCardROI = calculateROI(devclubCardRevenue, devclubCost);
+
+    return {
+      total: { roi: totalROI, revenue: totalRevenue, cost: totalTrafficCost },
+      card: { roi: cardROI, revenue: cardRevenue, cost: totalTrafficCost },
+      ia: { 
+        roi: iaROI, 
+        revenue: iaRevenue, 
+        cost: iaCost,
+        cardRoi: iaCardROI,
+        cardRevenue: iaCardRevenue
+      },
+      devclub: { 
+        roi: devclubROI, 
+        revenue: devclubRevenue, 
+        cost: devclubCost,
+        cardRoi: devclubCardROI,
+        cardRevenue: devclubCardRevenue
+      }
+    };
+  };
+
+  // Função para lidar com seleção de semana
+  const handleWeekSelect = (week) => {
+    setSelectedWeek(week);
+    setIsLaunchMode(true);
+    
+    // Calcular período de vendas (segunda a domingo da semana escolhida)
+    const salesStart = week.startDate.toISOString().split('T')[0];
+    const salesEnd = week.endDate.toISOString().split('T')[0];
+    
+    // Atualizar período de vendas
+    setDateRange({ start: salesStart, end: salesEnd });
+    
+    // Calcular e buscar dados de tráfego
+    const trafficDates = calculateTrafficDates(week);
+    if (trafficDates) {
+      fetchTrafficData(trafficDates);
+    }
+  };
 
   // Function to categorize products by type
   const categorizeProduct = (productName) => {
@@ -767,28 +928,64 @@ function DailyDashboard() {
           </button>
         </div>
 
-        <div className="flex flex-col md:flex-row gap-4 items-center mb-8">
-          <div className="w-full md:w-auto">
-            <label className="block text-sm font-medium text-text-light dark:text-text-dark mb-1">
-              Data Inicial
-            </label>
-            <input
-              type="date"
-              value={dateRange.start}
-              onChange={(e) => handleDateChange('start', e.target.value)}
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-            />
+        <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center mb-8">
+          {/* Filtros de Data Padrão */}
+          <div className="flex flex-col md:flex-row gap-4 items-center">
+            <div className="w-full md:w-auto">
+              <label className="block text-sm font-medium text-text-light dark:text-text-dark mb-1">
+                Data Inicial
+              </label>
+              <input
+                type="date"
+                value={dateRange.start}
+                onChange={(e) => handleDateChange('start', e.target.value)}
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                disabled={isLaunchMode}
+              />
+            </div>
+            <div className="w-full md:w-auto">
+              <label className="block text-sm font-medium text-text-light dark:text-text-dark mb-1">
+                Data Final
+              </label>
+              <input
+                type="date"
+                value={dateRange.end}
+                onChange={(e) => handleDateChange('end', e.target.value)}
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                disabled={isLaunchMode}
+              />
+            </div>
           </div>
-          <div className="w-full md:w-auto">
-            <label className="block text-sm font-medium text-text-light dark:text-text-dark mb-1">
-              Data Final
-            </label>
-            <input
-              type="date"
-              value={dateRange.end}
-              onChange={(e) => handleDateChange('end', e.target.value)}
-              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+
+          {/* Separador */}
+          <div className="hidden lg:block w-px h-16 bg-gray-300 dark:bg-gray-600"></div>
+          <div className="lg:hidden w-full h-px bg-gray-300 dark:bg-gray-600"></div>
+
+          {/* Filtro por Lançamento */}
+          <div className="flex flex-col gap-2">
+            <WeekSelector 
+              selectedWeek={selectedWeek}
+              onWeekSelect={handleWeekSelect}
+              autoSelect={autoSelectWeek}
             />
+            {isLaunchMode && selectedWeek && (
+              <div className="flex gap-2">
+                <span className="text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded">
+                  Modo Lançamento: Semana {selectedWeek.weekNumber}
+                </span>
+                <button 
+                  onClick={() => {
+                    setIsLaunchMode(false);
+                    setSelectedWeek(null);
+                    setTrafficData(null);
+                    setAutoSelectWeek(false); // Desabilita auto-seleção ao sair
+                  }}
+                  className="text-xs text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 underline"
+                >
+                  Sair do Modo Lançamento
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -809,6 +1006,17 @@ function DailyDashboard() {
                 <span className="text-lg font-semibold">Faturamento Total:</span>
                 <span className="text-2xl font-bold">{formatCurrency(categoryData.ia?.totalValue || 0)}</span>
               </div>
+              
+              {/* Traffic Cost for IA Club - Only show in Launch Mode */}
+              {isLaunchMode && trafficData && (() => {
+                const roiData = calculateROIData();
+                return roiData && (
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-white/80">💸 Tráfego Pago:</span>
+                    <span className="font-semibold">{formatCurrency(roiData.ia.cost || 0)}</span>
+                  </div>
+                );
+              })()}
               
               <div className="grid grid-cols-2 gap-4 py-2 border-t border-white/20">
                 <div className="text-center">
@@ -845,6 +1053,17 @@ function DailyDashboard() {
                 <span className="text-2xl font-bold">{formatCurrency(categoryData.programacao?.totalValue || 0)}</span>
               </div>
               
+              {/* Traffic Cost for DevClub - Only show in Launch Mode */}
+              {isLaunchMode && trafficData && (() => {
+                const roiData = calculateROIData();
+                return roiData && (
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-white/80">💸 Tráfego Pago:</span>
+                    <span className="font-semibold">{formatCurrency(roiData.devclub.cost || 0)}</span>
+                  </div>
+                );
+              })()}
+              
               <div className="grid grid-cols-2 gap-4 py-2 border-t border-white/20">
                 <div className="text-center">
                   <div className="text-sm text-white/80 mb-1">💳 Cartão</div>
@@ -864,6 +1083,311 @@ function DailyDashboard() {
             </div>
           </div>
         </div>
+
+        {/* Traffic Data Section - Only shown in Launch Mode */}
+        {isLaunchMode && trafficData && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                Dados de Tráfego
+              </h3>
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                Período: {trafficData.startDate ? new Date(trafficData.startDate).toLocaleDateString('pt-BR') : ''} a {trafficData.endDate ? new Date(trafficData.endDate).toLocaleDateString('pt-BR') : ''}
+              </div>
+            </div>
+
+            {/* Traffic Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="bg-gradient-to-r from-red-500 to-red-600 rounded-lg shadow p-4 text-white">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-lg font-semibold">Gasto Total</h4>
+                  <div className="bg-white/20 rounded-full p-2">
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h1.96c.1 1.05.82 1.87 2.65 1.87 1.96 0 2.4-.98 2.4-1.59 0-.83-.44-1.61-2.67-2.14-2.48-.6-4.18-1.62-4.18-3.67 0-1.72 1.39-2.84 3.11-3.21V4h2.67v1.95c1.86.45 2.79 1.86 2.85 3.39H14.3c-.05-1.11-.64-1.87-2.22-1.87-1.5 0-2.4.68-2.4 1.64 0 .84.65 1.39 2.67 1.91s4.18 1.39 4.18 3.91c-.01 1.83-1.38 2.83-3.12 3.16z"/>
+                    </svg>
+                  </div>
+                </div>
+                <p className="text-2xl font-bold">
+                  {formatCurrency(parseFloat(trafficData.totalSpend || 0))}
+                </p>
+                <p className="text-sm text-white/80">
+                  {trafficData.accountsWithSpend?.length || 0} conta(s) ativa(s)
+                </p>
+              </div>
+
+              <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg shadow p-4 text-white">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-lg font-semibold">Contas Analisadas</h4>
+                  <div className="bg-white/20 rounded-full p-2">
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M16 4c0-1.11.89-2 2-2s2 .89 2 2-.89 2-2 2-2-.89-2-2zM4 18v-4h3v4h2v-7.5c0-1.1.9-2 2-2s2 .9 2 2V18h2v-4h3v4h2V9c0-1.1-.9-2-2-2h-3.5v-.5c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5V7H4c-1.1 0-2 .9-2 2v9h2z"/>
+                    </svg>
+                  </div>
+                </div>
+                <p className="text-2xl font-bold">
+                  {trafficData.totalAccounts || 0}
+                </p>
+                <p className="text-sm text-white/80">
+                  Total de contas Meta Ads
+                </p>
+              </div>
+
+              <div className="bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-lg shadow p-4 text-white">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-lg font-semibold">Período</h4>
+                  <div className="bg-white/20 rounded-full p-2">
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/>
+                    </svg>
+                  </div>
+                </div>
+                <p className="text-lg font-bold">
+                  {(() => {
+                    if (!trafficData.period) return 'N/A';
+                    // Formatar período: "7 dias (2025-09-16 a 2025-09-22)" -> "7 dias (16/09/2025 a 22/09/2025)"
+                    const periodText = trafficData.period;
+                    const formattedPeriod = periodText.replace(/(\d{4})-(\d{2})-(\d{2})/g, (match, year, month, day) => {
+                      return `${day}/${month}/${year}`;
+                    });
+                    return formattedPeriod;
+                  })()}
+                </p>
+                <p className="text-sm text-white/80">
+                  Terça → Segunda (2 sem. atrás)
+                </p>
+              </div>
+            </div>
+
+            {/* ROI Analysis Section */}
+            {(() => {
+              const roiData = calculateROIData();
+              return roiData && (
+                <div className="mb-6">
+                  <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                    Análise de ROI (Return on Investment)
+                  </h4>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-4">
+                    {/* ROI Total */}
+                    <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg shadow p-4 text-white">
+                      <div className="flex items-center justify-between mb-2">
+                        <h5 className="text-sm font-semibold">ROI Total</h5>
+                        <div className="bg-white/20 rounded-full p-1">
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h1.96c.1 1.05.82 1.87 2.65 1.87 1.96 0 2.4-.98 2.4-1.59 0-.83-.44-1.61-2.67-2.14-2.48-.6-4.18-1.62-4.18-3.67 0-1.72 1.39-2.84 3.11-3.21V4h2.67v1.95c1.86.45 2.79 1.86 2.85 3.39H14.3c-.05-1.11-.64-1.87-2.22-1.87-1.5 0-2.4.68-2.4 1.64 0 .84.65 1.39 2.67 1.91s4.18 1.39 4.18 3.91c-.01 1.83-1.38 2.83-3.12 3.16z"/>
+                          </svg>
+                        </div>
+                      </div>
+                      <p className={`text-xl font-bold ${roiData.total.roi >= 1 ? '' : 'text-red-200'}`}>
+                        {roiData.total.roi.toFixed(2)}x
+                      </p>
+                      <div className="text-xs text-white/80 mt-1">
+                        <div>Receita: {formatCurrency(roiData.total.revenue)}</div>
+                        <div>Custo: {formatCurrency(roiData.total.cost)}</div>
+                      </div>
+                    </div>
+
+                    {/* ROI Cartão */}
+                    <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow p-4 text-white">
+                      <div className="flex items-center justify-between mb-2">
+                        <h5 className="text-sm font-semibold">ROI Cartão</h5>
+                        <div className="bg-white/20 rounded-full p-1">
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
+                          </svg>
+                        </div>
+                      </div>
+                      <p className={`text-xl font-bold ${roiData.card.roi >= 1 ? '' : 'text-red-200'}`}>
+                        {roiData.card.roi.toFixed(2)}x
+                      </p>
+                      <div className="text-xs text-white/80 mt-1">
+                        <div>Receita: {formatCurrency(roiData.card.revenue)}</div>
+                        <div>Custo: {formatCurrency(roiData.card.cost)}</div>
+                      </div>
+                    </div>
+
+                    {/* ROI IA Club */}
+                    <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg shadow p-4 text-white">
+                      <div className="flex items-center justify-between mb-2">
+                        <h5 className="text-sm font-semibold">ROI IA Club</h5>
+                        <div className="bg-white/20 rounded-full p-1">
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                          </svg>
+                        </div>
+                      </div>
+                      <p className={`text-xl font-bold ${roiData.ia.roi >= 1 ? '' : 'text-red-200'}`}>
+                        {roiData.ia.roi.toFixed(2)}x
+                      </p>
+                      <div className="text-xs text-white/80 mt-1">
+                        <div>Receita: {formatCurrency(roiData.ia.revenue)}</div>
+                        <div>Custo: {formatCurrency(roiData.ia.cost)}</div>
+                      </div>
+                    </div>
+
+                    {/* ROI DevClub */}
+                    <div className="bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-lg shadow p-4 text-white">
+                      <div className="flex items-center justify-between mb-2">
+                        <h5 className="text-sm font-semibold">ROI DevClub</h5>
+                        <div className="bg-white/20 rounded-full p-1">
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>
+                          </svg>
+                        </div>
+                      </div>
+                      <p className={`text-xl font-bold ${roiData.devclub.roi >= 1 ? '' : 'text-red-200'}`}>
+                        {roiData.devclub.roi.toFixed(2)}x
+                      </p>
+                      <div className="text-xs text-white/80 mt-1">
+                        <div>Receita: {formatCurrency(roiData.devclub.revenue)}</div>
+                        <div>Custo: {formatCurrency(roiData.devclub.cost)}</div>
+                      </div>
+                    </div>
+
+                    {/* ROI Cartão IA Club */}
+                    <div className="bg-gradient-to-r from-pink-500 to-pink-600 rounded-lg shadow p-4 text-white">
+                      <div className="flex items-center justify-between mb-2">
+                        <h5 className="text-sm font-semibold">ROI Cartão IA</h5>
+                        <div className="bg-white/20 rounded-full p-1">
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
+                          </svg>
+                        </div>
+                      </div>
+                      <p className={`text-xl font-bold ${roiData.ia.cardRoi >= 1 ? '' : 'text-red-200'}`}>
+                        {roiData.ia.cardRoi.toFixed(2)}x
+                      </p>
+                      <div className="text-xs text-white/80 mt-1">
+                        <div>Receita: {formatCurrency(roiData.ia.cardRevenue)}</div>
+                        <div>Custo: {formatCurrency(roiData.ia.cost)}</div>
+                      </div>
+                    </div>
+
+                    {/* ROI Cartão DevClub */}
+                    <div className="bg-gradient-to-r from-teal-500 to-teal-600 rounded-lg shadow p-4 text-white">
+                      <div className="flex items-center justify-between mb-2">
+                        <h5 className="text-sm font-semibold">ROI Cartão Dev</h5>
+                        <div className="bg-white/20 rounded-full p-1">
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
+                          </svg>
+                        </div>
+                      </div>
+                      <p className={`text-xl font-bold ${roiData.devclub.cardRoi >= 1 ? '' : 'text-red-200'}`}>
+                        {roiData.devclub.cardRoi.toFixed(2)}x
+                      </p>
+                      <div className="text-xs text-white/80 mt-1">
+                        <div>Receita: {formatCurrency(roiData.devclub.cardRevenue)}</div>
+                        <div>Custo: {formatCurrency(roiData.devclub.cost)}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ROI Summary Table */}
+                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                    <h5 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
+                      Resumo de Performance
+                    </h5>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                      <div>
+                        <div className="text-xs text-gray-600 dark:text-gray-400">Melhor ROI</div>
+                        <div className="font-bold text-green-600 dark:text-green-400">
+                          {Math.max(roiData.ia.roi, roiData.devclub.roi, roiData.card.roi, roiData.total.roi, roiData.ia.cardRoi, roiData.devclub.cardRoi).toFixed(2)}x
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-600 dark:text-gray-400">ROAS Total</div>
+                        <div className="font-bold text-gray-900 dark:text-white">
+                          {(roiData.total.revenue / roiData.total.cost).toFixed(2)}x
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-600 dark:text-gray-400">Lucro/Prejuízo</div>
+                        <div className={`font-bold ${(roiData.total.revenue - roiData.total.cost) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                          {formatCurrency(roiData.total.revenue - roiData.total.cost)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-600 dark:text-gray-400">Margem</div>
+                        <div className={`font-bold ${((roiData.total.revenue - roiData.total.cost) / roiData.total.revenue * 100) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                          {((roiData.total.revenue - roiData.total.cost) / roiData.total.revenue * 100).toFixed(1)}%
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Traffic Details by Account */}
+            {trafficData.accountsWithSpend && trafficData.accountsWithSpend.length > 0 && (
+              <div>
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                  Detalhamento por Conta
+                </h4>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b dark:border-gray-700">
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Conta
+                        </th>
+                        <th className="text-left py-3 px-4 text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Empresa
+                        </th>
+                        <th className="text-right py-3 px-4 text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Gasto
+                        </th>
+                        <th className="text-center py-3 px-4 text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Moeda
+                        </th>
+                        <th className="text-right py-3 px-4 text-sm font-medium text-gray-700 dark:text-gray-300">
+                          % do Total
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {trafficData.accountsWithSpend.map((account, index) => {
+                        const percentage = ((account.spend / parseFloat(trafficData.totalSpend)) * 100).toFixed(1);
+                        return (
+                          <tr key={index} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
+                            <td className="py-3 px-4 text-gray-900 dark:text-white font-medium">
+                              {account.accountName}
+                            </td>
+                            <td className="py-3 px-4 text-gray-600 dark:text-gray-400 text-sm">
+                              {account.businessName || '-'}
+                            </td>
+                            <td className="py-3 px-4 text-right text-gray-900 dark:text-white font-semibold">
+                              {formatCurrency(account.spend)}
+                            </td>
+                            <td className="py-3 px-4 text-center">
+                              <span className="px-2 py-1 text-xs rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                                {account.currency}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              <div className="flex items-center justify-end">
+                                <span className="text-gray-900 dark:text-white font-medium mr-2">
+                                  {percentage}%
+                                </span>
+                                <div className="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                  <div 
+                                    className="bg-red-500 h-2 rounded-full"
+                                    style={{ width: `${percentage}%` }}
+                                  />
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Main summary cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
