@@ -132,7 +132,7 @@ function DailyDashboard() {
       const end = new Date(trafficDates.endDate);
       const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
       
-      const response = await fetch(`http://localhost:3000/api/meta/all-accounts-spend/${days}`);
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/meta/all-accounts-spend/${days}`);
       const data = await response.json();
       
       // Adicionar informações de período personalizadas

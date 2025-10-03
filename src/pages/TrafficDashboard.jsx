@@ -37,7 +37,7 @@ const TrafficDashboard = () => {
 
   const fetchAccounts = async () => {
     try {
-      const response = await fetch('http://localhost:3000/api/meta/accounts');
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/meta/accounts`);
       const data = await response.json();
       const activeAccounts = data.data.filter(acc => acc.account_status === 1);
       setAccounts(activeAccounts);
@@ -51,9 +51,9 @@ const TrafficDashboard = () => {
     try {
       let url;
       if (selectedAccount === 'all') {
-        url = `http://localhost:3000/api/meta/all-accounts-spend/${period}`;
+        url = `${import.meta.env.VITE_API_URL}/meta/all-accounts-spend/${period}`;
       } else {
-        url = `http://localhost:3000/api/meta/daily-spend/${period}?accountId=${selectedAccount}`;
+        url = `${import.meta.env.VITE_API_URL}/meta/daily-spend/${period}?accountId=${selectedAccount}`;
       }
 
       const response = await fetch(url);

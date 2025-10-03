@@ -1,8 +1,8 @@
 // src/services/tsApiService.js
 import axios from 'axios';
 
-// URL do backend - usar localhost:3000
-const API_BASE_URL = 'http://localhost:3000/api';
+// URL do backend - usando variável de ambiente
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 /**
  * Busca dados de vendas do endpoint /api/tsales/sales
