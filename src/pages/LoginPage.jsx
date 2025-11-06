@@ -1,8 +1,9 @@
 // src/pages/LoginPage.jsx
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { FaSignInAlt, FaSpinner } from 'react-icons/fa';
+import toast from 'react-hot-toast';
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');
@@ -10,17 +11,31 @@ const LoginPage = () => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
-  
-  const { login, currentUser } = useAuth();
-  
+
+  const { login, currentUser, userRoles } = useAuth();
+  const location = useLocation();
+
   useEffect(() => {
     // Check for stored theme preference
     const savedTheme = localStorage.getItem('theme');
     setIsDarkMode(savedTheme === 'dark');
-  }, []);
-  
+
+    // Show toast if user was redirected due to missing permissions
+    if (location.state?.from) {
+      toast.error('Acesso negado. Você não possui permissão para acessar esta página.');
+    } else if (!currentUser && location.pathname === '/login') {
+      // Check if there was an auth issue
+      const hasStaleAuth = localStorage.getItem('auth_token');
+      if (hasStaleAuth && !userRoles) {
+        toast.error('Sessão expirada. Por favor, faça login novamente.');
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('token_created_at');
+      }
+    }
+  }, [location, currentUser, userRoles]);
+
   // If user is already logged in, redirect to dashboard
-  if (currentUser) {
+  if (currentUser && userRoles) {
     return <Navigate to="/" />;
   }
   

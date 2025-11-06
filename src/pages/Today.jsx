@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import axios from 'axios'
+import toast from 'react-hot-toast'
 import boletoService from '../services/boletoService'
 import {
   BarChart,
@@ -41,6 +42,14 @@ function Today() {
   const [boletoData, setBoletoData] = useState(null)
   const [categoryData, setCategoryData] = useState({ ia: {}, programacao: {} })
   const [loading, setLoading] = useState(true)
+  const [loadingStates, setLoadingStates] = useState({
+    transactions: true,
+    refunds: true,
+    boleto: true
+  })
+
+  // AbortController ref para cancelar requisições pendentes
+  const abortControllerRef = useRef(null)
 
   // Function to categorize products by type
   const categorizeProduct = (productName) => {
@@ -69,12 +78,26 @@ function Today() {
 
   const fetchDayData = useCallback(async (date) => {
     try {
-      setLoading(true)
+      // Cancelar requisições anteriores se existirem
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
 
-      // Buscar transações aprovadas
-      let transactionsResponse = { data: { data: [] } }
-      try {
-        transactionsResponse = await axios.post(
+      // Criar novo AbortController para esta requisição
+      abortControllerRef.current = new AbortController()
+      const signal = abortControllerRef.current.signal
+
+      setLoading(true)
+      setLoadingStates({
+        transactions: true,
+        refunds: true,
+        boleto: true
+      })
+
+      // Executar todas as chamadas em paralelo usando Promise.allSettled
+      const [transactionsResult, refundsResult, boletoResult] = await Promise.allSettled([
+        // Buscar transações aprovadas
+        axios.post(
           `${import.meta.env.VITE_API_URL}/transactions`,
           {
             ordered_at_ini: date,
@@ -82,16 +105,11 @@ function Today() {
           },
           {
             timeout: 60000,
+            signal,
           },
-        )
-      } catch (error) {
-        console.warn('Erro ao buscar transações:', error.message)
-      }
-
-      // Buscar transações reembolsadas
-      let refundsResponse = { data: { data: [] } }
-      try {
-        refundsResponse = await axios.post(
+        ),
+        // Buscar transações reembolsadas
+        axios.post(
           `${import.meta.env.VITE_API_URL}/refunds`,
           {
             ordered_at_ini: date,
@@ -99,19 +117,78 @@ function Today() {
           },
           {
             timeout: 60000,
+            signal,
           },
-        )
-      } catch (error) {
-        console.warn('Erro ao buscar reembolsos:', error.message)
+        ),
+        // Buscar vendas de boleto (TMB)
+        (async () => {
+          const selectedDate = new Date(date)
+          return await boletoService.getSalesByDate(selectedDate)
+        })()
+      ])
+
+      // Processar resultado de transações
+      let transactionsResponse = { data: { data: [] } }
+      if (transactionsResult.status === 'fulfilled') {
+        transactionsResponse = transactionsResult.value
+        setLoadingStates(prev => ({ ...prev, transactions: false }))
+      } else {
+        const errorDetails = transactionsResult.reason
+
+        // Ignorar erros de cancelamento (AbortController)
+        if (errorDetails?.code === 'ERR_CANCELED' || errorDetails?.message === 'canceled') {
+          setLoadingStates(prev => ({ ...prev, transactions: false }))
+          return
+        }
+
+        // Mostrar mensagem mais específica baseada no erro
+        if (errorDetails?.code === 'ECONNABORTED') {
+          toast.error('Timeout ao carregar transações. A API está demorando muito.')
+        } else if (errorDetails?.code === 'ERR_NETWORK' || errorDetails?.message?.includes('Network Error')) {
+          toast.error('Erro de rede. Verifique se a API está rodando.')
+        } else if (errorDetails?.response?.status === 404) {
+          toast.error('Endpoint de transações não encontrado.')
+        } else if (errorDetails?.response?.status >= 500) {
+          toast.error('Erro no servidor da API ao carregar transações.')
+        } else {
+          toast.error('Erro ao carregar transações de cartão. Dados podem estar incompletos.')
+        }
+
+        setLoadingStates(prev => ({ ...prev, transactions: false }))
       }
 
-      // Buscar vendas de boleto (TMB)
+      // Processar resultado de reembolsos
+      let refundsResponse = { data: { data: [] } }
+      if (refundsResult.status === 'fulfilled') {
+        refundsResponse = refundsResult.value
+        setLoadingStates(prev => ({ ...prev, refunds: false }))
+      } else {
+        const errorDetails = refundsResult.reason
+
+        // Ignorar erros de cancelamento (AbortController)
+        if (errorDetails?.code === 'ERR_CANCELED' || errorDetails?.message === 'canceled') {
+          setLoadingStates(prev => ({ ...prev, refunds: false }))
+        } else {
+          toast.error('Erro ao carregar dados de reembolsos.')
+          setLoadingStates(prev => ({ ...prev, refunds: false }))
+        }
+      }
+
+      // Processar resultado de boleto
       let boletoSales = []
-      try {
-        const selectedDate = new Date(date)
-        boletoSales = await boletoService.getSalesByDate(selectedDate)
-      } catch (error) {
-        console.warn('Erro ao buscar vendas de boleto:', error.message)
+      if (boletoResult.status === 'fulfilled') {
+        boletoSales = boletoResult.value
+        setLoadingStates(prev => ({ ...prev, boleto: false }))
+      } else {
+        const errorDetails = boletoResult.reason
+
+        // Ignorar erros de cancelamento (AbortController)
+        if (errorDetails?.code === 'ERR_CANCELED' || errorDetails?.message === 'canceled') {
+          setLoadingStates(prev => ({ ...prev, boleto: false }))
+        } else {
+          toast.error('Erro ao carregar vendas de boleto.')
+          setLoadingStates(prev => ({ ...prev, boleto: false }))
+        }
       }
 
       // Processar dados de transações
@@ -390,7 +467,12 @@ function Today() {
 
       setLoading(false)
     } catch (error) {
-      console.error('Erro ao buscar dados:', error)
+      // Não mostrar erro se foi cancelamento intencional
+      if (error.name === 'AbortError' || error.name === 'CanceledError') {
+        return
+      }
+
+      toast.error('Erro ao carregar dados do dia. Tente novamente.')
       setLoading(false)
     }
   }, [])

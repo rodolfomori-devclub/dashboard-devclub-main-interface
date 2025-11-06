@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import axios from 'axios'
+import toast from 'react-hot-toast'
 import boletoService from '../services/boletoService'
 import {
   BarChart,
@@ -28,7 +29,15 @@ function DailyDashboard() {
   const [availableOffers, setAvailableOffers] = useState([])
   const [categoryData, setCategoryData] = useState({ ia: {}, programacao: {} })
   const [loading, setLoading] = useState(true)
+  const [loadingStates, setLoadingStates] = useState({
+    transactions: true,
+    refunds: true,
+    boleto: true
+  })
   const [selectedWeek, setSelectedWeek] = useState(null)
+
+  // AbortController ref para cancelar requisições pendentes
+  const abortControllerRef = useRef(null)
   const [trafficData, setTrafficData] = useState(null)
   const [isLaunchMode, setIsLaunchMode] = useState(false)
   const [autoSelectWeek, setAutoSelectWeek] = useState(true)
@@ -145,7 +154,7 @@ function DailyDashboard() {
       
       setTrafficData(enrichedData);
     } catch (error) {
-      console.error('Erro ao buscar dados de tráfego:', error);
+      // Silent error handling for traffic data
     }
   };
 
@@ -275,38 +284,103 @@ function DailyDashboard() {
 
   const fetchData = useCallback(async (startDate, endDate) => {
     try {
+      // Cancelar requisições anteriores se existirem
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+
+      // Criar novo AbortController para esta requisição
+      abortControllerRef.current = new AbortController()
+      const signal = abortControllerRef.current.signal
+
       setLoading(true)
-      console.log(`Fetching data: From ${startDate} to ${endDate}`)
+      setLoadingStates({
+        transactions: true,
+        refunds: true,
+        boleto: true
+      })
 
-      // Fetch approved transactions
-      const transactionsResponse = await axios.post(
-        `${import.meta.env.VITE_API_URL}/transactions`,
-        {
-          ordered_at_ini: startDate,
-          ordered_at_end: endDate,
-        }
-      )
+      // Executar todas as chamadas em paralelo usando Promise.allSettled
+      const [transactionsResult, refundsResult, boletoResult] = await Promise.allSettled([
+        // Fetch approved transactions
+        axios.post(
+          `${import.meta.env.VITE_API_URL}/transactions`,
+          {
+            ordered_at_ini: startDate,
+            ordered_at_end: endDate,
+          },
+          {
+            timeout: 60000,
+            signal
+          }
+        ),
+        // Fetch refunds
+        axios.post(
+          `${import.meta.env.VITE_API_URL}/refunds`,
+          {
+            ordered_at_ini: startDate,
+            ordered_at_end: endDate,
+          },
+          {
+            timeout: 60000,
+            signal
+          }
+        ),
+        // Fetch boleto sales
+        (async () => {
+          const start = new Date(startDate + 'T00:00:00')
+          const end = new Date(endDate + 'T23:59:59')
+          return await boletoService.getSalesByDateRange(start, end)
+        })()
+      ])
 
-      // Fetch refunds
-      const refundsResponse = await axios.post(
-        `${import.meta.env.VITE_API_URL}/refunds`,
-        {
-          ordered_at_ini: startDate,
-          ordered_at_end: endDate,
+      // Processar resultado de transações
+      let transactionsResponse = { data: { data: [] } }
+      if (transactionsResult.status === 'fulfilled') {
+        transactionsResponse = transactionsResult.value
+        setLoadingStates(prev => ({ ...prev, transactions: false }))
+      } else {
+        const errorDetails = transactionsResult.reason
+        if (errorDetails?.code === 'ERR_CANCELED' || errorDetails?.message === 'canceled') {
+          setLoadingStates(prev => ({ ...prev, transactions: false }))
+          return
         }
-      )
+        toast.error('Erro ao carregar transações.')
+        setLoadingStates(prev => ({ ...prev, transactions: false }))
+      }
+
+      // Processar resultado de reembolsos
+      let refundsResponse = { data: { data: [] } }
+      if (refundsResult.status === 'fulfilled') {
+        refundsResponse = refundsResult.value
+        setLoadingStates(prev => ({ ...prev, refunds: false }))
+      } else {
+        const errorDetails = refundsResult.reason
+        if (errorDetails?.code === 'ERR_CANCELED' || errorDetails?.message === 'canceled') {
+          setLoadingStates(prev => ({ ...prev, refunds: false }))
+        } else {
+          toast.error('Erro ao carregar reembolsos.')
+          setLoadingStates(prev => ({ ...prev, refunds: false }))
+        }
+      }
 
       // Store raw refund data for the modal
       setRefundsDetails(refundsResponse.data.data || [])
 
-      // Fetch boleto sales
-      const start = new Date(startDate + 'T00:00:00')
-      const end = new Date(endDate + 'T23:59:59')
-      const boletoSales = await boletoService.getSalesByDateRange(start, end)
-
-      console.log('Transaction data received:', transactionsResponse.data)
-      console.log('Refund data received:', refundsResponse.data)
-      console.log('Boleto data received:', boletoSales)
+      // Processar resultado de boleto
+      let boletoSales = []
+      if (boletoResult.status === 'fulfilled') {
+        boletoSales = boletoResult.value
+        setLoadingStates(prev => ({ ...prev, boleto: false }))
+      } else {
+        const errorDetails = boletoResult.reason
+        if (errorDetails?.code === 'ERR_CANCELED' || errorDetails?.message === 'canceled') {
+          setLoadingStates(prev => ({ ...prev, boleto: false }))
+        } else {
+          toast.error('Erro ao carregar boleto.')
+          setLoadingStates(prev => ({ ...prev, boleto: false }))
+        }
+      }
 
       const dailyDataMap = {}
       let totalAffiliateValue = 0
@@ -389,11 +463,6 @@ function DailyDashboard() {
             transaction.dates.created_at,
           )
 
-          // Debug log
-          console.log(
-            `Transaction: timestamp=${transaction.dates.created_at}, date=${transactionDate}`,
-          )
-
           const netAmount = Number(
             transaction?.calculation_details?.net_amount || 0,
           )
@@ -415,10 +484,6 @@ function DailyDashboard() {
               totalCommercialValue += netAmount
               totalCommercialQuantity += 1
             }
-          } else {
-            console.log(
-              `Warning: Transaction with date ${transactionDate} outside defined range`,
-            )
           }
 
           totalAffiliateValue += affiliateValue
@@ -537,10 +602,6 @@ function DailyDashboard() {
           if (dailyDataMap[refundDate]) {
             dailyDataMap[refundDate].refund_amount += refundAmount
             dailyDataMap[refundDate].refund_quantity += 1
-          } else {
-            console.log(
-              `Warning: Refund with date ${refundDate} outside defined range`,
-            )
           }
 
           totalRefundAmount += refundAmount
@@ -549,12 +610,6 @@ function DailyDashboard() {
       }
 
       // Process boleto sales
-      // Debug: log first boleto sale to see structure
-      if (boletoSales.length > 0) {
-        console.log('Sample boleto sale structure:', boletoSales[0])
-        console.log('Boleto raw data:', boletoSales[0].raw)
-      }
-      
       boletoSales.forEach((sale) => {
         if (!sale || !sale.timestamp) return
 
@@ -569,10 +624,6 @@ function DailyDashboard() {
           // Also add to general totals
           dailyDataMap[dateStr].net_amount += saleValue
           dailyDataMap[dateStr].quantity += 1
-        } else {
-          console.log(
-            `Boleto sale with date ${dateStr} outside defined range`,
-          )
         }
 
         totalBoletoValue += saleValue
@@ -620,15 +671,6 @@ function DailyDashboard() {
         })
         
         // Track offer data (TMB/Boleto)
-        // Debug para entender estrutura da oferta no TMB
-        if (Math.random() < 0.1) { // Log 10% das vendas TMB
-          console.log('TMB Sale Debug:', {
-            product: productNameBoleto,
-            raw: sale.raw,
-            fullSale: sale
-          })
-        }
-        
         // Para o TMB, vamos tentar extrair a oferta do campo produto
         // Assumindo que o formato pode ser algo como "Produto - Oferta" ou similar
         let offerNameBoleto = productNameBoleto
@@ -673,11 +715,6 @@ function DailyDashboard() {
       })
 
       const chartData = Object.values(dailyDataMap)
-      console.log('Processed data:', chartData)
-      console.log('Total affiliate value:', totalAffiliateValue)
-      console.log('Total refund value:', totalRefundAmount)
-      console.log('Total commercial sales value:', totalCommercialValue)
-      console.log('Total boleto sales value:', totalBoletoValue)
 
       // Convert product summary to array and sort by value descending
       const productDataArray = Object.values(productSummary).sort((a, b) => b.value - a.value)
@@ -731,13 +768,25 @@ function DailyDashboard() {
 
       setLoading(false)
     } catch (error) {
-      console.error('Error fetching data:', error)
+      // Handle abort errors - don't show error toast for cancellations
+      if (error.name === 'AbortError' || error.name === 'CanceledError' || error.code === 'ERR_CANCELED') {
+        return
+      }
+
+      toast.error('Erro ao carregar dados. Tente novamente.')
       setLoading(false)
     }
   }, [])
 
   useEffect(() => {
     fetchData(dateRange.start, dateRange.end)
+
+    // Cleanup: abort pending requests when component unmounts
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+    }
   }, [dateRange, fetchData])
 
   const handleRefreshData = () => {

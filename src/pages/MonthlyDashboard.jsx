@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import axios from 'axios'
+import toast from 'react-hot-toast'
 import boletoService from '../services/boletoService'
 import {
   BarChart,
@@ -27,6 +28,11 @@ function MonthlyDashboard() {
   const [productData, setProductData] = useState([])
   const [offerData, setOfferData] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loadingStates, setLoadingStates] = useState({
+    transactions: true,
+    refunds: true,
+    boleto: true
+  })
   const [goals, setGoals] = useState({
     meta: localStorage.getItem('monthlyMeta') || 'R$ 0,00',
     superMeta: localStorage.getItem('monthlySuperMeta') || 'R$ 0,00',
@@ -37,6 +43,7 @@ function MonthlyDashboard() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1)
   const [categoryData, setCategoryData] = useState({ ia: {}, programacao: {} })
+  const abortControllerRef = useRef(null)
 
   // Function to categorize products by type
   const categorizeProduct = (productName) => {
@@ -118,55 +125,95 @@ function MonthlyDashboard() {
 
   const fetchMonthlyData = useCallback(async () => {
     try {
+      // Cancel previous requests
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+
+      abortControllerRef.current = new AbortController()
+      const signal = abortControllerRef.current.signal
+
       setLoading(true)
       setError(null)
+      setLoadingStates({ transactions: true, refunds: true, boleto: true })
 
-      // Buscando transações aprovadas
-      let transactionsResponse = { data: { data: [] } }
-      try {
-        transactionsResponse = await axios.post(
+      // Fazer as 3 chamadas em paralelo
+      const [transactionsResult, refundsResult, boletoResult] = await Promise.allSettled([
+        axios.post(
           `${import.meta.env.VITE_API_URL}/transactions`,
           {
             ordered_at_ini: firstDayOfMonth,
             ordered_at_end: lastDayOfMonth,
           },
           {
-            timeout: 30000,
+            timeout: 60000,
+            signal,
             headers: {
               'X-Debug-Request': 'MonthlyDashboard',
             },
           },
-        )
-      } catch (error) {
-        console.warn('Erro ao buscar transações:', error.message)
-      }
-
-      // Buscando reembolsos
-      let refundsResponse = { data: { data: [] } }
-      try {
-        refundsResponse = await axios.post(
+        ),
+        axios.post(
           `${import.meta.env.VITE_API_URL}/refunds`,
           {
             ordered_at_ini: firstDayOfMonth,
             ordered_at_end: lastDayOfMonth,
           },
           {
-            timeout: 30000,
+            timeout: 60000,
+            signal,
             headers: {
               'X-Debug-Request': 'MonthlyDashboard-Refunds',
             },
           },
-        )
-      } catch (error) {
-        console.warn('Erro ao buscar reembolsos:', error.message)
+        ),
+        (async () => {
+          return await boletoService.getSalesByMonth(selectedYear, selectedMonth - 1)
+        })()
+      ])
+
+      // Process transactions
+      let transactionsResponse = { data: { data: [] } }
+      if (transactionsResult.status === 'fulfilled') {
+        transactionsResponse = transactionsResult.value
+        setLoadingStates(prev => ({ ...prev, transactions: false }))
+      } else {
+        const errorDetails = transactionsResult.reason
+        if (errorDetails?.code === 'ERR_CANCELED' || errorDetails?.message === 'canceled') {
+          setLoadingStates(prev => ({ ...prev, transactions: false }))
+          return
+        }
+        toast.error('Erro ao carregar transações. Dados podem estar incompletos.')
+        setLoadingStates(prev => ({ ...prev, transactions: false }))
       }
-      
-      // Buscar vendas de boleto do mês
+
+      // Process refunds
+      let refundsResponse = { data: { data: [] } }
+      if (refundsResult.status === 'fulfilled') {
+        refundsResponse = refundsResult.value
+        setLoadingStates(prev => ({ ...prev, refunds: false }))
+      } else {
+        const errorDetails = refundsResult.reason
+        if (errorDetails?.code === 'ERR_CANCELED' || errorDetails?.message === 'canceled') {
+          setLoadingStates(prev => ({ ...prev, refunds: false }))
+          return
+        }
+        toast.error('Erro ao carregar reembolsos. Dados podem estar incompletos.')
+        setLoadingStates(prev => ({ ...prev, refunds: false }))
+      }
+
+      // Process boleto
       let boletoSales = []
-      try {
-        boletoSales = await boletoService.getSalesByMonth(selectedYear, selectedMonth - 1)
-      } catch (error) {
-        console.warn('Erro ao buscar vendas de boleto:', error.message)
+      if (boletoResult.status === 'fulfilled') {
+        boletoSales = boletoResult.value
+        setLoadingStates(prev => ({ ...prev, boleto: false }))
+      } else {
+        const errorDetails = boletoResult.reason
+        if (errorDetails?.code === 'ERR_CANCELED' || errorDetails?.message === 'canceled') {
+          setLoadingStates(prev => ({ ...prev, boleto: false }))
+          return
+        }
+        setLoadingStates(prev => ({ ...prev, boleto: false }))
       }
 
       // Criar mapa de dados diários
@@ -525,7 +572,12 @@ function MonthlyDashboard() {
       // Forçar atualização do estado de carregamento
       setLoading(false)
     } catch (error) {
-      console.error('Erro na requisição:', error)
+      // Handle abort errors - don't show error toast for cancellations
+      if (error.name === 'AbortError' || error.name === 'CanceledError' || error.code === 'ERR_CANCELED') {
+        return
+      }
+
+      toast.error('Erro ao carregar dados do mês. Tente novamente.')
       setError(error)
       setLoading(false)
     }
@@ -534,6 +586,13 @@ function MonthlyDashboard() {
   // Buscar dados quando o componente monta ou quando mês/ano muda
   useEffect(() => {
     fetchMonthlyData()
+
+    // Cleanup: abort pending requests when component unmounts or month/year changes
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+    }
   }, [fetchMonthlyData])
 
   // Calcular progresso das metas

@@ -4,6 +4,7 @@ import {
   Routes,
   Navigate,
 } from 'react-router-dom'
+import { Toaster } from 'react-hot-toast'
 import Header from './components/Header'
 import DailyDashboard from './pages/DailyDashboard'
 import MonthlyDashboard from './pages/MonthlyDashboard'
@@ -12,7 +13,6 @@ import DREDashboard from './pages/DREDashboard'
 import DataSourcesPage from './pages/DataSourcesPage'
 import AdminUserPage from './pages/AdminUserPage'
 import LoginPage from './pages/LoginPage'
-import AccessDeniedPage from './pages/AccessDeniedPage'
 import Today from './pages/Today'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import ComparativoPage from './pages/ComparativoPage'
@@ -28,17 +28,21 @@ import TrafficDashboard from './pages/TrafficDashboard'
 
 // Protected route component
 const ProtectedRoute = ({ children, requiredPermission }) => {
-  const { currentUser, hasPermission } = useAuth()
+  const { currentUser, userRoles, hasPermission } = useAuth()
 
   // If no user is logged in, redirect to login
   if (!currentUser) {
     return <Navigate to="/login" />
   }
 
+  // If user is logged in but roles are not loaded yet, redirect to login
+  if (!userRoles) {
+    return <Navigate to="/login" replace />
+  }
+
   // If a specific permission is required, check it
   if (requiredPermission && !hasPermission(requiredPermission)) {
-    // Redirect to access denied page instead of root
-    return <Navigate to="/access-denied" state={{ requiredPermission }} />
+    return <Navigate to="/login" replace />
   }
 
   return children
@@ -49,9 +53,7 @@ const AdminRoute = ({ children }) => {
   const { userRoles } = useAuth()
 
   if (!userRoles?.isAdmin) {
-    return (
-      <Navigate to="/access-denied" state={{ requiredPermission: 'admin' }} />
-    )
+    return <Navigate to="/login" replace />
   }
 
   return children
@@ -92,7 +94,6 @@ function AppRouter() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/access-denied" element={<AccessDeniedPage />} />
 
       <Route
         path="/"
@@ -270,6 +271,7 @@ function App() {
   return (
     <Router>
       <AuthProvider>
+        <Toaster position="top-center" />
         <AppRouter />
       </AuthProvider>
     </Router>
