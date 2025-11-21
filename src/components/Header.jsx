@@ -13,13 +13,11 @@ import {
   FaGlobe,
   FaCalendarAlt,
   FaCalendar,
-  FaBriefcase,
   FaChartLine,
-  FaRocket,
-  FaDatabase,
   FaUser,
   FaBell,
   FaBullhorn,
+  FaBullseye,
 } from 'react-icons/fa'
 
 export default function Header() {
@@ -73,14 +71,11 @@ export default function Header() {
     { path: '/daily', label: 'Global', icon: FaGlobe, condition: userRoles?.daily !== false },
     { path: '/monthly', label: 'Mensal', icon: FaCalendarAlt, condition: userRoles?.monthly !== false },
     { path: '/yearly', label: 'Anual', icon: FaCalendar, condition: userRoles?.yearly !== false },
-    { path: '/commercial', label: 'Comercial', icon: FaBriefcase, condition: userRoles?.commercial !== false },
-    { path: '/comparativo', label: 'Comparativo', icon: FaChartLine, condition: userRoles?.commercial !== false },
-    { path: '/launch', label: 'LaunchPro', icon: FaRocket, condition: userRoles?.dre !== false || userRoles?.isAdmin },
     { path: '/dre', label: 'DRE', icon: FaChartPie, condition: userRoles?.dre !== false || userRoles?.isAdmin },
     { path: '/lead-scoring', label: 'Lead Scoring', icon: FaChartLine, condition: userRoles?.['lead-scoring'] !== false },
     { path: '/ts', label: 'T$', icon: FaBell, condition: userRoles?.ts !== false },
     { path: '/traffic', label: 'Tráfego', icon: FaBullhorn, condition: userRoles?.traffic !== false || userRoles?.isAdmin },
-    { path: '/data-sources', label: 'Fontes de Dados', icon: FaDatabase, condition: userRoles?.['data-sources'] !== false },
+    { path: '/goals', label: 'Metas', icon: FaBullseye, condition: userRoles?.goals !== false || userRoles?.isAdmin },
   ]
 
   return (

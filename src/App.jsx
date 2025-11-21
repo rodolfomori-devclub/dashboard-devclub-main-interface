@@ -18,6 +18,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext'
 import ComparativoPage from './pages/ComparativoPage'
 import LaunchPro from './pages/LaunchPro'
 import LeadScoringPage from './pages/LeadScoringPage'
+import GoalsPage from './pages/GoalsPage'
 
 // Update the imports in App.jsx by adding these lines:
 import CommercialDashboardPage from './pages/CommercialDashboardPage'
@@ -234,6 +235,17 @@ function AppRouter() {
           <ProtectedRoute requiredPermission="traffic">
             <AuthenticatedLayout>
               <TrafficDashboard />
+            </AuthenticatedLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/goals"
+        element={
+          <ProtectedRoute requiredPermission="goals">
+            <AuthenticatedLayout>
+              <GoalsPage />
             </AuthenticatedLayout>
           </ProtectedRoute>
         }

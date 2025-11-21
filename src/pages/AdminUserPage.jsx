@@ -4,8 +4,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { db, auth } from '../firebase';
 import { collection, getDocs, doc, updateDoc, deleteDoc, getDoc, setDoc } from 'firebase/firestore';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { Navigate } from 'react-router-dom';
-import { FaEdit, FaTrash, FaUserPlus, FaTimes, FaSave, FaUserShield, FaInfoCircle, FaChartPie } from 'react-icons/fa';
+import { Navigate, Link } from 'react-router-dom';
+import { FaEdit, FaTrash, FaUserPlus, FaTimes, FaSave, FaUserShield, FaInfoCircle, FaChartPie, FaDatabase } from 'react-icons/fa';
 
 // Define the available app routes for permissions
 const APP_ROUTES = [
@@ -19,6 +19,8 @@ const APP_ROUTES = [
   { id: 'launch', name: 'LaunchPro', icon: null, description: 'Sistema LaunchPro' },
   { id: 'lead-scoring', name: 'Lead Scoring', icon: null, description: 'Pontuação de leads' },
   { id: 'ts', name: 'T$ (Toca o Sino)', icon: null, description: 'Dashboard de vendas T$ e dados gerais' },
+  { id: 'traffic', name: 'Tráfego', icon: null, description: 'Dashboard de tráfego' },
+  { id: 'goals', name: 'Metas', icon: null, description: 'Gestão de metas de faturamento' },
   { id: 'data-sources', name: 'Fontes de Dados', icon: null, description: 'Gerenciamento de fontes de dados' }
 ];
 
@@ -247,12 +249,23 @@ const AdminUserPage = () => {
   return (
     <div className="container mx-auto px-4 py-6">
       <div className="mb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-primary-dark dark:text-primary mb-2">
-          Gerenciamento de Usuários
-        </h1>
-        <p className="text-gray-600 dark:text-gray-300">
-          Crie, edite e gerencie usuários e suas permissões de acesso
-        </p>
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-primary-dark dark:text-primary mb-2">
+              Gerenciamento de Usuários
+            </h1>
+            <p className="text-gray-600 dark:text-gray-300">
+              Crie, edite e gerencie usuários e suas permissões de acesso
+            </p>
+          </div>
+          <Link
+            to="/data-sources"
+            className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors shadow-md hover:shadow-lg"
+          >
+            <FaDatabase className="mr-2" />
+            Fontes de Dados
+          </Link>
+        </div>
       </div>
       
       {error && (
