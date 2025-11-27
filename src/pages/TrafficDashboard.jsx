@@ -1,39 +1,55 @@
 import React, { useState, useEffect } from 'react';
-import { FaCalendar, FaSearch, FaFilter, FaChartLine, FaDollarSign, FaBullseye, FaChartBar, FaChevronDown } from 'react-icons/fa';
+import { FaSearch, FaFilter, FaDollarSign, FaChartBar, FaChevronDown } from 'react-icons/fa';
 import DateRangePicker from '../components/DateRangePicker';
 
 const TrafficDashboard = () => {
   const [loading, setLoading] = useState(false);
-  
-  // Inicializar com semana atual
-  const getWeekRange = () => {
-    const today = new Date();
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - today.getDay()); // Domingo da semana atual
-    
-    const endOfWeek = new Date(today);
-    endOfWeek.setDate(today.getDate() + (6 - today.getDay())); // Sábado da semana atual
-    
-    return { startDate: startOfWeek, endDate: endOfWeek };
+
+  // Função para formatar data como string ISO (YYYY-MM-DD)
+  const formatDateISO = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
-  const [dateRange, setDateRange] = useState(getWeekRange());
+  // Função para criar Date a partir de string ISO sem problemas de timezone
+  const parseISODate = (dateStr) => {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  };
+
+  // Calcular datas baseado no período selecionado
+  const getDateRangeFromPeriod = (days) => {
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(endDate.getDate() - (days - 1));
+    return {
+      startDate: formatDateISO(startDate),
+      endDate: formatDateISO(endDate)
+    };
+  };
+
+  // Estado inicial: últimos 7 dias
+  const initialRange = getDateRangeFromPeriod(7);
+  const [startDate, setStartDate] = useState(initialRange.startDate);
+  const [endDate, setEndDate] = useState(initialRange.endDate);
+  const [selectedPeriod, setSelectedPeriod] = useState('7');
+
   const [selectedAccount, setSelectedAccount] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [accounts, setAccounts] = useState([]);
   const [trafficData, setTrafficData] = useState(null);
   const [dailyData, setDailyData] = useState([]);
   const [showAccountDropdown, setShowAccountDropdown] = useState(false);
-  const [period, setPeriod] = useState('7'); // Iniciar com 7 dias (semana atual)
 
   useEffect(() => {
     fetchAccounts();
-    fetchTrafficData();
   }, []);
 
   useEffect(() => {
     fetchTrafficData();
-  }, [selectedAccount, period, dateRange]);
+  }, [selectedAccount, startDate, endDate]);
 
   const fetchAccounts = async () => {
     try {
@@ -47,18 +63,30 @@ const TrafficDashboard = () => {
   };
 
   const fetchTrafficData = async () => {
+    if (!startDate || !endDate) return;
+
     setLoading(true);
     try {
+      // Calcular número de dias para a API
+      const start = parseISODate(startDate);
+      const end = parseISODate(endDate);
+      const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1;
+
       let url;
       if (selectedAccount === 'all') {
-        url = `${import.meta.env.VITE_API_URL}/meta/all-accounts-spend/${period}`;
+        url = `${import.meta.env.VITE_API_URL}/meta/all-accounts-spend/${days}`;
       } else {
-        url = `${import.meta.env.VITE_API_URL}/meta/daily-spend/${period}?accountId=${selectedAccount}`;
+        url = `${import.meta.env.VITE_API_URL}/meta/daily-spend/${days}?accountId=${selectedAccount}`;
       }
 
       const response = await fetch(url);
       const data = await response.json();
-      setTrafficData(data);
+
+      // Atualizar dados
+      setTrafficData({
+        ...data,
+        period: `${formatDateBR(startDate)} - ${formatDateBR(endDate)}`
+      });
       setDailyData(data.dailyData || []);
     } catch (error) {
       console.error('Erro ao buscar dados de tráfego:', error);
@@ -67,16 +95,19 @@ const TrafficDashboard = () => {
     }
   };
 
-  const handleDateRangeChange = (startDateStr, endDateStr) => {
-    const startDate = new Date(startDateStr);
-    const endDate = new Date(endDateStr);
-    
-    setDateRange({ startDate, endDate });
-    
-    if (startDate && endDate) {
-      const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
-      setPeriod(days.toString());
-    }
+  // Handler para mudança de datas via DateRangePicker
+  const handleDateRangeChange = (newStartDate, newEndDate) => {
+    setStartDate(newStartDate);
+    setEndDate(newEndDate);
+    setSelectedPeriod('custom'); // Desmarcar botões de período rápido
+  };
+
+  // Handler para seleção de período rápido
+  const handleQuickPeriodSelect = (days) => {
+    const range = getDateRangeFromPeriod(parseInt(days));
+    setStartDate(range.startDate);
+    setEndDate(range.endDate);
+    setSelectedPeriod(days);
   };
 
   const formatCurrency = (value) => {
@@ -86,9 +117,15 @@ const TrafficDashboard = () => {
     }).format(value);
   };
 
+  const formatDateBR = (dateStr) => {
+    if (!dateStr) return '';
+    const [year, month, day] = dateStr.split('-');
+    return `${day}/${month}/${year}`;
+  };
+
   const getFilteredAccounts = () => {
     if (!searchTerm) return accounts;
-    return accounts.filter(acc => 
+    return accounts.filter(acc =>
       acc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       acc.business_name?.toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -116,7 +153,7 @@ const TrafficDashboard = () => {
 
         {/* Filtros */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Busca */}
             <div className="relative">
               <FaSearch className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
@@ -137,13 +174,13 @@ const TrafficDashboard = () => {
               >
                 <span className="flex items-center">
                   <FaFilter className="h-5 w-5 mr-2" />
-                  {selectedAccount === 'all' 
-                    ? 'Todas as Contas' 
+                  {selectedAccount === 'all'
+                    ? 'Todas as Contas'
                     : accounts.find(a => a.id === selectedAccount)?.name || 'Selecione'}
                 </span>
                 <FaChevronDown className="h-5 w-5" />
               </button>
-              
+
               {showAccountDropdown && (
                 <div className="absolute z-10 mt-2 w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                   <button
@@ -179,19 +216,18 @@ const TrafficDashboard = () => {
             </div>
 
             {/* Período Rápido */}
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               {quickPeriods.map(p => (
                 <button
                   key={p.value}
-                  onClick={() => setPeriod(p.value)}
+                  onClick={() => handleQuickPeriodSelect(p.value)}
                   disabled={loading}
-                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    period === p.value
+                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${selectedPeriod === p.value
                       ? 'bg-blue-600 text-white'
                       : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                  } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
-                  {loading && period === p.value ? (
+                  {loading && selectedPeriod === p.value ? (
                     <span className="flex items-center">
                       <svg className="animate-spin -ml-1 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -206,8 +242,8 @@ const TrafficDashboard = () => {
 
             {/* Date Range Picker */}
             <DateRangePicker
-              startDate={dateRange.startDate}
-              endDate={dateRange.endDate}
+              startDate={startDate}
+              endDate={endDate}
               onDateChange={handleDateRangeChange}
             />
           </div>
@@ -310,7 +346,7 @@ const TrafficDashboard = () => {
                                   {percentage}%
                                 </span>
                                 <div className="w-20 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                                  <div 
+                                  <div
                                     className="bg-blue-600 h-2 rounded-full"
                                     style={{ width: `${percentage}%` }}
                                   />
@@ -335,14 +371,14 @@ const TrafficDashboard = () => {
                 <div className="h-64 flex items-end justify-between gap-2">
                   {dailyData.slice(-30).map((day, index) => {
                     const maxSpend = Math.max(...dailyData.map(d => d.spend));
-                    const height = (day.spend / maxSpend) * 100;
+                    const height = maxSpend > 0 ? (day.spend / maxSpend) * 100 : 0;
                     return (
                       <div
                         key={index}
                         className="flex-1 bg-blue-500 hover:bg-blue-600 rounded-t transition-all cursor-pointer group relative"
-                        style={{ height: `${height}%` }}
+                        style={{ height: `${Math.max(height, 2)}%` }}
                       >
-                        <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                        <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs rounded px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
                           {new Date(day.date).toLocaleDateString('pt-BR')}
                           <br />
                           {formatCurrency(day.spend)}

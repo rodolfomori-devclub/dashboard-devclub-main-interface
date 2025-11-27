@@ -21,13 +21,14 @@ import {
 } from '../utils/currencyUtils'
 
 function MonthlyDashboard() {
+  const [monthConfirmed, setMonthConfirmed] = useState(false)
   const [monthlyData, setMonthlyData] = useState(null)
   const [refundsData, setRefundsData] = useState(null)
   const [commercialData, setCommercialData] = useState(null)
   const [boletoData, setBoletoData] = useState(null)
   const [productData, setProductData] = useState([])
   const [offerData, setOfferData] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [loadingStates, setLoadingStates] = useState({
     transactions: true,
     refunds: true,
@@ -583,17 +584,19 @@ function MonthlyDashboard() {
     }
   }, [firstDayOfMonth, lastDayOfMonth, selectedYear, selectedMonth])
 
-  // Buscar dados quando o componente monta ou quando mês/ano muda
+  // Buscar dados apenas quando o mês for confirmado
   useEffect(() => {
-    fetchMonthlyData()
+    if (monthConfirmed) {
+      fetchMonthlyData()
 
-    // Cleanup: abort pending requests when component unmounts or month/year changes
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort()
+      // Cleanup: abort pending requests when component unmounts or month/year changes
+      return () => {
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort()
+        }
       }
     }
-  }, [fetchMonthlyData])
+  }, [monthConfirmed, fetchMonthlyData])
 
   // Calcular progresso das metas
   const metaProgress = useMemo(() => {
@@ -611,42 +614,116 @@ function MonthlyDashboard() {
     }
   }, [monthlyData, goals, calculateProgress])
 
-  // Componente de carregamento
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center">
-        <div className="flex flex-col items-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-primary"></div>
-          <p className="mt-4 text-xl text-text-light dark:text-text-dark font-medium">Carregando dados do mês...</p>
-        </div>
-      </div>
-    )
-  }
-
-  // Tela de erro
-  if (error) {
-    return (
-      <div className="min-h-screen bg-background-light dark:bg-background-dark p-6">
-        <div className="max-w-7xl mx-auto bg-red-100 dark:bg-red-900 p-6 rounded-lg shadow">
-          <h2 className="text-2xl font-bold text-red-700 dark:text-red-300 mb-4">Erro ao carregar dados</h2>
-          <p className="text-red-600 dark:text-red-400 mb-4">
-            Ocorreu um erro ao buscar os dados do mês. Por favor, tente novamente mais tarde.
-          </p>
-          <button
-            onClick={fetchMonthlyData}
-            className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-opacity-90"
-          >
-            Tentar novamente
-          </button>
-        </div>
-      </div>
-    )
-  }
+  // Nomes dos meses para exibição
+  const monthNames = [
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+  ]
 
   // Renderização dos dados
   return (
     <div className="min-h-screen bg-gradient-to-br from-background-light via-slate-50 to-blue-50 dark:from-background-dark dark:via-gray-900 dark:to-slate-900 p-6">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl mx-auto relative">
+        {/* Tela de seleção de mês - mostrada antes de confirmar */}
+        {!monthConfirmed && (
+          <div className="flex items-center justify-center min-h-screen">
+            <div className="bg-white dark:bg-secondary rounded-3xl p-12 shadow-2xl border border-gray-200 dark:border-gray-700 max-w-md w-full">
+              <div className="text-center mb-8">
+                <h1 className="text-4xl font-bold bg-gradient-to-r from-text-light to-primary dark:from-text-dark dark:to-primary bg-clip-text text-transparent mb-4">
+                  Consolidado Mensal
+                </h1>
+                <p className="text-text-muted-light dark:text-text-muted-dark text-lg">
+                  Selecione o período que deseja visualizar
+                </p>
+              </div>
+
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-text-light dark:text-text-dark mb-2">
+                    Ano
+                  </label>
+                  <select
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(Number(e.target.value))}
+                    className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-text-light dark:text-text-dark focus:outline-none focus:ring-2 focus:ring-primary transition-all text-lg"
+                  >
+                    {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map((year) => (
+                      <option key={year} value={year}>
+                        {year}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-text-light dark:text-text-dark mb-2">
+                    Mês
+                  </label>
+                  <select
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                    className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-text-light dark:text-text-dark focus:outline-none focus:ring-2 focus:ring-primary transition-all text-lg"
+                  >
+                    {monthNames.map((name, index) => (
+                      <option key={index + 1} value={index + 1}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setMonthConfirmed(true)
+                    setLoading(true)
+                  }}
+                  className="w-full px-6 py-3 bg-gradient-to-r from-primary to-primary-dark hover:from-primary-dark hover:to-primary text-white rounded-lg font-medium transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                >
+                  Carregar Dados de {monthNames[selectedMonth - 1]} de {selectedYear}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Loading screen */}
+        {monthConfirmed && loading && (
+          <div className="absolute inset-0 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-sm flex items-start justify-center pt-32 z-50">
+            <div className="flex flex-col items-center animate-fade-in">
+              <div className="relative">
+                <div className="animate-spin rounded-full h-32 w-32 border-4 border-primary/20"></div>
+                <div className="animate-spin rounded-full h-32 w-32 border-4 border-primary border-t-transparent absolute top-0 left-0"></div>
+                <div className="absolute inset-0 rounded-full bg-primary/10 animate-pulse"></div>
+              </div>
+              <p className="mt-6 text-xl text-text-light dark:text-text-dark font-medium">
+                Carregando dados de {monthNames[selectedMonth - 1]} de {selectedYear}...
+              </p>
+              <p className="mt-2 text-sm text-text-muted-light dark:text-text-muted-dark">
+                Buscando transações, reembolsos e boletos
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Tela de erro */}
+        {monthConfirmed && error && (
+          <div className="bg-red-100 dark:bg-red-900 p-6 rounded-lg shadow mb-8">
+            <h2 className="text-2xl font-bold text-red-700 dark:text-red-300 mb-4">Erro ao carregar dados</h2>
+            <p className="text-red-600 dark:text-red-400 mb-4">
+              Ocorreu um erro ao buscar os dados do mês. Por favor, tente novamente.
+            </p>
+            <button
+              onClick={fetchMonthlyData}
+              className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-opacity-90"
+            >
+              Tentar novamente
+            </button>
+          </div>
+        )}
+
+        {/* Conteúdo principal - só mostra quando confirmado e não está carregando */}
+        {monthConfirmed && !loading && (
+        <>
         {/* Header moderno com glassmorphism */}
         <div className="mb-12 relative">
           <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-blue-500/5 to-purple-500/10 dark:from-primary/20 dark:via-blue-500/10 dark:to-purple-500/20 rounded-3xl blur-xl"></div>
@@ -1562,6 +1639,8 @@ function MonthlyDashboard() {
             </table>
           </div>
         </div>
+        </>
+      )}
       </div>
     </div>
   )

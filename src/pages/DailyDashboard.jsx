@@ -17,6 +17,8 @@ import RefundDetailsModal from '../components/RefundDetailsModal'
 import WeekSelector from '../components/WeekSelector'
 
 function DailyDashboard() {
+  const [dateConfirmed, setDateConfirmed] = useState(false)
+  const [confirmedDates, setConfirmedDates] = useState(null) // Datas confirmadas para busca
   const [data, setData] = useState(null)
   const [refundsData, setRefundsData] = useState(null)
   const [refundsDetails, setRefundsDetails] = useState([]) // Raw refund data
@@ -28,7 +30,7 @@ function DailyDashboard() {
   const [selectedOffers, setSelectedOffers] = useState([])
   const [availableOffers, setAvailableOffers] = useState([])
   const [categoryData, setCategoryData] = useState({ ia: {}, programacao: {} })
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [loadingStates, setLoadingStates] = useState({
     transactions: true,
     refunds: true,
@@ -40,7 +42,7 @@ function DailyDashboard() {
   const abortControllerRef = useRef(null)
   const [trafficData, setTrafficData] = useState(null)
   const [isLaunchMode, setIsLaunchMode] = useState(false)
-  const [autoSelectWeek, setAutoSelectWeek] = useState(true)
+  const [autoSelectWeek, setAutoSelectWeek] = useState(false)
   const [dateRange, setDateRange] = useState(() => {
     // Get current date in local format
     const today = new Date()
@@ -242,14 +244,16 @@ function DailyDashboard() {
   const handleWeekSelect = (week) => {
     setSelectedWeek(week);
     setIsLaunchMode(true);
-    
+
     // Calcular período de vendas (segunda a domingo da semana escolhida)
     const salesStart = week.startDate.toISOString().split('T')[0];
     const salesEnd = week.endDate.toISOString().split('T')[0];
-    
+
     // Atualizar período de vendas
     setDateRange({ start: salesStart, end: salesEnd });
-    
+    // Também atualiza as datas confirmadas para buscar
+    setConfirmedDates({ start: salesStart, end: salesEnd });
+
     // Calcular e buscar dados de tráfego
     const trafficDates = calculateTrafficDates(week);
     if (trafficDates) {
@@ -779,18 +783,23 @@ function DailyDashboard() {
   }, [])
 
   useEffect(() => {
-    fetchData(dateRange.start, dateRange.end)
+    if (confirmedDates) {
+      fetchData(confirmedDates.start, confirmedDates.end)
 
-    // Cleanup: abort pending requests when component unmounts
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort()
+      // Cleanup: abort pending requests when component unmounts
+      return () => {
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort()
+        }
       }
     }
-  }, [dateRange, fetchData])
+  }, [confirmedDates, fetchData])
 
   const handleRefreshData = () => {
-    fetchData(dateRange.start, dateRange.end)
+    // Usa as datas confirmadas para refresh
+    if (confirmedDates) {
+      fetchData(confirmedDates.start, confirmedDates.end)
+    }
   }
 
   const formatDate = (dateStr) => {
@@ -934,6 +943,75 @@ function DailyDashboard() {
   // Function to close refund details modal
   const handleCloseRefundsModal = () => {
     setShowRefundsModal(false)
+  }
+
+  // Helper function to format date for display
+  const formatDateForDisplay = (dateStr) => {
+    const [year, month, day] = dateStr.split('-')
+    return `${day}/${month}/${year}`
+  }
+
+  // Date selection screen - shown before confirming
+  if (!dateConfirmed) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background-light via-slate-50 to-blue-50 dark:from-background-dark dark:via-gray-900 dark:to-slate-900 p-6 flex items-center justify-center">
+        <div className="bg-white dark:bg-secondary rounded-3xl p-12 shadow-2xl border border-gray-200 dark:border-gray-700 max-w-lg w-full">
+          <div className="text-center mb-8">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-text-light to-primary dark:from-text-dark dark:to-primary bg-clip-text text-transparent mb-4">
+              Controle de Vendas Global
+            </h1>
+            <p className="text-text-muted-light dark:text-text-muted-dark text-lg">
+              Selecione o período que deseja visualizar
+            </p>
+          </div>
+
+          <div className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-text-light dark:text-text-dark mb-2">
+                Data Inicial
+              </label>
+              <input
+                type="date"
+                value={dateRange.start}
+                onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+                className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-text-light dark:text-text-dark focus:outline-none focus:ring-2 focus:ring-primary transition-all text-lg"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-text-light dark:text-text-dark mb-2">
+                Data Final
+              </label>
+              <input
+                type="date"
+                value={dateRange.end}
+                onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+                className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-text-light dark:text-text-dark focus:outline-none focus:ring-2 focus:ring-primary transition-all text-lg"
+              />
+            </div>
+
+            <button
+              onClick={() => {
+                // Primeiro captura as datas atuais antes de mudar estados
+                const currentStart = dateRange.start
+                const currentEnd = dateRange.end
+                console.log('Confirmando datas:', currentStart, 'a', currentEnd)
+
+                // Desabilita auto-seleção do WeekSelector para não sobrescrever as datas
+                setAutoSelectWeek(false)
+                setDateConfirmed(true)
+                setLoading(true)
+                // Define as datas confirmadas que serão usadas na busca
+                setConfirmedDates({ start: currentStart, end: currentEnd })
+              }}
+              className="w-full px-6 py-3 bg-gradient-to-r from-primary to-primary-dark hover:from-primary-dark hover:to-primary text-white rounded-lg font-medium transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+            >
+              Carregar Dados de {formatDateForDisplay(dateRange.start)} a {formatDateForDisplay(dateRange.end)}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   // Full screen loading overlay
