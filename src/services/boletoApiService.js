@@ -128,11 +128,12 @@ export const boletoApiService = {
   async getSalesByMonth(year, month) {
     try {
       console.log(`Buscando vendas de boleto para ${month + 1}/${year}`);
-      
+
       const response = await axios.get(`${API_URL}/boleto/vendas/mes`, {
-        params: { year, month }
+        params: { year, month },
+        timeout: 180000 // 3 minutos de timeout para consultas mensais
       });
-      
+
       if (response.data.success) {
         const data = response.data.data || [];
         console.log(`Encontradas ${data.length} vendas para o mês`);
@@ -155,11 +156,12 @@ export const boletoApiService = {
   async getSalesByYear(year) {
     try {
       console.log(`Buscando vendas de boleto para o ano ${year}`);
-      
+
       const response = await axios.get(`${API_URL}/boleto/vendas/ano`, {
-        params: { year }
+        params: { year },
+        timeout: 300000 // 5 minutos de timeout para consultas anuais
       });
-      
+
       if (response.data.success) {
         const data = response.data.data || [];
         console.log(`Encontradas ${data.length} vendas para o ano ${year}`);
