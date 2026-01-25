@@ -26,6 +26,7 @@ import CommercialSellersPage from './pages/CommercialSellersPage'
 import CommercialSalesListPage from './pages/CommercialSalesListPage'
 import TSDashboard from './pages/TSDashboard'
 import TrafficDashboard from './pages/TrafficDashboard'
+import TrafficMonitor from './pages/TrafficMonitor'
 
 // Protected route component
 const ProtectedRoute = ({ children, requiredPermission }) => {
@@ -235,6 +236,17 @@ function AppRouter() {
           <ProtectedRoute requiredPermission="traffic">
             <AuthenticatedLayout>
               <TrafficDashboard />
+            </AuthenticatedLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/traffic-monitor"
+        element={
+          <ProtectedRoute requiredPermission="traffic">
+            <AuthenticatedLayout>
+              <TrafficMonitor />
             </AuthenticatedLayout>
           </ProtectedRoute>
         }

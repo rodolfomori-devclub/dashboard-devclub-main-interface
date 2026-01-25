@@ -127,23 +127,44 @@ export const boletoApiService = {
    */
   async getSalesByMonth(year, month) {
     try {
-      console.log(`Buscando vendas de boleto para ${month + 1}/${year}`);
+      console.log(`🔍 Buscando vendas de boleto para ${month + 1}/${year}`);
+      console.log(`⏱️  Timeout: 10 minutos (API TMB pode ser muito lenta)`);
 
       const response = await axios.get(`${API_URL}/boleto/vendas/mes`, {
         params: { year, month },
-        timeout: 180000 // 3 minutos de timeout para consultas mensais
+        timeout: 600000, // 10 minutos de timeout (API TMB é MUITO lenta)
+        onDownloadProgress: (progressEvent) => {
+          // Mostrar progresso se disponível
+          if (progressEvent.total) {
+            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            console.log(`📥 Download: ${percentCompleted}%`);
+          }
+        }
       });
 
       if (response.data.success) {
         const data = response.data.data || [];
-        console.log(`Encontradas ${data.length} vendas para o mês`);
+        console.log(`✅ Encontradas ${data.length} vendas para ${month + 1}/${year}`);
+
+        // Avisar se recebeu dados parciais
+        if (response.data.partial) {
+          console.warn(`⚠️  ATENÇÃO: Dados parciais retornados (algumas semanas falharam)`);
+        }
+
         return data;
       } else {
         console.error('Erro na resposta da API:', response.data.error);
         return [];
       }
     } catch (error) {
-      console.error('Erro ao buscar vendas por mês:', error);
+      console.error('❌ Erro ao buscar vendas por mês:', error);
+
+      // Se foi timeout, dar uma dica
+      if (error.code === 'ECONNABORTED') {
+        console.error('⏱️  Timeout: A API TMB demorou mais de 10 minutos.');
+        console.error('💡 Recomendação: Use Google Sheets como fonte de dados.');
+      }
+
       return [];
     }
   },
