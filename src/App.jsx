@@ -244,7 +244,7 @@ function AppRouter() {
       <Route
         path="/traffic-monitor"
         element={
-          <ProtectedRoute requiredPermission="traffic">
+          <ProtectedRoute>
             <AuthenticatedLayout>
               <TrafficMonitor />
             </AuthenticatedLayout>

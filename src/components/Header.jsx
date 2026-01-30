@@ -76,7 +76,7 @@ export default function Header() {
     { path: '/lead-scoring', label: 'Lead Scoring', icon: FaChartLine, condition: userRoles?.['lead-scoring'] !== false },
     { path: '/ts', label: 'T$', icon: FaBell, condition: userRoles?.ts !== false },
     { path: '/traffic', label: 'Tráfego', icon: FaBullhorn, condition: userRoles?.traffic !== false || userRoles?.isAdmin },
-    { path: '/traffic-monitor', label: 'Monitor', icon: FaTachometerAlt, condition: userRoles?.traffic !== false || userRoles?.isAdmin },
+    { path: '/traffic-monitor', label: 'Monitor', icon: FaTachometerAlt, condition: true },
     { path: '/goals', label: 'Metas', icon: FaBullseye, condition: userRoles?.goals !== false || userRoles?.isAdmin },
   ]
 
