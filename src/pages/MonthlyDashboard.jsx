@@ -26,6 +26,7 @@ function MonthlyDashboard() {
   const [refundsData, setRefundsData] = useState(null)
   const [commercialData, setCommercialData] = useState(null)
   const [boletoData, setBoletoData] = useState(null)
+  const [asaasData, setAsaasData] = useState(null)
   const [productData, setProductData] = useState([])
   const [offerData, setOfferData] = useState([])
   const [loading, setLoading] = useState(false)
@@ -139,7 +140,7 @@ function MonthlyDashboard() {
       setLoadingStates({ transactions: true, refunds: true, boleto: true })
 
       // Fazer as 3 chamadas em paralelo
-      const [transactionsResult, refundsResult, boletoResult] = await Promise.allSettled([
+      const [transactionsResult, refundsResult, boletoResult, asaasResult] = await Promise.allSettled([
         axios.post(
           `${import.meta.env.VITE_API_URL}/transactions`,
           {
@@ -170,7 +171,16 @@ function MonthlyDashboard() {
         ),
         (async () => {
           return await boletoService.getSalesByMonth(selectedYear, selectedMonth - 1)
-        })()
+        })(),
+        // Fetch Asaas sales (boleto parcelado)
+        axios.get(
+          `${import.meta.env.VITE_API_URL}/boleto/asaas/vendas`,
+          {
+            params: { data_inicio: firstDayOfMonth, data_final: lastDayOfMonth },
+            timeout: 30000,
+            signal,
+          }
+        )
       ])
 
       // Process transactions
@@ -559,7 +569,21 @@ function MonthlyDashboard() {
         total_boleto_value: totalBoletoValue,
         total_boleto_quantity: totalBoletoQuantity,
       })
-      
+
+      // Processar dados do Asaas
+      if (asaasResult.status === 'fulfilled' && asaasResult.value?.data?.success) {
+        const asaas = asaasResult.value.data.data
+        setAsaasData({
+          totalGross: asaas.totalGross || 0,
+          totalNet: asaas.totalNet || 0,
+          totalFees: asaas.totalFees || 0,
+          count: asaas.count || 0,
+          totalPurchaseValue: asaas.totalPurchaseValue || 0,
+        })
+      } else {
+        setAsaasData({ totalGross: 0, totalNet: 0, totalFees: 0, count: 0, totalPurchaseValue: 0 })
+      }
+
       // Convert product summary to array and sort by value descending
       const productDataArray = Object.values(productSummary).sort((a, b) => b.value - a.value)
       setProductData(productDataArray)
@@ -916,12 +940,28 @@ function MonthlyDashboard() {
                 Vendas Boleto
               </h3>
               <p className="text-4xl font-bold text-yellow-500 mb-2">
-                {formatCurrency(boletoData?.total_boleto_value || 0)}
+                {formatCurrency((boletoData?.total_boleto_value || 0) + (asaasData?.totalPurchaseValue || 0))}
               </p>
               <p className="text-sm text-text-muted-light dark:text-text-muted-dark flex items-center">
                 <span className="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
-                {boletoData?.total_boleto_quantity || 0} boletos
+                {(boletoData?.total_boleto_quantity || 0) + (asaasData?.count || 0)} boletos
               </p>
+              <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 space-y-1">
+                <div className="flex justify-between text-xs">
+                  <span className="text-text-muted-light dark:text-text-muted-dark">TMB</span>
+                  <span className="font-medium text-text-light dark:text-text-dark">{formatCurrency(boletoData?.total_boleto_value || 0)}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-text-muted-light dark:text-text-muted-dark">Asaas (bruto total)</span>
+                  <span className="font-medium text-text-light dark:text-text-dark">{formatCurrency(asaasData?.totalPurchaseValue || 0)}</span>
+                </div>
+                {asaasData?.totalPurchaseValue > 0 && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-text-muted-light dark:text-text-muted-dark">Asaas (recebido)</span>
+                    <span className="font-medium text-green-500">{formatCurrency(asaasData?.totalGross || 0)}</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

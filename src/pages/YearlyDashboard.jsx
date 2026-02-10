@@ -26,6 +26,7 @@ function YearlyDashboard() {
   const [refundsData, setRefundsData] = useState(null)
   const [commercialData, setCommercialData] = useState(null)
   const [boletoData, setBoletoData] = useState(null)
+  const [asaasData, setAsaasData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [loadingProgress, setLoadingProgress] = useState({ current: 0, total: 12 })
   const [loadingStates, setLoadingStates] = useState({
@@ -187,6 +188,20 @@ function YearlyDashboard() {
         promise: boletoService.getSalesByYear(selectedYear)
       })
 
+      // Adicionar a promise do Asaas (ano todo)
+      allPromises.push({
+        type: 'asaas',
+        month: 0,
+        promise: axios.get(
+          `${import.meta.env.VITE_API_URL}/boleto/asaas/vendas`,
+          {
+            params: { data_inicio: firstDayOfYear, data_final: lastDayOfYear },
+            timeout: 60000,
+            signal,
+          }
+        )
+      })
+
       // Processar resultados conforme vão chegando (em tempo real)
       const allTransactions = []
       const allRefunds = []
@@ -250,6 +265,18 @@ function YearlyDashboard() {
               boletoValue: boletoValue,
               boletoQuantity: boletoQuantity
             }))
+          }
+          else if (promiseInfo.type === 'asaas') {
+            if (result?.data?.success) {
+              const asaas = result.data.data
+              setAsaasData({
+                totalGross: asaas.totalGross || 0,
+                totalNet: asaas.totalNet || 0,
+                totalFees: asaas.totalFees || 0,
+                count: asaas.count || 0,
+                totalPurchaseValue: asaas.totalPurchaseValue || 0,
+              })
+            }
           }
 
           return { success: true, type: promiseInfo.type, month: promiseInfo.month }
@@ -694,12 +721,28 @@ function YearlyDashboard() {
                 Vendas Boleto
               </h3>
               <p className="text-4xl font-bold text-yellow-500 mb-2">
-                {formatCurrency(boletoData?.total_boleto_value || 0)}
+                {formatCurrency((boletoData?.total_boleto_value || 0) + (asaasData?.totalPurchaseValue || 0))}
               </p>
               <p className="text-sm text-text-muted-light dark:text-text-muted-dark flex items-center">
                 <span className="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
-                {boletoData?.total_boleto_quantity || 0} boletos
+                {(boletoData?.total_boleto_quantity || 0) + (asaasData?.count || 0)} boletos
               </p>
+              <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 space-y-1">
+                <div className="flex justify-between text-xs">
+                  <span className="text-text-muted-light dark:text-text-muted-dark">TMB</span>
+                  <span className="font-medium text-text-light dark:text-text-dark">{formatCurrency(boletoData?.total_boleto_value || 0)}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-text-muted-light dark:text-text-muted-dark">Asaas (bruto total)</span>
+                  <span className="font-medium text-text-light dark:text-text-dark">{formatCurrency(asaasData?.totalPurchaseValue || 0)}</span>
+                </div>
+                {asaasData?.totalPurchaseValue > 0 && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-text-muted-light dark:text-text-muted-dark">Asaas (recebido)</span>
+                    <span className="font-medium text-green-500">{formatCurrency(asaasData?.totalGross || 0)}</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

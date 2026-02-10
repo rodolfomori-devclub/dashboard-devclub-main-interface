@@ -25,6 +25,7 @@ function DailyDashboard() {
   const [showRefundsModal, setShowRefundsModal] = useState(false) // Modal visibility
   const [commercialData, setCommercialData] = useState(null)
   const [boletoData, setBoletoData] = useState(null)
+  const [asaasData, setAsaasData] = useState(null)
   const [productData, setProductData] = useState([])
   const [offerData, setOfferData] = useState([])
   const [selectedOffers, setSelectedOffers] = useState([])
@@ -305,7 +306,7 @@ function DailyDashboard() {
       })
 
       // Executar todas as chamadas em paralelo usando Promise.allSettled
-      const [transactionsResult, refundsResult, boletoResult] = await Promise.allSettled([
+      const [transactionsResult, refundsResult, boletoResult, asaasResult] = await Promise.allSettled([
         // Fetch approved transactions
         axios.post(
           `${import.meta.env.VITE_API_URL}/transactions`,
@@ -335,7 +336,16 @@ function DailyDashboard() {
           const start = new Date(startDate + 'T00:00:00')
           const end = new Date(endDate + 'T23:59:59')
           return await boletoService.getSalesByDateRange(start, end)
-        })()
+        })(),
+        // Fetch Asaas sales (boleto parcelado)
+        axios.get(
+          `${import.meta.env.VITE_API_URL}/boleto/asaas/vendas`,
+          {
+            params: { data_inicio: startDate, data_final: endDate },
+            timeout: 30000,
+            signal,
+          }
+        )
       ])
 
       // Processar resultado de transações
@@ -757,6 +767,29 @@ function DailyDashboard() {
         total_boleto_quantity: totalBoletoQuantity,
       })
 
+      // Processar dados do Asaas
+      if (asaasResult.status === 'fulfilled' && asaasResult.value?.data?.success) {
+        const asaas = asaasResult.value.data.data
+        const asaasValue = asaas.totalPurchaseValue || 0
+        const asaasCount = asaas.count || 0
+
+        // Add ASAAS data to category totals (assuming it's programming/DevClub)
+        categoryTotals.programacao.boletoValue += asaasValue
+        categoryTotals.programacao.boletoQuantity += asaasCount
+        categoryTotals.programacao.totalValue += asaasValue
+        categoryTotals.programacao.totalQuantity += asaasCount
+
+        setAsaasData({
+          totalGross: asaas.totalGross || 0,
+          totalNet: asaas.totalNet || 0,
+          totalFees: asaas.totalFees || 0,
+          count: asaasCount,
+          totalPurchaseValue: asaasValue,
+        })
+      } else {
+        setAsaasData({ totalGross: 0, totalNet: 0, totalFees: 0, count: 0, totalPurchaseValue: 0 })
+      }
+
       // Store product data
       setProductData(productDataArray)
       
@@ -894,6 +927,8 @@ function DailyDashboard() {
         total_net_affiliate_value: data?.totals?.total_net_affiliate_value || 0,
         total_boleto_value: boletoData?.total_boleto_value || 0,
         total_boleto_quantity: boletoData?.total_boleto_quantity || 0,
+        total_asaas_value: asaasData?.totalPurchaseValue || 0,
+        total_asaas_quantity: asaasData?.count || 0,
         total_refund_amount: refundsData?.total_refund_amount || 0,
         total_refund_quantity: refundsData?.total_refund_quantity || 0,
         total_commercial_value: commercialData?.total_commercial_value || 0,
@@ -926,6 +961,8 @@ function DailyDashboard() {
       total_net_affiliate_value: (data?.totals?.total_net_affiliate_value || 0) * ratio,
       total_boleto_value: tmbValue, // TMB = Boleto
       total_boleto_quantity: tmbQuantity,
+      total_asaas_value: (asaasData?.totalPurchaseValue || 0) * ratio,
+      total_asaas_quantity: Math.round((asaasData?.count || 0) * ratio),
       total_refund_amount: (refundsData?.total_refund_amount || 0) * ratio,
       total_refund_quantity: Math.round((refundsData?.total_refund_quantity || 0) * ratio),
       total_commercial_value: (commercialData?.total_commercial_value || 0) * ratio,
@@ -1201,6 +1238,12 @@ function DailyDashboard() {
                   <div className="text-sm text-white/80 mb-1">📄 Boleto</div>
                   <div className="font-bold text-lg">{formatCurrency(categoryData.programacao?.boletoValue || 0)}</div>
                   <div className="text-xs text-white/70">{categoryData.programacao?.boletoQuantity || 0} vendas</div>
+                  {asaasData?.totalPurchaseValue > 0 && (
+                    <div className="text-xs text-white/60 mt-1 pt-1 border-t border-white/10">
+                      <div>TMB: {formatCurrency((categoryData.programacao?.boletoValue || 0) - (asaasData?.totalPurchaseValue || 0))}</div>
+                      <div>ASAAS: {formatCurrency(asaasData?.totalPurchaseValue || 0)}</div>
+                    </div>
+                  )}
                 </div>
               </div>
               
@@ -1523,10 +1566,10 @@ function DailyDashboard() {
               Valor Líquido Total
             </h3>
             <p className="mt-2 text-3xl font-bold text-accent1 dark:text-accent2">
-              {formatCurrency(filteredTotals.total_net_amount)}
+              {formatCurrency((filteredTotals.total_net_amount || 0) + (filteredTotals.total_asaas_value || 0))}
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Total: {filteredTotals.total_transactions} venda(s)
+              Total: {(filteredTotals.total_transactions || 0) + (filteredTotals.total_asaas_quantity || 0)} venda(s)
             </p>
           </div>
 
@@ -1549,11 +1592,27 @@ function DailyDashboard() {
               Vendas Boleto
             </h3>
             <p className="mt-2 text-3xl font-bold text-yellow-500 dark:text-yellow-400">
-              {formatCurrency(filteredTotals.total_boleto_value)}
+              {formatCurrency((filteredTotals.total_boleto_value || 0) + (filteredTotals.total_asaas_value || 0))}
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              {filteredTotals.total_boleto_quantity} venda(s)
+              {(filteredTotals.total_boleto_quantity || 0) + (filteredTotals.total_asaas_quantity || 0)} venda(s)
             </p>
+            <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 space-y-1">
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500 dark:text-gray-400">TMB</span>
+                <span className="font-medium text-text-light dark:text-text-dark">{formatCurrency(filteredTotals.total_boleto_value || 0)}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500 dark:text-gray-400">Asaas (bruto total)</span>
+                <span className="font-medium text-text-light dark:text-text-dark">{formatCurrency(filteredTotals.total_asaas_value || 0)}</span>
+              </div>
+              {filteredTotals.total_asaas_value > 0 && (
+                <div className="flex justify-between text-xs">
+                  <span className="text-gray-500 dark:text-gray-400">Asaas (recebido)</span>
+                  <span className="font-medium text-green-500">{formatCurrency((asaasData?.totalGross || 0) * (data?.totals?.total_net_amount > 0 ? (filteredTotals.total_asaas_value / (asaasData?.totalPurchaseValue || 1)) : 1))}</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
