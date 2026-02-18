@@ -28,8 +28,11 @@ import {
   FaCalendarAlt,
   FaArrowUp,
   FaArrowDown,
+  FaPen,
 } from 'react-icons/fa'
 import trafficSheetsService from '../services/trafficSheetsService'
+import { db } from '../firebase'
+import { doc, getDoc, setDoc } from 'firebase/firestore'
 
 // Helpers de formatação
 const formatCurrency = (val) =>
@@ -43,6 +46,55 @@ const formatPercent = (val) => `${parseFloat(val).toFixed(2)}%`
 
 const formatNumber = (val) =>
   typeof val === 'number' ? val.toLocaleString('pt-BR') : val
+
+// Cores neutras para cards sem meta (steel blue suave)
+const NEUTRAL_COLORS = {
+  gradientFrom: '#7B93B0',
+  gradientTo: '#9CB4CF',
+  iconGradientFrom: '#7B93B0',
+  iconGradientTo: '#5E7A99',
+}
+
+// Determina cores baseado na performance vs meta
+const getGoalColors = (value, goal, isInverse = false) => {
+  if (!goal || goal <= 0 || !value || value <= 0) return NEUTRAL_COLORS
+
+  // Para métricas inversas (CPM, CPL): menor é melhor → ratio = goal/value
+  // Para métricas normais (CTR, Conversão): maior é melhor → ratio = value/goal
+  const ratio = isInverse ? goal / value : value / goal
+
+  // >= 110%: bem acima da meta → verde forte
+  if (ratio >= 1.1)
+    return {
+      gradientFrom: '#16A34A',
+      gradientTo: '#22C55E',
+      iconGradientFrom: '#16A34A',
+      iconGradientTo: '#15803D',
+    }
+  // >= 100%: na meta → verde
+  if (ratio >= 1.0)
+    return {
+      gradientFrom: '#22C55E',
+      gradientTo: '#4ADE80',
+      iconGradientFrom: '#22C55E',
+      iconGradientTo: '#16A34A',
+    }
+  // >= 85%: pouco abaixo → amarelo
+  if (ratio >= 0.85)
+    return {
+      gradientFrom: '#EAB308',
+      gradientTo: '#FACC15',
+      iconGradientFrom: '#EAB308',
+      iconGradientTo: '#CA8A04',
+    }
+  // < 85%: muito abaixo → vermelho
+  return {
+    gradientFrom: '#EF4444',
+    gradientTo: '#F87171',
+    iconGradientFrom: '#EF4444',
+    iconGradientTo: '#DC2626',
+  }
+}
 
 // Tooltip customizado para os gráficos
 const CustomChartTooltip = ({ active, payload, label }) => {
@@ -78,43 +130,111 @@ const CustomChartTooltip = ({ active, payload, label }) => {
 }
 
 // Card de métrica reutilizável
-const MetricCard = ({ icon: Icon, title, value, subtitle, gradientFrom, gradientTo, iconGradientFrom, iconGradientTo, delay = '0s' }) => (
-  <div className="group relative animate-slide-up" style={{ animationDelay: delay }}>
-    <div
-      className="absolute inset-0 rounded-2xl blur-lg group-hover:blur-xl transition-all duration-300 opacity-60"
-      style={{
-        background: `linear-gradient(135deg, ${gradientFrom}33, ${gradientTo}33)`,
-      }}
-    />
-    <div className="relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-2xl p-6 border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
-      <div className="flex items-start justify-between mb-4">
-        <div
-          className="w-12 h-12 rounded-xl flex items-center justify-center shadow-lg"
-          style={{
-            background: `linear-gradient(135deg, ${iconGradientFrom}, ${iconGradientTo})`,
-          }}
-        >
-          <Icon className="w-6 h-6 text-white" />
+const MetricCard = ({
+  icon: Icon, title, value, subtitle,
+  gradientFrom, gradientTo, iconGradientFrom, iconGradientTo,
+  delay = '0s',
+  goalKey, goalValue, onGoalChange, isInverse, rawValue, goalPrefix, goalSuffix,
+}) => {
+  const [editing, setEditing] = useState(false)
+  const [tempGoal, setTempGoal] = useState('')
+
+  const hasGoal = goalKey !== undefined
+  const colors = hasGoal && goalValue > 0
+    ? getGoalColors(rawValue, goalValue, isInverse)
+    : hasGoal
+      ? NEUTRAL_COLORS
+      : { gradientFrom, gradientTo, iconGradientFrom, iconGradientTo }
+
+  const handleGoalSubmit = () => {
+    const parsed = parseFloat(tempGoal.replace(',', '.'))
+    if (!isNaN(parsed) && parsed > 0) {
+      onGoalChange(goalKey, parsed)
+    }
+    setEditing(false)
+    setTempGoal('')
+  }
+
+  return (
+    <div className="group relative animate-slide-up" style={{ animationDelay: delay }}>
+      <div
+        className="absolute inset-0 rounded-2xl blur-lg group-hover:blur-xl transition-all duration-300 opacity-60"
+        style={{
+          background: `linear-gradient(135deg, ${colors.gradientFrom}33, ${colors.gradientTo}33)`,
+        }}
+      />
+      <div
+        className="relative backdrop-blur-lg rounded-2xl p-6 border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2"
+        style={{
+          background: hasGoal && goalValue > 0
+            ? `linear-gradient(135deg, ${colors.gradientFrom}20, ${colors.gradientTo}30)`
+            : 'rgba(255,255,255,0.8)',
+        }}
+      >
+        <div className="flex items-start justify-between mb-4">
+          <div
+            className="w-12 h-12 rounded-xl flex items-center justify-center shadow-lg"
+            style={{
+              background: `linear-gradient(135deg, ${colors.iconGradientFrom}, ${colors.iconGradientTo})`,
+            }}
+          >
+            <Icon className="w-6 h-6 text-white" />
+          </div>
+          <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: colors.iconGradientFrom }} />
         </div>
-        <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: iconGradientFrom }} />
-      </div>
-      <h3 className="text-sm font-semibold text-text-muted-light dark:text-text-muted-dark mb-2">
-        {title}
-      </h3>
-      <p className="text-3xl font-bold bg-clip-text text-transparent mb-1" style={{
-        backgroundImage: `linear-gradient(135deg, ${iconGradientFrom}, ${iconGradientTo})`,
-      }}>
-        {value}
-      </p>
-      {subtitle && (
-        <p className="text-xs text-text-muted-light dark:text-text-muted-dark flex items-center gap-1 mt-1">
-          <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: iconGradientFrom }} />
-          {subtitle}
+        <h3 className="text-sm font-semibold text-text-muted-light dark:text-text-muted-dark mb-2">
+          {title}
+        </h3>
+        <p className="text-3xl font-bold bg-clip-text text-transparent mb-1" style={{
+          backgroundImage: `linear-gradient(135deg, ${colors.iconGradientFrom}, ${colors.iconGradientTo})`,
+        }}>
+          {value}
         </p>
-      )}
+        {subtitle && (
+          <p className="text-xs text-text-muted-light dark:text-text-muted-dark flex items-center gap-1 mt-1">
+            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colors.iconGradientFrom }} />
+            {subtitle}
+          </p>
+        )}
+
+        {hasGoal && (
+          <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700/50">
+            {editing ? (
+              <div className="flex items-center gap-1.5">
+                {goalPrefix && <span className="text-xs text-text-muted-light dark:text-text-muted-dark">{goalPrefix}</span>}
+                <input
+                  type="text"
+                  value={tempGoal}
+                  onChange={(e) => setTempGoal(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleGoalSubmit()
+                    if (e.key === 'Escape') { setEditing(false); setTempGoal('') }
+                  }}
+                  onBlur={handleGoalSubmit}
+                  autoFocus
+                  placeholder="0"
+                  className="w-20 px-2 py-1 text-xs rounded-lg border border-primary/30 bg-white/80 dark:bg-gray-800/80 text-text-light dark:text-text-dark outline-none focus:ring-2 focus:ring-primary/20"
+                />
+                {goalSuffix && <span className="text-xs text-text-muted-light dark:text-text-muted-dark">{goalSuffix}</span>}
+              </div>
+            ) : (
+              <button
+                onClick={() => { setEditing(true); setTempGoal(goalValue > 0 ? String(goalValue) : '') }}
+                className="flex items-center gap-1.5 text-xs text-text-muted-light dark:text-text-muted-dark hover:text-primary transition-colors"
+              >
+                <FaBullseye className="w-3 h-3" />
+                {goalValue > 0
+                  ? `Meta: ${goalPrefix || ''}${goalValue}${goalSuffix || ''}`
+                  : 'Definir meta'}
+                <FaPen className="w-2.5 h-2.5 opacity-50 group-hover:opacity-100 transition-opacity" />
+              </button>
+            )}
+          </div>
+        )}
+      </div>
     </div>
-  </div>
-)
+  )
+}
 
 const TrafficMonitor = () => {
   const [trafficData, setTrafficData] = useState([])
@@ -126,6 +246,34 @@ const TrafficMonitor = () => {
   const [refreshInterval, setRefreshInterval] = useState(60000)
   const [lastUpdate, setLastUpdate] = useState(null)
   const [updateIntervalId, setUpdateIntervalId] = useState(null)
+
+  // Estado de metas com persistência no Firebase (global)
+  const [goals, setGoals] = useState({ cpm: 0, ctr: 0, cpl: 0, conversao: 0 })
+
+  // Carrega metas do Firebase ao montar
+  useEffect(() => {
+    const loadGoals = async () => {
+      try {
+        const goalsDoc = await getDoc(doc(db, 'trafficGoals', 'global'))
+        if (goalsDoc.exists()) {
+          setGoals({ cpm: 0, ctr: 0, cpl: 0, conversao: 0, ...goalsDoc.data() })
+        }
+      } catch (err) {
+        console.error('Erro ao carregar metas do Firebase:', err)
+      }
+    }
+    loadGoals()
+  }, [])
+
+  const handleGoalChange = async (key, value) => {
+    const newGoals = { ...goals, [key]: value }
+    setGoals(newGoals)
+    try {
+      await setDoc(doc(db, 'trafficGoals', 'global'), newGoals, { merge: true })
+    } catch (err) {
+      console.error('Erro ao salvar meta no Firebase:', err)
+    }
+  }
 
   // Estados para filtros de período
   const [selectedPeriod, setSelectedPeriod] = useState('last7days')
@@ -493,10 +641,10 @@ const TrafficMonitor = () => {
           </div>
         )}
 
-        {/* ===== INDICADORES PRINCIPAIS (4 cards) ===== */}
+        {/* ===== INDICADORES GERAIS (5 cards neutros) ===== */}
         <h2 className="text-xl font-bold text-text-light dark:text-text-dark mb-6 flex items-center gap-2">
           <FaChartLine className="text-primary" />
-          Indicadores Principais
+          Indicadores Gerais
         </h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-10">
@@ -505,10 +653,10 @@ const TrafficMonitor = () => {
             title="Investimento Total"
             value={formatCurrency(totals.investimento || 0)}
             subtitle={getPeriodLabel()}
-            gradientFrom="#37E359"
-            gradientTo="#10B981"
-            iconGradientFrom="#37E359"
-            iconGradientTo="#2BC348"
+            gradientFrom="#6BA38E"
+            gradientTo="#8DBFAC"
+            iconGradientFrom="#6BA38E"
+            iconGradientTo="#578A76"
             delay="0s"
           />
           <MetricCard
@@ -516,10 +664,10 @@ const TrafficMonitor = () => {
             title="Impressões"
             value={formatNumber(totals.impressoes || 0)}
             subtitle={getPeriodLabel()}
-            gradientFrom="#3B82F6"
-            gradientTo="#06B6D4"
-            iconGradientFrom="#3B82F6"
-            iconGradientTo="#2563EB"
+            gradientFrom="#7B9CC7"
+            gradientTo="#9BB6DA"
+            iconGradientFrom="#7B9CC7"
+            iconGradientTo="#6183B0"
             delay="0.1s"
           />
           <MetricCard
@@ -527,10 +675,10 @@ const TrafficMonitor = () => {
             title="Cliques"
             value={formatNumber(totals.cliques || 0)}
             subtitle={getPeriodLabel()}
-            gradientFrom="#8B5CF6"
-            gradientTo="#6366F1"
-            iconGradientFrom="#8B5CF6"
-            iconGradientTo="#7C3AED"
+            gradientFrom="#9688BF"
+            gradientTo="#AFA3D1"
+            iconGradientFrom="#9688BF"
+            iconGradientTo="#7D6DAA"
             delay="0.2s"
           />
           <MetricCard
@@ -538,75 +686,83 @@ const TrafficMonitor = () => {
             title="Leads Gerados"
             value={formatNumber(totals.leads || 0)}
             subtitle={getPeriodLabel()}
-            gradientFrom="#F59E0B"
-            gradientTo="#F97316"
-            iconGradientFrom="#F59E0B"
-            iconGradientTo="#D97706"
+            gradientFrom="#C4A46C"
+            gradientTo="#D6BB8E"
+            iconGradientFrom="#C4A46C"
+            iconGradientTo="#A98B55"
             delay="0.3s"
-          />
-          <MetricCard
-            icon={FaDollarSign}
-            title="CPM"
-            value={formatCurrency(averages.cpm || 0)}
-            subtitle="Custo por Mil"
-            gradientFrom="#EF4444"
-            gradientTo="#F87171"
-            iconGradientFrom="#EF4444"
-            iconGradientTo="#DC2626"
-            delay="0.4s"
-          />
-        </div>
-
-        {/* ===== PERFORMANCE & CONVERSÃO (4 cards) ===== */}
-        <h2 className="text-xl font-bold text-text-light dark:text-text-dark mb-6 flex items-center gap-2">
-          <FaBullseye className="text-blue-500" />
-          Performance e Conversão
-        </h2>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-          <MetricCard
-            icon={FaPercent}
-            title="CTR Médio"
-            value={formatPercent(averages.ctr || 0)}
-            subtitle="Click-Through Rate"
-            gradientFrom="#8B5CF6"
-            gradientTo="#A78BFA"
-            iconGradientFrom="#8B5CF6"
-            iconGradientTo="#7C3AED"
-            delay="0.1s"
           />
           <MetricCard
             icon={FaDollarSign}
             title="CPC Médio"
             value={formatCurrency(averages.cpc || 0)}
             subtitle="Custo por Clique"
-            gradientFrom="#10B981"
-            gradientTo="#34D399"
-            iconGradientFrom="#10B981"
-            iconGradientTo="#059669"
-            delay="0.2s"
+            gradientFrom="#6BAFAA"
+            gradientTo="#8DC7C3"
+            iconGradientFrom="#6BAFAA"
+            iconGradientTo="#579692"
+            delay="0.4s"
+          />
+        </div>
+
+        {/* ===== METAS DE PERFORMANCE (4 cards com meta) ===== */}
+        <h2 className="text-xl font-bold text-text-light dark:text-text-dark mb-6 flex items-center gap-2">
+          <FaBullseye className="text-blue-500" />
+          Metas de Performance
+        </h2>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+          <MetricCard
+            icon={FaDollarSign}
+            title="CPM"
+            value={formatCurrency(averages.cpm || 0)}
+            subtitle="Custo por Mil"
+            goalKey="cpm"
+            goalValue={goals.cpm}
+            onGoalChange={handleGoalChange}
+            isInverse={true}
+            rawValue={averages.cpm || 0}
+            goalPrefix="R$ "
+            delay="0s"
+          />
+          <MetricCard
+            icon={FaPercent}
+            title="CTR Médio"
+            value={formatPercent(averages.ctr || 0)}
+            subtitle="Click-Through Rate"
+            goalKey="ctr"
+            goalValue={goals.ctr}
+            onGoalChange={handleGoalChange}
+            isInverse={false}
+            rawValue={averages.ctr || 0}
+            goalSuffix="%"
+            delay="0.1s"
           />
           <MetricCard
             icon={FaUsers}
             title="CPL Médio"
             value={formatCurrency(averages.cpl || 0)}
             subtitle="Custo por Lead"
-            gradientFrom="#F59E0B"
-            gradientTo="#FBBF24"
-            iconGradientFrom="#F59E0B"
-            iconGradientTo="#D97706"
-            delay="0.3s"
+            goalKey="cpl"
+            goalValue={goals.cpl}
+            onGoalChange={handleGoalChange}
+            isInverse={true}
+            rawValue={averages.cpl || 0}
+            goalPrefix="R$ "
+            delay="0.2s"
           />
           <MetricCard
             icon={FaBullseye}
             title="Conversão Página"
             value={formatPercent(averages.conversaoPagina || 0)}
             subtitle="Lead / Pageview"
-            gradientFrom="#3B82F6"
-            gradientTo="#60A5FA"
-            iconGradientFrom="#3B82F6"
-            iconGradientTo="#2563EB"
-            delay="0.4s"
+            goalKey="conversao"
+            goalValue={goals.conversao}
+            onGoalChange={handleGoalChange}
+            isInverse={false}
+            rawValue={averages.conversaoPagina || 0}
+            goalSuffix="%"
+            delay="0.3s"
           />
         </div>
 
