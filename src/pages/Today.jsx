@@ -437,9 +437,19 @@ function Today() {
       const hoursWithSales =
         hourlyData.filter((hour) => hour.sales > 0 || hour.boletoSales > 0)
           .length || 1
+      // Extrair valor Asaas (já disponível pois Promise.allSettled resolveu)
+      const asaasPurchaseValue =
+        asaasResult.status === 'fulfilled' && asaasResult.value?.data?.success
+          ? asaasResult.value.data.data?.totalPurchaseValue || 0
+          : 0
+      const asaasCount =
+        asaasResult.status === 'fulfilled' && asaasResult.value?.data?.success
+          ? asaasResult.value.data.data?.count || 0
+          : 0
+
       const totalCardSales = totalSales
-      totalSales += totalBoletoSales
-      const totalCombinedValue = totalValue + totalBoletoValue
+      totalSales += totalBoletoSales + asaasCount
+      const totalCombinedValue = totalValue + totalBoletoValue + asaasPurchaseValue
       const averageSalesPerHour = totalSales / hoursWithSales
 
       const processedHourlyData = hourlyData.map((hour) => ({
