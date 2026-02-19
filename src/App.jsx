@@ -9,7 +9,6 @@ import Header from './components/Header'
 import DailyDashboard from './pages/DailyDashboard'
 import MonthlyDashboard from './pages/MonthlyDashboard'
 import YearlyDashboard from './pages/YearlyDashboard'
-import DREDashboard from './pages/DREDashboard'
 import DataSourcesPage from './pages/DataSourcesPage'
 import AdminUserPage from './pages/AdminUserPage'
 import LoginPage from './pages/LoginPage'
@@ -17,7 +16,6 @@ import Today from './pages/Today'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import ComparativoPage from './pages/ComparativoPage'
 import LaunchPro from './pages/LaunchPro'
-import LeadScoringPage from './pages/LeadScoringPage'
 import GoalsPage from './pages/GoalsPage'
 
 // Update the imports in App.jsx by adding these lines:
@@ -27,6 +25,7 @@ import CommercialSalesListPage from './pages/CommercialSalesListPage'
 import TSDashboard from './pages/TSDashboard'
 import TrafficDashboard from './pages/TrafficDashboard'
 import TrafficMonitor from './pages/TrafficMonitor'
+import LeadsPage from './pages/LeadsPage'
 
 // Protected route component
 const ProtectedRoute = ({ children, requiredPermission }) => {
@@ -186,38 +185,6 @@ function AppRouter() {
         }
       />
 
-      <Route
-        path="/dre"
-        element={
-          <ProtectedRoute requiredPermission="dre">
-            <AuthenticatedLayout>
-              <DREDashboard />
-            </AuthenticatedLayout>
-          </ProtectedRoute>
-        }
-      />
-
-<Route
-        path="/launch"
-        element={
-          <ProtectedRoute requiredPermission="dre">
-            <AuthenticatedLayout>
-              <LaunchPro />
-            </AuthenticatedLayout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/lead-scoring"
-        element={
-          <ProtectedRoute requiredPermission="lead-scoring">
-            <AuthenticatedLayout>
-              <LeadScoringPage />
-            </AuthenticatedLayout>
-          </ProtectedRoute>
-        }
-      />
 
       <Route
         path="/ts"
@@ -280,6 +247,17 @@ function AppRouter() {
           <ProtectedRoute requiredPermission="data-sources">
             <AuthenticatedLayout>
               <DataSourcesPage />
+            </AuthenticatedLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/leads"
+        element={
+          <ProtectedRoute requiredPermission="leads">
+            <AuthenticatedLayout>
+              <LeadsPage />
             </AuthenticatedLayout>
           </ProtectedRoute>
         }

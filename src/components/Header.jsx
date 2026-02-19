@@ -6,19 +6,18 @@ import {
   FaSignOutAlt,
   FaBars,
   FaTimes,
-  FaChartPie,
   FaSun,
   FaMoon,
   FaHome,
   FaGlobe,
   FaCalendarAlt,
   FaCalendar,
-  FaChartLine,
   FaUser,
   FaBell,
   FaBullhorn,
   FaBullseye,
   FaTachometerAlt,
+  FaUsers,
 } from 'react-icons/fa'
 
 export default function Header() {
@@ -72,12 +71,11 @@ export default function Header() {
     { path: '/daily', label: 'Global', icon: FaGlobe, condition: userRoles?.daily !== false },
     { path: '/monthly', label: 'Mensal', icon: FaCalendarAlt, condition: userRoles?.monthly !== false },
     { path: '/yearly', label: 'Anual', icon: FaCalendar, condition: userRoles?.yearly !== false },
-    { path: '/dre', label: 'DRE', icon: FaChartPie, condition: userRoles?.dre !== false || userRoles?.isAdmin },
-    { path: '/lead-scoring', label: 'Lead Scoring', icon: FaChartLine, condition: userRoles?.['lead-scoring'] !== false },
     { path: '/ts', label: 'T$', icon: FaBell, condition: userRoles?.ts !== false },
     { path: '/traffic', label: 'Tráfego', icon: FaBullhorn, condition: userRoles?.traffic !== false || userRoles?.isAdmin },
     { path: '/traffic-monitor', label: 'Monitor', icon: FaTachometerAlt, condition: true },
     { path: '/goals', label: 'Metas', icon: FaBullseye, condition: userRoles?.goals !== false || userRoles?.isAdmin },
+    { path: '/leads', label: 'Leads', icon: FaUsers, condition: userRoles?.leads !== false },
   ]
 
   return (
