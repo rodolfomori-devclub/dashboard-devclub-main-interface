@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { leadsService } from '../services/leadsService'
+import { monitoringService } from '../services/monitoringService'
 import toast from 'react-hot-toast'
 import {
   FaUsers,
@@ -31,6 +32,9 @@ import {
   FaStar,
   FaInfoCircle,
   FaCalendarAlt,
+  FaBell,
+  FaCheckCircle,
+  FaShieldAlt,
 } from 'react-icons/fa'
 import {
   PieChart,
@@ -237,6 +241,11 @@ export default function LeadsPage() {
   const [historicalData, setHistoricalData] = useState(null)
   const [loadingHistorical, setLoadingHistorical] = useState(true)
 
+  // Monitoring states
+  const [monitoringData, setMonitoringData] = useState(null)
+  const [loadingMonitoring, setLoadingMonitoring] = useState(true)
+  const [alertsExpanded, setAlertsExpanded] = useState(false)
+
   // UI states
   const [loading, setLoading] = useState(true)
   const [loadingAll, setLoadingAll] = useState(true)
@@ -314,13 +323,29 @@ export default function LeadsPage() {
     }
   }, [])
 
+  // Fetch monitoring data seguindo o filtro de datas da página
+  const fetchMonitoringData = useCallback(async () => {
+    try {
+      setLoadingMonitoring(true)
+      const data = await monitoringService.fetchDailyCheck({ startDate, endDate })
+      setMonitoringData(data)
+    } catch (error) {
+      console.error('Erro ao carregar monitoramento:', error)
+      toast.error('Erro ao carregar dados de monitoramento')
+    } finally {
+      setLoadingMonitoring(false)
+    }
+  }, [startDate, endDate])
+
   useEffect(() => { fetchLeads() }, [fetchLeads])
   useEffect(() => { fetchAllLeads() }, [fetchAllLeads])
   useEffect(() => { fetchHistoricalMetrics() }, [fetchHistoricalMetrics])
+  useEffect(() => { fetchMonitoringData() }, [fetchMonitoringData])
 
   const handleRefresh = async () => {
     leadsService.clearCache()
-    await Promise.all([fetchLeads(), fetchAllLeads(), fetchHistoricalMetrics()])
+    monitoringService.clearCache()
+    await Promise.all([fetchLeads(), fetchAllLeads(), fetchHistoricalMetrics(), fetchMonitoringData()])
     toast.success('Dados atualizados!')
   }
 
@@ -558,6 +583,100 @@ export default function LeadsPage() {
           </button>
         </div>
       </div>
+
+      {/* ====== ALERTAS DO SISTEMA ====== */}
+      {!loadingMonitoring && monitoringData && monitoringData.total_alerts > 0 && (
+        <div className="bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-2xl border border-white/20 dark:border-gray-700/50 shadow-xl overflow-hidden animate-fade-in">
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 dark:border-gray-800/60">
+            <div className="flex items-center gap-2">
+              <FaExclamationTriangle className="w-3.5 h-3.5 text-red-500" />
+              <span className="text-xs font-semibold text-text-light dark:text-text-dark">Alertas do Sistema</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              {monitoringData.alerts_by_severity?.HIGH > 0 && (
+                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-red-500 text-white">{monitoringData.alerts_by_severity.HIGH} HIGH</span>
+              )}
+              {(monitoringData.alerts_by_severity?.MEDIUM ?? 0) > 0 && (
+                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-yellow-500 text-white">{monitoringData.alerts_by_severity.MEDIUM} MED</span>
+              )}
+              {monitoringData.alerts_by_severity?.LOW > 0 && (
+                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-blue-500 text-white">{monitoringData.alerts_by_severity.LOW} LOW</span>
+              )}
+            </div>
+          </div>
+
+          {/* Alert rows */}
+          {(() => {
+            const VISIBLE = 4
+            const sorted = [...monitoringData.alerts].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+            const visible = alertsExpanded ? sorted : sorted.slice(0, VISIBLE)
+            const hidden = sorted.length - VISIBLE
+
+            const renderRow = (alert, i) => {
+              const isHigh = alert.severity === 'HIGH'
+              const isMid = alert.severity === 'MEDIUM'
+              const leftBorder = isHigh ? 'border-l-4 border-l-red-500' : isMid ? 'border-l-4 border-l-yellow-500' : 'border-l-4 border-l-blue-400'
+              const badgeCls = isHigh
+                ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                : isMid
+                ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+              const d = alert.details
+
+              const typeLabel = {
+                distribution_drift: 'Drift de Distribuição',
+                category_drift: 'Categoria Nova',
+                missing_rate_high: 'Dados Faltando',
+                score_distribution_change: 'Mudança em Decis',
+                extra_unexpected_features: 'Features Inesperadas',
+              }[alert.type] ?? alert.type
+
+              let summary = ''
+              if (alert.type === 'distribution_drift' && d?.changes?.[0]) {
+                const top = d.changes[0]
+                summary = `${d.column} · "${top.categoria}": ${(top.treino * 100).toFixed(1)}% → ${(top.producao * 100).toFixed(1)}% (+${(top.diff * 100).toFixed(1)}pp)`
+              } else if (alert.type === 'category_drift' && d?.new_categories) {
+                summary = `${d.column} · novas: ${d.new_categories.join(', ')} (${d.affected_count} leads)`
+              } else if (alert.type === 'missing_rate_high' && d) {
+                summary = `${d.column} · ${d.missing_count}/${d.total_rows} sem dado (${(d.missing_rate * 100).toFixed(0)}%)`
+              } else if (alert.type === 'score_distribution_change' && d?.changes?.[0]) {
+                const top = d.changes[0]
+                summary = `${top.decil}: esperado ${(top.esperado * 100).toFixed(0)}% → atual ${(top.atual * 100).toFixed(0)}% (+${(top.diff * 100).toFixed(1)}pp)`
+              } else if (alert.type === 'extra_unexpected_features' && d) {
+                summary = `${d.extra_count} features inesperadas · ${d.extra_features?.slice(0, 3).join(', ')}`
+              }
+
+              return (
+                <div key={i} className={`flex items-center gap-3 px-5 py-3 ${leftBorder} hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors`}>
+                  <span className={`shrink-0 px-1.5 py-0.5 rounded text-xs font-bold ${badgeCls}`}>{alert.severity}</span>
+                  <span className="text-xs font-medium text-text-light dark:text-text-dark shrink-0">{typeLabel}</span>
+                  <span className="text-xs text-text-muted-light dark:text-text-muted-dark truncate flex-1">{summary}</span>
+                  <span className="text-xs text-text-muted-light dark:text-text-muted-dark shrink-0 tabular-nums">{formatDateTime(alert.timestamp)}</span>
+                </div>
+              )
+            }
+
+            return (
+              <div className="divide-y divide-gray-100 dark:divide-gray-800/50">
+                {visible.map(renderRow)}
+                {sorted.length > VISIBLE && (
+                  <button
+                    onClick={() => setAlertsExpanded(e => !e)}
+                    className="w-full flex items-center justify-center gap-1.5 px-5 py-2.5 text-xs font-medium text-text-muted-light dark:text-text-muted-dark hover:text-primary hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors cursor-pointer"
+                  >
+                    {alertsExpanded ? (
+                      <><FaChevronUp className="w-3 h-3" /> Recolher</>
+                    ) : (
+                      <><FaChevronDown className="w-3 h-3" /> Ver mais {hidden} {hidden === 1 ? 'alerta' : 'alertas'}</>
+                    )}
+                  </button>
+                )}
+              </div>
+            )
+          })()}
+        </div>
+      )}
 
       {/* ====== DATE FILTER ====== */}
       <div className="bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-2xl p-4 md:p-5 border border-white/20 dark:border-gray-700/50 shadow-xl animate-fade-in">
@@ -854,6 +973,151 @@ export default function LeadsPage() {
           </div>
         </div>
       </div>
+
+      {/* ====== MONITORAMENTO DO SISTEMA ====== */}
+      {loadingMonitoring ? (
+        <div className="bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-2xl p-6 border border-white/20 dark:border-gray-700/50 shadow-xl animate-pulse">
+          <div className="h-6 w-56 bg-gray-200 dark:bg-gray-700 rounded mb-6" />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {[0, 1, 2].map(i => (
+              <div key={i} className="space-y-3">
+                <div className="h-4 w-32 bg-gray-200 dark:bg-gray-700 rounded" />
+                {[0, 1, 2, 3].map(j => (
+                  <div key={j} className="h-3 bg-gray-200 dark:bg-gray-700 rounded-full" />
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : monitoringData && (
+        <div className="bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-2xl p-6 border border-white/20 dark:border-gray-700/50 shadow-xl animate-fade-in">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-500/20 to-indigo-500/20 rounded-xl flex items-center justify-center">
+                <FaBell className="w-5 h-5 text-blue-500" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-text-light dark:text-text-dark">Monitoramento Automático</h3>
+                <p className="text-xs text-text-muted-light dark:text-text-muted-dark">
+                  {monitoringData.funnel_metrics?.window?.start_brt} → {monitoringData.funnel_metrics?.window?.end_brt} (12h)
+                </p>
+              </div>
+            </div>
+            {/* Severity badges */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {monitoringData.alerts_by_severity?.HIGH > 0 && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                  <FaExclamationTriangle className="w-3 h-3" />
+                  {monitoringData.alerts_by_severity.HIGH} HIGH
+                </span>
+              )}
+              {(monitoringData.alerts_by_severity?.MEDIUM ?? 0) > 0 && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
+                  <FaExclamationTriangle className="w-3 h-3" />
+                  {monitoringData.alerts_by_severity.MEDIUM} MEDIUM
+                </span>
+              )}
+              {monitoringData.alerts_by_severity?.LOW > 0 && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                  <FaInfoCircle className="w-3 h-3" />
+                  {monitoringData.alerts_by_severity.LOW} LOW
+                </span>
+              )}
+              {monitoringData.total_alerts === 0 && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                  <FaCheckCircle className="w-3 h-3" />
+                  Tudo OK
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
+            {/* Funil de Conversão */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-semibold text-text-muted-light dark:text-text-muted-dark uppercase tracking-wider flex items-center gap-2">
+                <FaRocket className="w-3.5 h-3.5" /> Funil de Conversão
+              </h4>
+              {(() => {
+                const total = monitoringData.funnel_metrics?.capture?.total_database || 0
+                return [
+                  { label: 'Capturados', value: total, color: 'bg-primary' },
+                  { label: 'Pontuados', value: monitoringData.funnel_metrics?.scoring?.total_scored, color: 'bg-blue-500' },
+                  { label: 'Enviados CAPI', value: monitoringData.funnel_metrics?.capi_sent?.leads_sent, color: 'bg-purple-500' },
+                  { label: 'Aceitos Meta', value: monitoringData.funnel_metrics?.meta_response?.success_count, color: 'bg-amber-500' },
+                ].map((step, i) => {
+                  const pct = total > 0 ? ((step.value / total) * 100) : 100
+                  return (
+                    <div key={i} className="flex items-center gap-2">
+                      <div className="w-28 text-right text-xs text-text-muted-light dark:text-text-muted-dark shrink-0">{step.label}</div>
+                      <div className="flex-1 bg-gray-100 dark:bg-gray-800 rounded-full h-2">
+                        <div className={`h-2 rounded-full ${step.color} transition-all duration-700`} style={{ width: `${Math.min(pct, 100)}%` }} />
+                      </div>
+                      <div className="w-20 text-right text-xs font-semibold text-text-light dark:text-text-dark shrink-0">
+                        {step.value?.toLocaleString('pt-BR')} <span className="font-normal text-text-muted-light dark:text-text-muted-dark">({pct.toFixed(1)}%)</span>
+                      </div>
+                    </div>
+                  )
+                })
+              })()}
+              <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800/60 grid grid-cols-2 gap-3">
+                <div className="text-center">
+                  <p className="text-xs text-text-muted-light dark:text-text-muted-dark mb-0.5">Tx. Envio CAPI</p>
+                  <p className="text-2xl font-bold text-primary">{monitoringData.funnel_metrics?.capi_sent?.send_rate?.toFixed(1)}%</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-text-muted-light dark:text-text-muted-dark mb-0.5">Aceitação Meta</p>
+                  <p className="text-2xl font-bold text-primary">{monitoringData.funnel_metrics?.meta_response?.acceptance_rate?.toFixed(1)}%</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Qualidade dos Dados */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-semibold text-text-muted-light dark:text-text-muted-dark uppercase tracking-wider flex items-center gap-2">
+                <FaShieldAlt className="w-3.5 h-3.5" /> Qualidade dos Dados
+              </h4>
+              {[
+                { label: 'Telefone', value: monitoringData.funnel_metrics?.data_quality?.phone_percentage },
+                { label: 'FBP (pixel cookie)', value: monitoringData.funnel_metrics?.data_quality?.fbp_percentage },
+                { label: 'FBC (click cookie)', value: monitoringData.funnel_metrics?.data_quality?.fbc_percentage },
+              ].map((item, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <div className="w-28 text-right text-xs text-text-muted-light dark:text-text-muted-dark shrink-0">{item.label}</div>
+                  <div className="flex-1 bg-gray-100 dark:bg-gray-800 rounded-full h-2">
+                    <div
+                      className={`h-2 rounded-full transition-all duration-700 ${(item.value ?? 0) >= 90 ? 'bg-primary' : (item.value ?? 0) >= 70 ? 'bg-amber-500' : 'bg-red-500'}`}
+                      style={{ width: `${item.value?.toFixed(1) ?? 0}%` }}
+                    />
+                  </div>
+                  <div className="w-12 text-right text-xs font-semibold text-text-light dark:text-text-dark shrink-0">{item.value?.toFixed(1)}%</div>
+                </div>
+              ))}
+              {/* Score metrics 24h */}
+              <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800/60 space-y-2">
+                <p className="text-xs font-semibold text-text-muted-light dark:text-text-muted-dark uppercase tracking-wider">Qualidade dos Leads (24h)</p>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  {[
+                    { label: 'Score', value: ((monitoringData.lead_quality_metrics?.ultimas_24h?.score ?? 0) * 100).toFixed(1) + '%' },
+                    { label: '% D9', value: (monitoringData.lead_quality_metrics?.ultimas_24h?.d9 ?? 0).toFixed(1) + '%' },
+                    { label: '% D10', value: (monitoringData.lead_quality_metrics?.ultimas_24h?.d10 ?? 0).toFixed(1) + '%' },
+                  ].map((m, i) => (
+                    <div key={i} className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-2">
+                      <p className="text-xs text-text-muted-light dark:text-text-muted-dark">{m.label}</p>
+                      <p className="text-lg font-bold text-text-light dark:text-text-dark">{m.value}</p>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-center text-text-muted-light dark:text-text-muted-dark">
+                  {monitoringData.lead_quality_metrics?.ultimas_24h?.count?.toLocaleString('pt-BR')} leads analisados
+                </p>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {/* ====== SEARCH & FILTERS ====== */}
       <div className="bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-2xl p-4 md:p-6 border border-white/20 dark:border-gray-700/50 shadow-xl space-y-4 animate-fade-in">

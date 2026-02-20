@@ -177,7 +177,7 @@ function AppRouter() {
       <Route
         path="/comparativo"
         element={
-          <ProtectedRoute requiredPermission="commercial">
+          <ProtectedRoute requiredPermission="comparativo">
             <AuthenticatedLayout>
               <ComparativoPage />
             </AuthenticatedLayout>

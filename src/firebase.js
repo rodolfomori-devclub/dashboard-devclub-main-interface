@@ -32,4 +32,4 @@ export const productValues = {
   'Front End Boleto': 1200,
 };
 
-export { db, auth };
+export { db, auth, firebaseConfig };

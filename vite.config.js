@@ -11,6 +11,11 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/leads-proxy/, '/api'),
       },
+      '/monitoring-proxy': {
+        target: 'https://smart-ads-api-gazrm25mda-uc.a.run.app',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/monitoring-proxy/, '/monitoring'),
+      },
     },
   },
 })
