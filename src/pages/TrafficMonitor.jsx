@@ -848,12 +848,24 @@ const TrafficMonitor = () => {
                       strokeOpacity={0.3}
                       tickLine={false}
                     />
-                    {/* Eixo direito 2: CTR e Conversão (%) */}
+                    {/* Eixo oculto para CPL (escala independente) */}
+                    <YAxis
+                      yAxisId="cpl"
+                      orientation="right"
+                      hide={true}
+                    />
+                    {/* Eixo oculto para CTR (escala independente) */}
+                    <YAxis
+                      yAxisId="ctr"
+                      orientation="right"
+                      hide={true}
+                    />
+                    {/* Eixo direito 2: Conversão (%) */}
                     <YAxis
                       yAxisId="percent"
                       orientation="right"
-                      tick={{ fontSize: 11, fill: '#8B5CF6' }}
-                      stroke="#8B5CF6"
+                      tick={{ fontSize: 11, fill: '#10B981' }}
+                      stroke="#10B981"
                       strokeOpacity={0.3}
                       tickFormatter={(v) => `${v}%`}
                       tickLine={false}
@@ -885,7 +897,7 @@ const TrafficMonitor = () => {
                       activeDot={{ r: 6, strokeWidth: 2, stroke: '#fff' }}
                     />
                     <Line
-                      yAxisId="currency"
+                      yAxisId="cpl"
                       type="monotone"
                       dataKey="cpl"
                       name="CPL"
@@ -896,7 +908,7 @@ const TrafficMonitor = () => {
                       activeDot={{ r: 5, strokeWidth: 2, stroke: '#fff' }}
                     />
                     <Line
-                      yAxisId="percent"
+                      yAxisId="ctr"
                       type="monotone"
                       dataKey="ctr"
                       name="CTR"
