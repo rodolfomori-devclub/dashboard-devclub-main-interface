@@ -170,6 +170,29 @@ const GoalsPage = () => {
     }));
   };
 
+  // Máscara monetária: formata número para "1.234,56"
+  const formatMoneyInput = (value) => {
+    if (!value && value !== 0) return '';
+    return Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+
+  // Converte string com máscara para número
+  const parseMoneyInput = (masked) => {
+    const digits = masked.replace(/\D/g, '');
+    return parseInt(digits || '0', 10) / 100;
+  };
+
+  const handleMoneyChange = (category, level, rawValue) => {
+    const numericValue = parseMoneyInput(rawValue);
+    setEditGoals(prev => ({
+      ...prev,
+      [category]: {
+        ...prev[category],
+        [level]: numericValue
+      }
+    }));
+  };
+
   // Calcular progresso
   const calculateProgress = (actual, goal) => {
     if (!goal || goal === 0) return 0;
@@ -369,11 +392,12 @@ const GoalsPage = () => {
                       <div className="relative">
                         <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">R$</span>
                         <input
-                          type="number"
-                          value={editGoals[key][level] || ''}
-                          onChange={(e) => updateGoalValue(key, level, e.target.value)}
+                          type="text"
+                          inputMode="numeric"
+                          value={formatMoneyInput(editGoals[key][level])}
+                          onChange={(e) => handleMoneyChange(key, level, e.target.value)}
                           className="w-full pl-10 pr-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600 focus:ring-primary dark:focus:ring-secondary focus:border-primary dark:focus:border-secondary"
-                          placeholder="0"
+                          placeholder="0,00"
                         />
                       </div>
                     </td>
