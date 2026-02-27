@@ -32,9 +32,10 @@ function Today() {
   initialDate.setHours(12, 0, 0, 0)
 
   const [selectedDate, setSelectedDate] = useState(initialDate)
-  const [displayDate, setDisplayDate] = useState(
-    initialDate.toISOString().split('T')[0],
-  )
+  const [displayDate, setDisplayDate] = useState(() => {
+    const d = initialDate
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  })
 
   const [todayData, setTodayData] = useState(null)
   const [refundsData, setRefundsData] = useState(null)
@@ -515,7 +516,9 @@ function Today() {
     fetchDayData(selectedDate)
 
     let interval
-    if (selectedDate === new Date().toISOString().split('T')[0]) {
+    const now = new Date()
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    if (selectedDate === todayStr) {
       interval = setInterval(() => fetchDayData(selectedDate), 5 * 60 * 1000)
     }
 

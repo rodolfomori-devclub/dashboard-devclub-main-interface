@@ -27,9 +27,9 @@ export const leadsService = {
     const params = {}
     if (startDate) params.startDate = startDate
     if (endDate) {
-      const d = new Date(endDate)
+      const d = new Date(endDate + 'T12:00:00')
       d.setDate(d.getDate() + 1)
-      params.endDate = d.toISOString().split('T')[0]
+      params.endDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     }
     return params
   },

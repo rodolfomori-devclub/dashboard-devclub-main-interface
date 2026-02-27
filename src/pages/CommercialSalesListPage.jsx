@@ -165,7 +165,7 @@ function CommercialSalesListPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `vendas_comercial_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `vendas_comercial_${new Date().toLocaleDateString('en-CA')}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

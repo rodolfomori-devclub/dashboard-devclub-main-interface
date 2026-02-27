@@ -64,7 +64,7 @@ export const boletoApiService = {
    */
   async getSalesByDate(date) {
     try {
-      const dateStr = date.toISOString().split('T')[0];
+      const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
       console.log(`Buscando vendas de boleto para ${dateStr}`);
       
       const response = await axios.get(`${API_URL}/boleto/vendas/data`, {
@@ -93,8 +93,8 @@ export const boletoApiService = {
    */
   async getSalesByDateRange(startDate, endDate) {
     try {
-      const startStr = startDate.toISOString().split('T')[0];
-      const endStr = endDate.toISOString().split('T')[0];
+      const startStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`;
+      const endStr = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
       
       console.log(`Buscando vendas de boleto entre ${startStr} e ${endStr}`);
       

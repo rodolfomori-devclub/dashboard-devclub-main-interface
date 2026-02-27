@@ -191,7 +191,7 @@ const SellerDetailsModal = ({ seller, salesData = [], products, onClose }) => {
   for (let i = 0; i < 30; i++) {
     const date = new Date(today);
     date.setDate(today.getDate() - i);
-    const dateStr = date.toISOString().split('T')[0];
+    const dateStr = date.toLocaleDateString('en-CA');
     last30Days[dateStr] = 0;
   }
   
@@ -200,7 +200,7 @@ const SellerDetailsModal = ({ seller, salesData = [], products, onClose }) => {
     if (!sale.timestamp) return;
     
     const saleDate = new Date(sale.timestamp);
-    const dateStr = saleDate.toISOString().split('T')[0];
+    const dateStr = saleDate.toLocaleDateString('en-CA');
     
     // Apenas vendas dos últimos 30 dias
     if (last30Days.hasOwnProperty(dateStr)) {

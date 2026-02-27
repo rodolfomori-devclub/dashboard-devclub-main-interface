@@ -1034,7 +1034,7 @@ const TrafficMonitor = () => {
                     type="date"
                     value={
                       customDateRange.start
-                        ? customDateRange.start.toISOString().split('T')[0]
+                        ? customDateRange.start.toLocaleDateString('en-CA')
                         : ''
                     }
                     onChange={(e) =>
@@ -1054,7 +1054,7 @@ const TrafficMonitor = () => {
                     type="date"
                     value={
                       customDateRange.end
-                        ? customDateRange.end.toISOString().split('T')[0]
+                        ? customDateRange.end.toLocaleDateString('en-CA')
                         : ''
                     }
                     onChange={(e) =>
@@ -1065,7 +1065,7 @@ const TrafficMonitor = () => {
                     }
                     min={
                       customDateRange.start
-                        ? customDateRange.start.toISOString().split('T')[0]
+                        ? customDateRange.start.toLocaleDateString('en-CA')
                         : ''
                     }
                     className="w-full px-4 py-3 border border-primary/20 rounded-xl text-text-light dark:text-text-dark bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg focus:ring-4 focus:ring-primary/20 focus:border-primary transition-all outline-none"

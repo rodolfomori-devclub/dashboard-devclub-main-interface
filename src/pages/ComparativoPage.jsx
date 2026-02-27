@@ -38,39 +38,35 @@ function ComparativoPage() {
   const [error, setError] = useState(null);
 
   // Estados para datas de comparação
-  const [firstDate, setFirstDate] = useState(() => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
-  });
+  const _toLocal = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+  const [firstDate, setFirstDate] = useState(() => _toLocal(new Date()));
 
   const [secondDate, setSecondDate] = useState(() => {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
-    return yesterday.toISOString().split('T')[0];
+    return _toLocal(yesterday);
   });
 
   // Estados para períodos de comparação
   const [firstPeriodStart, setFirstPeriodStart] = useState(() => {
     const weekAgo = new Date();
     weekAgo.setDate(weekAgo.getDate() - 7);
-    return weekAgo.toISOString().split('T')[0];
+    return _toLocal(weekAgo);
   });
 
-  const [firstPeriodEnd, setFirstPeriodEnd] = useState(() => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
-  });
+  const [firstPeriodEnd, setFirstPeriodEnd] = useState(() => _toLocal(new Date()));
 
   const [secondPeriodStart, setSecondPeriodStart] = useState(() => {
     const twoWeeksAgo = new Date();
     twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
-    return twoWeeksAgo.toISOString().split('T')[0];
+    return _toLocal(twoWeeksAgo);
   });
 
   const [secondPeriodEnd, setSecondPeriodEnd] = useState(() => {
     const weekAgo = new Date();
     weekAgo.setDate(weekAgo.getDate() - 8);
-    return weekAgo.toISOString().split('T')[0];
+    return _toLocal(weekAgo);
   });
 
   // Dados dos comparativos
@@ -359,7 +355,7 @@ function ComparativoPage() {
       const lastDate = new Date(endDateObj);
       
       while (currentDate <= lastDate) {
-        const dateStr = currentDate.toISOString().split('T')[0];
+        const dateStr = currentDate.toLocaleDateString('en-CA');
         dailyData[dateStr] = {
           date: dateStr,
           sales: 0,
@@ -407,7 +403,7 @@ function ComparativoPage() {
       transactionsResponse.data.data.forEach((transaction) => {
         const timestamp = transaction.dates.created_at * 1000;
         const date = new Date(timestamp);
-        const dateStr = date.toISOString().split('T')[0];
+        const dateStr = date.toLocaleDateString('en-CA');
         const hour = date.getHours();
 
         const netAmount = Number(
@@ -472,7 +468,7 @@ function ComparativoPage() {
       // Processar vendas de boleto
       boletoSales.forEach((boletoSale) => {
         const date = new Date(boletoSale.timestamp);
-        const dateStr = date.toISOString().split('T')[0];
+        const dateStr = date.toLocaleDateString('en-CA');
         const hour = date.getHours();
 
         const saleValue = boletoSale.value || 0;
@@ -518,7 +514,7 @@ function ComparativoPage() {
       refundsResponse.data.data.forEach((refund) => {
         const timestamp = refund.dates.created_at * 1000;
         const date = new Date(timestamp);
-        const dateStr = date.toISOString().split('T')[0];
+        const dateStr = date.toLocaleDateString('en-CA');
         
         const refundAmount = Number(refund.calculation_details?.net_amount || 0);
         

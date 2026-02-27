@@ -186,16 +186,16 @@ const DashboardCharts = ({ salesData, products, sellers }) => {
   for (let i = 0; i < 15; i++) {
     const date = new Date(today);
     date.setDate(today.getDate() - i);
-    const dateStr = date.toISOString().split('T')[0];
+    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     last15Days[dateStr] = 0;
   }
-  
+
   // Contar vendas por dia
   safeData.forEach(sale => {
     if (!sale || !sale.timestamp) return;
-    
+
     const saleDate = new Date(sale.timestamp);
-    const dateStr = saleDate.toISOString().split('T')[0];
+    const dateStr = `${saleDate.getFullYear()}-${String(saleDate.getMonth() + 1).padStart(2, '0')}-${String(saleDate.getDate()).padStart(2, '0')}`;
     
     // Apenas vendas dos últimos 15 dias
     if (last15Days.hasOwnProperty(dateStr)) {

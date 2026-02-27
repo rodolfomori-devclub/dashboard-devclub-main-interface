@@ -129,8 +129,8 @@ function DailyDashboard() {
     const trafficEnd = new Date(oneWeekAgo);
     
     return {
-      startDate: trafficStart.toISOString().split('T')[0],
-      endDate: trafficEnd.toISOString().split('T')[0]
+      startDate: trafficStart.toLocaleDateString('en-CA'),
+      endDate: trafficEnd.toLocaleDateString('en-CA')
     };
   };
 
@@ -247,8 +247,8 @@ function DailyDashboard() {
     setIsLaunchMode(true);
 
     // Calcular período de vendas (segunda a domingo da semana escolhida)
-    const salesStart = week.startDate.toISOString().split('T')[0];
-    const salesEnd = week.endDate.toISOString().split('T')[0];
+    const salesStart = week.startDate.toLocaleDateString('en-CA');
+    const salesEnd = week.endDate.toLocaleDateString('en-CA');
 
     // Atualizar período de vendas
     setDateRange({ start: salesStart, end: salesEnd });
@@ -629,7 +629,7 @@ function DailyDashboard() {
 
         // Convert to local date
         const saleDate = new Date(sale.timestamp)
-        const dateStr = saleDate.toISOString().split('T')[0]
+        const dateStr = saleDate.toLocaleDateString('en-CA')
         const saleValue = sale.value || 0
 
         if (dailyDataMap[dateStr]) {

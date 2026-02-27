@@ -65,14 +65,14 @@ function CommercialSellersPage() {
   const [filterType, setFilterType] = useState('month') // 'month', 'year', 'custom'
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1)
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
-  const [customStartDate, setCustomStartDate] = useState(
-    new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-      .toISOString()
-      .split('T')[0],
-  )
-  const [customEndDate, setCustomEndDate] = useState(
-    new Date().toISOString().split('T')[0],
-  )
+  const [customStartDate, setCustomStartDate] = useState(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
+  })
+  const [customEndDate, setCustomEndDate] = useState(() => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  })
 
   // Estado para vendedores
   const [sellers, setSellers] = useState([])

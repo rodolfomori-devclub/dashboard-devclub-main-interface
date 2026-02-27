@@ -51,7 +51,7 @@ export const revenueService = {
         // Agrupar por dia
         const timestamp = transaction.dates?.created_at * 1000;
         const date = new Date(timestamp);
-        const dateStr = date.toISOString().split('T')[0];
+        const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
         
         if (!cardRevenueByDay[dateStr]) {
           cardRevenueByDay[dateStr] = { revenue: 0, sales: 0 };
@@ -72,7 +72,8 @@ export const revenueService = {
 
         // Agrupar por dia
         const date = sale.date?.timestamp || sale.timestamp;
-        const dateStr = new Date(date).toISOString().split('T')[0];
+        const d = new Date(date);
+        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         
         if (!boletoRevenueByDay[dateStr]) {
           boletoRevenueByDay[dateStr] = { revenue: 0, sales: 0 };

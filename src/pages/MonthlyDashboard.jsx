@@ -232,7 +232,7 @@ function MonthlyDashboard() {
       const start = new Date(firstDayOfMonth)
       const end = new Date(lastDayOfMonth)
       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        const dateStr = d.toISOString().split('T')[0]
+        const dateStr = d.toLocaleDateString('en-CA')
         dailyDataMap[dateStr] = {
           date: dateStr,
           net_amount: 0,
@@ -293,7 +293,7 @@ function MonthlyDashboard() {
       
       transactionsResponse.data.data.forEach((transaction) => {
         const fullDate = new Date(transaction.dates.created_at * 1000)
-        const transactionDate = fullDate.toISOString().split('T')[0]
+        const transactionDate = fullDate.toLocaleDateString('en-CA')
 
         const netAmount = Number(
           transaction?.calculation_details?.net_amount || 0,
@@ -410,7 +410,7 @@ function MonthlyDashboard() {
       // Processar reembolsos
       refundsResponse.data.data.forEach((refund) => {
         const fullDate = new Date(refund.dates.created_at * 1000)
-        const refundDate = fullDate.toISOString().split('T')[0]
+        const refundDate = fullDate.toLocaleDateString('en-CA')
 
         // Usar o valor líquido calculado pelo backend que aplica as mesmas regras de transações
         const refundAmount = Number(refund.calculation_details?.net_amount || 0)
@@ -424,7 +424,7 @@ function MonthlyDashboard() {
       // Processar vendas de boleto
       boletoSales.forEach((boletoSale) => {
         const saleDate = new Date(boletoSale.timestamp);
-        const transactionDate = saleDate.toISOString().split('T')[0];
+        const transactionDate = saleDate.toLocaleDateString('en-CA');
         
         const saleValue = Number(boletoSale.value || 0);
         

@@ -199,12 +199,15 @@ const CustomBarTooltip = ({ active, payload, label }) => {
   return null
 }
 
-// Helpers de data
-const todayStr = () => new Date().toISOString().split('T')[0]
+// Helpers de data (usando fuso horário local do Brasil)
+const toLocalDateStr = (d) => {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+const todayStr = () => toLocalDateStr(new Date())
 const daysAgo = (n) => {
   const d = new Date()
   d.setDate(d.getDate() - n)
-  return d.toISOString().split('T')[0]
+  return toLocalDateStr(d)
 }
 const startOfMonth = () => {
   const d = new Date()
@@ -412,7 +415,7 @@ export default function LeadsPage() {
   // KPI calculations from allLeads
   const kpis = useMemo(() => {
     if (!allLeads.length) return { total: 0, todayCount: 0, withScore: 0, avgScore: 0 }
-    const today = new Date().toISOString().split('T')[0]
+    const today = toLocalDateStr(new Date())
     const todayLeads = allLeads.filter(l => l.data?.startsWith(today))
     const withScore = allLeads.filter(l => l.leadScore !== null && l.leadScore !== undefined)
     const avgScore = withScore.length > 0 ? withScore.reduce((s, l) => s + l.leadScore, 0) / withScore.length : 0
@@ -539,7 +542,7 @@ export default function LeadsPage() {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.setAttribute('href', url)
-    link.setAttribute('download', `leads_devclub_${new Date().toISOString().split('T')[0]}.csv`)
+    link.setAttribute('download', `leads_devclub_${toLocalDateStr(new Date())}.csv`)
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)

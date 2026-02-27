@@ -92,8 +92,8 @@ const GoalsPage = () => {
       }
 
       // Formatar datas para API (YYYY-MM-DD)
-      const startDateStr = startDate.toISOString().split('T')[0];
-      const endDateStr = endDate.toISOString().split('T')[0];
+      const startDateStr = startDate.toLocaleDateString('en-CA');
+      const endDateStr = endDate.toLocaleDateString('en-CA');
 
       // Buscar faturamento real (cartão e boleto)
       let cardRevenue = 0;

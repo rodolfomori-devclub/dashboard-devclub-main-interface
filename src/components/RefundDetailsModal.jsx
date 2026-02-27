@@ -51,7 +51,7 @@ const RefundDetailsModal = ({ isOpen, onClose, refundsData = [] }) => {
     // Agrupar por dia
     if (refund.dates?.created_at) {
       const date = new Date(refund.dates.created_at * 1000);
-      const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD
+      const dateStr = date.toLocaleDateString('en-CA'); // YYYY-MM-DD
       
       if (!refundsByDay[dateStr]) {
         refundsByDay[dateStr] = {
