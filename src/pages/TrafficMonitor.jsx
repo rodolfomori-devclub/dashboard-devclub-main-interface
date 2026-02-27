@@ -327,6 +327,24 @@ const TrafficMonitor = () => {
         startDate = new Date()
         startDate.setHours(0, 0, 0, 0)
         break
+      case 'yesterday': {
+        const yesterday = new Date()
+        yesterday.setDate(yesterday.getDate() - 1)
+        yesterday.setHours(0, 0, 0, 0)
+        startDate = yesterday
+        const yesterdayEnd = new Date(yesterday)
+        yesterdayEnd.setHours(23, 59, 59, 999)
+        filtered = trafficData.filter((row) => {
+          if (!row.DATA) return false
+          const [day, month, year] = row.DATA.split('/')
+          const rowDate = new Date(year || today.getFullYear(), month - 1, day)
+          return rowDate >= startDate && rowDate <= yesterdayEnd
+        })
+        setFilteredData(filtered)
+        const newMetrics = trafficSheetsService.calculateMetrics(filtered)
+        setMetrics(newMetrics)
+        return
+      }
       case 'last7days':
         startDate = new Date()
         startDate.setDate(today.getDate() - 7)
@@ -425,6 +443,8 @@ const TrafficMonitor = () => {
     switch (selectedPeriod) {
       case 'today':
         return 'Hoje'
+      case 'yesterday':
+        return 'Ontem'
       case 'last7days':
         return 'Últimos 7 dias'
       case 'last30days':
@@ -556,6 +576,19 @@ const TrafficMonitor = () => {
                 >
                   <FaCalendarDay className="w-4 h-4" />
                   HOJE
+                </button>
+
+                {/* Ontem */}
+                <button
+                  onClick={() => handlePeriodChange('yesterday')}
+                  className={`px-5 py-3 rounded-xl text-sm font-medium transition-all duration-300 flex items-center gap-2 ${
+                    selectedPeriod === 'yesterday'
+                      ? 'bg-white dark:bg-gray-700 text-text-light dark:text-text-dark shadow-lg border border-primary/30'
+                      : 'bg-white/50 dark:bg-gray-800/50 text-text-muted-light dark:text-text-muted-dark hover:bg-white dark:hover:bg-gray-700 border border-transparent hover:border-gray-200 dark:hover:border-gray-600'
+                  }`}
+                >
+                  <FaCalendarDay className="w-3.5 h-3.5" />
+                  ONTEM
                 </button>
 
                 {/* 7 dias */}
