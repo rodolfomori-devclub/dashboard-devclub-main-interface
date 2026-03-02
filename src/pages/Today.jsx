@@ -714,7 +714,7 @@ function Today() {
                 Vendas Cartão
               </h3>
               <p className="text-4xl font-bold text-green-500 mb-2">
-                {formatCurrency((todayData?.totalValue || 0) - (boletoData?.totalBoletoValue || 0))}
+                {formatCurrency((todayData?.totalValue || 0) - (boletoData?.totalBoletoValue || 0) - (asaasData?.totalPurchaseValue || 0))}
               </p>
               <p className="text-sm text-text-muted-light dark:text-text-muted-dark flex items-center">
                 <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
