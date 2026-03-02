@@ -42,6 +42,9 @@ function Today() {
   const [commercialData, setCommercialData] = useState(null)
   const [boletoData, setBoletoData] = useState(null)
   const [asaasData, setAsaasData] = useState(null)
+  const [hotmartData, setHotmartData] = useState(null)
+  const [hotmartRefundsData, setHotmartRefundsData] = useState(null)
+  const [showRefundsModal, setShowRefundsModal] = useState(false)
   const [categoryData, setCategoryData] = useState({ ia: {}, programacao: {} })
   const [loading, setLoading] = useState(true)
   const [loadingStates, setLoadingStates] = useState({
@@ -97,8 +100,8 @@ function Today() {
       })
 
       // Executar todas as chamadas em paralelo usando Promise.allSettled
-      const [transactionsResult, refundsResult, boletoResult, asaasResult] = await Promise.allSettled([
-        // Buscar transações aprovadas
+      const [transactionsResult, refundsResult, boletoResult, asaasResult, hotmartResult, hotmartRefundsResult] = await Promise.allSettled([
+        // Buscar transações aprovadas (Guru)
         axios.post(
           `${import.meta.env.VITE_API_URL}/transactions`,
           {
@@ -110,7 +113,7 @@ function Today() {
             signal,
           },
         ),
-        // Buscar transações reembolsadas
+        // Buscar transações reembolsadas (Guru)
         axios.post(
           `${import.meta.env.VITE_API_URL}/refunds`,
           {
@@ -130,6 +133,24 @@ function Today() {
         // Buscar vendas Asaas (boleto parcelado)
         axios.get(
           `${import.meta.env.VITE_API_URL}/boleto/asaas/vendas`,
+          {
+            params: { date },
+            timeout: 30000,
+            signal,
+          },
+        ),
+        // Buscar vendas Hotmart
+        axios.get(
+          `${import.meta.env.VITE_API_URL}/hotmart/vendas`,
+          {
+            params: { date },
+            timeout: 30000,
+            signal,
+          },
+        ),
+        // Buscar reembolsos Hotmart
+        axios.get(
+          `${import.meta.env.VITE_API_URL}/hotmart/reembolsos`,
           {
             params: { date },
             timeout: 30000,
@@ -391,10 +412,11 @@ function Today() {
         })
       })
 
-      // Processar dados de reembolsos
+      // Processar dados de reembolsos (Guru)
       let totalRefunds = 0
       let totalRefundAmount = 0
       const refundsByProduct = {}
+      const refundDetails = []
 
       refundsResponse.data.data.forEach((refund) => {
         const productName = refund.product?.name || 'Produto não especificado'
@@ -409,6 +431,48 @@ function Today() {
 
         totalRefunds += 1
         totalRefundAmount += refundAmount
+
+        refundDetails.push({
+          id: refund.hash || `guru-refund-${Date.now()}-${Math.random()}`,
+          product: productName,
+          value: refundAmount,
+          platform: 'Guru',
+          buyer: refund.contact?.name || '',
+          date: refund.dates?.created_at ? new Date(refund.dates.created_at * 1000) : null,
+          paymentMethod: refund.payment?.method || '',
+        })
+      })
+
+      // Processar reembolsos Hotmart
+      const hotmartRefunds =
+        hotmartRefundsResult.status === 'fulfilled' && hotmartRefundsResult.value?.data?.success
+          ? hotmartRefundsResult.value.data.data || {}
+          : {}
+      const hotmartRefundsList = hotmartRefunds.transactions || []
+
+      hotmartRefundsList.forEach((refund) => {
+        const productName = refund.product || 'Produto Hotmart'
+        const refundAmount = refund.value || 0
+
+        if (!refundsByProduct[productName]) {
+          refundsByProduct[productName] = { count: 0, amount: 0 }
+        }
+
+        refundsByProduct[productName].count += 1
+        refundsByProduct[productName].amount += refundAmount
+
+        totalRefunds += 1
+        totalRefundAmount += refundAmount
+
+        refundDetails.push({
+          id: refund.transaction || `hotmart-refund-${Date.now()}-${Math.random()}`,
+          product: productName,
+          value: refundAmount,
+          platform: 'Hotmart',
+          buyer: refund.buyer || '',
+          date: refund.orderDate ? new Date(refund.orderDate) : null,
+          paymentMethod: refund.paymentMethod || '',
+        })
       })
 
       const refundProductData = Object.entries(refundsByProduct).map(
@@ -438,19 +502,26 @@ function Today() {
       const hoursWithSales =
         hourlyData.filter((hour) => hour.sales > 0 || hour.boletoSales > 0)
           .length || 1
-      // Extrair valor Asaas (já disponível pois Promise.allSettled resolveu)
-      const asaasPurchaseValue =
+      // Extrair vendas novas do dia do Asaas (checkouts criados hoje)
+      const asaasSales =
         asaasResult.status === 'fulfilled' && asaasResult.value?.data?.success
-          ? asaasResult.value.data.data?.totalPurchaseValue || 0
-          : 0
-      const asaasCount =
-        asaasResult.status === 'fulfilled' && asaasResult.value?.data?.success
-          ? asaasResult.value.data.data?.count || 0
-          : 0
+          ? asaasResult.value.data.data?.sales || {}
+          : {}
+      const asaasPurchaseValue = asaasSales.totalValue || 0
+      const asaasCount = asaasSales.count || 0
 
-      const totalCardSales = totalSales
-      totalSales += totalBoletoSales + asaasCount
-      const totalCombinedValue = totalValue + totalBoletoValue + asaasPurchaseValue
+      // Extrair vendas Hotmart
+      const hotmartSales =
+        hotmartResult.status === 'fulfilled' && hotmartResult.value?.data?.success
+          ? hotmartResult.value.data.data || {}
+          : {}
+      const hotmartNetValue = hotmartSales.totalNet || 0
+      const hotmartGrossValue = hotmartSales.totalGross || 0
+      const hotmartCount = hotmartSales.count || 0
+
+      const totalCardSales = totalSales + hotmartCount
+      totalSales += totalBoletoSales + asaasCount + hotmartCount
+      const totalCombinedValue = totalValue + totalBoletoValue + asaasPurchaseValue + hotmartNetValue
       const averageSalesPerHour = totalSales / hoursWithSales
 
       const processedHourlyData = hourlyData.map((hour) => ({
@@ -472,6 +543,7 @@ function Today() {
       setRefundsData({
         totalRefunds,
         totalRefundAmount,
+        details: refundDetails,
       })
 
       setCommercialData({
@@ -487,16 +559,28 @@ function Today() {
       // Processar dados do Asaas
       if (asaasResult.status === 'fulfilled' && asaasResult.value?.data?.success) {
         const asaas = asaasResult.value.data.data
+        const sales = asaas.sales || {}
         setAsaasData({
-          totalGross: asaas.totalGross || 0,
-          totalNet: asaas.totalNet || 0,
-          totalFees: asaas.totalFees || 0,
-          count: asaas.count || 0,
-          totalPurchaseValue: asaas.totalPurchaseValue || 0,
+          count: sales.count || 0,
+          totalPurchaseValue: sales.totalValue || 0,
+          entryValue: sales.entryValue || 0,
         })
       } else {
-        setAsaasData({ totalGross: 0, totalNet: 0, totalFees: 0, count: 0, totalPurchaseValue: 0 })
+        setAsaasData({ count: 0, totalPurchaseValue: 0, entryValue: 0 })
       }
+
+      // Processar dados da Hotmart
+      setHotmartData({
+        count: hotmartCount,
+        totalGross: hotmartGrossValue,
+        totalNet: hotmartNetValue,
+        totalFees: hotmartSales.totalFees || 0,
+      })
+
+      setHotmartRefundsData({
+        count: hotmartRefunds.count || 0,
+        totalRefundAmount: hotmartRefunds.totalRefundAmount || 0,
+      })
 
       setCategoryData(categoryTotals)
 
@@ -720,6 +804,16 @@ function Today() {
                 <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
                 {todayData?.totalCardSales || 0} transações
               </p>
+              <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 space-y-1">
+                <div className="flex justify-between text-xs">
+                  <span className="text-text-muted-light dark:text-text-muted-dark">Guru</span>
+                  <span className="font-medium text-text-light dark:text-text-dark">{(todayData?.totalCardSales || 0) - (hotmartData?.count || 0)} ({formatCurrency((todayData?.totalValue || 0) - (boletoData?.totalBoletoValue || 0) - (asaasData?.totalPurchaseValue || 0) - (hotmartData?.totalNet || 0))})</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-text-muted-light dark:text-text-muted-dark">Hotmart</span>
+                  <span className="font-medium text-text-light dark:text-text-dark">{hotmartData?.count || 0} ({formatCurrency(hotmartData?.totalNet || 0)})</span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -745,7 +839,7 @@ function Today() {
               </p>
               <p className="text-sm text-text-muted-light dark:text-text-muted-dark flex items-center">
                 <span className="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
-                {(boletoData?.totalBoletoSales || 0) + (asaasData?.count || 0)} boletos
+                {(boletoData?.totalBoletoSales || 0) + (asaasData?.count || 0)} vendas hoje
               </p>
               <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 space-y-1">
                 <div className="flex justify-between text-xs">
@@ -753,15 +847,13 @@ function Today() {
                   <span className="font-medium text-text-light dark:text-text-dark">{formatCurrency(boletoData?.totalBoletoValue || 0)}</span>
                 </div>
                 <div className="flex justify-between text-xs">
-                  <span className="text-text-muted-light dark:text-text-muted-dark">Asaas (bruto total)</span>
-                  <span className="font-medium text-text-light dark:text-text-dark">{formatCurrency(asaasData?.totalPurchaseValue || 0)}</span>
+                  <span className="text-text-muted-light dark:text-text-muted-dark">Asaas (vendas)</span>
+                  <span className="font-medium text-text-light dark:text-text-dark">{asaasData?.count || 0} ({formatCurrency(asaasData?.totalPurchaseValue || 0)})</span>
                 </div>
-                {asaasData?.totalPurchaseValue > 0 && (
-                  <div className="flex justify-between text-xs">
-                    <span className="text-text-muted-light dark:text-text-muted-dark">Asaas (recebido hoje)</span>
-                    <span className="font-medium text-green-500">{formatCurrency(asaasData?.totalGross || 0)}</span>
-                  </div>
-                )}
+                <div className="flex justify-between text-xs">
+                  <span className="text-text-muted-light dark:text-text-muted-dark">Entradas recebidas</span>
+                  <span className="font-medium text-green-500">{formatCurrency(asaasData?.entryValue || 0)}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -905,6 +997,24 @@ function Today() {
                 <span className="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
                 {refundsData?.totalRefunds || 0} solicitações
               </p>
+              <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 space-y-1">
+                <div className="flex justify-between text-xs">
+                  <span className="text-text-muted-light dark:text-text-muted-dark">Guru</span>
+                  <span className="font-medium text-text-light dark:text-text-dark">{(refundsData?.totalRefunds || 0) - (hotmartRefundsData?.count || 0)} ({formatCurrency((refundsData?.totalRefundAmount || 0) - (hotmartRefundsData?.totalRefundAmount || 0))})</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-text-muted-light dark:text-text-muted-dark">Hotmart</span>
+                  <span className="font-medium text-text-light dark:text-text-dark">{hotmartRefundsData?.count || 0} ({formatCurrency(hotmartRefundsData?.totalRefundAmount || 0)})</span>
+                </div>
+              </div>
+              {(refundsData?.totalRefunds || 0) > 0 && (
+                <button
+                  onClick={() => setShowRefundsModal(true)}
+                  className="mt-3 w-full text-center text-xs font-medium text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 transition-colors cursor-pointer"
+                >
+                  Ver detalhes
+                </button>
+              )}
             </div>
           </div>
 
@@ -1237,6 +1347,80 @@ function Today() {
             </div>
           </div>
         </div>
+
+        {/* Modal de detalhes de reembolsos */}
+        {showRefundsModal && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowRefundsModal(false)}>
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+                <div>
+                  <h3 className="text-xl font-bold text-text-light dark:text-text-dark">Detalhes dos Reembolsos</h3>
+                  <p className="text-sm text-text-muted-light dark:text-text-muted-dark mt-1">
+                    {refundsData?.totalRefunds || 0} reembolsos - {formatCurrency(refundsData?.totalRefundAmount || 0)}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowRefundsModal(false)}
+                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="p-6 overflow-y-auto max-h-[60vh]">
+                {refundsData?.details?.length > 0 ? (
+                  <div className="space-y-3">
+                    {refundsData.details
+                      .sort((a, b) => (b.value || 0) - (a.value || 0))
+                      .map((refund) => (
+                      <div key={refund.id} className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 border border-gray-200 dark:border-gray-600">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-gray-900 dark:text-white text-sm mb-2">
+                              {refund.product}
+                            </h4>
+                            <div className="flex flex-wrap items-center gap-2 text-xs">
+                              <span className={`inline-flex px-2 py-0.5 font-semibold rounded-full ${
+                                refund.platform === 'Guru'
+                                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
+                                  : 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
+                              }`}>
+                                {refund.platform}
+                              </span>
+                              {refund.paymentMethod && (
+                                <span className="text-gray-500 dark:text-gray-400">
+                                  {refund.paymentMethod}
+                                </span>
+                              )}
+                              {refund.buyer && (
+                                <span className="text-gray-500 dark:text-gray-400">
+                                  {refund.buyer}
+                                </span>
+                              )}
+                              {refund.date && (
+                                <span className="text-gray-500 dark:text-gray-400">
+                                  {new Date(refund.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-right ml-4">
+                            <div className="font-bold text-lg text-red-500">
+                              {formatCurrency(refund.value)}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-center text-gray-500 dark:text-gray-400 py-8">Nenhum detalhe disponível</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

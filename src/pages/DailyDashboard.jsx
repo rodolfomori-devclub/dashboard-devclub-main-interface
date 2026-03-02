@@ -767,11 +767,12 @@ function DailyDashboard() {
         total_boleto_quantity: totalBoletoQuantity,
       })
 
-      // Processar dados do Asaas
+      // Processar dados do Asaas (vendas confirmadas do dia)
       if (asaasResult.status === 'fulfilled' && asaasResult.value?.data?.success) {
         const asaas = asaasResult.value.data.data
-        const asaasValue = asaas.totalPurchaseValue || 0
-        const asaasCount = asaas.count || 0
+        const sales = asaas.sales || {}
+        const asaasValue = sales.totalValue || 0
+        const asaasCount = sales.count || 0
 
         // Add ASAAS data to category totals (assuming it's programming/DevClub)
         categoryTotals.programacao.boletoValue += asaasValue
@@ -780,14 +781,12 @@ function DailyDashboard() {
         categoryTotals.programacao.totalQuantity += asaasCount
 
         setAsaasData({
-          totalGross: asaas.totalGross || 0,
-          totalNet: asaas.totalNet || 0,
-          totalFees: asaas.totalFees || 0,
           count: asaasCount,
           totalPurchaseValue: asaasValue,
+          entryValue: sales.entryValue || 0,
         })
       } else {
-        setAsaasData({ totalGross: 0, totalNet: 0, totalFees: 0, count: 0, totalPurchaseValue: 0 })
+        setAsaasData({ count: 0, totalPurchaseValue: 0, entryValue: 0 })
       }
 
       // Store product data
@@ -1603,15 +1602,13 @@ function DailyDashboard() {
                 <span className="font-medium text-text-light dark:text-text-dark">{formatCurrency(filteredTotals.total_boleto_value || 0)}</span>
               </div>
               <div className="flex justify-between text-xs">
-                <span className="text-gray-500 dark:text-gray-400">Asaas (bruto total)</span>
-                <span className="font-medium text-text-light dark:text-text-dark">{formatCurrency(filteredTotals.total_asaas_value || 0)}</span>
+                <span className="text-gray-500 dark:text-gray-400">Asaas (vendas)</span>
+                <span className="font-medium text-text-light dark:text-text-dark">{filteredTotals.total_asaas_quantity || 0} ({formatCurrency(filteredTotals.total_asaas_value || 0)})</span>
               </div>
-              {filteredTotals.total_asaas_value > 0 && (
-                <div className="flex justify-between text-xs">
-                  <span className="text-gray-500 dark:text-gray-400">Asaas (recebido)</span>
-                  <span className="font-medium text-green-500">{formatCurrency((asaasData?.totalGross || 0) * (data?.totals?.total_net_amount > 0 ? (filteredTotals.total_asaas_value / (asaasData?.totalPurchaseValue || 1)) : 1))}</span>
-                </div>
-              )}
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500 dark:text-gray-400">Entradas recebidas</span>
+                <span className="font-medium text-green-500">{formatCurrency(asaasData?.entryValue || 0)}</span>
+              </div>
             </div>
           </div>
         </div>
