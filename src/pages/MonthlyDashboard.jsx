@@ -623,7 +623,7 @@ function MonthlyDashboard() {
 
   // Calcular progresso das metas
   const metaProgress = useMemo(() => {
-    const currentAmount = monthlyData?.totals?.total_net_amount || 0
+    const currentAmount = (monthlyData?.totals?.total_net_amount || 0) + (asaasData?.totalPurchaseValue || 0)
     return {
       meta: calculateProgress(currentAmount, parseCurrencyInput(goals.meta)),
       superMeta: calculateProgress(
@@ -635,7 +635,7 @@ function MonthlyDashboard() {
         parseCurrencyInput(goals.ultraMeta),
       ),
     }
-  }, [monthlyData, goals, calculateProgress])
+  }, [monthlyData, asaasData, goals, calculateProgress])
 
   // Nomes dos meses para exibição
   const monthNames = [
@@ -884,11 +884,11 @@ function MonthlyDashboard() {
                 Valor Total de Vendas
               </h3>
               <p className="text-4xl font-bold bg-gradient-to-r from-primary to-primary-dark bg-clip-text text-transparent mb-2">
-                {formatCurrency(monthlyData?.totals?.total_net_amount || 0)}
+                {formatCurrency((monthlyData?.totals?.total_net_amount || 0) + (asaasData?.totalPurchaseValue || 0))}
               </p>
               <p className="text-sm text-text-muted-light dark:text-text-muted-dark flex items-center">
                 <span className="w-2 h-2 bg-primary rounded-full mr-2"></span>
-                {monthlyData?.totals?.total_transactions || 0} vendas realizadas
+                {(monthlyData?.totals?.total_transactions || 0) + (asaasData?.count || 0)} vendas realizadas
               </p>
             </div>
           </div>

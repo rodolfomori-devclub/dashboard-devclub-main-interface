@@ -477,7 +477,7 @@ function YearlyDashboard() {
 
   // Calcular progresso das metas
   const metaProgress = useMemo(() => {
-    const currentAmount = yearlyData?.totals?.total_net_amount || 0
+    const currentAmount = (yearlyData?.totals?.total_net_amount || 0) + (asaasData?.totalPurchaseValue || 0)
     return {
       meta: calculateProgress(currentAmount, parseCurrencyInput(goals.meta)),
       superMeta: calculateProgress(
@@ -489,7 +489,7 @@ function YearlyDashboard() {
         parseCurrencyInput(goals.ultraMeta),
       ),
     }
-  }, [yearlyData, goals, calculateProgress])
+  }, [yearlyData, asaasData, goals, calculateProgress])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background-light via-slate-50 to-blue-50 dark:from-background-dark dark:via-gray-900 dark:to-slate-900 p-6">
@@ -668,11 +668,11 @@ function YearlyDashboard() {
                 Valor Total de Vendas
               </h3>
               <p className="text-4xl font-bold bg-gradient-to-r from-primary to-primary-dark bg-clip-text text-transparent mb-2">
-                {formatCurrency(yearlyData?.totals?.total_net_amount || 0)}
+                {formatCurrency((yearlyData?.totals?.total_net_amount || 0) + (asaasData?.totalPurchaseValue || 0))}
               </p>
               <p className="text-sm text-text-muted-light dark:text-text-muted-dark flex items-center">
                 <span className="w-2 h-2 bg-primary rounded-full mr-2"></span>
-                {yearlyData?.totals?.total_transactions || 0} vendas realizadas
+                {(yearlyData?.totals?.total_transactions || 0) + (asaasData?.count || 0)} vendas realizadas
               </p>
             </div>
           </div>
