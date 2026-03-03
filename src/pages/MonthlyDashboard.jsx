@@ -27,6 +27,7 @@ function MonthlyDashboard() {
   const [commercialData, setCommercialData] = useState(null)
   const [boletoData, setBoletoData] = useState(null)
   const [asaasData, setAsaasData] = useState(null)
+  const [hotmartData, setHotmartData] = useState(null)
   const [productData, setProductData] = useState([])
   const [offerData, setOfferData] = useState([])
   const [loading, setLoading] = useState(false)
@@ -140,7 +141,7 @@ function MonthlyDashboard() {
       setLoadingStates({ transactions: true, refunds: true, boleto: true })
 
       // Fazer as 3 chamadas em paralelo
-      const [transactionsResult, refundsResult, boletoResult, asaasResult] = await Promise.allSettled([
+      const [transactionsResult, refundsResult, boletoResult, asaasResult, hotmartResult] = await Promise.allSettled([
         axios.post(
           `${import.meta.env.VITE_API_URL}/transactions`,
           {
@@ -175,6 +176,15 @@ function MonthlyDashboard() {
         // Fetch Asaas sales (boleto parcelado)
         axios.get(
           `${import.meta.env.VITE_API_URL}/boleto/asaas/vendas`,
+          {
+            params: { data_inicio: firstDayOfMonth, data_final: lastDayOfMonth },
+            timeout: 30000,
+            signal,
+          }
+        ),
+        // Fetch Hotmart sales
+        axios.get(
+          `${import.meta.env.VITE_API_URL}/hotmart/vendas`,
           {
             params: { data_inicio: firstDayOfMonth, data_final: lastDayOfMonth },
             timeout: 30000,
@@ -583,6 +593,19 @@ function MonthlyDashboard() {
         setAsaasData({ count: 0, totalPurchaseValue: 0, entryValue: 0 })
       }
 
+      // Processar dados da Hotmart
+      if (hotmartResult.status === 'fulfilled' && hotmartResult.value?.data?.success) {
+        const hotmart = hotmartResult.value.data.data || {}
+        setHotmartData({
+          count: hotmart.count || 0,
+          totalNet: hotmart.totalNet || 0,
+          totalGross: hotmart.totalGross || 0,
+          totalFees: hotmart.totalFees || 0,
+        })
+      } else {
+        setHotmartData({ count: 0, totalNet: 0, totalGross: 0, totalFees: 0 })
+      }
+
       // Convert product summary to array and sort by value descending
       const productDataArray = Object.values(productSummary).sort((a, b) => b.value - a.value)
       setProductData(productDataArray)
@@ -623,7 +646,7 @@ function MonthlyDashboard() {
 
   // Calcular progresso das metas
   const metaProgress = useMemo(() => {
-    const currentAmount = (monthlyData?.totals?.total_net_amount || 0) + (asaasData?.totalPurchaseValue || 0)
+    const currentAmount = (monthlyData?.totals?.total_net_amount || 0) + (asaasData?.totalPurchaseValue || 0) + (hotmartData?.totalNet || 0)
     return {
       meta: calculateProgress(currentAmount, parseCurrencyInput(goals.meta)),
       superMeta: calculateProgress(
@@ -635,7 +658,7 @@ function MonthlyDashboard() {
         parseCurrencyInput(goals.ultraMeta),
       ),
     }
-  }, [monthlyData, asaasData, goals, calculateProgress])
+  }, [monthlyData, asaasData, hotmartData, goals, calculateProgress])
 
   // Nomes dos meses para exibição
   const monthNames = [
@@ -884,11 +907,11 @@ function MonthlyDashboard() {
                 Valor Total de Vendas
               </h3>
               <p className="text-4xl font-bold bg-gradient-to-r from-primary to-primary-dark bg-clip-text text-transparent mb-2">
-                {formatCurrency((monthlyData?.totals?.total_net_amount || 0) + (asaasData?.totalPurchaseValue || 0))}
+                {formatCurrency((monthlyData?.totals?.total_net_amount || 0) + (asaasData?.totalPurchaseValue || 0) + (hotmartData?.totalNet || 0))}
               </p>
               <p className="text-sm text-text-muted-light dark:text-text-muted-dark flex items-center">
                 <span className="w-2 h-2 bg-primary rounded-full mr-2"></span>
-                {(monthlyData?.totals?.total_transactions || 0) + (asaasData?.count || 0)} vendas realizadas
+                {(monthlyData?.totals?.total_transactions || 0) + (asaasData?.count || 0) + (hotmartData?.count || 0)} vendas realizadas
               </p>
             </div>
           </div>
@@ -912,12 +935,22 @@ function MonthlyDashboard() {
                 Vendas Cartão
               </h3>
               <p className="text-4xl font-bold text-green-500 mb-2">
-                {formatCurrency(monthlyData?.totals?.total_card_amount || 0)}
+                {formatCurrency((monthlyData?.totals?.total_card_amount || 0) + (hotmartData?.totalNet || 0))}
               </p>
               <p className="text-sm text-text-muted-light dark:text-text-muted-dark flex items-center">
                 <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                {monthlyData?.totals?.total_card_transactions || 0} transações
+                {(monthlyData?.totals?.total_card_transactions || 0) + (hotmartData?.count || 0)} transações
               </p>
+              <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 space-y-1">
+                <div className="flex justify-between text-xs">
+                  <span className="text-text-muted-light dark:text-text-muted-dark">Guru</span>
+                  <span className="font-medium text-text-light dark:text-text-dark">{monthlyData?.totals?.total_card_transactions || 0} ({formatCurrency(monthlyData?.totals?.total_card_amount || 0)})</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-text-muted-light dark:text-text-muted-dark">Hotmart</span>
+                  <span className="font-medium text-text-light dark:text-text-dark">{hotmartData?.count || 0} ({formatCurrency(hotmartData?.totalNet || 0)})</span>
+                </div>
+              </div>
             </div>
           </div>
           

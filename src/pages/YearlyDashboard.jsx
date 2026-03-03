@@ -27,6 +27,7 @@ function YearlyDashboard() {
   const [commercialData, setCommercialData] = useState(null)
   const [boletoData, setBoletoData] = useState(null)
   const [asaasData, setAsaasData] = useState(null)
+  const [hotmartData, setHotmartData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [loadingProgress, setLoadingProgress] = useState({ current: 0, total: 12 })
   const [loadingStates, setLoadingStates] = useState({
@@ -202,6 +203,20 @@ function YearlyDashboard() {
         )
       })
 
+      // Adicionar a promise da Hotmart (ano todo)
+      allPromises.push({
+        type: 'hotmart',
+        month: 0,
+        promise: axios.get(
+          `${import.meta.env.VITE_API_URL}/hotmart/vendas`,
+          {
+            params: { data_inicio: firstDayOfYear, data_final: lastDayOfYear },
+            timeout: 60000,
+            signal,
+          }
+        )
+      })
+
       // Processar resultados conforme vão chegando (em tempo real)
       const allTransactions = []
       const allRefunds = []
@@ -274,6 +289,17 @@ function YearlyDashboard() {
                 count: sales.count || 0,
                 totalPurchaseValue: sales.totalValue || 0,
                 entryValue: sales.entryValue || 0,
+              })
+            }
+          }
+          else if (promiseInfo.type === 'hotmart') {
+            if (result?.data?.success) {
+              const hotmart = result.data.data || {}
+              setHotmartData({
+                count: hotmart.count || 0,
+                totalNet: hotmart.totalNet || 0,
+                totalGross: hotmart.totalGross || 0,
+                totalFees: hotmart.totalFees || 0,
               })
             }
           }
@@ -477,7 +503,7 @@ function YearlyDashboard() {
 
   // Calcular progresso das metas
   const metaProgress = useMemo(() => {
-    const currentAmount = (yearlyData?.totals?.total_net_amount || 0) + (asaasData?.totalPurchaseValue || 0)
+    const currentAmount = (yearlyData?.totals?.total_net_amount || 0) + (asaasData?.totalPurchaseValue || 0) + (hotmartData?.totalNet || 0)
     return {
       meta: calculateProgress(currentAmount, parseCurrencyInput(goals.meta)),
       superMeta: calculateProgress(
@@ -489,7 +515,7 @@ function YearlyDashboard() {
         parseCurrencyInput(goals.ultraMeta),
       ),
     }
-  }, [yearlyData, asaasData, goals, calculateProgress])
+  }, [yearlyData, asaasData, hotmartData, goals, calculateProgress])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background-light via-slate-50 to-blue-50 dark:from-background-dark dark:via-gray-900 dark:to-slate-900 p-6">
@@ -668,11 +694,11 @@ function YearlyDashboard() {
                 Valor Total de Vendas
               </h3>
               <p className="text-4xl font-bold bg-gradient-to-r from-primary to-primary-dark bg-clip-text text-transparent mb-2">
-                {formatCurrency((yearlyData?.totals?.total_net_amount || 0) + (asaasData?.totalPurchaseValue || 0))}
+                {formatCurrency((yearlyData?.totals?.total_net_amount || 0) + (asaasData?.totalPurchaseValue || 0) + (hotmartData?.totalNet || 0))}
               </p>
               <p className="text-sm text-text-muted-light dark:text-text-muted-dark flex items-center">
                 <span className="w-2 h-2 bg-primary rounded-full mr-2"></span>
-                {(yearlyData?.totals?.total_transactions || 0) + (asaasData?.count || 0)} vendas realizadas
+                {(yearlyData?.totals?.total_transactions || 0) + (asaasData?.count || 0) + (hotmartData?.count || 0)} vendas realizadas
               </p>
             </div>
           </div>
@@ -694,12 +720,22 @@ function YearlyDashboard() {
                 Vendas Cartão
               </h3>
               <p className="text-4xl font-bold text-green-500 mb-2">
-                {formatCurrency(yearlyData?.totals?.total_card_amount || 0)}
+                {formatCurrency((yearlyData?.totals?.total_card_amount || 0) + (hotmartData?.totalNet || 0))}
               </p>
               <p className="text-sm text-text-muted-light dark:text-text-muted-dark flex items-center">
                 <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                {yearlyData?.totals?.total_card_transactions || 0} transações
+                {(yearlyData?.totals?.total_card_transactions || 0) + (hotmartData?.count || 0)} transações
               </p>
+              <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 space-y-1">
+                <div className="flex justify-between text-xs">
+                  <span className="text-text-muted-light dark:text-text-muted-dark">Guru</span>
+                  <span className="font-medium text-text-light dark:text-text-dark">{yearlyData?.totals?.total_card_transactions || 0} ({formatCurrency(yearlyData?.totals?.total_card_amount || 0)})</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-text-muted-light dark:text-text-muted-dark">Hotmart</span>
+                  <span className="font-medium text-text-light dark:text-text-dark">{hotmartData?.count || 0} ({formatCurrency(hotmartData?.totalNet || 0)})</span>
+                </div>
+              </div>
             </div>
           </div>
           

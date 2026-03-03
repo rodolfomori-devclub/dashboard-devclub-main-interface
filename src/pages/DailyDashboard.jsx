@@ -26,6 +26,7 @@ function DailyDashboard() {
   const [commercialData, setCommercialData] = useState(null)
   const [boletoData, setBoletoData] = useState(null)
   const [asaasData, setAsaasData] = useState(null)
+  const [hotmartData, setHotmartData] = useState(null)
   const [productData, setProductData] = useState([])
   const [offerData, setOfferData] = useState([])
   const [selectedOffers, setSelectedOffers] = useState([])
@@ -306,7 +307,7 @@ function DailyDashboard() {
       })
 
       // Executar todas as chamadas em paralelo usando Promise.allSettled
-      const [transactionsResult, refundsResult, boletoResult, asaasResult] = await Promise.allSettled([
+      const [transactionsResult, refundsResult, boletoResult, asaasResult, hotmartResult] = await Promise.allSettled([
         // Fetch approved transactions
         axios.post(
           `${import.meta.env.VITE_API_URL}/transactions`,
@@ -340,6 +341,15 @@ function DailyDashboard() {
         // Fetch Asaas sales (boleto parcelado)
         axios.get(
           `${import.meta.env.VITE_API_URL}/boleto/asaas/vendas`,
+          {
+            params: { data_inicio: startDate, data_final: endDate },
+            timeout: 30000,
+            signal,
+          }
+        ),
+        // Fetch Hotmart sales
+        axios.get(
+          `${import.meta.env.VITE_API_URL}/hotmart/vendas`,
           {
             params: { data_inicio: startDate, data_final: endDate },
             timeout: 30000,
@@ -789,6 +799,19 @@ function DailyDashboard() {
         setAsaasData({ count: 0, totalPurchaseValue: 0, entryValue: 0 })
       }
 
+      // Processar dados da Hotmart
+      if (hotmartResult.status === 'fulfilled' && hotmartResult.value?.data?.success) {
+        const hotmart = hotmartResult.value.data.data || {}
+        setHotmartData({
+          count: hotmart.count || 0,
+          totalNet: hotmart.totalNet || 0,
+          totalGross: hotmart.totalGross || 0,
+          totalFees: hotmart.totalFees || 0,
+        })
+      } else {
+        setHotmartData({ count: 0, totalNet: 0, totalGross: 0, totalFees: 0 })
+      }
+
       // Store product data
       setProductData(productDataArray)
       
@@ -928,6 +951,8 @@ function DailyDashboard() {
         total_boleto_quantity: boletoData?.total_boleto_quantity || 0,
         total_asaas_value: asaasData?.totalPurchaseValue || 0,
         total_asaas_quantity: asaasData?.count || 0,
+        total_hotmart_value: hotmartData?.totalNet || 0,
+        total_hotmart_quantity: hotmartData?.count || 0,
         total_refund_amount: refundsData?.total_refund_amount || 0,
         total_refund_quantity: refundsData?.total_refund_quantity || 0,
         total_commercial_value: commercialData?.total_commercial_value || 0,
@@ -939,11 +964,11 @@ function DailyDashboard() {
     const filteredOffers = offerData.filter(offer => selectedOffers.includes(offer.name))
     const totalFilteredValue = filteredOffers.reduce((sum, offer) => sum + offer.value, 0)
     const totalFilteredQuantity = filteredOffers.reduce((sum, offer) => sum + offer.quantity, 0)
-    
+
     // Separate by source
     const tmbOffers = filteredOffers.filter(o => o.source === 'TMB')
     const guruOffers = filteredOffers.filter(o => o.source === 'Guru')
-    
+
     const tmbValue = tmbOffers.reduce((sum, offer) => sum + offer.value, 0)
     const tmbQuantity = tmbOffers.reduce((sum, offer) => sum + offer.quantity, 0)
     const guruValue = guruOffers.reduce((sum, offer) => sum + offer.value, 0)
@@ -962,6 +987,8 @@ function DailyDashboard() {
       total_boleto_quantity: tmbQuantity,
       total_asaas_value: (asaasData?.totalPurchaseValue || 0) * ratio,
       total_asaas_quantity: Math.round((asaasData?.count || 0) * ratio),
+      total_hotmart_value: (hotmartData?.totalNet || 0) * ratio,
+      total_hotmart_quantity: Math.round((hotmartData?.count || 0) * ratio),
       total_refund_amount: (refundsData?.total_refund_amount || 0) * ratio,
       total_refund_quantity: Math.round((refundsData?.total_refund_quantity || 0) * ratio),
       total_commercial_value: (commercialData?.total_commercial_value || 0) * ratio,
@@ -1565,10 +1592,10 @@ function DailyDashboard() {
               Valor Líquido Total
             </h3>
             <p className="mt-2 text-3xl font-bold text-accent1 dark:text-accent2">
-              {formatCurrency((filteredTotals.total_net_amount || 0) + (filteredTotals.total_asaas_value || 0))}
+              {formatCurrency((filteredTotals.total_net_amount || 0) + (filteredTotals.total_asaas_value || 0) + (filteredTotals.total_hotmart_value || 0))}
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Total: {(filteredTotals.total_transactions || 0) + (filteredTotals.total_asaas_quantity || 0)} venda(s)
+              Total: {(filteredTotals.total_transactions || 0) + (filteredTotals.total_asaas_quantity || 0) + (filteredTotals.total_hotmart_quantity || 0)} venda(s)
             </p>
           </div>
 
@@ -1578,11 +1605,21 @@ function DailyDashboard() {
               Vendas Cartão
             </h3>
             <p className="mt-2 text-3xl font-bold text-green-500 dark:text-green-400">
-              {formatCurrency(filteredTotals.total_card_amount)}
+              {formatCurrency((filteredTotals.total_card_amount || 0) + (filteredTotals.total_hotmart_value || 0))}
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              {filteredTotals.total_card_transactions} venda(s)
+              {(filteredTotals.total_card_transactions || 0) + (filteredTotals.total_hotmart_quantity || 0)} venda(s)
             </p>
+            <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 space-y-1">
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500 dark:text-gray-400">Guru</span>
+                <span className="font-medium text-text-light dark:text-text-dark">{filteredTotals.total_card_transactions || 0} ({formatCurrency(filteredTotals.total_card_amount || 0)})</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500 dark:text-gray-400">Hotmart</span>
+                <span className="font-medium text-text-light dark:text-text-dark">{filteredTotals.total_hotmart_quantity || 0} ({formatCurrency(filteredTotals.total_hotmart_value || 0)})</span>
+              </div>
+            </div>
           </div>
 
           {/* Card for boleto sales */}
