@@ -859,120 +859,8 @@ function Today() {
           </div>
         </div>
 
-        {/* Category summary cards - IA vs Programming */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-          {/* IA Club card */}
-          <div className="group relative animate-slide-up" style={{animationDelay: '0.3s'}}>
-            <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-purple-600/20 rounded-2xl blur-lg group-hover:blur-xl transition-all duration-300"></div>
-            <div className="relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-2xl p-8 border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
-              <div className="flex items-start justify-between mb-6">
-                <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                  <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
-                  </svg>
-                </div>
-                <div className="text-right">
-                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
-                </div>
-              </div>
-              <h3 className="text-lg font-semibold text-text-light dark:text-text-dark mb-3">
-                IA Club
-              </h3>
-              <p className="text-4xl font-bold bg-gradient-to-r from-purple-500 to-purple-600 bg-clip-text text-transparent mb-2">
-                {formatCurrency(categoryData.ia?.totalValue || 0)}
-              </p>
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-4 py-2 border-t border-white/20">
-                  <div className="text-center">
-                    <div className="text-sm text-white/80 mb-1">💳 Cartão</div>
-                    <div className="font-bold text-lg">{formatCurrency(categoryData.ia?.cardValue || 0)}</div>
-                    <div className="text-xs text-white/70">{categoryData.ia?.cardQuantity || 0} vendas</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-sm text-white/80 mb-1">📄 Boleto</div>
-                    <div className="font-bold text-lg">{formatCurrency(categoryData.ia?.boletoValue || 0)}</div>
-                    <div className="text-xs text-white/70">{categoryData.ia?.boletoQuantity || 0} vendas</div>
-                  </div>
-                </div>
-                
-                <div className="text-xs text-white/70 pt-2 border-t border-white/20">
-                  💼 Comercial: {formatCurrency(categoryData.ia?.commercialValue || 0)} ({categoryData.ia?.commercialQuantity || 0} vendas)
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* DevClub card */}
-          <div className="group relative animate-slide-up" style={{animationDelay: '0.4s'}}>
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-blue-600/20 rounded-2xl blur-lg group-hover:blur-xl transition-all duration-300"></div>
-            <div className="relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-2xl p-8 border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
-              <div className="flex items-start justify-between mb-6">
-                <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
-                  <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>
-                  </svg>
-                </div>
-                <div className="text-right">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                </div>
-              </div>
-              <h3 className="text-lg font-semibold text-text-light dark:text-text-dark mb-3">
-                DevClub
-              </h3>
-              <p className="text-4xl font-bold bg-gradient-to-r from-blue-500 to-blue-600 bg-clip-text text-transparent mb-2">
-                {formatCurrency(categoryData.programacao?.totalValue || 0)}
-              </p>
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-4 py-2 border-t border-white/20">
-                  <div className="text-center">
-                    <div className="text-sm text-white/80 mb-1">💳 Cartão</div>
-                    <div className="font-bold text-lg">{formatCurrency(categoryData.programacao?.cardValue || 0)}</div>
-                    <div className="text-xs text-white/70">{categoryData.programacao?.cardQuantity || 0} vendas</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-sm text-white/80 mb-1">📄 Boleto</div>
-                    <div className="font-bold text-lg">{formatCurrency(categoryData.programacao?.boletoValue || 0)}</div>
-                    <div className="text-xs text-white/70">{categoryData.programacao?.boletoQuantity || 0} vendas</div>
-                  </div>
-                </div>
-                
-                <div className="text-xs text-white/70 pt-2 border-t border-white/20">
-                  💼 Comercial: {formatCurrency(categoryData.programacao?.commercialValue || 0)} ({categoryData.programacao?.commercialQuantity || 0} vendas)
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
         {/* Cards secundários */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
-          {/* Card Afiliações */}
-          <div className="group relative animate-slide-up" style={{animationDelay: '0.5s'}}>
-            <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-2xl blur-lg group-hover:blur-xl transition-all duration-300"></div>
-            <div className="relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-2xl p-8 border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
-              <div className="flex items-start justify-between mb-6">
-                <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center shadow-lg">
-                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
-                </div>
-                <div className="text-right">
-                  <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse"></div>
-                </div>
-              </div>
-              <h3 className="text-lg font-semibold text-text-light dark:text-text-dark mb-3">
-                Valor de Afiliações
-              </h3>
-              <p className="text-4xl font-bold bg-gradient-to-r from-purple-500 to-pink-500 bg-clip-text text-transparent mb-2">
-                {formatCurrency(todayData?.totalAffiliateValue || 0)}
-              </p>
-              <p className="text-sm text-text-muted-light dark:text-text-muted-dark flex items-center">
-                <span className="w-2 h-2 bg-purple-500 rounded-full mr-2"></span>
-                Comissões de parceiros
-              </p>
-            </div>
-          </div>
-
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
           {/* Card Reembolsos */}
           <div className="group relative animate-slide-up" style={{animationDelay: '0.6s'}}>
             <div className="absolute inset-0 bg-gradient-to-r from-red-500/20 to-rose-500/20 rounded-2xl blur-lg group-hover:blur-xl transition-all duration-300"></div>
@@ -1018,203 +906,16 @@ function Today() {
             </div>
           </div>
 
-          {/* Card Vendas Comercial */}
-          <div className="group relative animate-slide-up" style={{animationDelay: '0.7s'}}>
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-indigo-500/20 rounded-2xl blur-lg group-hover:blur-xl transition-all duration-300"></div>
-            <div className="relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-2xl p-8 border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
-              <div className="flex items-start justify-between mb-6">
-                <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2-2v2m8 0V6a2 2 0 112 2v6a2 2 0 01-2 2H8a2 2 0 01-2-2V8a2 2 0 112-2V6" />
-                  </svg>
-                </div>
-                <div className="text-right">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                </div>
-              </div>
-              <h3 className="text-lg font-semibold text-text-light dark:text-text-dark mb-3">
-                Vendas Comercial
-              </h3>
-              <p className="text-4xl font-bold bg-gradient-to-r from-blue-500 to-indigo-500 bg-clip-text text-transparent mb-2">
-                {formatCurrency(commercialData?.totalCommercialValue || 0)}
-              </p>
-              <p className="text-sm text-text-muted-light dark:text-text-muted-dark flex items-center">
-                <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
-                {commercialData?.totalCommercialSales || 0} vendas diretas
-              </p>
-            </div>
-          </div>
         </div>
 
-
-        {/* Detailed sales by category */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-          {/* IA Club detailed sales */}
-          <div className="group relative animate-slide-up" style={{animationDelay: '1.0s'}}>
-            <div className="absolute inset-0 bg-gradient-to-r from-purple-500/10 via-purple-500/5 to-purple-500/10 rounded-3xl blur-xl"></div>
-            <div className="relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-3xl p-8 border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300">
-              <div className="flex items-center space-x-4 mb-6">
-                <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-                  <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="text-2xl font-bold text-text-light dark:text-text-dark">
-                    Vendas IA Club - Hoje
-                  </h3>
-                  <p className="text-text-muted-light dark:text-text-muted-dark">
-                    {categoryData.ia?.sales?.length || 0} vendas realizadas
-                  </p>
-                </div>
-              </div>
-              <div className="bg-gradient-to-br from-background-light/50 to-slate-50/50 dark:from-background-dark/50 dark:to-gray-800/50 rounded-2xl p-6 max-h-96 overflow-y-auto">
-                {categoryData.ia?.sales?.length > 0 ? (
-                  <div className="space-y-3">
-                    {categoryData.ia.sales
-                      .sort((a, b) => b.timestamp - a.timestamp)
-                      .map((sale, index) => (
-                      <div key={sale.id} className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-xl p-4 border border-purple-200/50 dark:border-purple-700/50 hover:shadow-md transition-all duration-200">
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <h4 className="font-semibold text-gray-900 dark:text-white text-sm mb-2">
-                              {sale.productName}
-                            </h4>
-                            <div className="flex items-center space-x-3 text-xs">
-                              <span className="flex items-center text-gray-600 dark:text-gray-400">
-                                <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 24 24">
-                                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 6c.55 0 1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V9c0-.55.45-1 1-1zm0-4c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1z"/>
-                                </svg>
-                                {new Date(sale.timestamp * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                              </span>
-                              <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${
-                                sale.method === 'Cartão' 
-                                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
-                                  : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                              }`}>
-                                {sale.method === 'Cartão' ? '💳' : '📄'} {sale.method}
-                              </span>
-                              {sale.isCommercial && (
-                                <span className="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                                  💼 Comercial
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="text-right ml-4">
-                            <div className="font-bold text-lg text-purple-600 dark:text-purple-400">
-                              {formatCurrency(sale.value)}
-                            </div>
-                            {sale.affiliateValue > 0 && (
-                              <div className="text-xs text-gray-500 dark:text-gray-400">
-                                Afiliação: {formatCurrency(sale.affiliateValue)}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-                    <svg className="w-16 h-16 mx-auto mb-4 opacity-50" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-                    </svg>
-                    <p className="text-lg font-medium mb-2">Nenhuma venda IA Club hoje</p>
-                    <p className="text-sm">As vendas aparecerão aqui conforme forem realizadas</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* DevClub detailed sales */}
-          <div className="group relative animate-slide-up" style={{animationDelay: '1.1s'}}>
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-blue-500/5 to-blue-500/10 rounded-3xl blur-xl"></div>
-            <div className="relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-3xl p-8 border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300">
-              <div className="flex items-center space-x-4 mb-6">
-                <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
-                  <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="text-2xl font-bold text-text-light dark:text-text-dark">
-                    Vendas DevClub - Hoje
-                  </h3>
-                  <p className="text-text-muted-light dark:text-text-muted-dark">
-                    {categoryData.programacao?.sales?.length || 0} vendas realizadas
-                  </p>
-                </div>
-              </div>
-              <div className="bg-gradient-to-br from-background-light/50 to-slate-50/50 dark:from-background-dark/50 dark:to-gray-800/50 rounded-2xl p-6 max-h-96 overflow-y-auto">
-                {categoryData.programacao?.sales?.length > 0 ? (
-                  <div className="space-y-3">
-                    {categoryData.programacao.sales
-                      .sort((a, b) => b.timestamp - a.timestamp)
-                      .map((sale, index) => (
-                      <div key={sale.id} className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm rounded-xl p-4 border border-blue-200/50 dark:border-blue-700/50 hover:shadow-md transition-all duration-200">
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <h4 className="font-semibold text-gray-900 dark:text-white text-sm mb-2">
-                              {sale.productName}
-                            </h4>
-                            <div className="flex items-center space-x-3 text-xs">
-                              <span className="flex items-center text-gray-600 dark:text-gray-400">
-                                <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 24 24">
-                                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 6c.55 0 1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V9c0-.55.45-1 1-1zm0-4c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1z"/>
-                                </svg>
-                                {new Date(sale.timestamp * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                              </span>
-                              <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${
-                                sale.method === 'Cartão' 
-                                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
-                                  : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                              }`}>
-                                {sale.method === 'Cartão' ? '💳' : '📄'} {sale.method}
-                              </span>
-                              {sale.isCommercial && (
-                                <span className="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                                  💼 Comercial
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="text-right ml-4">
-                            <div className="font-bold text-lg text-blue-600 dark:text-blue-400">
-                              {formatCurrency(sale.value)}
-                            </div>
-                            {sale.affiliateValue > 0 && (
-                              <div className="text-xs text-gray-500 dark:text-gray-400">
-                                Afiliação: {formatCurrency(sale.affiliateValue)}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-                    <svg className="w-16 h-16 mx-auto mb-4 opacity-50" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-                    </svg>
-                    <p className="text-lg font-medium mb-2">Nenhuma venda DevClub hoje</p>
-                    <p className="text-sm">As vendas aparecerão aqui conforme forem realizadas</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
 
         {/* Gráficos */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-          {/* Gráfico de Progressão por Hora */}
-          <div className="group relative animate-slide-up" style={{animationDelay: '1.2s'}}>
+          {/* Gráfico de Vendas por Hora */}
+          <div className="group relative animate-slide-up" style={{animationDelay: '0.4s'}}>
             <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-purple-500/5 to-primary/10 rounded-3xl blur-xl"></div>
             <div className="relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-3xl p-8 border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300">
-              <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center space-x-4">
                   <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
                     <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1223,7 +924,7 @@ function Today() {
                   </div>
                   <div>
                     <h3 className="text-2xl font-bold text-text-light dark:text-text-dark">
-                      Progressão por Hora
+                      Vendas por Hora
                     </h3>
                     <p className="text-text-muted-light dark:text-text-muted-dark">
                       Média: {todayData?.averageSalesPerHour?.toFixed(1) || 0} vendas/hora
@@ -1231,63 +932,72 @@ function Today() {
                   </div>
                 </div>
               </div>
-              <div className="bg-gradient-to-br from-background-light/50 to-slate-50/50 dark:from-background-dark/50 dark:to-gray-800/50 rounded-2xl p-6 h-96">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    layout="vertical"
-                    data={todayData?.hourlyData}
-                    margin={{ top: 20, right: 30, left: 40, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.3} />
-                    <XAxis type="number" />
-                    <YAxis
-                      dataKey="hour"
-                      type="category"
-                      tickFormatter={(hour) => `${hour}h`}
-                      width={40}
-                    />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Legend />
-                    <Bar
-                      dataKey="sales"
-                      name="Vendas Cartão"
-                      minPointSize={3}
-                      barSize={20}
-                    >
-                      {todayData?.hourlyData?.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={getBarColor(
-                            entry.sales,
-                            todayData.averageSalesPerHour,
-                          )}
+              {(() => {
+                const activeHours = todayData?.hourlyData?.filter(h => h.sales > 0 || h.boletoSales > 0) || []
+                const chartHeight = Math.max(300, activeHours.length * 40 + 40)
+                return (
+                  <div className="bg-gradient-to-br from-background-light/50 to-slate-50/50 dark:from-background-dark/50 dark:to-gray-800/50 rounded-2xl p-4" style={{ height: `${chartHeight}px` }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart
+                        layout="vertical"
+                        data={activeHours}
+                        margin={{ top: 5, right: 90, left: 5, bottom: 5 }}
+                        barGap={2}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.15} horizontal={false} />
+                        <XAxis type="number" hide />
+                        <YAxis
+                          dataKey="hour"
+                          type="category"
+                          tickFormatter={(hour) => `${String(hour).padStart(2, '0')}h`}
+                          width={38}
+                          tick={{ fontSize: 12, fontWeight: 600 }}
+                          axisLine={false}
+                          tickLine={false}
                         />
-                      ))}
-                      <LabelList
-                        dataKey="sales"
-                        position="right"
-                        fill="currentColor"
-                        className="text-text-light dark:text-text-dark"
-                        formatter={(value) => (value > 0 ? value : '')}
-                      />
-                    </Bar>
-                    <Bar
-                      dataKey="boletoSales"
-                      name="Vendas Boleto"
-                      fill="#EAB308"
-                      barSize={20}
-                    >
-                      <LabelList
-                        dataKey="boletoSales"
-                        position="right"
-                        fill="currentColor"
-                        className="text-text-light dark:text-text-dark"
-                        formatter={(value) => (value > 0 ? value : '')}
-                      />
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+                        <Tooltip content={<CustomTooltip />} />
+                        <Bar
+                          dataKey="value"
+                          name="Cartão"
+                          radius={[0, 8, 8, 0]}
+                          barSize={14}
+                          stackId="a"
+                        >
+                          {activeHours.map((entry, index) => (
+                            <Cell
+                              key={`cell-${index}`}
+                              fill={getBarColor(entry.sales, todayData.averageSalesPerHour)}
+                            />
+                          ))}
+                        </Bar>
+                        <Bar
+                          dataKey="boletoValue"
+                          name="Boleto"
+                          fill="#EAB308"
+                          radius={[0, 8, 8, 0]}
+                          barSize={14}
+                          stackId="a"
+                        >
+                          <LabelList
+                            content={({ x, y, width, height, index }) => {
+                              const entry = activeHours[index]
+                              if (!entry) return null
+                              const totalValue = (entry.value || 0) + (entry.boletoValue || 0)
+                              const totalQty = (entry.sales || 0) + (entry.boletoSales || 0)
+                              if (totalQty <= 0) return null
+                              return (
+                                <text x={x + width + 8} y={y + height / 2} dy={4} fill="#6b7280" fontSize={11} fontWeight={500}>
+                                  {formatCurrency(totalValue)} ({totalQty} vendas)
+                                </text>
+                              )
+                            }}
+                          />
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                )
+              })()}
             </div>
           </div>
 

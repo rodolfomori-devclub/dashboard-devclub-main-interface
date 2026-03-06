@@ -19,9 +19,6 @@ import LaunchPro from './pages/LaunchPro'
 import GoalsPage from './pages/GoalsPage'
 
 // Update the imports in App.jsx by adding these lines:
-import CommercialDashboardPage from './pages/CommercialDashboardPage'
-import CommercialSellersPage from './pages/CommercialSellersPage'
-import CommercialSalesListPage from './pages/CommercialSalesListPage'
 import TSDashboard from './pages/TSDashboard'
 import TrafficDashboard from './pages/TrafficDashboard'
 import TrafficMonitor from './pages/TrafficMonitor'
@@ -96,8 +93,10 @@ function AppRouter() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
 
+      <Route path="/" element={<Navigate to="/diario" />} />
+
       <Route
-        path="/"
+        path="/diario"
         element={
           <ProtectedRoute requiredPermission="today">
             <AuthenticatedLayout>
@@ -108,7 +107,7 @@ function AppRouter() {
       />
 
       <Route
-        path="/daily"
+        path="/global"
         element={
           <ProtectedRoute requiredPermission="daily">
             <AuthenticatedLayout>
@@ -119,7 +118,7 @@ function AppRouter() {
       />
 
       <Route
-        path="/monthly"
+        path="/mensal"
         element={
           <ProtectedRoute requiredPermission="monthly">
             <AuthenticatedLayout>
@@ -130,7 +129,7 @@ function AppRouter() {
       />
 
       <Route
-        path="/yearly"
+        path="/anual"
         element={
           <ProtectedRoute requiredPermission="yearly">
             <AuthenticatedLayout>
@@ -140,39 +139,6 @@ function AppRouter() {
         }
       />
 
-      <Route
-        path="/commercial"
-        element={
-          <ProtectedRoute requiredPermission="commercial">
-            <AuthenticatedLayout>
-              <CommercialDashboardPage />
-            </AuthenticatedLayout>
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/commercial/sellers"
-        element={
-          <ProtectedRoute requiredPermission="commercial">
-            <AuthenticatedLayout>
-              <CommercialSellersPage />
-            </AuthenticatedLayout>
-          </ProtectedRoute>
-        }
-      />
-
-      {/* Nova rota para listar todas as vendas */}
-      <Route
-        path="/commercial/sales"
-        element={
-          <ProtectedRoute requiredPermission="commercial">
-            <AuthenticatedLayout>
-              <CommercialSalesListPage />
-            </AuthenticatedLayout>
-          </ProtectedRoute>
-        }
-      />
 
       <Route
         path="/comparativo"
@@ -198,7 +164,7 @@ function AppRouter() {
       />
 
       <Route
-        path="/traffic"
+        path="/trafego"
         element={
           <ProtectedRoute requiredPermission="traffic">
             <AuthenticatedLayout>
@@ -209,7 +175,7 @@ function AppRouter() {
       />
 
       <Route
-        path="/traffic-monitor"
+        path="/monitor"
         element={
           <ProtectedRoute>
             <AuthenticatedLayout>
@@ -220,7 +186,7 @@ function AppRouter() {
       />
 
       <Route
-        path="/goals"
+        path="/metas"
         element={
           <ProtectedRoute requiredPermission="goals">
             <AuthenticatedLayout>

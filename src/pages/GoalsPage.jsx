@@ -227,15 +227,26 @@ const GoalsPage = () => {
   };
 
   const getRadialData = () => {
-    const totalMeta = goals.faturamentoCartao.base + goals.faturamentoBoleto.base;
-    const totalRealizado = actualValues.faturamentoCartao + actualValues.faturamentoBoleto;
-    const progress = totalMeta > 0 ? (totalRealizado / totalMeta) * 100 : 0;
+    const pace = calculatePaceMetrics();
+    const { progress, paceRatio } = pace;
+
+    // Definir cor baseada no pace
+    let fillColor = '#EF4444'; // Vermelho (atrasado)
+    if (progress >= 100) {
+      fillColor = '#10B981'; // Verde (meta atingida)
+    } else if (paceRatio >= 1.2) {
+      fillColor = '#10B981'; // Verde (acelerado)
+    } else if (paceRatio >= 0.95) {
+      fillColor = '#3B82F6'; // Azul (no ritmo)
+    } else if (paceRatio >= 0.75) {
+      fillColor = '#F59E0B'; // Amarelo (um pouco atrás)
+    }
 
     return [
       {
         name: 'Progresso',
         value: Math.min(progress, 100),
-        fill: progress >= 100 ? '#10B981' : progress >= 75 ? '#F59E0B' : '#EF4444'
+        fill: fillColor
       }
     ];
   };
@@ -256,15 +267,67 @@ const GoalsPage = () => {
     ];
   };
 
-  // Calcular status geral
-  const getOverallStatus = () => {
+  // Calcular pace esperado e projeção
+  const calculatePaceMetrics = () => {
+    const now = new Date();
+    const dayOfMonth = now.getDate();
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const percentMonthPassed = (dayOfMonth / daysInMonth) * 100;
+
     const totalMeta = goals.faturamentoCartao.base + goals.faturamentoBoleto.base;
     const totalRealizado = actualValues.faturamentoCartao + actualValues.faturamentoBoleto;
     const progress = totalMeta > 0 ? (totalRealizado / totalMeta) * 100 : 0;
 
-    if (progress >= 100) return { status: 'success', label: 'Meta Atingida', icon: FaCheckCircle, color: 'text-green-500' };
-    if (progress >= 75) return { status: 'warning', label: 'Quase Lá', icon: FaExclamationTriangle, color: 'text-yellow-500' };
-    return { status: 'danger', label: 'Atenção Necessária', icon: FaTimesCircle, color: 'text-red-500' };
+    const paceExpected = percentMonthPassed; // Quanto deveria ter feito até hoje
+    const paceActual = progress; // Quanto já fez
+    const paceRatio = paceExpected > 0 ? paceActual / paceExpected : 0; // 1.0 = on track, 2.0 = 2x faster
+
+    // Projeção: se continuar nesse ritmo
+    const progressDecimal = progress / 100; // Converter 34% para 0.34
+    const projectedValue = progressDecimal > 0 ? totalRealizado / progressDecimal : totalMeta;
+    const projectedTotal = totalMeta > 0 ? (projectedValue / totalMeta) * 100 : 0;
+
+    // Diferença do pace
+    const paceDifference = progress - percentMonthPassed;
+
+    return {
+      dayOfMonth,
+      daysInMonth,
+      percentMonthPassed: percentMonthPassed.toFixed(1),
+      progress,
+      paceExpected,
+      paceActual,
+      paceRatio,
+      projectedTotal: projectedTotal.toFixed(1),
+      projectedValue,
+      paceDifference: paceDifference.toFixed(1),
+      totalMeta,
+      totalRealizado
+    };
+  };
+
+  // Calcular status geral (baseado no pace)
+  const getOverallStatus = () => {
+    const pace = calculatePaceMetrics();
+    const { paceRatio, paceActual, progress } = pace;
+
+    if (progress >= 100) {
+      return { status: 'success', label: '✓ Meta Atingida!', icon: FaCheckCircle, color: 'text-green-500', bgColor: 'bg-green-50 dark:bg-green-900/20' };
+    }
+
+    if (paceRatio >= 1.2) {
+      return { status: 'accelerated', label: '🚀 Acelerado!', icon: FaArrowUp, color: 'text-green-600 dark:text-green-400', bgColor: 'bg-green-50 dark:bg-green-900/20' };
+    }
+
+    if (paceRatio >= 0.95) {
+      return { status: 'ontrack', label: '✓ No Ritmo', icon: FaCheckCircle, color: 'text-blue-600 dark:text-blue-400', bgColor: 'bg-blue-50 dark:bg-blue-900/20' };
+    }
+
+    if (paceRatio >= 0.75) {
+      return { status: 'warning', label: '⚠ Um Pouco Atrás', icon: FaExclamationTriangle, color: 'text-yellow-600 dark:text-yellow-400', bgColor: 'bg-yellow-50 dark:bg-yellow-900/20' };
+    }
+
+    return { status: 'danger', label: '⛔ Atrasado', icon: FaTimesCircle, color: 'text-red-600 dark:text-red-400', bgColor: 'bg-red-50 dark:bg-red-900/20' };
   };
 
   // Renderizar card de meta compacto
@@ -520,8 +583,8 @@ const GoalsPage = () => {
 
       {/* Status Geral */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        {/* Card de Status */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+        {/* Card de Status com Pace */}
+        <div className={`rounded-lg shadow-lg p-6 ${overallStatus.bgColor}`}>
           <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Status Geral</h3>
           <div className="flex items-center justify-center mb-4">
             <div className="relative">
@@ -543,18 +606,40 @@ const GoalsPage = () => {
                 </ResponsiveContainer>
               </div>
               <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-2xl font-bold text-gray-900 dark:text-white">{totalProgress}%</span>
+                <span className="text-lg font-bold text-gray-900 dark:text-white">{totalProgress}%</span>
               </div>
             </div>
           </div>
           <div className="text-center">
             <div className={`flex items-center justify-center ${overallStatus.color}`}>
               <StatusIcon className="mr-2" />
-              <span className="font-medium">{overallStatus.label}</span>
+              <span className="font-medium text-lg">{overallStatus.label}</span>
             </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
               {formatCurrency(totalRealizado)} de {formatCurrency(totalMeta)}
             </p>
+          </div>
+
+          {/* Informações de Pace */}
+          <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-gray-600 dark:text-gray-400">Dia do Mês</span>
+              <span className="font-semibold text-gray-900 dark:text-white">{calculatePaceMetrics().dayOfMonth}/{calculatePaceMetrics().daysInMonth}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-gray-600 dark:text-gray-400">Pace Esperado</span>
+              <span className="font-semibold text-gray-900 dark:text-white">{calculatePaceMetrics().percentMonthPassed}%</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-gray-600 dark:text-gray-400">Pace Real</span>
+              <span className="font-semibold text-gray-900 dark:text-white">{calculatePaceMetrics().progress.toFixed(1)}%</span>
+            </div>
+            <div className="flex justify-between items-center p-2 bg-gray-100 dark:bg-gray-700 rounded">
+              <span className="text-xs text-gray-600 dark:text-gray-400">Diferença</span>
+              <span className={`font-bold ${parseFloat(calculatePaceMetrics().paceDifference) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {parseFloat(calculatePaceMetrics().paceDifference) >= 0 ? '+' : ''}{calculatePaceMetrics().paceDifference}%
+              </span>
+            </div>
           </div>
         </div>
 
@@ -581,6 +666,42 @@ const GoalsPage = () => {
                 <Legend />
               </PieChart>
             </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Projeção */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">📊 Projeção</h3>
+          <div className="space-y-4">
+            <div className="bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 p-4 rounded-lg">
+              <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Se continuar nesse ritmo</p>
+              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                {formatCurrency(calculatePaceMetrics().projectedValue)}
+              </p>
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                {calculatePaceMetrics().projectedTotal}% da meta
+              </p>
+            </div>
+
+            <div className="bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30 p-4 rounded-lg">
+              <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Falta para atingir</p>
+              <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                {formatCurrency(Math.max(0, calculatePaceMetrics().totalMeta - calculatePaceMetrics().totalRealizado))}
+              </p>
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                {Math.round(Math.max(0, calculatePaceMetrics().totalMeta - calculatePaceMetrics().totalRealizado) / ((calculatePaceMetrics().daysInMonth - calculatePaceMetrics().dayOfMonth) || 1))} por dia
+              </p>
+            </div>
+
+            <div className="bg-gradient-to-r from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/30 p-4 rounded-lg">
+              <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Taxa de Aproveitamento</p>
+              <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                {(calculatePaceMetrics().paceRatio * 100).toFixed(0)}%
+              </p>
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                {calculatePaceMetrics().paceRatio >= 1 ? '✓ Acima do esperado' : '⚠ Abaixo do esperado'}
+              </p>
+            </div>
           </div>
         </div>
 
@@ -639,6 +760,101 @@ const GoalsPage = () => {
           </ResponsiveContainer>
         </div>
       </div>
+
+      {/* Gráfico de Pace vs Esperado */}
+      {viewType === 'month' && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
+            🔥 Ritmo do Mês - Pace vs Esperado
+          </h3>
+          <div className="space-y-4">
+            {/* Visualização de Pace */}
+            <div className="space-y-6">
+              {/* Faturamento Total */}
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Faturamento Total</span>
+                  <span className="text-sm font-bold text-gray-900 dark:text-white">
+                    Dia {calculatePaceMetrics().dayOfMonth} de {calculatePaceMetrics().daysInMonth}
+                  </span>
+                </div>
+                <div className="bg-gray-100 dark:bg-gray-700 rounded-full h-8 flex overflow-hidden">
+                  <div
+                    className="bg-gradient-to-r from-yellow-400 to-yellow-500 dark:from-yellow-500 dark:to-yellow-600 h-full flex items-center justify-center transition-all duration-500"
+                    style={{ width: `${calculatePaceMetrics().percentMonthPassed}%` }}
+                  >
+                    {calculatePaceMetrics().percentMonthPassed > 8 && (
+                      <span className="text-xs font-bold text-white">{calculatePaceMetrics().percentMonthPassed}%</span>
+                    )}
+                  </div>
+                  <div
+                    className="bg-gradient-to-r from-green-400 to-green-500 dark:from-green-500 dark:to-green-600 h-full flex items-center justify-center transition-all duration-500"
+                    style={{ width: `${Math.max(0, calculatePaceMetrics().progress - parseFloat(calculatePaceMetrics().percentMonthPassed))}%` }}
+                  >
+                    {(calculatePaceMetrics().progress - parseFloat(calculatePaceMetrics().percentMonthPassed)) > 8 && (
+                      <span className="text-xs font-bold text-white">{(calculatePaceMetrics().progress - parseFloat(calculatePaceMetrics().percentMonthPassed)).toFixed(1)}%</span>
+                    )}
+                  </div>
+                  <div className="flex-1" />
+                </div>
+                <div className="flex justify-between mt-2 text-xs text-gray-600 dark:text-gray-400">
+                  <span>📅 Esperado: {calculatePaceMetrics().percentMonthPassed}%</span>
+                  <span>✅ Realizado: {calculatePaceMetrics().progress.toFixed(1)}%</span>
+                  <span>{calculatePaceMetrics().paceRatio >= 1 ? '🚀' : '⚠'} Taxa: {(calculatePaceMetrics().paceRatio * 100).toFixed(0)}%</span>
+                </div>
+              </div>
+
+              {/* Cartão */}
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">💳 Cartão</span>
+                  <span className="text-xs text-gray-600 dark:text-gray-400">
+                    {formatCurrency(actualValues.faturamentoCartao)} / {formatCurrency(goals.faturamentoCartao.base)}
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
+                  <div
+                    className="bg-green-500 h-2 rounded-full"
+                    style={{ width: `${Math.min(100, calculateProgress(actualValues.faturamentoCartao, goals.faturamentoCartao.base))}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Boleto */}
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">📄 Boleto</span>
+                  <span className="text-xs text-gray-600 dark:text-gray-400">
+                    {formatCurrency(actualValues.faturamentoBoleto)} / {formatCurrency(goals.faturamentoBoleto.base)}
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
+                  <div
+                    className="bg-purple-500 h-2 rounded-full"
+                    style={{ width: `${Math.min(100, calculateProgress(actualValues.faturamentoBoleto, goals.faturamentoBoleto.base))}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Legenda de Cores */}
+            <div className="flex flex-wrap gap-4 pt-4 border-t border-gray-200 dark:border-gray-700 text-xs">
+              <div className="flex items-center">
+                <div className="w-3 h-3 bg-gradient-to-r from-yellow-400 to-yellow-500 rounded mr-2" />
+                <span className="text-gray-600 dark:text-gray-400">Esperado (por dia do mês)</span>
+              </div>
+              <div className="flex items-center">
+                <div className="w-3 h-3 bg-gradient-to-r from-green-400 to-green-500 rounded mr-2" />
+                <span className="text-gray-600 dark:text-gray-400">Acima do Esperado</span>
+              </div>
+              <div className="flex items-center">
+                <div className="w-3 h-3 bg-red-400 rounded mr-2" />
+                <span className="text-gray-600 dark:text-gray-400">Abaixo do Esperado</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Cards de Metas Detalhados */}
       <div className="mb-6">

@@ -738,23 +738,53 @@ function DailyDashboard() {
         offerSummary[offerNameBoleto].products[productNameBoleto].value += saleValue
       })
 
+      // Processar dados do Asaas (vendas confirmadas) ANTES de gerar chartData
+      let asaasValue = 0
+      let asaasCount = 0
+      let asaasEntryValue = 0
+      if (asaasResult.status === 'fulfilled' && asaasResult.value?.data?.success) {
+        const asaas = asaasResult.value.data.data
+        const sales = asaas.sales || {}
+        asaasValue = sales.totalValue || 0
+        asaasCount = sales.count || 0
+        asaasEntryValue = sales.entryValue || 0
+
+        // Distribuir Asaas proporcionalmente pelos dias no dailyDataMap
+        const days = Object.keys(dailyDataMap)
+        if (days.length > 0 && asaasValue > 0) {
+          const valuePerDay = asaasValue / days.length
+          const qtyPerDay = asaasCount / days.length
+          days.forEach(day => {
+            dailyDataMap[day].boleto_value += valuePerDay
+            dailyDataMap[day].net_amount += valuePerDay
+            dailyDataMap[day].quantity += qtyPerDay
+          })
+        }
+
+        // Add ASAAS data to category totals
+        categoryTotals.programacao.boletoValue += asaasValue
+        categoryTotals.programacao.boletoQuantity += asaasCount
+        categoryTotals.programacao.totalValue += asaasValue
+        categoryTotals.programacao.totalQuantity += asaasCount
+      }
+
       const chartData = Object.values(dailyDataMap)
 
       // Convert product summary to array and sort by value descending
       const productDataArray = Object.values(productSummary).sort((a, b) => b.value - a.value)
-      
+
       // Convert offer summary to array and sort by value descending
       const offerDataArray = Object.values(offerSummary).sort((a, b) => b.value - a.value)
-      
+
       setData({
         dailyData: chartData,
         totals: {
           total_transactions:
             transactionsResponse.data.totals.total_transactions +
-            totalBoletoQuantity,
+            totalBoletoQuantity + asaasCount,
           total_net_amount:
             transactionsResponse.data.totals.total_net_amount +
-            totalBoletoValue,
+            totalBoletoValue + asaasValue,
           total_net_affiliate_value: totalAffiliateValue,
           total_card_transactions:
             transactionsResponse.data.totals.total_transactions,
@@ -773,31 +803,15 @@ function DailyDashboard() {
       })
 
       setBoletoData({
-        total_boleto_value: totalBoletoValue,
-        total_boleto_quantity: totalBoletoQuantity,
+        total_boleto_value: totalBoletoValue + asaasValue,
+        total_boleto_quantity: totalBoletoQuantity + asaasCount,
       })
 
-      // Processar dados do Asaas (vendas confirmadas do dia)
-      if (asaasResult.status === 'fulfilled' && asaasResult.value?.data?.success) {
-        const asaas = asaasResult.value.data.data
-        const sales = asaas.sales || {}
-        const asaasValue = sales.totalValue || 0
-        const asaasCount = sales.count || 0
-
-        // Add ASAAS data to category totals (assuming it's programming/DevClub)
-        categoryTotals.programacao.boletoValue += asaasValue
-        categoryTotals.programacao.boletoQuantity += asaasCount
-        categoryTotals.programacao.totalValue += asaasValue
-        categoryTotals.programacao.totalQuantity += asaasCount
-
-        setAsaasData({
-          count: asaasCount,
-          totalPurchaseValue: asaasValue,
-          entryValue: sales.entryValue || 0,
-        })
-      } else {
-        setAsaasData({ count: 0, totalPurchaseValue: 0, entryValue: 0 })
-      }
+      setAsaasData({
+        count: asaasCount,
+        totalPurchaseValue: asaasValue,
+        entryValue: asaasEntryValue,
+      })
 
       // Processar dados da Hotmart
       if (hotmartResult.status === 'fulfilled' && hotmartResult.value?.data?.success) {
@@ -1179,106 +1193,6 @@ function DailyDashboard() {
           </div>
         </div>
 
-        {/* Category summary cards - IA vs Programming */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-          {/* IA Club card */}
-          <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg shadow p-6 text-white">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold">IA Club</h3>
-              <div className="bg-white/20 rounded-full p-2">
-                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
-                </svg>
-              </div>
-            </div>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-lg font-semibold">Faturamento Total:</span>
-                <span className="text-2xl font-bold">{formatCurrency(categoryData.ia?.totalValue || 0)}</span>
-              </div>
-              
-              {/* Traffic Cost for IA Club - Only show in Launch Mode */}
-              {isLaunchMode && trafficData && (() => {
-                const roiData = calculateROIData();
-                return roiData && (
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-white/80">💸 Tráfego Pago:</span>
-                    <span className="font-semibold">{formatCurrency(roiData.ia.cost || 0)}</span>
-                  </div>
-                );
-              })()}
-              
-              <div className="grid grid-cols-2 gap-4 py-2 border-t border-white/20">
-                <div className="text-center">
-                  <div className="text-sm text-white/80 mb-1">💳 Cartão</div>
-                  <div className="font-bold text-lg">{formatCurrency(categoryData.ia?.cardValue || 0)}</div>
-                  <div className="text-xs text-white/70">{categoryData.ia?.cardQuantity || 0} vendas</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-sm text-white/80 mb-1">📄 Boleto</div>
-                  <div className="font-bold text-lg">{formatCurrency(categoryData.ia?.boletoValue || 0)}</div>
-                  <div className="text-xs text-white/70">{categoryData.ia?.boletoQuantity || 0} vendas</div>
-                </div>
-              </div>
-              
-              <div className="text-xs text-white/70 pt-2 border-t border-white/20">
-                💼 Comercial: {formatCurrency(categoryData.ia?.commercialValue || 0)} ({categoryData.ia?.commercialQuantity || 0} vendas)
-              </div>
-            </div>
-          </div>
-
-          {/* DevClub card */}
-          <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow p-6 text-white">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold">DevClub</h3>
-              <div className="bg-white/20 rounded-full p-2">
-                <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>
-                </svg>
-              </div>
-            </div>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-lg font-semibold">Faturamento Total:</span>
-                <span className="text-2xl font-bold">{formatCurrency(categoryData.programacao?.totalValue || 0)}</span>
-              </div>
-              
-              {/* Traffic Cost for DevClub - Only show in Launch Mode */}
-              {isLaunchMode && trafficData && (() => {
-                const roiData = calculateROIData();
-                return roiData && (
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-white/80">💸 Tráfego Pago:</span>
-                    <span className="font-semibold">{formatCurrency(roiData.devclub.cost || 0)}</span>
-                  </div>
-                );
-              })()}
-              
-              <div className="grid grid-cols-2 gap-4 py-2 border-t border-white/20">
-                <div className="text-center">
-                  <div className="text-sm text-white/80 mb-1">💳 Cartão</div>
-                  <div className="font-bold text-lg">{formatCurrency(categoryData.programacao?.cardValue || 0)}</div>
-                  <div className="text-xs text-white/70">{categoryData.programacao?.cardQuantity || 0} vendas</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-sm text-white/80 mb-1">📄 Boleto</div>
-                  <div className="font-bold text-lg">{formatCurrency(categoryData.programacao?.boletoValue || 0)}</div>
-                  <div className="text-xs text-white/70">{categoryData.programacao?.boletoQuantity || 0} vendas</div>
-                  {asaasData?.totalPurchaseValue > 0 && (
-                    <div className="text-xs text-white/60 mt-1 pt-1 border-t border-white/10">
-                      <div>TMB: {formatCurrency((categoryData.programacao?.boletoValue || 0) - (asaasData?.totalPurchaseValue || 0))}</div>
-                      <div>ASAAS: {formatCurrency(asaasData?.totalPurchaseValue || 0)}</div>
-                    </div>
-                  )}
-                </div>
-              </div>
-              
-              <div className="text-xs text-white/70 pt-2 border-t border-white/20">
-                💼 Comercial: {formatCurrency(categoryData.programacao?.commercialValue || 0)} ({categoryData.programacao?.commercialQuantity || 0} vendas)
-              </div>
-            </div>
-          </div>
-        </div>
 
         {/* Traffic Data Section - Only shown in Launch Mode */}
         {isLaunchMode && trafficData && (
@@ -1363,7 +1277,7 @@ function DailyDashboard() {
                     Análise de ROI (Return on Investment)
                   </h4>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     {/* ROI Total */}
                     <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg shadow p-4 text-white">
                       <div className="flex items-center justify-between mb-2">
@@ -1401,82 +1315,6 @@ function DailyDashboard() {
                         <div>Custo: {formatCurrency(roiData.card.cost)}</div>
                       </div>
                     </div>
-
-                    {/* ROI IA Club */}
-                    <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg shadow p-4 text-white">
-                      <div className="flex items-center justify-between mb-2">
-                        <h5 className="text-sm font-semibold">ROI IA Club</h5>
-                        <div className="bg-white/20 rounded-full p-1">
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
-                          </svg>
-                        </div>
-                      </div>
-                      <p className={`text-xl font-bold ${roiData.ia.roi >= 1 ? '' : 'text-red-200'}`}>
-                        {roiData.ia.roi.toFixed(2)}x
-                      </p>
-                      <div className="text-xs text-white/80 mt-1">
-                        <div>Receita: {formatCurrency(roiData.ia.revenue)}</div>
-                        <div>Custo: {formatCurrency(roiData.ia.cost)}</div>
-                      </div>
-                    </div>
-
-                    {/* ROI DevClub */}
-                    <div className="bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-lg shadow p-4 text-white">
-                      <div className="flex items-center justify-between mb-2">
-                        <h5 className="text-sm font-semibold">ROI DevClub</h5>
-                        <div className="bg-white/20 rounded-full p-1">
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>
-                          </svg>
-                        </div>
-                      </div>
-                      <p className={`text-xl font-bold ${roiData.devclub.roi >= 1 ? '' : 'text-red-200'}`}>
-                        {roiData.devclub.roi.toFixed(2)}x
-                      </p>
-                      <div className="text-xs text-white/80 mt-1">
-                        <div>Receita: {formatCurrency(roiData.devclub.revenue)}</div>
-                        <div>Custo: {formatCurrency(roiData.devclub.cost)}</div>
-                      </div>
-                    </div>
-
-                    {/* ROI Cartão IA Club */}
-                    <div className="bg-gradient-to-r from-pink-500 to-pink-600 rounded-lg shadow p-4 text-white">
-                      <div className="flex items-center justify-between mb-2">
-                        <h5 className="text-sm font-semibold">ROI Cartão IA</h5>
-                        <div className="bg-white/20 rounded-full p-1">
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
-                          </svg>
-                        </div>
-                      </div>
-                      <p className={`text-xl font-bold ${roiData.ia.cardRoi >= 1 ? '' : 'text-red-200'}`}>
-                        {roiData.ia.cardRoi.toFixed(2)}x
-                      </p>
-                      <div className="text-xs text-white/80 mt-1">
-                        <div>Receita: {formatCurrency(roiData.ia.cardRevenue)}</div>
-                        <div>Custo: {formatCurrency(roiData.ia.cost)}</div>
-                      </div>
-                    </div>
-
-                    {/* ROI Cartão DevClub */}
-                    <div className="bg-gradient-to-r from-teal-500 to-teal-600 rounded-lg shadow p-4 text-white">
-                      <div className="flex items-center justify-between mb-2">
-                        <h5 className="text-sm font-semibold">ROI Cartão Dev</h5>
-                        <div className="bg-white/20 rounded-full p-1">
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
-                          </svg>
-                        </div>
-                      </div>
-                      <p className={`text-xl font-bold ${roiData.devclub.cardRoi >= 1 ? '' : 'text-red-200'}`}>
-                        {roiData.devclub.cardRoi.toFixed(2)}x
-                      </p>
-                      <div className="text-xs text-white/80 mt-1">
-                        <div>Receita: {formatCurrency(roiData.devclub.cardRevenue)}</div>
-                        <div>Custo: {formatCurrency(roiData.devclub.cost)}</div>
-                      </div>
-                    </div>
                   </div>
 
                   {/* ROI Summary Table */}
@@ -1485,12 +1323,6 @@ function DailyDashboard() {
                       Resumo de Performance
                     </h5>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                      <div>
-                        <div className="text-xs text-gray-600 dark:text-gray-400">Melhor ROI</div>
-                        <div className="font-bold text-green-600 dark:text-green-400">
-                          {Math.max(roiData.ia.roi, roiData.devclub.roi, roiData.card.roi, roiData.total.roi, roiData.ia.cardRoi, roiData.devclub.cardRoi).toFixed(2)}x
-                        </div>
-                      </div>
                       <div>
                         <div className="text-xs text-gray-600 dark:text-gray-400">ROAS Total</div>
                         <div className="font-bold text-gray-900 dark:text-white">
@@ -1592,10 +1424,10 @@ function DailyDashboard() {
               Valor Líquido Total
             </h3>
             <p className="mt-2 text-3xl font-bold text-accent1 dark:text-accent2">
-              {formatCurrency((filteredTotals.total_net_amount || 0) + (filteredTotals.total_asaas_value || 0) + (filteredTotals.total_hotmart_value || 0))}
+              {formatCurrency((filteredTotals.total_net_amount || 0) + (filteredTotals.total_hotmart_value || 0))}
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Total: {(filteredTotals.total_transactions || 0) + (filteredTotals.total_asaas_quantity || 0) + (filteredTotals.total_hotmart_quantity || 0)} venda(s)
+              Total: {(filteredTotals.total_transactions || 0) + (filteredTotals.total_hotmart_quantity || 0)} venda(s)
             </p>
           </div>
 
@@ -1628,15 +1460,15 @@ function DailyDashboard() {
               Vendas Boleto
             </h3>
             <p className="mt-2 text-3xl font-bold text-yellow-500 dark:text-yellow-400">
-              {formatCurrency((filteredTotals.total_boleto_value || 0) + (filteredTotals.total_asaas_value || 0))}
+              {formatCurrency(filteredTotals.total_boleto_value || 0)}
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              {(filteredTotals.total_boleto_quantity || 0) + (filteredTotals.total_asaas_quantity || 0)} venda(s)
+              {filteredTotals.total_boleto_quantity || 0} venda(s)
             </p>
             <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 space-y-1">
               <div className="flex justify-between text-xs">
                 <span className="text-gray-500 dark:text-gray-400">TMB</span>
-                <span className="font-medium text-text-light dark:text-text-dark">{formatCurrency(filteredTotals.total_boleto_value || 0)}</span>
+                <span className="font-medium text-text-light dark:text-text-dark">{formatCurrency((filteredTotals.total_boleto_value || 0) - (filteredTotals.total_asaas_value || 0))}</span>
               </div>
               <div className="flex justify-between text-xs">
                 <span className="text-gray-500 dark:text-gray-400">Asaas (vendas)</span>
@@ -1803,9 +1635,6 @@ function DailyDashboard() {
                     Produto
                   </th>
                   <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Categoria
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Total Vendas
                   </th>
                   <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
@@ -1825,7 +1654,7 @@ function DailyDashboard() {
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {filteredData.productData.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500 dark:text-gray-400">
+                    <td colSpan="6" className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500 dark:text-gray-400">
                       Nenhum produto encontrado no período selecionado
                     </td>
                   </tr>
@@ -1834,15 +1663,6 @@ function DailyDashboard() {
                     <tr key={index} className={index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-700' : ''}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                         {product.name}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          product.category === 'ia' 
-                            ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' 
-                            : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                        }`}>
-                          {product.category === 'ia' ? 'IA Club' : 'DevClub'}
-                        </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-center text-gray-500 dark:text-gray-400">
                         {product.quantity}
@@ -1868,16 +1688,6 @@ function DailyDashboard() {
                   <tr className="bg-gray-100 dark:bg-gray-600 font-bold">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 dark:text-white">
                       TOTAL
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
-                      <div className="flex justify-center gap-2">
-                        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                          IA: {filteredData.productData.filter(p => p.category === 'ia').length}
-                        </span>
-                        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                          Dev: {filteredData.productData.filter(p => p.category === 'programacao').length}
-                        </span>
-                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-center font-bold text-gray-900 dark:text-white">
                       {filteredData.productData.reduce((sum, product) => sum + product.quantity, 0)}
@@ -2000,53 +1810,43 @@ function DailyDashboard() {
           </div>
         </div>
 
-        {/* Detailed sales by category */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          {/* IA Club detailed sales */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4 flex items-center">
-              <div className="w-6 h-6 bg-purple-500 rounded-full mr-3 flex items-center justify-center">
-                <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
-                </svg>
-              </div>
-              Vendas IA Club - Detalhamento ({categoryData.ia?.sales?.length || 0} vendas)
-            </h3>
-            <div className="max-h-96 overflow-y-auto">
-              {categoryData.ia?.sales?.length > 0 ? (
+        {/* Detailed sales */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+          <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
+            Vendas - Detalhamento ({[...(categoryData.ia?.sales || []), ...(categoryData.programacao?.sales || [])].length} vendas)
+          </h3>
+          <div className="max-h-96 overflow-y-auto">
+            {(() => {
+              const allSales = [...(categoryData.ia?.sales || []), ...(categoryData.programacao?.sales || [])].sort((a, b) => b.timestamp - a.timestamp);
+              return allSales.length > 0 ? (
                 <div className="space-y-2">
-                  {categoryData.ia.sales
-                    .sort((a, b) => b.timestamp - a.timestamp)
-                    .map((sale, index) => (
-                    <div key={sale.id} className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-3 border border-purple-200 dark:border-purple-700/50">
-                      <div className="flex justify-between items-start mb-2">
+                  {allSales.map((sale) => (
+                    <div key={sale.id} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 border border-gray-200 dark:border-gray-600/50">
+                      <div className="flex justify-between items-start">
                         <div className="flex-1">
                           <h4 className="font-medium text-gray-900 dark:text-white text-sm">
                             {sale.productName}
                           </h4>
                           <div className="flex items-center space-x-4 text-xs text-gray-600 dark:text-gray-400 mt-1">
-                            <span className="flex items-center">
-                              <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 6c.55 0 1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V9c0-.55.45-1 1-1zm0-4c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1z"/>
-                              </svg>
+                            <span>
                               {new Date(sale.timestamp * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                             </span>
                             <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${
-                              sale.method === 'Cartão' 
-                                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
+                              sale.method === 'Cartão'
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
                                 : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
                             }`}>
                               {sale.method === 'Cartão' ? '💳' : '📄'} {sale.method}
                             </span>
                             {sale.isCommercial && (
                               <span className="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                                💼 Comercial
+                                Comercial
                               </span>
                             )}
                           </div>
                         </div>
                         <div className="text-right">
-                          <div className="font-bold text-purple-600 dark:text-purple-400">
+                          <div className="font-bold text-primary dark:text-primary">
                             {formatCurrency(sale.value)}
                           </div>
                           {sale.affiliateValue > 0 && (
@@ -2061,81 +1861,10 @@ function DailyDashboard() {
                 </div>
               ) : (
                 <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                  <svg className="w-12 h-12 mx-auto mb-4 opacity-50" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-                  </svg>
-                  Nenhuma venda de IA Club no período selecionado
+                  Nenhuma venda no período selecionado
                 </div>
-              )}
-            </div>
-          </div>
-
-          {/* DevClub detailed sales */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4 flex items-center">
-              <div className="w-6 h-6 bg-blue-500 rounded-full mr-3 flex items-center justify-center">
-                <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/>
-                </svg>
-              </div>
-              Vendas DevClub - Detalhamento ({categoryData.programacao?.sales?.length || 0} vendas)
-            </h3>
-            <div className="max-h-96 overflow-y-auto">
-              {categoryData.programacao?.sales?.length > 0 ? (
-                <div className="space-y-2">
-                  {categoryData.programacao.sales
-                    .sort((a, b) => b.timestamp - a.timestamp)
-                    .map((sale, index) => (
-                    <div key={sale.id} className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 border border-blue-200 dark:border-blue-700/50">
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="flex-1">
-                          <h4 className="font-medium text-gray-900 dark:text-white text-sm">
-                            {sale.productName}
-                          </h4>
-                          <div className="flex items-center space-x-4 text-xs text-gray-600 dark:text-gray-400 mt-1">
-                            <span className="flex items-center">
-                              <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 6c.55 0 1 .45 1 1v6c0 .55-.45 1-1 1s-1-.45-1-1V9c0-.55.45-1 1-1zm0-4c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1z"/>
-                              </svg>
-                              {new Date(sale.timestamp * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                            <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${
-                              sale.method === 'Cartão' 
-                                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
-                                : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                            }`}>
-                              {sale.method === 'Cartão' ? '💳' : '📄'} {sale.method}
-                            </span>
-                            {sale.isCommercial && (
-                              <span className="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                                💼 Comercial
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-bold text-blue-600 dark:text-blue-400">
-                            {formatCurrency(sale.value)}
-                          </div>
-                          {sale.affiliateValue > 0 && (
-                            <div className="text-xs text-gray-500 dark:text-gray-400">
-                              Afiliação: {formatCurrency(sale.affiliateValue)}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                  <svg className="w-12 h-12 mx-auto mb-4 opacity-50" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-                  </svg>
-                  Nenhuma venda de DevClub no período selecionado
-                </div>
-              )}
-            </div>
+              );
+            })()}
           </div>
         </div>
 

@@ -19,7 +19,6 @@ import {
   FaTachometerAlt,
   FaUsers,
   FaChartBar,
-  FaStore,
 } from 'react-icons/fa'
 
 export default function Header() {
@@ -69,16 +68,15 @@ export default function Header() {
   }
 
   const menuItems = [
-    { path: '/', label: 'Diário', icon: FaHome, condition: userRoles?.today !== false || userRoles?.isAdmin },
-    { path: '/daily', label: 'Global', icon: FaGlobe, condition: userRoles?.daily !== false || userRoles?.isAdmin },
-    { path: '/monthly', label: 'Mensal', icon: FaCalendarAlt, condition: userRoles?.monthly !== false || userRoles?.isAdmin },
-    { path: '/yearly', label: 'Anual', icon: FaCalendar, condition: userRoles?.yearly !== false || userRoles?.isAdmin },
-    { path: '/commercial', label: 'Comercial', icon: FaStore, condition: userRoles?.commercial !== false || userRoles?.isAdmin },
+    { path: '/diario', label: 'Diário', icon: FaHome, condition: userRoles?.today !== false || userRoles?.isAdmin },
+    { path: '/global', label: 'Global', icon: FaGlobe, condition: userRoles?.daily !== false || userRoles?.isAdmin },
+    { path: '/mensal', label: 'Mensal', icon: FaCalendarAlt, condition: userRoles?.monthly !== false || userRoles?.isAdmin },
+    { path: '/anual', label: 'Anual', icon: FaCalendar, condition: userRoles?.yearly !== false || userRoles?.isAdmin },
     { path: '/ts', label: 'T$', icon: FaBell, condition: userRoles?.ts !== false || userRoles?.isAdmin },
     { path: '/comparativo', label: 'Comparativo', icon: FaChartBar, condition: userRoles?.comparativo !== false || userRoles?.isAdmin },
-    { path: '/traffic', label: 'Tráfego', icon: FaBullhorn, condition: userRoles?.traffic !== false || userRoles?.isAdmin },
-    { path: '/traffic-monitor', label: 'Monitor', icon: FaTachometerAlt, condition: true },
-    { path: '/goals', label: 'Metas', icon: FaBullseye, condition: userRoles?.goals !== false || userRoles?.isAdmin },
+    { path: '/trafego', label: 'Tráfego', icon: FaBullhorn, condition: userRoles?.traffic !== false || userRoles?.isAdmin },
+    { path: '/monitor', label: 'Monitor', icon: FaTachometerAlt, condition: true },
+    { path: '/metas', label: 'Metas', icon: FaBullseye, condition: userRoles?.goals !== false || userRoles?.isAdmin },
     { path: '/leads', label: 'Leads', icon: FaUsers, condition: userRoles?.leads !== false || userRoles?.isAdmin },
   ]
 

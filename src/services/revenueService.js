@@ -38,6 +38,23 @@ export const revenueService = {
         console.error('Erro ao buscar vendas de boleto:', error);
       }
 
+      // 2b. Buscar vendas Asaas (boleto parcelado)
+      let asaasTotalValue = 0;
+      let asaasTotalCount = 0;
+      try {
+        const asaasResponse = await axios.get(`${API_URL}/boleto/asaas/vendas`, {
+          params: { data_inicio: startDate, data_final: endDate },
+          timeout: 30000,
+        });
+        if (asaasResponse.data?.success) {
+          const asaasData = asaasResponse.data.data;
+          asaasTotalValue = asaasData?.sales?.totalValue || 0;
+          asaasTotalCount = asaasData?.sales?.count || 0;
+        }
+      } catch (error) {
+        console.error('Erro ao buscar vendas Asaas:', error);
+      }
+
       // 3. Processar dados de cartão
       let totalCardRevenue = 0;
       let totalCardSales = 0;
@@ -98,15 +115,19 @@ export const revenueService = {
         totalSales: (cardRevenueByDay[date]?.sales || 0) + (boletoRevenueByDay[date]?.sales || 0)
       })).sort((a, b) => a.date.localeCompare(b.date));
 
+      // Incluir Asaas no total de boleto
+      const combinedBoletoRevenue = totalBoletoRevenue + asaasTotalValue;
+      const combinedBoletoSales = totalBoletoSales + asaasTotalCount;
+
       const result = {
         period: { startDate, endDate },
         totals: {
           cardRevenue: totalCardRevenue,
           cardSales: totalCardSales,
-          boletoRevenue: totalBoletoRevenue,
-          boletoSales: totalBoletoSales,
-          totalRevenue: totalCardRevenue + totalBoletoRevenue,
-          totalSales: totalCardSales + totalBoletoSales
+          boletoRevenue: combinedBoletoRevenue,
+          boletoSales: combinedBoletoSales,
+          totalRevenue: totalCardRevenue + combinedBoletoRevenue,
+          totalSales: totalCardSales + combinedBoletoSales
         },
         daily: dailyRevenue,
         raw: {
