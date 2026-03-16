@@ -3,18 +3,12 @@ import axios from 'axios'
 import toast from 'react-hot-toast'
 import boletoService from '../services/boletoService'
 import {
-  BarChart,
-  Bar,
   Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
   Tooltip,
   Legend,
   ResponsiveContainer,
   PieChart,
   Pie,
-  LabelList,
 } from 'recharts'
 import { formatCurrency } from '../utils/currencyUtils'
 
@@ -488,17 +482,6 @@ function Today() {
         hourlyData[index].refundValue = 0
       })
 
-      const productData = Object.entries(productSales).map(([name, data]) => ({
-        name,
-        category: data.category,
-        quantity: data.quantity,
-        value: data.value,
-        commercialQuantity: data.commercialQuantity || 0,
-        commercialValue: data.commercialValue || 0,
-        boletoQuantity: data.boletoQuantity || 0,
-        boletoValue: data.boletoValue || 0,
-      }))
-
       const hoursWithSales =
         hourlyData.filter((hour) => hour.sales > 0 || hour.boletoSales > 0)
           .length || 1
@@ -519,14 +502,70 @@ function Today() {
       const hotmartGrossValue = hotmartSales.totalGross || 0
       const hotmartCount = hotmartSales.count || 0
 
-      const totalCardSales = totalSales + hotmartCount
-      totalSales += totalBoletoSales + asaasCount + hotmartCount
-      const totalCombinedValue = totalValue + totalBoletoValue + asaasPurchaseValue + hotmartNetValue
-      const averageSalesPerHour = totalSales / hoursWithSales
+      // Adicionar vendas Hotmart ao hourlyData (têm timestamp por transação)
+      const hotmartTransactions = hotmartSales.transactions || []
+      let hotmartHourlySales = 0
+      let hotmartHourlyValue = 0
+      hotmartTransactions.forEach((tx) => {
+        const orderDate = tx.orderDate ? new Date(tx.orderDate) : null
+        if (!orderDate) return
+        const hour = orderDate.getHours()
+        const netValue = tx.netValue || 0
+        hourlyData[hour].sales += 1
+        hourlyData[hour].value += netValue
+        hourlyData[hour].hotmartSales = (hourlyData[hour].hotmartSales || 0) + 1
+        hourlyData[hour].hotmartValue = (hourlyData[hour].hotmartValue || 0) + netValue
+        const productName = tx.product || 'Produto Hotmart'
+        if (!hourlyData[hour].productSales[productName]) {
+          hourlyData[hour].productSales[productName] = 0
+        }
+        hourlyData[hour].productSales[productName] += 1
+        hotmartHourlySales += 1
+        hotmartHourlyValue += netValue
+
+        // Adicionar ao productSales geral e categorias
+        const productCategory = categorizeProduct(productName)
+        if (!productSales[productName]) {
+          productSales[productName] = { name: productName, category: productCategory, quantity: 0, value: 0, commercialQuantity: 0, commercialValue: 0, boletoQuantity: 0, boletoValue: 0 }
+        }
+        productSales[productName].quantity += 1
+        productSales[productName].value += netValue
+        totalSales += 1
+        totalValue += netValue
+        categoryTotals[productCategory].totalValue += netValue
+        categoryTotals[productCategory].totalQuantity += 1
+        categoryTotals[productCategory].cardValue += netValue
+        categoryTotals[productCategory].cardQuantity += 1
+      })
+
+      // Recalcular hoursWithSales após incluir Hotmart
+      const hoursWithSalesUpdated =
+        hourlyData.filter((hour) => hour.sales > 0 || hour.boletoSales > 0).length || 1
+
+      const totalCardSales = totalSales + (hotmartCount - hotmartHourlySales)
+      totalSales += totalBoletoSales + asaasCount + (hotmartCount - hotmartHourlySales)
+      const totalCombinedValue = totalValue + totalBoletoValue + asaasPurchaseValue + (hotmartNetValue - hotmartHourlyValue)
+      const averageSalesPerHour = totalSales / hoursWithSalesUpdated
 
       const processedHourlyData = hourlyData.map((hour) => ({
         ...hour,
+        hotmartSales: hour.hotmartSales || 0,
+        hotmartValue: hour.hotmartValue || 0,
+        totalSales: (hour.sales || 0) + (hour.boletoSales || 0),
+        totalValue: (hour.value || 0) + (hour.boletoValue || 0),
         averageSales: averageSalesPerHour,
+      }))
+
+      // Gerar productData após incluir Hotmart no productSales
+      const productData = Object.entries(productSales).map(([name, data]) => ({
+        name,
+        category: data.category,
+        quantity: data.quantity,
+        value: data.value,
+        commercialQuantity: data.commercialQuantity || 0,
+        commercialValue: data.commercialValue || 0,
+        boletoQuantity: data.boletoQuantity || 0,
+        boletoValue: data.boletoValue || 0,
       }))
 
       setTodayData({
@@ -622,64 +661,6 @@ function Today() {
 
     setSelectedDate(correctedDate)
   }
-
-  const getBarColor = (sales, averageSales) => {
-    if (sales === 0) return '#EF4444'
-    if (sales < averageSales * 0.5) return '#F97316'
-    if (sales < averageSales) return '#FACC15'
-    return '#22C55E'
-  }
-
-  const CustomTooltip = ({ active, payload, label }) => {
-    if (active && payload && payload.length) {
-      const hourData = payload[0].payload;
-
-      const productSalesEntries = Object.entries(
-        hourData.productSales || {},
-      ).sort((a, b) => b[1] - a[1]);
-
-      return (
-        <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-lg p-4 border border-white/20 dark:border-gray-700/50 rounded-xl shadow-xl min-w-[200px]">
-          <p className="font-bold text-text-light dark:text-text-dark text-lg border-b pb-2 mb-3">{`${label}:00h`}</p>
-          <p className="text-text-light dark:text-text-dark font-medium">{`Vendas: ${hourData.sales}`}</p>
-          <p className="text-text-light dark:text-text-dark mb-3">{`Valor: ${formatCurrency(
-            hourData.value,
-          )}`}</p>
-
-          {hourData.commercialSales > 0 && (
-            <p className="text-text-light dark:text-text-dark mb-2">{`Vendas Comercial: ${hourData.commercialSales}`}</p>
-          )}
-
-          {hourData.boletoSales > 0 && (
-            <>
-              <p className="text-text-light dark:text-text-dark mb-2">{`Vendas Boleto: ${hourData.boletoSales}`}</p>
-              <p className="text-text-light dark:text-text-dark mb-2">{`Valor Boleto: ${formatCurrency(hourData.boletoValue || 0)}`}</p>
-            </>
-          )}
-
-          {productSalesEntries.length > 0 && (
-            <>
-              <p className="font-medium text-text-light dark:text-text-dark border-t pt-2 mt-3">
-                Vendas por produto:
-              </p>
-              <div className="mt-2 max-h-48 overflow-y-auto">
-                {productSalesEntries.map(([product, count], index) => (
-                  <div
-                    key={index}
-                    className="flex justify-between text-text-light dark:text-text-dark text-sm py-1"
-                  >
-                    <span className="mr-2 truncate">{product}</span>
-                    <span className="font-medium">{count}</span>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      );
-    }
-    return null;
-  };
 
   const formattedDate = selectedDate.toLocaleDateString('pt-BR', {
     weekday: 'long',
@@ -911,90 +892,76 @@ function Today() {
 
         {/* Gráficos */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-          {/* Gráfico de Vendas por Hora */}
+          {/* Vendas por Hora */}
           <div className="group relative animate-slide-up" style={{animationDelay: '0.4s'}}>
             <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-purple-500/5 to-primary/10 rounded-3xl blur-xl"></div>
-            <div className="relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-3xl p-8 border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center space-x-4">
-                  <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-                    <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            <div className="relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-3xl p-6 border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
                   <div>
-                    <h3 className="text-2xl font-bold text-text-light dark:text-text-dark">
+                    <h3 className="text-lg font-bold text-text-light dark:text-text-dark">
                       Vendas por Hora
                     </h3>
-                    <p className="text-text-muted-light dark:text-text-muted-dark">
+                    <p className="text-xs text-text-muted-light dark:text-text-muted-dark">
                       Média: {todayData?.averageSalesPerHour?.toFixed(1) || 0} vendas/hora
                     </p>
                   </div>
                 </div>
+                <div className="flex items-center gap-3 text-xs">
+                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span>Cartão</span>
+                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>Boleto</span>
+                </div>
               </div>
               {(() => {
-                const activeHours = todayData?.hourlyData?.filter(h => h.sales > 0 || h.boletoSales > 0) || []
-                const chartHeight = Math.max(300, activeHours.length * 40 + 40)
+                const activeHours = todayData?.hourlyData?.filter(h => h.totalSales > 0) || []
+                const maxValue = Math.max(...activeHours.map(h => h.totalValue || 0), 1)
+                if (activeHours.length === 0) {
+                  return (
+                    <div className="flex items-center justify-center h-48 text-text-muted-light dark:text-text-muted-dark text-sm">
+                      Nenhuma venda registrada
+                    </div>
+                  )
+                }
                 return (
-                  <div className="bg-gradient-to-br from-background-light/50 to-slate-50/50 dark:from-background-dark/50 dark:to-gray-800/50 rounded-2xl p-4" style={{ height: `${chartHeight}px` }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        layout="vertical"
-                        data={activeHours}
-                        margin={{ top: 5, right: 90, left: 5, bottom: 5 }}
-                        barGap={2}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.15} horizontal={false} />
-                        <XAxis type="number" hide />
-                        <YAxis
-                          dataKey="hour"
-                          type="category"
-                          tickFormatter={(hour) => `${String(hour).padStart(2, '0')}h`}
-                          width={38}
-                          tick={{ fontSize: 12, fontWeight: 600 }}
-                          axisLine={false}
-                          tickLine={false}
-                        />
-                        <Tooltip content={<CustomTooltip />} />
-                        <Bar
-                          dataKey="value"
-                          name="Cartão"
-                          radius={[0, 8, 8, 0]}
-                          barSize={14}
-                          stackId="a"
-                        >
-                          {activeHours.map((entry, index) => (
-                            <Cell
-                              key={`cell-${index}`}
-                              fill={getBarColor(entry.sales, todayData.averageSalesPerHour)}
-                            />
-                          ))}
-                        </Bar>
-                        <Bar
-                          dataKey="boletoValue"
-                          name="Boleto"
-                          fill="#EAB308"
-                          radius={[0, 8, 8, 0]}
-                          barSize={14}
-                          stackId="a"
-                        >
-                          <LabelList
-                            content={({ x, y, width, height, index }) => {
-                              const entry = activeHours[index]
-                              if (!entry) return null
-                              const totalValue = (entry.value || 0) + (entry.boletoValue || 0)
-                              const totalQty = (entry.sales || 0) + (entry.boletoSales || 0)
-                              if (totalQty <= 0) return null
-                              return (
-                                <text x={x + width + 8} y={y + height / 2} dy={4} fill="#6b7280" fontSize={11} fontWeight={500}>
-                                  {formatCurrency(totalValue)} ({totalQty} vendas)
-                                </text>
-                              )
-                            }}
-                          />
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
+                  <div className="space-y-1 max-h-[480px] overflow-y-auto pr-1">
+                    {activeHours.map((h) => {
+                      const cardPct = maxValue > 0 ? ((h.value || 0) / maxValue) * 100 : 0
+                      const boletoPct = maxValue > 0 ? ((h.boletoValue || 0) / maxValue) * 100 : 0
+                      return (
+                        <div key={h.hour} className="group/row flex items-center gap-3 py-1.5 px-2 rounded-lg hover:bg-slate-50/80 dark:hover:bg-gray-800/50 transition-colors">
+                          <span className="text-xs font-bold text-text-muted-light dark:text-text-muted-dark w-8 text-right tabular-nums">
+                            {String(h.hour).padStart(2, '0')}h
+                          </span>
+                          <div className="flex-1 flex items-center h-7 bg-slate-100/60 dark:bg-gray-800/40 rounded-lg overflow-hidden relative">
+                            {h.value > 0 && (
+                              <div
+                                className="h-full bg-gradient-to-r from-blue-500 to-blue-400 rounded-l-lg transition-all duration-500"
+                                style={{ width: `${Math.max(cardPct, 2)}%` }}
+                              />
+                            )}
+                            {h.boletoValue > 0 && (
+                              <div
+                                className="h-full bg-gradient-to-r from-amber-500 to-amber-400 transition-all duration-500"
+                                style={{ width: `${Math.max(boletoPct, 2)}%`, borderRadius: h.value > 0 ? '0 8px 8px 0' : '8px' }}
+                              />
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 min-w-[140px] justify-end">
+                            <span className="text-xs font-semibold text-text-light dark:text-text-dark tabular-nums">
+                              {formatCurrency(h.totalValue)}
+                            </span>
+                            <span className="text-[10px] font-medium text-text-muted-light dark:text-text-muted-dark bg-slate-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-md tabular-nums">
+                              {h.totalSales} {h.totalSales === 1 ? 'venda' : 'vendas'}
+                            </span>
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
                 )
               })()}
