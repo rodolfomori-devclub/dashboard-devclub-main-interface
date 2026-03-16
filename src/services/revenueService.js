@@ -24,7 +24,24 @@ export const revenueService = {
         cardTransactions = cardResponse.data.data || [];
 
       } catch (error) {
-        console.error('Erro ao buscar transações de cartão:', error);
+        console.error('Erro ao buscar transações de cartão (Guru):', error);
+      }
+
+      // 1b. Buscar vendas Hotmart (cartão)
+      let hotmartTotalNet = 0;
+      let hotmartTotalCount = 0;
+      try {
+        const hotmartResponse = await axios.get(`${API_URL}/hotmart/vendas`, {
+          params: { data_inicio: startDate, data_final: endDate },
+          timeout: 30000,
+        });
+        if (hotmartResponse.data?.success) {
+          const hotmartData = hotmartResponse.data.data;
+          hotmartTotalNet = hotmartData?.totalNet || 0;
+          hotmartTotalCount = hotmartData?.count || 0;
+        }
+      } catch (error) {
+        console.error('Erro ao buscar vendas Hotmart:', error);
       }
 
       // 2. Buscar vendas de boleto (TMB)
@@ -115,19 +132,23 @@ export const revenueService = {
         totalSales: (cardRevenueByDay[date]?.sales || 0) + (boletoRevenueByDay[date]?.sales || 0)
       })).sort((a, b) => a.date.localeCompare(b.date));
 
-      // Incluir Asaas no total de boleto
+      // Incluir Hotmart no total de cartão (Guru + Hotmart)
+      const combinedCardRevenue = totalCardRevenue + hotmartTotalNet;
+      const combinedCardSales = totalCardSales + hotmartTotalCount;
+
+      // Incluir Asaas no total de boleto (TMB + Asaas)
       const combinedBoletoRevenue = totalBoletoRevenue + asaasTotalValue;
       const combinedBoletoSales = totalBoletoSales + asaasTotalCount;
 
       const result = {
         period: { startDate, endDate },
         totals: {
-          cardRevenue: totalCardRevenue,
-          cardSales: totalCardSales,
+          cardRevenue: combinedCardRevenue,
+          cardSales: combinedCardSales,
           boletoRevenue: combinedBoletoRevenue,
           boletoSales: combinedBoletoSales,
-          totalRevenue: totalCardRevenue + combinedBoletoRevenue,
-          totalSales: totalCardSales + combinedBoletoSales
+          totalRevenue: combinedCardRevenue + combinedBoletoRevenue,
+          totalSales: combinedCardSales + combinedBoletoSales
         },
         daily: dailyRevenue,
         raw: {

@@ -23,6 +23,7 @@ import TSDashboard from './pages/TSDashboard'
 import TrafficDashboard from './pages/TrafficDashboard'
 import TrafficMonitor from './pages/TrafficMonitor'
 import LeadsPage from './pages/LeadsPage'
+import VidometroPage from './pages/VidometroPage'
 
 // Protected route component
 const ProtectedRoute = ({ children, requiredPermission }) => {
@@ -228,6 +229,8 @@ function AppRouter() {
           </ProtectedRoute>
         }
       />
+
+      <Route path="/vidometro" element={<VidometroPage />} />
 
       {/* Catch all - redirect to login */}
       <Route path="*" element={<Navigate to="/login" />} />

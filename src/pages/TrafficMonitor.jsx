@@ -63,21 +63,21 @@ const getGoalColors = (value, goal, isInverse = false) => {
   // Para métricas normais (CTR, Conversão): maior é melhor → ratio = value/goal
   const ratio = isInverse ? goal / value : value / goal
 
-  // >= 110%: bem acima da meta → verde forte
+  // >= 110%: bem acima da meta → azul forte
   if (ratio >= 1.1)
     return {
-      gradientFrom: '#16A34A',
-      gradientTo: '#22C55E',
-      iconGradientFrom: '#16A34A',
-      iconGradientTo: '#15803D',
+      gradientFrom: '#2563EB',
+      gradientTo: '#3B82F6',
+      iconGradientFrom: '#2563EB',
+      iconGradientTo: '#1D4ED8',
     }
-  // >= 100%: na meta → verde
+  // >= 100%: na meta → azul
   if (ratio >= 1.0)
     return {
-      gradientFrom: '#22C55E',
-      gradientTo: '#4ADE80',
-      iconGradientFrom: '#22C55E',
-      iconGradientTo: '#16A34A',
+      gradientFrom: '#3B82F6',
+      gradientTo: '#60A5FA',
+      iconGradientFrom: '#3B82F6',
+      iconGradientTo: '#2563EB',
     }
   // >= 85%: pouco abaixo → amarelo
   if (ratio >= 0.85)

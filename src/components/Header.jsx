@@ -19,6 +19,7 @@ import {
   FaTachometerAlt,
   FaUsers,
   FaChartBar,
+  FaFire,
 } from 'react-icons/fa'
 
 export default function Header() {
@@ -78,6 +79,7 @@ export default function Header() {
     { path: '/monitor', label: 'Monitor', icon: FaTachometerAlt, condition: true },
     { path: '/metas', label: 'Metas', icon: FaBullseye, condition: userRoles?.goals !== false || userRoles?.isAdmin },
     { path: '/leads', label: 'Leads', icon: FaUsers, condition: userRoles?.leads !== false || userRoles?.isAdmin },
+    { path: '/vidometro', label: 'Vidômetro', icon: FaFire, condition: true },
   ]
 
   return (
