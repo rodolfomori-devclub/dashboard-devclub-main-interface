@@ -66,7 +66,7 @@ const PlatformBreakdown = ({ platforms = {} }) => {
           return (
             <div
               key={key}
-              className="bg-white/60 dark:bg-secondary/60 backdrop-blur-lg rounded-2xl border border-white/20 dark:border-gray-700/50 p-6 shadow-lg hover:shadow-xl transition-shadow duration-300"
+              className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] p-6 shadow-lg hover:shadow-xl transition-shadow duration-300"
             >
               {/* Cabeçalho com nome da plataforma */}
               <div className="flex items-center justify-between mb-4">

@@ -13,9 +13,7 @@ import {
   ResponsiveContainer
 } from 'recharts';
 import { formatCurrency } from '../utils/currencyUtils';
-
-// Cores para o gráfico
-const COLORS = ['#37E359', '#051626', '#FF4500', '#1E90FF', '#FFD700', '#FF1493'];
+import { CHART_COLORS } from '../styles/designTokens';
 
 const PaymentMethodAnalysis = ({ salesData }) => {
   const [paymentMethodSummary, setPaymentMethodSummary] = useState([]);
@@ -52,14 +50,14 @@ const PaymentMethodAnalysis = ({ salesData }) => {
   const totalValue = paymentMethodSummary.reduce((sum, item) => sum + item.value, 0);
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+    <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 mb-8">
       <h3 className="text-xl font-bold text-primary dark:text-secondary mb-6">
         Análise por Método de Pagamento
       </h3>
       
       {/* Cards de resumo */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+        <div className="bg-gray-50/80 dark:bg-gray-800/50 p-4 rounded-lg">
           <h4 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
             Total de Vendas
           </h4>
@@ -68,7 +66,7 @@ const PaymentMethodAnalysis = ({ salesData }) => {
           </p>
         </div>
         
-        <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+        <div className="bg-gray-50/80 dark:bg-gray-800/50 p-4 rounded-lg">
           <h4 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
             Valor Total
           </h4>
@@ -77,7 +75,7 @@ const PaymentMethodAnalysis = ({ salesData }) => {
           </p>
         </div>
         
-        <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+        <div className="bg-gray-50/80 dark:bg-gray-800/50 p-4 rounded-lg">
           <h4 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
             Ticket Médio
           </h4>
@@ -108,7 +106,7 @@ const PaymentMethodAnalysis = ({ salesData }) => {
                   label={({name, percent}) => `${name}: ${(percent * 100).toFixed(1)}%`}
                 >
                   {paymentMethodSummary.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    <Cell key={`cell-${index}`} fill={CHART_COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip formatter={(value) => value} />
@@ -137,7 +135,7 @@ const PaymentMethodAnalysis = ({ salesData }) => {
                   label={({name, percent}) => `${name}: ${(percent * 100).toFixed(1)}%`}
                 >
                   {paymentMethodSummary.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    <Cell key={`cell-${index}`} fill={CHART_COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip formatter={(value) => formatCurrency(value)} />
@@ -155,7 +153,7 @@ const PaymentMethodAnalysis = ({ salesData }) => {
         </h4>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-700">
+            <thead className="bg-gray-50/80 dark:bg-gray-800/50">
               <tr>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Método de Pagamento
@@ -186,7 +184,7 @@ const PaymentMethodAnalysis = ({ salesData }) => {
                 </tr>
               ) : (
                 paymentMethodSummary.map((method, index) => (
-                  <tr key={index} className={index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-700' : ''}>
+                  <tr key={index} className={index % 2 === 0 ? 'bg-gray-50/80 dark:bg-gray-800/50' : ''}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                       {method.name}
                     </td>

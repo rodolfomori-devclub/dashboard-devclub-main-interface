@@ -152,7 +152,7 @@ const TrafficDashboard = () => {
         </div>
 
         {/* Filtros */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+        <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Busca */}
             <div className="relative">
@@ -258,7 +258,7 @@ const TrafficDashboard = () => {
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
               {/* Gasto Total */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+              <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div className="p-3 bg-green-100 dark:bg-green-900 rounded-lg">
                     <FaDollarSign className="h-6 w-6 text-green-600 dark:text-green-400" />
@@ -276,7 +276,7 @@ const TrafficDashboard = () => {
               </div>
 
               {/* Contas Ativas */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+              <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div className="p-3 bg-blue-100 dark:bg-blue-900 rounded-lg">
                     <FaChartBar className="h-6 w-6 text-blue-600 dark:text-blue-400" />
@@ -296,7 +296,7 @@ const TrafficDashboard = () => {
 
             {/* Detalhamento por Conta */}
             {trafficData.accountsWithSpend && trafficData.accountsWithSpend.length > 0 && (
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8">
+              <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 mb-8">
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">
                   Gastos por Conta
                 </h2>
@@ -364,7 +364,7 @@ const TrafficDashboard = () => {
 
             {/* Gráfico de Gastos Diários */}
             {dailyData && dailyData.length > 0 && (
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+              <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">
                   Gastos Diários
                 </h2>

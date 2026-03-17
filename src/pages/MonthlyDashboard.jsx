@@ -773,7 +773,7 @@ function MonthlyDashboard() {
         {/* Header moderno com glassmorphism */}
         <div className="mb-12 relative">
           <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-blue-500/5 to-purple-500/10 dark:from-primary/20 dark:via-blue-500/10 dark:to-purple-500/20 rounded-3xl blur-xl"></div>
-          <div className="relative bg-white/70 dark:bg-secondary/70 backdrop-blur-lg rounded-3xl p-8 border border-white/20 dark:border-gray-700/50 shadow-xl">
+          <div className="relative bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <div className="w-16 h-16 bg-gradient-to-br from-primary to-primary-dark rounded-2xl flex items-center justify-center shadow-lg">
@@ -813,7 +813,7 @@ function MonthlyDashboard() {
         {/* Seletor de Período Moderno */}
         <div className="group relative animate-fade-in mb-12">
           <div className="absolute inset-0 bg-gradient-to-r from-slate-500/10 via-gray-500/5 to-zinc-500/10 rounded-3xl blur-xl"></div>
-          <div className="relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-3xl p-8 border border-white/20 dark:border-gray-700/50 shadow-xl">
+          <div className="relative bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
             <div className="flex items-center space-x-4 mb-8">
               <div className="w-12 h-12 bg-gradient-to-br from-slate-500 to-gray-600 rounded-xl flex items-center justify-center shadow-lg">
                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -892,7 +892,7 @@ function MonthlyDashboard() {
           {/* Card Total de Vendas */}
           <div className="group relative animate-slide-up">
             <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-blue-500/20 rounded-2xl blur-lg group-hover:blur-xl transition-all duration-300"></div>
-            <div className="relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-2xl p-8 border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
+            <div className="relative bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
               <div className="flex items-start justify-between mb-6">
                 <div className="w-14 h-14 bg-gradient-to-br from-primary to-primary-dark rounded-xl flex items-center justify-center shadow-lg">
                   <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -920,7 +920,7 @@ function MonthlyDashboard() {
           {/* Card Vendas Cartão */}
           <div className="group relative animate-slide-up" style={{animationDelay: '0.1s'}}>
             <div className="absolute inset-0 bg-gradient-to-r from-green-500/20 to-emerald-500/20 rounded-2xl blur-lg group-hover:blur-xl transition-all duration-300"></div>
-            <div className="relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-2xl p-8 border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
+            <div className="relative bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
               <div className="flex items-start justify-between mb-6">
                 <div className="w-14 h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
                   <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -957,7 +957,7 @@ function MonthlyDashboard() {
           {/* Card Vendas Boleto */}
           <div className="group relative animate-slide-up" style={{animationDelay: '0.2s'}}>
             <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 rounded-2xl blur-lg group-hover:blur-xl transition-all duration-300"></div>
-            <div className="relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-2xl p-8 border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
+            <div className="relative bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
               <div className="flex items-start justify-between mb-6">
                 <div className="w-14 h-14 bg-gradient-to-br from-yellow-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg">
                   <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1001,7 +1001,7 @@ function MonthlyDashboard() {
           {/* IA Club card */}
           <div className="group relative animate-slide-up" style={{animationDelay: '0.3s'}}>
             <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-purple-600/20 rounded-2xl blur-lg group-hover:blur-xl transition-all duration-300"></div>
-            <div className="relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-2xl p-8 border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
+            <div className="relative bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
               <div className="flex items-start justify-between mb-6">
                 <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
                   <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
@@ -1045,7 +1045,7 @@ function MonthlyDashboard() {
           {/* DevClub card */}
           <div className="group relative animate-slide-up" style={{animationDelay: '0.4s'}}>
             <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-blue-600/20 rounded-2xl blur-lg group-hover:blur-xl transition-all duration-300"></div>
-            <div className="relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-2xl p-8 border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
+            <div className="relative bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
               <div className="flex items-start justify-between mb-6">
                 <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
                   <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
@@ -1089,7 +1089,7 @@ function MonthlyDashboard() {
         
         {/* Segunda linha de cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
-          <div className="group relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-2xl p-6 border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 md:hidden">
+          <div className="group relative bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 md:hidden">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
               Ticket Médio
             </h3>
@@ -1104,7 +1104,7 @@ function MonthlyDashboard() {
             </p>
           </div>
           {/* Ticket médio */}
-          <div className="group relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-2xl p-6 border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 hidden md:block">
+          <div className="group relative bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 hidden md:block">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
               Ticket Médio
             </h3>
@@ -1119,7 +1119,7 @@ function MonthlyDashboard() {
             </p>
           </div>
           
-          <div className="group relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-2xl p-6 border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
+          <div className="group relative bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
               Valor de Afiliações
             </h3>
@@ -1131,7 +1131,7 @@ function MonthlyDashboard() {
           </div>
           
           {/* Card de reembolsos */}
-          <div className="group relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-2xl p-6 border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
+          <div className="group relative bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
               Reembolsos
             </h3>
@@ -1144,7 +1144,7 @@ function MonthlyDashboard() {
           </div>
           
           {/* Vendas do comercial */}
-          <div className="group relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-2xl p-6 border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
+          <div className="group relative bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
               Vendas Comercial
             </h3>
@@ -1245,7 +1245,7 @@ function MonthlyDashboard() {
           {/* Gráfico de Barras */}
           <div className="group relative animate-slide-up">
             <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-purple-500/5 to-primary/10 rounded-3xl blur-xl"></div>
-            <div className="relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-3xl p-8 border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300">
+            <div className="relative bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 hover:shadow-2xl transition-all duration-300">
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center space-x-4">
                   <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
@@ -1341,7 +1341,7 @@ function MonthlyDashboard() {
           {/* Gráfico de Linha */}
           <div className="group relative animate-slide-up">
             <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 via-cyan-500/5 to-blue-500/10 rounded-3xl blur-xl"></div>
-            <div className="relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-3xl p-8 border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300">
+            <div className="relative bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 hover:shadow-2xl transition-all duration-300">
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center space-x-4">
                   <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-cyan-600 rounded-2xl flex items-center justify-center shadow-lg">
@@ -1414,7 +1414,7 @@ function MonthlyDashboard() {
           {/* Gráfico comparativo cartão vs boleto */}
           <div className="group relative animate-slide-up">
             <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 via-cyan-500/5 to-blue-500/10 rounded-3xl blur-xl"></div>
-            <div className="relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-3xl p-8 border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300">
+            <div className="relative bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 hover:shadow-2xl transition-all duration-300">
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center space-x-4">
                   <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-cyan-600 rounded-2xl flex items-center justify-center shadow-lg">
@@ -1467,7 +1467,7 @@ function MonthlyDashboard() {
           {/* Quantidade de vendas por tipo */}
           <div className="group relative animate-slide-up">
             <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 via-cyan-500/5 to-blue-500/10 rounded-3xl blur-xl"></div>
-            <div className="relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-3xl p-8 border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300">
+            <div className="relative bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 hover:shadow-2xl transition-all duration-300">
               <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center space-x-4">
                   <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-cyan-600 rounded-2xl flex items-center justify-center shadow-lg">
@@ -1523,13 +1523,13 @@ function MonthlyDashboard() {
         </div>
 
         {/* Product sales summary table */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 mb-8">
           <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
             Resumo de Vendas por Produto - {new Date(selectedYear, selectedMonth - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
           </h3>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-700">
+              <thead className="bg-gray-50/80 dark:bg-gray-800/50">
                 <tr>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Produto
@@ -1560,7 +1560,7 @@ function MonthlyDashboard() {
                   </tr>
                 ) : (
                   productData.map((product, index) => (
-                    <tr key={index} className={index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-700' : ''}>
+                    <tr key={index} className={index % 2 === 0 ? 'bg-gray-50/80 dark:bg-gray-800/50' : ''}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                         {product.name}
                       </td>
@@ -1612,13 +1612,13 @@ function MonthlyDashboard() {
         </div>
 
         {/* Offer sales summary table */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 mb-8">
           <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
             Resumo de Vendas por Oferta - {new Date(selectedYear, selectedMonth - 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
           </h3>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-700">
+              <thead className="bg-gray-50/80 dark:bg-gray-800/50">
                 <tr>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Oferta
@@ -1647,7 +1647,7 @@ function MonthlyDashboard() {
                 ) : (
                   <>
                     {offerData.map((offer, index) => (
-                      <tr key={index} className={index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-700' : ''}>
+                      <tr key={index} className={index % 2 === 0 ? 'bg-gray-50/80 dark:bg-gray-800/50' : ''}>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                           {offer.name}
                         </td>

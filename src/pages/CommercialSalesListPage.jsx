@@ -225,7 +225,7 @@ function CommercialSalesListPage() {
 
         {/* Resumo */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
               Total de Vendas
             </h3>
@@ -234,7 +234,7 @@ function CommercialSalesListPage() {
             </p>
           </div>
           
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
               Valor Total
             </h3>
@@ -243,7 +243,7 @@ function CommercialSalesListPage() {
             </p>
           </div>
           
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
               Ticket Médio
             </h3>
@@ -257,7 +257,7 @@ function CommercialSalesListPage() {
         </div>
 
         {/* Filtros e pesquisa */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 mb-8">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
             <h2 className="text-xl font-bold text-primary dark:text-secondary mb-4 md:mb-0 flex items-center">
               <FaFilter className="mr-2" />
@@ -387,7 +387,7 @@ function CommercialSalesListPage() {
 
         {/* Tabela de vendas */}
         {!loading && !error && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+          <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm overflow-hidden">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
               <h2 className="text-xl font-bold text-primary dark:text-secondary mb-2">
                 Lista de Vendas

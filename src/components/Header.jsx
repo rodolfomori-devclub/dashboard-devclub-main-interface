@@ -20,6 +20,7 @@ import {
   FaUsers,
   FaChartBar,
   FaFire,
+  FaUndo,
 } from 'react-icons/fa'
 
 export default function Header() {
@@ -79,14 +80,15 @@ export default function Header() {
     { path: '/monitor', label: 'Monitor', icon: FaTachometerAlt, condition: true },
     { path: '/metas', label: 'Metas', icon: FaBullseye, condition: userRoles?.goals !== false || userRoles?.isAdmin },
     { path: '/leads', label: 'Leads', icon: FaUsers, condition: userRoles?.leads !== false || userRoles?.isAdmin },
+    { path: '/reembolsos', label: 'Reembolsos', icon: FaUndo, condition: userRoles?.refunds !== false || userRoles?.isAdmin },
     { path: '/vidometro', label: 'Vidômetro', icon: FaFire, condition: true },
   ]
 
   return (
     <>
       {/* Glass Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-b border-white/20 dark:border-gray-700/50 shadow-lg">
-        <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-blue-500/3 to-purple-500/5 dark:from-primary/10 dark:via-blue-500/5 dark:to-purple-500/10"></div>
+      <header className="fixed top-0 left-0 right-0 z-50 bg-white dark:bg-[#141419] border-b border-gray-200 dark:border-[#27272a] shadow-sm">
+        <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-accent/3 to-accent/5 dark:from-primary/10 dark:via-accent/5 dark:to-accent/10"></div>
         
         <nav className="relative container mx-auto px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex justify-between items-center">

@@ -52,7 +52,7 @@ import {
   Legend,
 } from 'recharts'
 
-const CHART_COLORS = ['#37E359', '#3B82F6', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316']
+import { CHART_COLORS } from '../styles/designTokens'
 
 const ITEMS_PER_PAGE_OPTIONS = [10, 25, 50]
 
@@ -589,7 +589,7 @@ export default function LeadsPage() {
 
       {/* ====== ALERTAS DO SISTEMA ====== */}
       {!loadingMonitoring && monitoringData && monitoringData.total_alerts > 0 && (
-        <div className="bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-2xl border border-white/20 dark:border-gray-700/50 shadow-xl overflow-hidden animate-fade-in">
+        <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm overflow-hidden animate-fade-in">
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 dark:border-gray-800/60">
             <div className="flex items-center gap-2">
@@ -682,7 +682,7 @@ export default function LeadsPage() {
       )}
 
       {/* ====== DATE FILTER ====== */}
-      <div className="bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-2xl p-4 md:p-5 border border-white/20 dark:border-gray-700/50 shadow-xl animate-fade-in">
+      <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 md:p-5 animate-fade-in">
         <div className="flex flex-wrap items-center gap-3">
           {/* Icon */}
           <div className="w-9 h-9 bg-gradient-to-br from-primary/20 to-primary-dark/20 rounded-xl flex items-center justify-center shrink-0">
@@ -779,7 +779,7 @@ export default function LeadsPage() {
         ].map((kpi, i) => (
           <div key={i} className="group relative animate-slide-up" style={{ animationDelay: `${i * 100}ms` }}>
             <div className={`absolute inset-0 bg-gradient-to-r ${kpi.gradient} rounded-2xl blur-lg group-hover:blur-xl transition-all duration-300 opacity-60`}></div>
-            <div className="relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-2xl p-6 border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
+            <div className="relative bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
               <div className="flex items-start justify-between mb-4">
                 <div className={`w-12 h-12 bg-gradient-to-br ${kpi.iconGradient} rounded-xl flex items-center justify-center shadow-lg`}>
                   <kpi.icon className="w-5 h-5 text-white" />
@@ -803,7 +803,7 @@ export default function LeadsPage() {
       {!loadingAll && allLeads.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 animate-fade-in">
           {/* Source Pie Chart */}
-          <div className="bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-2xl p-6 border border-white/20 dark:border-gray-700/50 shadow-xl">
+          <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
             <h3 className="text-lg font-semibold text-text-light dark:text-text-dark mb-4">Leads por Fonte</h3>
             <ResponsiveContainer width="100%" height={280}>
               <PieChart>
@@ -828,7 +828,7 @@ export default function LeadsPage() {
           </div>
 
           {/* Decil Bar Chart */}
-          <div className="bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-2xl p-6 border border-white/20 dark:border-gray-700/50 shadow-xl">
+          <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-text-light dark:text-text-dark">Leads por Decil</h3>
               <div className="flex items-center gap-3 text-xs text-text-muted-light dark:text-text-muted-dark">
@@ -846,7 +846,7 @@ export default function LeadsPage() {
                 <Bar dataKey="value" radius={[6, 6, 0, 0]}>
                   {decilChartData.map((entry, idx) => {
                     const d = parseInt(entry.name.replace('D', ''))
-                    const color = isNaN(d) ? '#94A3B8' : d >= 8 ? '#37E359' : d >= 5 ? '#F59E0B' : '#EF4444'
+                    const color = isNaN(d) ? '#94A3B8' : d >= 8 ? '#22c55e' : d >= 5 ? '#F59E0B' : '#EF4444'
                     return <Cell key={idx} fill={color} />
                   })}
                 </Bar>
@@ -857,7 +857,7 @@ export default function LeadsPage() {
       )}
 
       {/* ====== QUALIDADE HISTÓRICA ====== */}
-      <div className="bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-2xl p-6 border border-white/20 dark:border-gray-700/50 shadow-xl animate-fade-in">
+      <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 animate-fade-in">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-10 h-10 bg-gradient-to-br from-amber-500/20 to-orange-500/20 rounded-xl flex items-center justify-center">
             <FaStar className="w-5 h-5 text-amber-500" />
@@ -959,10 +959,10 @@ export default function LeadsPage() {
                   <Line
                     type="monotone"
                     dataKey="avgScore"
-                    stroke="#37E359"
+                    stroke="#22c55e"
                     strokeWidth={2.5}
-                    dot={{ fill: '#37E359', r: 3, strokeWidth: 0 }}
-                    activeDot={{ r: 5, fill: '#37E359' }}
+                    dot={{ fill: '#22c55e', r: 3, strokeWidth: 0 }}
+                    activeDot={{ r: 5, fill: '#22c55e' }}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -979,7 +979,7 @@ export default function LeadsPage() {
 
       {/* ====== MONITORAMENTO DO SISTEMA ====== */}
       {loadingMonitoring ? (
-        <div className="bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-2xl p-6 border border-white/20 dark:border-gray-700/50 shadow-xl animate-pulse">
+        <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 animate-pulse">
           <div className="h-6 w-56 bg-gray-200 dark:bg-gray-700 rounded mb-6" />
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {[0, 1, 2].map(i => (
@@ -993,7 +993,7 @@ export default function LeadsPage() {
           </div>
         </div>
       ) : monitoringData && (
-        <div className="bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-2xl p-6 border border-white/20 dark:border-gray-700/50 shadow-xl animate-fade-in">
+        <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 animate-fade-in">
           {/* Header */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
             <div className="flex items-center gap-3">
@@ -1123,7 +1123,7 @@ export default function LeadsPage() {
       )}
 
       {/* ====== SEARCH & FILTERS ====== */}
-      <div className="bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-2xl p-4 md:p-6 border border-white/20 dark:border-gray-700/50 shadow-xl space-y-4 animate-fade-in">
+      <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 md:p-6 space-y-4 animate-fade-in">
         <div className="flex flex-col md:flex-row gap-3">
           {/* Search */}
           <div className="relative flex-1">
@@ -1201,7 +1201,7 @@ export default function LeadsPage() {
       </div>
 
       {/* ====== DATA TABLE ====== */}
-      <div className="bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-2xl border border-white/20 dark:border-gray-700/50 shadow-xl overflow-hidden animate-fade-in">
+      <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm overflow-hidden animate-fade-in">
         {/* Table header info */}
         <div className="px-4 md:px-6 py-4 border-b border-gray-200/50 dark:border-gray-700/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
           <p className="text-sm text-text-muted-light dark:text-text-muted-dark">

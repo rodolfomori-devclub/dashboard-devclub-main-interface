@@ -521,7 +521,7 @@ const TrafficMonitor = () => {
         {/* ===== HEADER ===== */}
         <div className="mb-10 relative">
           <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-blue-500/5 to-purple-500/10 dark:from-primary/20 dark:via-blue-500/10 dark:to-purple-500/20 rounded-3xl blur-xl" />
-          <div className="relative bg-white/70 dark:bg-secondary/70 backdrop-blur-lg rounded-3xl p-8 border border-white/20 dark:border-gray-700/50 shadow-xl">
+          <div className="relative bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
               <div>
                 <h1 className="text-4xl font-bold bg-gradient-to-r from-text-light to-primary dark:from-text-dark dark:to-primary bg-clip-text text-transparent mb-2">
@@ -802,7 +802,7 @@ const TrafficMonitor = () => {
         {/* ===== GRÁFICO PRINCIPAL - MÉTRICAS DIÁRIAS ===== */}
         <div className="group relative animate-slide-up mb-10">
           <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-blue-500/5 to-amber-500/10 dark:from-primary/15 dark:via-blue-500/10 dark:to-amber-500/15 rounded-3xl blur-xl" />
-          <div className="relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-3xl p-8 border border-white/20 dark:border-gray-700/50 shadow-xl">
+          <div className="relative bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-3">
               <div>
                 <h2 className="text-2xl font-bold text-text-light dark:text-text-dark flex items-center gap-3">
@@ -833,8 +833,8 @@ const TrafficMonitor = () => {
                     <YAxis
                       yAxisId="currency"
                       orientation="left"
-                      tick={{ fontSize: 11, fill: '#37E359' }}
-                      stroke="#37E359"
+                      tick={{ fontSize: 11, fill: '#22c55e' }}
+                      stroke="#22c55e"
                       strokeOpacity={0.3}
                       tickFormatter={(v) => `R$${v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v}`}
                       tickLine={false}
@@ -881,7 +881,7 @@ const TrafficMonitor = () => {
                       yAxisId="currency"
                       dataKey="investimento"
                       name="Investimento"
-                      fill="#37E359"
+                      fill="#22c55e"
                       fillOpacity={0.85}
                       radius={[6, 6, 0, 0]}
                       barSize={chartData.length > 14 ? 18 : chartData.length > 7 ? 28 : 40}
@@ -945,7 +945,7 @@ const TrafficMonitor = () => {
         {/* ===== RESUMO DO PERÍODO ===== */}
         <div className="group relative animate-slide-up mb-10">
           <div className="absolute inset-0 bg-gradient-to-r from-slate-500/10 via-gray-500/5 to-zinc-500/10 dark:from-slate-500/15 dark:via-gray-500/10 dark:to-zinc-500/15 rounded-3xl blur-xl" />
-          <div className="relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-3xl p-8 border border-white/20 dark:border-gray-700/50 shadow-xl">
+          <div className="relative bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
             <div className="flex items-center gap-3 mb-6">
               <FaCalendar className="text-primary text-xl" />
               <h2 className="text-2xl font-bold text-text-light dark:text-text-dark">

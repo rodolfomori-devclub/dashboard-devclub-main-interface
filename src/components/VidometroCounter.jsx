@@ -54,7 +54,7 @@ const VidometroCounter = ({ value = 0, loading = false, previousValue = null }) 
   return (
     <div className="w-full max-w-2xl mx-auto">
       {/* Cartão Principal */}
-      <div className="relative bg-white/80 dark:bg-secondary/80 backdrop-blur-lg rounded-3xl border border-white/20 dark:border-gray-700/50 p-8 md:p-12 shadow-2xl">
+      <div className="relative bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] p-8 md:p-12 shadow-2xl">
         {/* Efeito de brilho animado */}
         <div className="absolute inset-0 rounded-3xl overflow-hidden">
           <div

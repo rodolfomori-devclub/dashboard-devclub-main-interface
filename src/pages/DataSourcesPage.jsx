@@ -9,7 +9,7 @@ function DataSourcesPage() {
         </h1>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
             <h2 className="text-xl font-bold text-primary dark:text-secondary mb-4">
               Vendas por Cartão
             </h2>
@@ -24,7 +24,7 @@ function DataSourcesPage() {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
             <h2 className="text-xl font-bold text-primary dark:text-secondary mb-4">
               Vendas por Boleto
             </h2>
@@ -49,7 +49,7 @@ function DataSourcesPage() {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
             <h2 className="text-xl font-bold text-primary dark:text-secondary mb-4">
               Vendas por Boleto TMB
             </h2>
@@ -74,7 +74,7 @@ function DataSourcesPage() {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
             <h2 className="text-xl font-bold text-primary dark:text-secondary mb-4">
               Despesas
             </h2>
@@ -99,7 +99,7 @@ function DataSourcesPage() {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
             <h2 className="text-xl font-bold text-primary dark:text-secondary mb-4">
               Dados Comerciais
             </h2>
@@ -124,7 +124,7 @@ function DataSourcesPage() {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
             <h2 className="text-xl font-bold text-primary dark:text-secondary mb-4">
               Dados de Launches
             </h2>
@@ -149,7 +149,7 @@ function DataSourcesPage() {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
             <h2 className="text-xl font-bold text-primary dark:text-secondary mb-4">
               Lead Scoring (Principal)
             </h2>
@@ -174,7 +174,7 @@ function DataSourcesPage() {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 lg:col-span-3">
+          <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 lg:col-span-3">
             <h2 className="text-xl font-bold text-primary dark:text-secondary mb-4">
               Formato dos Dados da Planilha de Boletos
             </h2>
@@ -184,7 +184,7 @@ function DataSourcesPage() {
             
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-700">
+                <thead className="bg-gray-50/80 dark:bg-gray-800/50">
                   <tr>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Data
@@ -226,7 +226,7 @@ function DataSourcesPage() {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 lg:col-span-3">
+          <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 lg:col-span-3">
             <h2 className="text-xl font-bold text-primary dark:text-secondary mb-4">
               Formato dos Dados da Planilha de Despesas
             </h2>
@@ -236,7 +236,7 @@ function DataSourcesPage() {
             
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-700">
+                <thead className="bg-gray-50/80 dark:bg-gray-800/50">
                   <tr>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                       Nome

@@ -22,13 +22,12 @@ import goalsService from '../services/goalsService';
 import { revenueService } from '../services/revenueService';
 import { expensesService } from '../services/expensesService';
 import { formatCurrency } from '../utils/currencyUtils';
+import { CHART_COLORS } from '../styles/designTokens';
 
 const MONTHS = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
 ];
-
-const COLORS = ['#10B981', '#8B5CF6', '#F59E0B', '#3B82F6', '#EF4444', '#EC4899'];
 
 const GoalsPage = () => {
   const [loading, setLoading] = useState(true);
@@ -339,7 +338,7 @@ const GoalsPage = () => {
     const isPositive = parseFloat(diff) >= 0;
 
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+      <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center">
             <div className={`p-3 rounded-full ${bgColor} text-white mr-3`}>
@@ -406,7 +405,7 @@ const GoalsPage = () => {
     ];
 
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
+      <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 mb-8">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
             <FaEdit className="mr-2 text-primary dark:text-secondary" />
@@ -514,7 +513,7 @@ const GoalsPage = () => {
       )}
 
       {/* Filtros */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
+      <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 mb-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -644,7 +643,7 @@ const GoalsPage = () => {
         </div>
 
         {/* Gráfico de Pizza - Distribuição */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+        <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
           <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Distribuição do Faturamento</h3>
           <div className="h-48">
             <ResponsiveContainer width="100%" height="100%">
@@ -659,7 +658,7 @@ const GoalsPage = () => {
                   dataKey="value"
                 >
                   {getPieChartData().map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    <Cell key={`cell-${index}`} fill={CHART_COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip formatter={(value) => formatCurrency(value)} />
@@ -670,7 +669,7 @@ const GoalsPage = () => {
         </div>
 
         {/* Projeção */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+        <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
           <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">📊 Projeção</h3>
           <div className="space-y-4">
             <div className="bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 p-4 rounded-lg">
@@ -706,7 +705,7 @@ const GoalsPage = () => {
         </div>
 
         {/* Resumo Rápido */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+        <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
           <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Resumo Rápido</h3>
           <div className="space-y-4">
             <div className="flex justify-between items-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
@@ -741,7 +740,7 @@ const GoalsPage = () => {
       </div>
 
       {/* Gráfico de Comparação */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
+      <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 mb-8">
         <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
           <FaChartLine className="inline mr-2 text-primary dark:text-secondary" />
           Meta vs Realizado - {viewType === 'month' ? `${MONTHS[selectedMonth - 1]} ${selectedYear}` : `Ano ${selectedYear}`}
@@ -763,7 +762,7 @@ const GoalsPage = () => {
 
       {/* Gráfico de Pace vs Esperado */}
       {viewType === 'month' && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
+        <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 mb-8">
           <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
             🔥 Ritmo do Mês - Pace vs Esperado
           </h3>
@@ -888,7 +887,7 @@ const GoalsPage = () => {
       </div>
 
       {/* Tabela Resumo */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+      <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
         <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Resumo Detalhado</h3>
         <div className="overflow-x-auto">
           <table className="min-w-full">
@@ -927,7 +926,7 @@ const GoalsPage = () => {
                 <td className="py-4 px-4 text-right text-gray-900 dark:text-white">{formatCurrency(goals.investimentoTrafego.ultra)}</td>
                 <td className="py-4 px-4 text-right font-bold text-gray-900 dark:text-white">{calculateProgress(actualValues.investimentoTrafego, goals.investimentoTrafego.base)}%</td>
               </tr>
-              <tr className="bg-gray-50 dark:bg-gray-700">
+              <tr className="bg-gray-50/80 dark:bg-gray-800/50">
                 <td className="py-4 px-4 font-bold text-gray-900 dark:text-white">Total Faturamento</td>
                 <td className="py-4 px-4 text-right font-bold text-gray-900 dark:text-white">{formatCurrency(totalRealizado)}</td>
                 <td className="py-4 px-4 text-right font-bold text-gray-900 dark:text-white">{formatCurrency(totalMeta)}</td>

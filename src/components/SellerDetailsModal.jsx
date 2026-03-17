@@ -282,7 +282,7 @@ const SellerDetailsModal = ({ seller, salesData = [], products, onClose }) => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg">
+          <div className="bg-gray-50/80 dark:bg-gray-800/50 p-4 rounded-lg">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-2">
               Total de Vendas
             </h3>
@@ -291,7 +291,7 @@ const SellerDetailsModal = ({ seller, salesData = [], products, onClose }) => {
             </p>
           </div>
           
-          <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg">
+          <div className="bg-gray-50/80 dark:bg-gray-800/50 p-4 rounded-lg">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-2">
               Vendas Cartão
             </h3>
@@ -303,7 +303,7 @@ const SellerDetailsModal = ({ seller, salesData = [], products, onClose }) => {
             </p>
           </div>
           
-          <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg">
+          <div className="bg-gray-50/80 dark:bg-gray-800/50 p-4 rounded-lg">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-2">
               Vendas Boleto
             </h3>
@@ -315,7 +315,7 @@ const SellerDetailsModal = ({ seller, salesData = [], products, onClose }) => {
             </p>
           </div>
           
-          <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg">
+          <div className="bg-gray-50/80 dark:bg-gray-800/50 p-4 rounded-lg">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-2">
               Faturamento Total
             </h3>
@@ -355,7 +355,7 @@ const SellerDetailsModal = ({ seller, salesData = [], products, onClose }) => {
         {activeTab === 'history' && (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-100 dark:bg-gray-700">
+              <thead className="bg-gray-50/80 dark:bg-gray-800/50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Data

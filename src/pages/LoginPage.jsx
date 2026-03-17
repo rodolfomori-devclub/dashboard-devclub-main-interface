@@ -77,7 +77,7 @@ const LoginPage = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background-light dark:bg-background-dark p-4 sm:p-6">
-      <div className="w-full max-w-md space-y-8 bg-white dark:bg-gray-800 p-6 sm:p-10 rounded-lg shadow-xl">
+      <div className="w-full max-w-md space-y-8 bg-white dark:bg-[#141419] p-6 sm:p-10 rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm">
         <div className="text-center">
           <img 
             src={isDarkMode ? "/devclub-logo-w.png" : "/devclub-logo.png"}

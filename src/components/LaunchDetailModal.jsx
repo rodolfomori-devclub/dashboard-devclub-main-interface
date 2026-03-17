@@ -55,9 +55,7 @@ import {
   Cell
 } from 'recharts';
 import { formatCurrency } from '../utils/currencyUtils';
-
-// Cores para os gráficos
-const COLORS = ['#37E359', '#051626', '#FF4500', '#1E90FF', '#FFD700', '#FF1493'];
+import { CHART_COLORS } from '../styles/designTokens';
 
 /**
  * Modal de detalhes de lançamento
@@ -245,7 +243,7 @@ const LaunchDetailModal = ({ open, onClose, launchName, launchData, metrics }) =
                     <Legend />
                     <Bar 
                       dataKey="valor" 
-                      fill="#37E359" 
+                      fill="#22c55e" 
                       name="Valor" 
                       label={{ 
                         position: 'top', 
@@ -275,7 +273,7 @@ const LaunchDetailModal = ({ open, onClose, launchName, launchData, metrics }) =
                       dataKey="valor"
                     >
                       {investmentData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        <Cell key={`cell-${index}`} fill={CHART_COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
                     <Legend />
@@ -303,7 +301,7 @@ const LaunchDetailModal = ({ open, onClose, launchName, launchData, metrics }) =
                       dataKey="valor"
                     >
                       {revenueData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[(index + 3) % COLORS.length]} />
+                        <Cell key={`cell-${index}`} fill={CHART_COLORS[(index + 3) % COLORS.length]} />
                       ))}
                     </Pie>
                     <Legend />

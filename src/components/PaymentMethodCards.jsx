@@ -65,7 +65,7 @@ const PaymentMethodCards = ({ salesData }) => {
     .sort((a, b) => paymentMethods[b].value - paymentMethods[a].value);
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+    <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 mb-8">
       <h3 className="text-xl font-bold text-primary dark:text-secondary mb-6">
         Resumo por Método de Pagamento
       </h3>

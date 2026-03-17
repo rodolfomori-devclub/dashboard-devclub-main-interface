@@ -55,9 +55,7 @@ import {
 } from 'recharts';
 import { formatCurrency } from '../utils/currencyUtils';
 import launchService from '../services/launchService';
-
-// Cores para os gráficos
-const COLORS = ['#37E359', '#051626', '#FF4500', '#1E90FF', '#FFD700', '#FF1493'];
+import { CHART_COLORS } from '../styles/designTokens';
 
 /**
  * Modal para comparação entre dois lançamentos
@@ -529,7 +527,7 @@ const LaunchComparisonModal = ({ open, onClose, launchOptions = [], initialLaunc
                     <YAxis tickFormatter={(value) => formatCurrency(value).replace('R$', '').trim()} />
                     <RechartsTooltip formatter={(value) => formatCurrency(value)} />
                     <Legend />
-                    <Bar dataKey={firstLaunch} fill="#37E359" name={firstLaunch} />
+                    <Bar dataKey={firstLaunch} fill="#22c55e" name={firstLaunch} />
                     <Bar dataKey={secondLaunch} fill="#1E90FF" name={secondLaunch} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -554,7 +552,7 @@ const LaunchComparisonModal = ({ open, onClose, launchOptions = [], initialLaunc
                     <YAxis />
                     <RechartsTooltip formatter={(value) => value.toLocaleString('pt-BR')} />
                     <Legend />
-                    <Bar dataKey={firstLaunch} fill="#37E359" name={firstLaunch} />
+                    <Bar dataKey={firstLaunch} fill="#22c55e" name={firstLaunch} />
                     <Bar dataKey={secondLaunch} fill="#1E90FF" name={secondLaunch} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -579,7 +577,7 @@ const LaunchComparisonModal = ({ open, onClose, launchOptions = [], initialLaunc
                     <YAxis tickFormatter={(value) => formatCurrency(value).replace('R$', '').trim()} />
                     <RechartsTooltip formatter={(value) => formatCurrency(value)} />
                     <Legend />
-                    <Bar dataKey={firstLaunch} fill="#37E359" name={firstLaunch} />
+                    <Bar dataKey={firstLaunch} fill="#22c55e" name={firstLaunch} />
                     <Bar dataKey={secondLaunch} fill="#1E90FF" name={secondLaunch} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -604,7 +602,7 @@ const LaunchComparisonModal = ({ open, onClose, launchOptions = [], initialLaunc
                     <YAxis tickFormatter={(value) => `${value.toFixed(2)}x`} />
                     <RechartsTooltip formatter={(value) => `${value.toFixed(2)}x`} />
                     <Legend />
-                    <Bar dataKey={firstLaunch} fill="#37E359" name={firstLaunch} />
+                    <Bar dataKey={firstLaunch} fill="#22c55e" name={firstLaunch} />
                     <Bar dataKey={secondLaunch} fill="#1E90FF" name={secondLaunch} />
                   </BarChart>
                 </ResponsiveContainer>

@@ -1196,7 +1196,7 @@ function DailyDashboard() {
 
         {/* Traffic Data Section - Only shown in Launch Mode */}
         {isLaunchMode && trafficData && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+          <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 mb-8">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-bold text-gray-900 dark:text-white">
                 Dados de Tráfego
@@ -1318,7 +1318,7 @@ function DailyDashboard() {
                   </div>
 
                   {/* ROI Summary Table */}
-                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                  <div className="bg-gray-50/80 dark:bg-gray-800/50 rounded-lg p-4">
                     <h5 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
                       Resumo de Performance
                     </h5>
@@ -1419,7 +1419,7 @@ function DailyDashboard() {
 
         {/* Main summary cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
               Valor Líquido Total
             </h3>
@@ -1432,7 +1432,7 @@ function DailyDashboard() {
           </div>
 
           {/* Card for card sales */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
               Vendas Cartão
             </h3>
@@ -1455,7 +1455,7 @@ function DailyDashboard() {
           </div>
 
           {/* Card for boleto sales */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
               Vendas Boleto
             </h3>
@@ -1484,7 +1484,7 @@ function DailyDashboard() {
 
         {/* Second row of cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
               Valor de Afiliações
             </h3>
@@ -1494,7 +1494,7 @@ function DailyDashboard() {
           </div>
 
           {/* Refunds card - MODIFIED with "Ver Mais" button */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
             <div className="flex justify-between items-start mb-2">
               <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
                 Reembolsos
@@ -1515,7 +1515,7 @@ function DailyDashboard() {
           </div>
 
           {/* Commercial sales */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
               Vendas Comercial
             </h3>
@@ -1529,7 +1529,7 @@ function DailyDashboard() {
         </div>
 
         {/* Offer Filter Section */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 mb-8">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
               Filtrar por Ofertas
@@ -1623,13 +1623,13 @@ function DailyDashboard() {
 
 
         {/* Product sales summary table */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 mb-8">
           <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
             Resumo de Vendas por Produto
           </h3>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-700">
+              <thead className="bg-gray-50/80 dark:bg-gray-800/50">
                 <tr>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Produto
@@ -1660,7 +1660,7 @@ function DailyDashboard() {
                   </tr>
                 ) : (
                   filteredData.productData.map((product, index) => (
-                    <tr key={index} className={index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-700' : ''}>
+                    <tr key={index} className={index % 2 === 0 ? 'bg-gray-50/80 dark:bg-gray-800/50' : ''}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                         {product.name}
                       </td>
@@ -1712,13 +1712,13 @@ function DailyDashboard() {
         </div>
 
         {/* Offer sales summary table */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 mb-8">
           <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
             Resumo de Vendas por Oferta
           </h3>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-700">
+              <thead className="bg-gray-50/80 dark:bg-gray-800/50">
                 <tr>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Oferta
@@ -1747,7 +1747,7 @@ function DailyDashboard() {
                 ) : (
                   <>
                     {filteredData.offerData.map((offer, index) => (
-                      <tr key={index} className={index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-700' : ''}>
+                      <tr key={index} className={index % 2 === 0 ? 'bg-gray-50/80 dark:bg-gray-800/50' : ''}>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                           {offer.name}
                         </td>
@@ -1811,7 +1811,7 @@ function DailyDashboard() {
         </div>
 
         {/* Detailed sales */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 mb-8">
           <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
             Vendas - Detalhamento ({[...(categoryData.ia?.sales || []), ...(categoryData.programacao?.sales || [])].length} vendas)
           </h3>
@@ -1821,7 +1821,7 @@ function DailyDashboard() {
               return allSales.length > 0 ? (
                 <div className="space-y-2">
                   {allSales.map((sale) => (
-                    <div key={sale.id} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 border border-gray-200 dark:border-gray-600/50">
+                    <div key={sale.id} className="bg-gray-50/80 dark:bg-gray-800/50/50 rounded-lg p-3 border border-gray-200 dark:border-gray-600/50">
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
                           <h4 className="font-medium text-gray-900 dark:text-white text-sm">
@@ -1869,7 +1869,7 @@ function DailyDashboard() {
         </div>
 
         {/* Main chart - Sales by day */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 mb-8">
           <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
             Vendas por Dia
           </h3>
@@ -1956,7 +1956,7 @@ function DailyDashboard() {
         </div>
 
         {/* Comparison chart - Regular vs commercial sales */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 mb-8">
           <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
             Comparativo: Vendas Normais vs Comercial
           </h3>
@@ -1991,7 +1991,7 @@ function DailyDashboard() {
         </div>
 
         {/* Comparison chart - Card vs boleto sales */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 mb-8">
           <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
             Comparativo: Vendas Cartão vs Boleto
           </h3>

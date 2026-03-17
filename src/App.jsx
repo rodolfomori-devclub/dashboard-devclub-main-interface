@@ -24,6 +24,7 @@ import TrafficDashboard from './pages/TrafficDashboard'
 import TrafficMonitor from './pages/TrafficMonitor'
 import LeadsPage from './pages/LeadsPage'
 import VidometroPage from './pages/VidometroPage'
+import RefundsPage from './pages/RefundsPage'
 
 // Protected route component
 const ProtectedRoute = ({ children, requiredPermission }) => {
@@ -231,6 +232,17 @@ function AppRouter() {
       />
 
       <Route path="/vidometro" element={<VidometroPage />} />
+
+      <Route
+        path="/reembolsos"
+        element={
+          <ProtectedRoute requiredPermission="refunds">
+            <AuthenticatedLayout>
+              <RefundsPage />
+            </AuthenticatedLayout>
+          </ProtectedRoute>
+        }
+      />
 
       {/* Catch all - redirect to login */}
       <Route path="*" element={<Navigate to="/login" />} />

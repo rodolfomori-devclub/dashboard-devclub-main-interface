@@ -16,6 +16,7 @@ import {
   ResponsiveContainer 
 } from 'recharts';
 import { formatCurrency } from '../utils/currencyUtils';
+import { CHART_COLORS } from '../styles/designTokens';
 
 /**
  * Modal para exibir detalhes dos reembolsos
@@ -84,8 +85,7 @@ const RefundDetailsModal = ({ isOpen, onClose, refundsData = [] }) => {
     percentage: (product.count / totalRefunds) * 100
   }));
   
-  // Cores para os gráficos
-  const COLORS = ['#FF4500', '#1E90FF', '#FFD700', '#FF1493', '#4B0082', '#00CED1', '#32CD32', '#FF8C00'];
+  // No more local COLORS - using CHART_COLORS from designTokens
   
   // Função para formatar datas
   const formatDate = (dateStr) => {
@@ -192,7 +192,7 @@ const RefundDetailsModal = ({ isOpen, onClose, refundsData = [] }) => {
                     labelLine={false}
                   >
                     {pieChartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      <Cell key={`cell-${index}`} fill={CHART_COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip formatter={(value) => `${value.toFixed(1)}%`} />
@@ -257,7 +257,7 @@ const RefundDetailsModal = ({ isOpen, onClose, refundsData = [] }) => {
           </h3>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-700">
+              <thead className="bg-gray-50/80 dark:bg-gray-800/50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Data
@@ -287,7 +287,7 @@ const RefundDetailsModal = ({ isOpen, onClose, refundsData = [] }) => {
                       : null;
                     
                     return (
-                      <tr key={refund.id || index} className={index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-700' : ''}>
+                      <tr key={refund.id || index} className={index % 2 === 0 ? 'bg-gray-50/80 dark:bg-gray-800/50' : ''}>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                           {date ? date.toLocaleDateString('pt-BR') : 'N/D'}
                         </td>

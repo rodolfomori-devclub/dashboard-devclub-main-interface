@@ -285,7 +285,7 @@ const DashboardCharts = ({ salesData, products, sellers }) => {
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+    <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 mb-8">
       <h3 className="text-xl font-bold text-primary dark:text-secondary mb-6">
         Análise de Vendas
       </h3>

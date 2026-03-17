@@ -23,12 +23,10 @@ import {
 } from 'recharts';
 import { formatCurrency } from '../utils/currencyUtils';
 import DateRangePicker from '../components/DateRangePicker';
-
-// Cores para os gráficos
-const COLORS = ['#37E359', '#051626', '#FF4500', '#1E90FF', '#FFD700', '#FF1493'];
+import { CHART_COLORS } from '../styles/designTokens';
 
 // Cores para comparativo
-const PRIMARY_COLOR = '#37E359';     // Verde para o primeiro período
+const PRIMARY_COLOR = '#22c55e';     // Verde para o primeiro período
 const SECONDARY_COLOR = '#1E90FF';   // Azul para o segundo período
 
 function ComparativoPage() {
@@ -881,7 +879,7 @@ function ComparativoPage() {
         </h1>
 
         {/* Controles de comparação */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 mb-8">
           <h2 className="text-xl font-bold text-primary dark:text-secondary mb-4 flex items-center">
             <FaCalendarAlt className="mr-2" /> Selecione o tipo de comparativo
           </h2>
@@ -1041,7 +1039,7 @@ function ComparativoPage() {
             {/* CORREÇÃO: Cards de Resumo - Alterados para máximo 3 por linha */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
               {/* Total de Vendas */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+              <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
                 <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
                   Total de Vendas
                 </h3>
@@ -1083,7 +1081,7 @@ function ComparativoPage() {
               </div>
 
               {/* Valor Total */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+              <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
                 <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
                   Valor Total
                 </h3>
@@ -1125,7 +1123,7 @@ function ComparativoPage() {
               </div>
 
               {/* Vendas por Cartão */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+              <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
                 <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
                   Vendas por Cartão
                 </h3>
@@ -1181,7 +1179,7 @@ function ComparativoPage() {
               </div>
 
               {/* Vendas por Boleto */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+              <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
                 <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
                   Vendas por Boleto
                 </h3>
@@ -1237,7 +1235,7 @@ function ComparativoPage() {
               </div>
 
               {/* Reembolsos */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+              <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
                 <h3 className="text-lg font-medium text-text-light dark:text-text-dark">
                   Reembolsos
                 </h3>
@@ -1297,7 +1295,7 @@ function ComparativoPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
               {/* Comparativo de Vendas por Hora - Apenas mostrar quando comparando dias */}
               {compareType === 'days' && (
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
                   <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
                     Comparativo de Vendas por Hora
                   </h3>
@@ -1374,7 +1372,7 @@ function ComparativoPage() {
 
               {/* Comparativo de Valor por Hora - Apenas mostrar quando comparando dias */}
               {compareType === 'days' && (
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
                   <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
                     Comparativo de Valor por Hora
                   </h3>
@@ -1451,7 +1449,7 @@ function ComparativoPage() {
 
               {/* Comparativo de vendas por dia (para períodos) */}
               {compareType === 'periods' && comparativeResults.dailyComparison && (
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
                   <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
                     Comparativo de Vendas por Dia
                   </h3>
@@ -1533,7 +1531,7 @@ function ComparativoPage() {
               
               {/* Comparativo de Valor por Dia (para períodos) - VISUALIZAÇÃO ALTERNATIVA */}
               {compareType === 'periods' && comparativeResults.dailyComparison && (
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
                   <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
                     Comparativo de Valor por Dia
                   </h3>
@@ -1655,7 +1653,7 @@ function ComparativoPage() {
               
 
               {/* Comparativo de Cartão vs Boleto */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+              <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
                 <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
                   Comparativo de Vendas: Cartão vs Boleto
                 </h3>
@@ -1694,7 +1692,7 @@ function ComparativoPage() {
               </div>
 
               {/* Comparativo de Valor: Cartão vs Boleto */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+              <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
                 <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
                   Comparativo de Valor: Cartão vs Boleto
                 </h3>
@@ -1735,7 +1733,7 @@ function ComparativoPage() {
               {/* Se estiver comparando períodos, mostrar o gráfico diário */}
               {compareType === 'periods' && comparativeResults.dailyComparison && (
                 <>
-                  <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 lg:col-span-2">
+                  <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 lg:col-span-2">
                     <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
                       Comparativo de Vendas por Dia
                     </h3>
@@ -1784,7 +1782,7 @@ function ComparativoPage() {
                     </div>
                   </div>
 
-                  <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 lg:col-span-2">
+                  <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 lg:col-span-2">
                     <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
                       Comparativo de Valor por Dia
                     </h3>
@@ -1836,13 +1834,13 @@ function ComparativoPage() {
             </div>
 
             {/* Comparativo de Produtos */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+            <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 mb-8">
               <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
                 Comparativo por Produto
               </h3>
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                  <thead className="bg-gray-50 dark:bg-gray-700">
+                  <thead className="bg-gray-50/80 dark:bg-gray-800/50">
                     <tr>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                         Produto
@@ -1869,7 +1867,7 @@ function ComparativoPage() {
                   </thead>
                   <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                     {comparativeResults.productComparison.map((product, index) => (
-                      <tr key={index} className={index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-700' : ''}>
+                      <tr key={index} className={index % 2 === 0 ? 'bg-gray-50/80 dark:bg-gray-800/50' : ''}>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                           {product.name}
                         </td>
@@ -1903,7 +1901,7 @@ function ComparativoPage() {
             {/* Gráficos de Produto */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
               {/* Top 5 Produtos por Quantidade */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+              <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
                 <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
                   Top 5 Produtos por Quantidade
                 </h3>
@@ -1942,7 +1940,7 @@ function ComparativoPage() {
               </div>
 
               {/* Top 5 Produtos por Valor */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+              <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
                 <h3 className="text-lg font-medium text-text-light dark:text-text-dark mb-4">
                   Top 5 Produtos por Valor
                 </h3>

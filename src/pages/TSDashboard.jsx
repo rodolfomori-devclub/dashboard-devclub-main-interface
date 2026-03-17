@@ -19,8 +19,7 @@ import {
 } from 'recharts'
 import { formatCurrency } from '../utils/currencyUtils'
 import { FaPhone, FaUsers, FaCalendarCheck, FaMoneyBillWave, FaCreditCard, FaFileInvoiceDollar, FaChartLine, FaPercentage } from 'react-icons/fa'
-
-const COLORS = ['#10B981', '#F59E0B', '#3B82F6', '#8B5CF6', '#EF4444', '#EC4899', '#06B6D4', '#84CC16']
+import { CHART_COLORS } from '../styles/designTokens'
 
 const MONTHS = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -190,7 +189,7 @@ function TSDashboard() {
           <>
             {/* KPIs Principais - Vendas */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+              <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-gray-500 dark:text-gray-400">Total Vendas</p>
@@ -203,7 +202,7 @@ function TSDashboard() {
                 </p>
               </div>
 
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+              <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-gray-500 dark:text-gray-400">Vendas GURU (Cartão)</p>
@@ -216,7 +215,7 @@ function TSDashboard() {
                 </p>
               </div>
 
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+              <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-gray-500 dark:text-gray-400">Vendas TMB (Boleto)</p>
@@ -229,7 +228,7 @@ function TSDashboard() {
                 </p>
               </div>
 
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+              <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-gray-500 dark:text-gray-400">Ticket Médio</p>
@@ -244,34 +243,34 @@ function TSDashboard() {
 
             {/* KPIs Secundários - Funil */}
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-8">
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+              <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4">
                 <p className="text-xs text-gray-500 dark:text-gray-400 uppercase">Leads</p>
                 <p className="text-xl font-bold text-blue-600">{totals.leadsRecebidosTotais || 0}</p>
               </div>
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+              <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4">
                 <p className="text-xs text-gray-500 dark:text-gray-400 uppercase">Ligações</p>
                 <p className="text-xl font-bold text-green-600">{totals.ligacoesRealizadas || 0}</p>
               </div>
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+              <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4">
                 <p className="text-xs text-gray-500 dark:text-gray-400 uppercase">Atendidas</p>
                 <p className="text-xl font-bold text-teal-600">{totals.ligacoesAtendidas || 0}</p>
               </div>
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+              <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4">
                 <p className="text-xs text-gray-500 dark:text-gray-400 uppercase">Qualificações</p>
                 <p className="text-xl font-bold text-orange-600">{totals.qualificacoes || 0}</p>
               </div>
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+              <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4">
                 <p className="text-xs text-gray-500 dark:text-gray-400 uppercase">Reuniões Agend.</p>
                 <p className="text-xl font-bold text-purple-600">{totals.reunioesAgendadas || 0}</p>
               </div>
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+              <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4">
                 <p className="text-xs text-gray-500 dark:text-gray-400 uppercase">Reuniões Realiz.</p>
                 <p className="text-xl font-bold text-pink-600">{totals.reunioesRealizadas || 0}</p>
               </div>
             </div>
 
             {/* Gráfico de Vendas por Dia - GURU vs TMB */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
+            <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 mb-8">
               <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
                 Vendas por Dia - GURU (Cartão) vs TMB (Boleto)
               </h3>
@@ -302,7 +301,7 @@ function TSDashboard() {
             {/* Gráficos lado a lado */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
               {/* Distribuição de Vendas */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+              <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
                   Distribuição de Vendas
                 </h3>
@@ -331,7 +330,7 @@ function TSDashboard() {
               </div>
 
               {/* Faturamento Diário */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+              <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
                 <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
                   Faturamento Diário
                 </h3>
@@ -357,7 +356,7 @@ function TSDashboard() {
             </div>
 
             {/* Funil de Vendas */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
+            <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 mb-8">
               <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
                 Funil de Vendas Diário
               </h3>
@@ -380,7 +379,7 @@ function TSDashboard() {
             </div>
 
             {/* Taxas de Conversão */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
+            <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 mb-8">
               <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
                 <FaPercentage className="mr-2 text-primary" />
                 Taxas de Conversão (Médias do Mês)
@@ -418,7 +417,7 @@ function TSDashboard() {
             </div>
 
             {/* Gráfico de Taxas de Conversão por Dia */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-8">
+            <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 mb-8">
               <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
                 Evolução das Taxas de Conversão
               </h3>
@@ -439,13 +438,13 @@ function TSDashboard() {
             </div>
 
             {/* Tabela Detalhada */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
               <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
                 Dados Detalhados - {MONTHS[selectedMonth - 1]} {selectedYear}
               </h3>
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                  <thead className="bg-gray-50 dark:bg-gray-700">
+                  <thead className="bg-gray-50/80 dark:bg-gray-800/50">
                     <tr>
                       <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Data</th>
                       <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Leads</th>
@@ -461,7 +460,7 @@ function TSDashboard() {
                   </thead>
                   <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                     {data.map((record, index) => (
-                      <tr key={record.id} className={index % 2 === 0 ? 'bg-gray-50 dark:bg-gray-700/50' : ''}>
+                      <tr key={record.id} className={index % 2 === 0 ? 'bg-gray-50/80 dark:bg-gray-800/50/50' : ''}>
                         <td className="px-3 py-3 text-sm font-medium text-gray-900 dark:text-white">
                           {formatDate(record.date)}
                         </td>

@@ -32,15 +32,7 @@ import {
 } from 'react-icons/fa'
 import PodiumTopSellers from '../components/PodiumTopSellers'
 import ConfettiEffect from '../components/ConfettiEffect'
-
-const COLORS = [
-  '#37E359',
-  '#051626',
-  '#FF4500',
-  '#1E90FF',
-  '#FFD700',
-  '#FF1493',
-]
+import { CHART_COLORS } from '../styles/designTokens'
 const MEDALS = [
   {
     icon: <FaTrophy className="text-yellow-500 text-2xl" />,
@@ -736,12 +728,12 @@ function CommercialSellersPage() {
                               <XAxis dataKey="name" />
                               <YAxis />
                               <Tooltip />
-                              <Bar dataKey="count" name="Vendas" fill="#37E359">
+                              <Bar dataKey="count" name="Vendas" fill="#22c55e">
                                 {Object.entries(modalData.salesByProduct).map(
                                   (entry, index) => (
                                     <Cell
                                       key={`cell-${index}`}
-                                      fill={COLORS[index % COLORS.length]}
+                                      fill={CHART_COLORS[index % COLORS.length]}
                                     />
                                   ),
                                 )}
@@ -793,7 +785,7 @@ function CommercialSellersPage() {
                                   (entry, index) => (
                                     <Cell
                                       key={`cell-${index}`}
-                                      fill={COLORS[(index + 3) % COLORS.length]}
+                                      fill={CHART_COLORS[(index + 3) % COLORS.length]}
                                     />
                                   ),
                                 )}
@@ -819,7 +811,7 @@ function CommercialSellersPage() {
                                 ).map(([name, data], index) => ({
                                   name,
                                   value: data.count,
-                                  fill: COLORS[index % COLORS.length],
+                                  fill: CHART_COLORS[index % COLORS.length],
                                 }))}
                                 cx="50%"
                                 cy="50%"
@@ -866,7 +858,7 @@ function CommercialSellersPage() {
                                   (entry, index) => (
                                     <Cell
                                       key={`cell-${index}`}
-                                      fill={COLORS[index % COLORS.length]}
+                                      fill={CHART_COLORS[index % COLORS.length]}
                                     />
                                   ),
                                 )}
@@ -906,7 +898,7 @@ function CommercialSellersPage() {
                                 ).map((entry, index) => (
                                   <Cell
                                     key={`cell-${index}`}
-                                    fill={COLORS[(index + 2) % COLORS.length]}
+                                    fill={CHART_COLORS[(index + 2) % COLORS.length]}
                                   />
                                 ))}
                               </Pie>
@@ -934,7 +926,7 @@ function CommercialSellersPage() {
                       </h3>
                       <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
                         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                          <thead className="bg-gray-50 dark:bg-gray-800">
+                          <thead className="bg-gray-50/80 dark:bg-gray-800/50">
                             <tr>
                               <th
                                 scope="col"
@@ -1049,7 +1041,7 @@ function CommercialSellersPage() {
                   </div>
 
                   {/* Footer com Call to Action */}
-                  <div className="border-t border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800 text-right">
+                  <div className="border-t border-gray-200 dark:border-gray-700 p-4 bg-gray-50/80 dark:bg-gray-800/50 text-right">
                     <button
                       onClick={closeModal}
                       className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors mr-3"
