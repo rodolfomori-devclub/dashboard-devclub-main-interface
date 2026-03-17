@@ -4,7 +4,7 @@ const isDev = import.meta.env.DEV;
 
 const api = axios.create({
   baseURL: isDev ? 'http://localhost:3000/api' : import.meta.env.VITE_API_URL,
-  timeout: 10000
+  timeout: 60000
 });
 
 // Caching simples com TTL em memória
