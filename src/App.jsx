@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import {
   BrowserRouter as Router,
   Route,
@@ -24,17 +25,16 @@ import RefundsPage from './pages/RefundsPage'
 // Protected route — redirects to Vault login if not authenticated
 const ProtectedRoute = ({ children, requiredPermission }) => {
   const { currentUser, userRoles, hasPermission, login } = useAuth()
+  const loginTriggered = useRef(false)
 
-  if (!currentUser) {
-    login()
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950">
-        <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    )
-  }
+  useEffect(() => {
+    if (!currentUser && !loginTriggered.current) {
+      loginTriggered.current = true
+      login()
+    }
+  }, [currentUser, login])
 
-  if (!userRoles) {
+  if (!currentUser || !userRoles) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950">
         <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
@@ -59,11 +59,16 @@ const ProtectedRoute = ({ children, requiredPermission }) => {
 // Admin route
 const AdminRoute = ({ children }) => {
   const { userRoles, currentUser, login } = useAuth()
+  const loginTriggered = useRef(false)
 
-  if (!currentUser) {
-    login()
-    return null
-  }
+  useEffect(() => {
+    if (!currentUser && !loginTriggered.current) {
+      loginTriggered.current = true
+      login()
+    }
+  }, [currentUser, login])
+
+  if (!currentUser) return null
 
   if (!userRoles?.isAdmin) {
     return <Navigate to="/diario" replace />

@@ -76,8 +76,8 @@ export const AuthProvider = ({ children }) => {
   }, [syncUser]);
 
   // Login — redirects to Vault
-  const login = useCallback(() => {
-    vault.login();
+  const login = useCallback(async () => {
+    await vault.login();
   }, []);
 
   // Logout

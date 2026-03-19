@@ -5,8 +5,6 @@ export { default as MonthlyDashboard } from './MonthlyDashboard';
 export { default as YearlyDashboard } from './YearlyDashboard';
 export { default as DREDashboard } from './DREDashboard';
 export { default as DataSourcesPage } from './DataSourcesPage';
-export { default as AdminUserPage } from './AdminUserPage';
-export { default as LoginPage } from './LoginPage';
 export { default as AccessDeniedPage } from './AccessDeniedPage';
 export { default as ComparativoPage } from './ComparativoPage';
 
