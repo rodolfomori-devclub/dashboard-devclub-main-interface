@@ -87,9 +87,12 @@ export const AuthProvider = ({ children }) => {
     await vault.login();
   }, []);
 
-  // Logout
+  // Logout — clear tokens and redirect to Vault hub
   const logout = useCallback(async () => {
-    await vault.logout(true);
+    await vault.logout(false);
+    setCurrentUser(null);
+    setUserRoles(null);
+    window.location.href = import.meta.env.VITE_VAULT_HUB_URL || 'https://vault-frontend-production.up.railway.app';
   }, []);
 
   // Check if user has permission to access a specific route
