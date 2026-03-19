@@ -31,8 +31,9 @@ import {
   FaPen,
 } from 'react-icons/fa'
 import trafficSheetsService from '../services/trafficSheetsService'
-import { db } from '../firebase'
-import { doc, getDoc, setDoc } from 'firebase/firestore'
+import axios from 'axios'
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
 
 // Helpers de formatação
 const formatCurrency = (val) =>
@@ -250,16 +251,16 @@ const TrafficMonitor = () => {
   // Estado de metas com persistência no Firebase (global)
   const [goals, setGoals] = useState({ cpm: 0, ctr: 0, cpl: 0, conversao: 0 })
 
-  // Carrega metas do Firebase ao montar
+  // Carrega metas do backend ao montar
   useEffect(() => {
     const loadGoals = async () => {
       try {
-        const goalsDoc = await getDoc(doc(db, 'trafficGoals', 'global'))
-        if (goalsDoc.exists()) {
-          setGoals({ cpm: 0, ctr: 0, cpl: 0, conversao: 0, ...goalsDoc.data() })
+        const response = await axios.get(`${API_URL}/goals/traffic-goals`)
+        if (response.data?.success && response.data?.data) {
+          setGoals({ cpm: 0, ctr: 0, cpl: 0, conversao: 0, ...response.data.data })
         }
       } catch (err) {
-        console.error('Erro ao carregar metas do Firebase:', err)
+        console.error('Erro ao carregar metas:', err)
       }
     }
     loadGoals()
@@ -269,9 +270,9 @@ const TrafficMonitor = () => {
     const newGoals = { ...goals, [key]: value }
     setGoals(newGoals)
     try {
-      await setDoc(doc(db, 'trafficGoals', 'global'), newGoals, { merge: true })
+      await axios.put(`${API_URL}/goals/traffic-goals`, newGoals)
     } catch (err) {
-      console.error('Erro ao salvar meta no Firebase:', err)
+      console.error('Erro ao salvar meta:', err)
     }
   }
 

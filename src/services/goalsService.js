@@ -1,9 +1,10 @@
 // src/services/goalsService.js
-import { db } from '../firebase';
-import { collection, doc, getDoc, setDoc, updateDoc, getDocs, query, where } from "firebase/firestore";
+import axios from 'axios';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 /**
- * Serviço para gerenciar metas de vendas no Firebase
+ * Serviço para gerenciar metas de vendas via backend PostgreSQL
  */
 export const goalsService = {
   /**
@@ -16,19 +17,19 @@ export const goalsService = {
    */
   async getGoal(type, year, month = null, goalType = 'meta') {
     try {
-      let docPath;
+      let url;
       if (type === 'month' && month) {
-        docPath = `goals/monthly/${year}/${month}`;
+        url = `${API_URL}/goals/${type}/${year}/${month}`;
       } else if (type === 'year') {
-        docPath = `goals/yearly/${year}`;
+        url = `${API_URL}/goals/${type}/${year}`;
       } else {
         throw new Error('Tipo de meta inválido');
       }
 
-      const goalDoc = await getDoc(doc(db, docPath));
+      const response = await axios.get(url);
 
-      if (goalDoc.exists()) {
-        return goalDoc.data()[goalType] || 0;
+      if (response.data?.success && response.data?.data) {
+        return response.data.data[goalType] || 0;
       }
 
       return 0;
@@ -49,32 +50,16 @@ export const goalsService = {
    */
   async saveGoal(type, year, month = null, goalType = 'meta', value) {
     try {
-      let docPath;
+      let url;
       if (type === 'month' && month) {
-        docPath = `goals/monthly/${year}/${month}`;
+        url = `${API_URL}/goals/${type}/${year}/${month}`;
       } else if (type === 'year') {
-        docPath = `goals/yearly/${year}`;
+        url = `${API_URL}/goals/${type}/${year}`;
       } else {
         throw new Error('Tipo de meta inválido');
       }
 
-      const goalRef = doc(db, docPath);
-      const goalDoc = await getDoc(goalRef);
-
-      if (goalDoc.exists()) {
-        // Atualizar documento existente
-        await updateDoc(goalRef, {
-          [goalType]: value,
-          updatedAt: new Date()
-        });
-      } else {
-        // Criar novo documento
-        await setDoc(goalRef, {
-          [goalType]: value,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        });
-      }
+      await axios.post(url, { goalType, value });
     } catch (error) {
       console.error('Erro ao salvar meta:', error);
       throw error;
@@ -90,19 +75,19 @@ export const goalsService = {
    */
   async getAllGoals(type, year, month = null) {
     try {
-      let docPath;
+      let url;
       if (type === 'month' && month) {
-        docPath = `goals/monthly/${year}/${month}`;
+        url = `${API_URL}/goals/${type}/${year}/${month}`;
       } else if (type === 'year') {
-        docPath = `goals/yearly/${year}`;
+        url = `${API_URL}/goals/${type}/${year}`;
       } else {
         throw new Error('Tipo de meta inválido');
       }
 
-      const goalDoc = await getDoc(doc(db, docPath));
+      const response = await axios.get(url);
 
-      if (goalDoc.exists()) {
-        const data = goalDoc.data();
+      if (response.data?.success && response.data?.data) {
+        const data = response.data.data;
         return {
           meta: data.meta || 0,
           superMeta: data.superMeta || 0,
@@ -134,19 +119,19 @@ export const goalsService = {
    */
   async getRevenueGoals(type, year, month = null) {
     try {
-      let docPath;
+      let url;
       if (type === 'month' && month) {
-        docPath = `revenueGoals/monthly/${year}/${month}`;
+        url = `${API_URL}/goals/revenue/${type}/${year}/${month}`;
       } else if (type === 'year') {
-        docPath = `revenueGoals/yearly/${year}`;
+        url = `${API_URL}/goals/revenue/${type}/${year}`;
       } else {
         throw new Error('Tipo de meta inválido');
       }
 
-      const goalDoc = await getDoc(doc(db, docPath));
+      const response = await axios.get(url);
 
-      if (goalDoc.exists()) {
-        const data = goalDoc.data();
+      if (response.data?.success && response.data?.data) {
+        const data = response.data.data;
         return {
           faturamentoCartao: {
             base: data.faturamentoCartao?.base || 0,
@@ -191,21 +176,16 @@ export const goalsService = {
    */
   async saveRevenueGoals(type, year, month = null, goals) {
     try {
-      let docPath;
+      let url;
       if (type === 'month' && month) {
-        docPath = `revenueGoals/monthly/${year}/${month}`;
+        url = `${API_URL}/goals/revenue/${type}/${year}/${month}`;
       } else if (type === 'year') {
-        docPath = `revenueGoals/yearly/${year}`;
+        url = `${API_URL}/goals/revenue/${type}/${year}`;
       } else {
         throw new Error('Tipo de meta inválido');
       }
 
-      const goalRef = doc(db, docPath);
-
-      await setDoc(goalRef, {
-        ...goals,
-        updatedAt: new Date()
-      }, { merge: true });
+      await axios.post(url, goals);
     } catch (error) {
       console.error('Erro ao salvar metas de faturamento:', error);
       throw error;
@@ -219,14 +199,13 @@ export const goalsService = {
    */
   async getYearlyRevenueGoalsBreakdown(year) {
     try {
-      const monthlyGoals = {};
+      const response = await axios.get(`${API_URL}/goals/revenue/yearly/${year}/breakdown`);
 
-      for (let month = 1; month <= 12; month++) {
-        const goals = await this.getRevenueGoals('month', year, month);
-        monthlyGoals[month] = goals;
+      if (response.data?.success && response.data?.data) {
+        return response.data.data;
       }
 
-      return monthlyGoals;
+      return {};
     } catch (error) {
       console.error('Erro ao buscar metas do ano:', error);
       return {};
@@ -242,10 +221,10 @@ export const goalsService = {
    */
   async getSellerGoal(sellerId, year, month) {
     try {
-      const sellerGoalDoc = await getDoc(doc(db, `sellerGoals/${sellerId}/${year}/${month}`));
+      const response = await axios.get(`${API_URL}/goals/seller/${sellerId}/${year}/${month}`);
 
-      if (sellerGoalDoc.exists()) {
-        return sellerGoalDoc.data().value || 0;
+      if (response.data?.success && response.data?.data) {
+        return response.data.data.value || 0;
       }
 
       return 0;
@@ -266,15 +245,10 @@ export const goalsService = {
    */
   async saveSellerGoal(sellerId, sellerName, year, month, value) {
     try {
-      const goalRef = doc(db, `sellerGoals/${sellerId}/${year}/${month}`);
-
-      await setDoc(goalRef, {
+      await axios.post(`${API_URL}/goals/seller/${sellerId}/${year}/${month}`, {
         value,
-        sellerName,
-        year,
-        month,
-        updatedAt: new Date()
-      }, { merge: true });
+        sellerName
+      });
     } catch (error) {
       console.error(`Erro ao salvar meta do vendedor ${sellerId}:`, error);
       throw error;
