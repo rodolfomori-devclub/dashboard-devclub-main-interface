@@ -1,221 +1,105 @@
 // src/contexts/AuthContext.jsx
-import { createContext, useContext, useState, useEffect } from 'react';
-import { 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-  updateProfile
-} from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { auth, db } from '../firebase';
-import { useNavigate } from 'react-router-dom';
+// Vault SDK integration — replaces Firebase Auth
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { VaultAuth } from '@vault-devclub/sdk';
 
-// Create auth context
 const AuthContext = createContext();
 
-// JWT Secret (in a real app, this should be stored in a .env file or server-side)
-const TOKEN_EXPIRY_DAYS = 30;
+// Vault configuration
+const vault = new VaultAuth({
+  vaultUrl: import.meta.env.VITE_VAULT_URL || 'http://localhost:4000',
+  clientId: import.meta.env.VITE_VAULT_CLIENT_ID || '',
+  redirectUri: import.meta.env.VITE_VAULT_REDIRECT_URI || `${window.location.origin}/callback`,
+});
 
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [userRoles, setUserRoles] = useState(null);
   const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
 
-  // Function to encode user data
-  const encodeToken = (user, roles) => {
-    const data = {
-      uid: user.uid,
-      email: user.email,
-      roles,
-      name: user.displayName,
-      exp: Math.floor(Date.now() / 1000) + (TOKEN_EXPIRY_DAYS * 24 * 60 * 60) // 30 days from now
-    };
-    
-    // Simple base64 encoding (not secure, but suitable for demo purposes)
-    return btoa(JSON.stringify(data));
-  };
-
-  // Function to decode token
-  const decodeToken = (token) => {
-    try {
-      const decoded = JSON.parse(atob(token));
-      
-      // Check if token is expired
-      const now = Math.floor(Date.now() / 1000);
-      if (decoded.exp && decoded.exp < now) {
-        return null;
-      }
-      
-      return decoded;
-    } catch (error) {
-      console.error('Token decode failed:', error);
-      return null;
-    }
-  };
-
-  // Login with email and password
-  const login = async (email, password) => {
-    try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-      
-      // Get user roles from Firestore
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
-      const userData = userDoc.data();
-      
-      if (!userData) {
-        throw new Error('User data not found');
-      }
-      
-      const { roles, isAdmin } = userData;
-      
-      // Generate token
-      const token = encodeToken(user, { ...roles, isAdmin });
-      
-      // Store token in localStorage
-      localStorage.setItem('auth_token', token);
-      localStorage.setItem('token_created_at', Date.now().toString());
-      
-      setUserRoles({ ...roles, isAdmin });
-      return user;
-    } catch (error) {
-      console.error('Login error:', error);
-      throw error;
-    }
-  };
-
-  // Register a new user (admin only)
-  const registerUser = async (email, password, roles, displayName, isAdmin = false) => {
-    try {
-      // First check if current user is admin
-      if (!userRoles?.isAdmin) {
-        throw new Error('Only admins can register new users');
-      }
-      
-      // Create user in Firebase Auth
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-      
-      // Update profile with displayName
-      await updateProfile(user, { displayName });
-      
-      // Store user roles in Firestore
-      await setDoc(doc(db, 'users', user.uid), {
-        email,
-        displayName,
-        roles,
-        isAdmin,
-        createdAt: new Date(),
-        createdBy: currentUser.uid
+  // Sync vault user to state
+  const syncUser = useCallback((vaultUser) => {
+    if (vaultUser) {
+      setCurrentUser({
+        uid: vaultUser.id,
+        email: vaultUser.email,
+        displayName: vaultUser.name,
       });
-      
-      return user;
-    } catch (error) {
-      console.error('Registration error:', error);
-      throw error;
+
+      // Map Vault roles to the format Dashboard expects
+      // Vault stores: { "dashboard": ["today", "daily", "monthly"] }
+      // Dashboard expects: { today: true, daily: true, isAdmin: false }
+      const dashboardRoles = vaultUser.roles?.dashboard || {};
+      const rolesObj = {};
+
+      if (Array.isArray(dashboardRoles)) {
+        dashboardRoles.forEach((r) => { rolesObj[r] = true; });
+      } else {
+        Object.assign(rolesObj, dashboardRoles);
+      }
+
+      rolesObj.isAdmin = vaultUser.role === 'SUPER_ADMIN' || vaultUser.role === 'ADMIN';
+
+      setUserRoles(rolesObj);
+    } else {
+      setCurrentUser(null);
+      setUserRoles(null);
     }
-  };
+  }, []);
+
+  // Initialize
+  useEffect(() => {
+    vault.onAuthChange(syncUser);
+
+    async function init() {
+      // Handle OAuth callback
+      const params = new URLSearchParams(window.location.search);
+      if (params.has('code')) {
+        await vault.handleCallback();
+      }
+
+      // Load existing user
+      const user = vault.getUser();
+      if (user) {
+        syncUser(user);
+      } else if (localStorage.getItem('vault_refresh_token')) {
+        const refreshed = await vault.refresh();
+        if (refreshed) {
+          syncUser(vault.getUser());
+        }
+      }
+
+      setLoading(false);
+    }
+
+    init();
+  }, [syncUser]);
+
+  // Login — redirects to Vault
+  const login = useCallback(() => {
+    vault.login();
+  }, []);
 
   // Logout
-  const logout = async () => {
-    try {
-      await signOut(auth);
-      // Clear stored token
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('token_created_at');
-      setUserRoles(null);
-      navigate('/login');
-    } catch (error) {
-      console.error('Logout error:', error);
-      throw error;
-    }
-  };
+  const logout = useCallback(async () => {
+    await vault.logout(true);
+  }, []);
 
   // Check if user has permission to access a specific route
-  const hasPermission = (route) => {
-    console.log('Checking permission for route:', route);
-    console.log('User roles:', userRoles);
-    
-    if (!userRoles) {
-      console.log('No user roles found');
-      return false;
-    }
-    
-    if (userRoles.isAdmin) {
-      console.log('User is admin, granting access');
-      return true; // Admins can access everything
-    }
-    
-    const hasAccess = userRoles[route] === true;
-    console.log(`Permission for route "${route}":`, hasAccess);
-    console.log(`userRoles[${route}] =`, userRoles[route]);
-    
-    return hasAccess;
-  };
-
-  // Check token validity on first load
-  useEffect(() => {
-    const token = localStorage.getItem('auth_token');
-    const createdAt = localStorage.getItem('token_created_at');
-    
-    if (token && createdAt) {
-      // Check if token is expired (30 days)
-      const isTokenExpired = Date.now() - parseInt(createdAt) > TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
-      
-      if (isTokenExpired) {
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('token_created_at');
-      } else {
-        // Decode token
-        const decodedToken = decodeToken(token);
-        if (decodedToken) {
-          // Set user roles from token
-          setUserRoles(decodedToken.roles);
-        }
-      }
-    }
-    
-    // Subscribe to auth state changes
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        // If we have a user but no token, generate one
-        if (!localStorage.getItem('auth_token')) {
-          try {
-            const userDoc = await getDoc(doc(db, 'users', user.uid));
-            const userData = userDoc.data();
-            
-            if (userData) {
-              const { roles, isAdmin } = userData;
-              const token = encodeToken(user, { ...roles, isAdmin });
-              
-              localStorage.setItem('auth_token', token);
-              localStorage.setItem('token_created_at', Date.now().toString());
-              
-              setUserRoles({ ...roles, isAdmin });
-            }
-          } catch (error) {
-            console.error('Error fetching user data:', error);
-          }
-        }
-      }
-      
-      setCurrentUser(user);
-      setLoading(false);
-    });
-    
-    return () => unsubscribe();
-  }, [navigate]);
+  const hasPermission = useCallback((route) => {
+    if (!userRoles) return false;
+    if (userRoles.isAdmin) return true;
+    return userRoles[route] === true;
+  }, [userRoles]);
 
   const value = {
     currentUser,
     userRoles,
     login,
     logout,
-    registerUser,
     hasPermission,
-    loading
+    loading,
+    vault,
   };
 
   return (
