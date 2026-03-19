@@ -105,11 +105,6 @@ export class VaultAuth {
 
       sessionStorage.removeItem('vault_code_verifier');
 
-      // Clean URL
-      const redirectAfter = sessionStorage.getItem('vault_redirect_after') || '/';
-      sessionStorage.removeItem('vault_redirect_after');
-      window.history.replaceState({}, '', redirectAfter);
-
       return true;
     } catch (err) {
       console.error('[Vault SDK] Callback error:', err);

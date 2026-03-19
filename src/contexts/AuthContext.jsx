@@ -55,7 +55,12 @@ export const AuthProvider = ({ children }) => {
       // Handle OAuth callback
       const params = new URLSearchParams(window.location.search);
       if (params.has('code')) {
-        await vault.handleCallback();
+        const success = await vault.handleCallback();
+        if (success) {
+          // Force page reload to clean callback URL and re-init with tokens
+          window.location.replace(sessionStorage.getItem('vault_redirect_after') || '/');
+          return;
+        }
       }
 
       // Load existing user
