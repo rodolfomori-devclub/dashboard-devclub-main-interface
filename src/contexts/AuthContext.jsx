@@ -56,21 +56,13 @@ export const AuthProvider = ({ children }) => {
       const params = new URLSearchParams(window.location.search);
       if (params.has('code')) {
         try {
-          const success = await vault.handleCallback();
-          if (success) {
-            const callbackUser = vault.getUser();
-            if (callbackUser) {
-              syncUser(callbackUser);
-              window.history.replaceState({}, '', '/');
-              setLoading(false);
-              return;
-            }
-          }
+          await vault.handleCallback();
         } catch (err) {
           console.error('[Vault] Callback failed:', err);
         }
-        // If callback failed, clean URL and continue to normal flow
-        window.history.replaceState({}, '', '/');
+        // Always redirect to root after callback (tokens are in localStorage)
+        window.location.href = '/';
+        return;
       }
 
       // Load existing user
