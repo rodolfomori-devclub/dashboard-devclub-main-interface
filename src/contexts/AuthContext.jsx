@@ -1,7 +1,7 @@
 // src/contexts/AuthContext.jsx
 // Vault SDK integration — replaces Firebase Auth
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { VaultAuth } from '@vault-devclub/sdk';
+import { VaultAuth } from '../lib/vault-sdk.js';
 
 const AuthContext = createContext();
 
