@@ -58,10 +58,9 @@ export const AuthProvider = ({ children }) => {
         try {
           const success = await vault.handleCallback();
           if (success) {
-            const user = vault.getUser();
-            if (user) {
-              syncUser(user);
-              // Clean URL without full reload
+            const callbackUser = vault.getUser();
+            if (callbackUser) {
+              syncUser(callbackUser);
               window.history.replaceState({}, '', '/');
               setLoading(false);
               return;
@@ -70,6 +69,8 @@ export const AuthProvider = ({ children }) => {
         } catch (err) {
           console.error('[Vault] Callback failed:', err);
         }
+        // If callback failed, clean URL and continue to normal flow
+        window.history.replaceState({}, '', '/');
       }
 
       // Load existing user

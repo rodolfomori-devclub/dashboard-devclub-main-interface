@@ -56,8 +56,8 @@ export class VaultAuth {
     const codeVerifier = generateCodeVerifier();
     const codeChallenge = await generateCodeChallenge(codeVerifier);
 
-    sessionStorage.setItem('vault_code_verifier', codeVerifier);
-    sessionStorage.setItem('vault_redirect_after', window.location.pathname);
+    localStorage.setItem('vault_code_verifier', codeVerifier);
+    localStorage.setItem('vault_redirect_after', window.location.pathname);
 
     const params = new URLSearchParams({
       response_type: 'code',
@@ -78,7 +78,7 @@ export class VaultAuth {
     const code = url.searchParams.get('code');
     if (!code) return false;
 
-    const codeVerifier = sessionStorage.getItem('vault_code_verifier');
+    const codeVerifier = localStorage.getItem('vault_code_verifier');
     if (!codeVerifier) return false;
 
     try {
@@ -103,7 +103,7 @@ export class VaultAuth {
       const tokens = await res.json();
       this._setTokens(tokens);
 
-      sessionStorage.removeItem('vault_code_verifier');
+      localStorage.removeItem('vault_code_verifier');
 
       return true;
     } catch (err) {
