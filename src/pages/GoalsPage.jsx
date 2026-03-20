@@ -658,7 +658,7 @@ const GoalsPage = () => {
                   dataKey="value"
                 >
                   {getPieChartData().map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={CHART_COLORS[index % COLORS.length]} />
+                    <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip formatter={(value) => formatCurrency(value)} />
