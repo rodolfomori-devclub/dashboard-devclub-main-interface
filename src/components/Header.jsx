@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import {
-  FaUserCog,
   FaSignOutAlt,
   FaBars,
   FaTimes,
@@ -145,23 +144,6 @@ export default function Header() {
                   )}
                 </button>
 
-                {/* Admin Link */}
-                {userRoles?.isAdmin && (
-                  <Link
-                    to="/admin/users"
-                    className={`
-                      group relative px-3 2xl:px-4 py-2 2xl:py-2.5 rounded-xl transition-all duration-300 flex items-center space-x-1.5 2xl:space-x-2 cursor-pointer
-                      ${isActive('/admin/users') 
-                        ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/25' 
-                        : 'text-text-light dark:text-text-dark hover:bg-white/60 dark:hover:bg-gray-800/60 hover:shadow-md'
-                      }
-                    `}
-                  >
-                    <FaUserCog className="w-3.5 h-3.5 2xl:w-4 2xl:h-4 transition-transform duration-300 group-hover:rotate-12 cursor-pointer" />
-                    <span className="font-medium text-xs 2xl:text-sm">Admin</span>
-                  </Link>
-                )}
-
                 {/* User Info */}
                 <div className="hidden 2xl:flex items-center space-x-2 px-3 py-2 rounded-xl bg-white/60 dark:bg-gray-800/60 backdrop-blur-lg border border-white/30 dark:border-gray-700/30">
                   <div className="w-7 h-7 bg-gradient-to-r from-primary to-primary-dark rounded-full flex items-center justify-center shadow-lg">
@@ -261,24 +243,6 @@ export default function Header() {
                   </Link>
                 )
               })}
-
-              {/* Admin Link */}
-              {userRoles?.isAdmin && (
-                <Link
-                  to="/admin/users"
-                  onClick={closeMobileMenu}
-                  className={`
-                    w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-300 group
-                    ${isActive('/admin/users') 
-                      ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg' 
-                      : 'text-text-light dark:text-text-dark hover:bg-white/60 dark:hover:bg-gray-800/60'
-                    }
-                  `}
-                >
-                  <FaUserCog className="w-5 h-5 transition-transform duration-300 group-hover:rotate-12" />
-                  <span className="font-medium">Admin</span>
-                </Link>
-              )}
 
               {/* User Info */}
               {currentUser && (
