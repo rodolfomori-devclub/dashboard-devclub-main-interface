@@ -193,14 +193,27 @@ function YearlyDashboard() {
       allPromises.push({
         type: 'asaas',
         month: 0,
-        promise: axios.get(
-          `${import.meta.env.VITE_API_URL}/boleto/asaas/vendas`,
-          {
-            params: { data_inicio: firstDayOfYear, data_final: lastDayOfYear },
-            timeout: 60000,
-            signal,
+        promise: (async () => {
+          for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+              return await axios.get(
+                `${import.meta.env.VITE_API_URL}/boleto/asaas/vendas`,
+                {
+                  params: { data_inicio: firstDayOfYear, data_final: lastDayOfYear },
+                  timeout: 60000,
+                  signal,
+                }
+              )
+            } catch (err) {
+              if (err?.response?.status === 429 && attempt < 3) {
+                console.log(`Asaas 429 - retry ${attempt}/3 em ${attempt * 10}s...`)
+                await new Promise(r => setTimeout(r, attempt * 10000))
+                continue
+              }
+              throw err
+            }
           }
-        )
+        })()
       })
 
       // Adicionar a promise da Hotmart (ano todo)

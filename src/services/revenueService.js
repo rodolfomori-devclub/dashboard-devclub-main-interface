@@ -59,11 +59,24 @@ export const revenueService = {
       let asaasTotalValue = 0;
       let asaasTotalCount = 0;
       try {
-        const asaasResponse = await axios.get(`${API_URL}/boleto/asaas/vendas`, {
-          params: { data_inicio: startDate, data_final: endDate },
-          timeout: 30000,
-        });
-        if (asaasResponse.data?.success) {
+        let asaasResponse;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            asaasResponse = await axios.get(`${API_URL}/boleto/asaas/vendas`, {
+              params: { data_inicio: startDate, data_final: endDate },
+              timeout: 60000,
+            });
+            break;
+          } catch (err) {
+            if (err?.response?.status === 429 && attempt < 3) {
+              console.log(`Asaas 429 - retry ${attempt}/3 em ${attempt * 10}s...`);
+              await new Promise(r => setTimeout(r, attempt * 10000));
+              continue;
+            }
+            throw err;
+          }
+        }
+        if (asaasResponse?.data?.success) {
           const asaasData = asaasResponse.data.data;
           asaasTotalValue = asaasData?.sales?.totalValue || 0;
           asaasTotalCount = asaasData?.sales?.count || 0;

@@ -338,15 +338,28 @@ function DailyDashboard() {
           const end = new Date(endDate + 'T23:59:59')
           return await boletoService.getSalesByDateRange(start, end)
         })(),
-        // Fetch Asaas sales (boleto parcelado)
-        axios.get(
-          `${import.meta.env.VITE_API_URL}/boleto/asaas/vendas`,
-          {
-            params: { data_inicio: startDate, data_final: endDate },
-            timeout: 30000,
-            signal,
+        // Fetch Asaas sales (boleto parcelado) com retry para 429
+        (async () => {
+          for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+              return await axios.get(
+                `${import.meta.env.VITE_API_URL}/boleto/asaas/vendas`,
+                {
+                  params: { data_inicio: startDate, data_final: endDate },
+                  timeout: 60000,
+                  signal,
+                }
+              )
+            } catch (err) {
+              if (err?.response?.status === 429 && attempt < 3) {
+                console.log(`Asaas 429 - retry ${attempt}/3 em ${attempt * 10}s...`)
+                await new Promise(r => setTimeout(r, attempt * 10000))
+                continue
+              }
+              throw err
+            }
           }
-        ),
+        })(),
         // Fetch Hotmart sales
         axios.get(
           `${import.meta.env.VITE_API_URL}/hotmart/vendas`,
