@@ -26,6 +26,7 @@ function DailyDashboard() {
   const [commercialData, setCommercialData] = useState(null)
   const [boletoData, setBoletoData] = useState(null)
   const [asaasData, setAsaasData] = useState(null)
+  const [showAsaasEntries, setShowAsaasEntries] = useState(false)
   const [hotmartData, setHotmartData] = useState(null)
   const [productData, setProductData] = useState([])
   const [offerData, setOfferData] = useState([])
@@ -755,12 +756,14 @@ function DailyDashboard() {
       let asaasValue = 0
       let asaasCount = 0
       let asaasEntryValue = 0
+      let asaasEntries = []
       if (asaasResult.status === 'fulfilled' && asaasResult.value?.data?.success) {
         const asaas = asaasResult.value.data.data
         const sales = asaas.sales || {}
         asaasValue = sales.totalValue || 0
         asaasCount = sales.count || 0
         asaasEntryValue = sales.entryValue || 0
+        asaasEntries = sales.entries || []
 
         // Distribuir Asaas proporcionalmente pelos dias no dailyDataMap
         const days = Object.keys(dailyDataMap)
@@ -824,6 +827,7 @@ function DailyDashboard() {
         count: asaasCount,
         totalPurchaseValue: asaasValue,
         entryValue: asaasEntryValue,
+        entries: asaasEntries,
       })
 
       // Processar dados da Hotmart
@@ -1487,10 +1491,33 @@ function DailyDashboard() {
                 <span className="text-gray-500 dark:text-gray-400">Asaas (vendas)</span>
                 <span className="font-medium text-text-light dark:text-text-dark">{filteredTotals.total_asaas_quantity || 0} ({formatCurrency(filteredTotals.total_asaas_value || 0)})</span>
               </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-gray-500 dark:text-gray-400">Entradas recebidas</span>
+              <div
+                className={`flex justify-between text-xs ${asaasData?.entries?.length > 0 ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 -mx-1 px-1 rounded transition-colors' : ''}`}
+                onClick={() => asaasData?.entries?.length > 0 && setShowAsaasEntries(!showAsaasEntries)}
+              >
+                <span className="text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                  Entradas recebidas
+                  {asaasData?.entries?.length > 0 && (
+                    <svg className={`w-3 h-3 transition-transform ${showAsaasEntries ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  )}
+                </span>
                 <span className="font-medium text-green-500">{formatCurrency(asaasData?.entryValue || 0)}</span>
               </div>
+              {showAsaasEntries && asaasData?.entries?.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 space-y-1.5">
+                  {asaasData.entries.map((entry, idx) => (
+                    <div key={idx} className="flex justify-between items-start text-xs bg-gray-50 dark:bg-gray-800/50 rounded px-2 py-1.5">
+                      <div className="flex flex-col min-w-0 mr-2">
+                        <span className="text-text-light dark:text-text-dark font-medium truncate">{entry.customerName || 'Cliente'}</span>
+                        <span className="text-[10px] text-text-muted-light dark:text-text-muted-dark truncate">{entry.productDescription || 'Boleto Parcelado'} ({entry.installmentCount}x)</span>
+                      </div>
+                      <span className="font-medium text-green-500 whitespace-nowrap">{formatCurrency(entry.entryValue || 0)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
