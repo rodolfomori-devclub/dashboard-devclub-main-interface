@@ -49,6 +49,15 @@ export const AuthProvider = ({ children }) => {
 
   // Initialize
   useEffect(() => {
+    // ⚠️ BYPASS DEV: pula Vault inteiro quando VITE_BYPASS_AUTH=true (somente em dev)
+    if (import.meta.env.DEV && import.meta.env.VITE_BYPASS_AUTH === 'true') {
+      console.warn('[Auth] BYPASS ativo — usuário fake (admin) injetado. Não usar em produção.');
+      setCurrentUser({ uid: 'dev-bypass', email: 'dev@local', displayName: 'Dev (bypass)' });
+      setUserRoles({ isAdmin: true });
+      setLoading(false);
+      return;
+    }
+
     vault.onAuthChange(syncUser);
 
     async function init() {

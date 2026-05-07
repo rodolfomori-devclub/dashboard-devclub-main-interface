@@ -1,509 +1,327 @@
-import React, { useState, useEffect } from 'react'
-import {
-  ComposedChart,
-  Bar,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip as RechartsTooltip,
-  Legend,
-  ResponsiveContainer,
-} from 'recharts'
-import {
-  FaChartLine,
-  FaDollarSign,
-  FaEye,
-  FaMousePointer,
-  FaUsers,
-  FaPercent,
-  FaBullseye,
-  FaSync,
-  FaPause,
-  FaPlay,
-  FaClock,
-  FaCalendarDay,
-  FaCalendarWeek,
-  FaCalendar,
-  FaCalendarAlt,
-  FaArrowUp,
-  FaArrowDown,
-  FaPen,
-} from 'react-icons/fa'
-import trafficSheetsService from '../services/trafficSheetsService'
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react'
+import { Link } from 'react-router-dom'
 import axios from 'axios'
+import {
+  FaChartLine, FaShare, FaPoll, FaUsers, FaEnvelope, FaBolt, FaSpinner,
+  FaDatabase, FaExternalLinkAlt,
+} from 'react-icons/fa'
+
+import MonitorFilters from '../components/MonitorFilters'
+import OverviewTab from '../components/TrafficMonitor/OverviewTab'
+import AttributionTab from '../components/TrafficMonitor/AttributionTab'
+import SurveyTab from '../components/TrafficMonitor/SurveyTab'
+import LeadsTab from '../components/TrafficMonitor/LeadsTab'
+import ActiveCampaignTab from '../components/TrafficMonitor/ActiveCampaignTab'
+import RealTimeTab from '../components/TrafficMonitor/RealTimeTab'
+import { resolvePeriod, periodLabel, groupByDay, filterByLocalDate } from '../components/TrafficMonitor/utils'
+
+import { leadsService } from '../services/leadsService'
+import { metaAdsClient } from '../services/metaAdsClient'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
 
-// Helpers de formatação
-const formatCurrency = (val) =>
-  new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-    minimumFractionDigits: 2,
-  }).format(val)
+const TABS = [
+  { id: 'overview', label: 'Visão Geral', icon: FaChartLine },
+  { id: 'attribution', label: 'Atribuição & UTM', icon: FaShare },
+  { id: 'survey', label: 'Pesquisa Detalhada', icon: FaPoll },
+  { id: 'leads', label: 'Leads', icon: FaUsers },
+  { id: 'activecampaign', label: 'ActiveCampaign', icon: FaEnvelope },
+  { id: 'realtime', label: 'Real-Time', icon: FaBolt },
+]
 
-const formatPercent = (val) => `${parseFloat(val).toFixed(2)}%`
-
-const formatNumber = (val) =>
-  typeof val === 'number' ? val.toLocaleString('pt-BR') : val
-
-// Cores neutras para cards sem meta (steel blue suave)
-const NEUTRAL_COLORS = {
-  gradientFrom: '#7B93B0',
-  gradientTo: '#9CB4CF',
-  iconGradientFrom: '#7B93B0',
-  iconGradientTo: '#5E7A99',
-}
-
-// Determina cores baseado na performance vs meta
-const getGoalColors = (value, goal, isInverse = false) => {
-  if (!goal || goal <= 0 || !value || value <= 0) return NEUTRAL_COLORS
-
-  // Para métricas inversas (CPM, CPL): menor é melhor → ratio = goal/value
-  // Para métricas normais (CTR, Conversão): maior é melhor → ratio = value/goal
-  const ratio = isInverse ? goal / value : value / goal
-
-  // >= 110%: bem acima da meta → azul forte
-  if (ratio >= 1.1)
-    return {
-      gradientFrom: '#2563EB',
-      gradientTo: '#3B82F6',
-      iconGradientFrom: '#2563EB',
-      iconGradientTo: '#1D4ED8',
-    }
-  // >= 100%: na meta → azul
-  if (ratio >= 1.0)
-    return {
-      gradientFrom: '#3B82F6',
-      gradientTo: '#60A5FA',
-      iconGradientFrom: '#3B82F6',
-      iconGradientTo: '#2563EB',
-    }
-  // >= 85%: pouco abaixo → amarelo
-  if (ratio >= 0.85)
-    return {
-      gradientFrom: '#EAB308',
-      gradientTo: '#FACC15',
-      iconGradientFrom: '#EAB308',
-      iconGradientTo: '#CA8A04',
-    }
-  // < 85%: muito abaixo → vermelho
-  return {
-    gradientFrom: '#EF4444',
-    gradientTo: '#F87171',
-    iconGradientFrom: '#EF4444',
-    iconGradientTo: '#DC2626',
-  }
-}
-
-// Tooltip customizado para os gráficos
-const CustomChartTooltip = ({ active, payload, label }) => {
-  if (!active || !payload?.length) return null
-
-  return (
-    <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-lg p-4 border border-white/20 dark:border-gray-700/50 rounded-xl shadow-2xl min-w-[220px]">
-      <p className="font-bold text-text-light dark:text-text-dark text-base border-b border-gray-200 dark:border-gray-700 pb-2 mb-3">
-        {label}
-      </p>
-      {payload.map((entry, index) => (
-        <div key={index} className="flex items-center justify-between gap-4 py-1">
-          <span className="flex items-center gap-2 text-sm">
-            <span
-              className="w-3 h-3 rounded-full"
-              style={{ backgroundColor: entry.color }}
-            />
-            <span className="text-text-muted-light dark:text-text-muted-dark">
-              {entry.name}
-            </span>
-          </span>
-          <span className="font-semibold text-sm text-text-light dark:text-text-dark">
-            {['Investimento', 'CPC', 'CPL', 'CPM'].includes(entry.name)
-              ? formatCurrency(entry.value)
-              : ['CTR', 'Conversão'].includes(entry.name)
-                ? formatPercent(entry.value)
-                : formatNumber(entry.value)}
-          </span>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-// Card de métrica reutilizável
-const MetricCard = ({
-  icon: Icon, title, value, subtitle,
-  gradientFrom, gradientTo, iconGradientFrom, iconGradientTo,
-  delay = '0s',
-  goalKey, goalValue, onGoalChange, isInverse, rawValue, goalPrefix, goalSuffix,
-}) => {
-  const [editing, setEditing] = useState(false)
-  const [tempGoal, setTempGoal] = useState('')
-
-  const hasGoal = goalKey !== undefined
-  const colors = hasGoal && goalValue > 0
-    ? getGoalColors(rawValue, goalValue, isInverse)
-    : hasGoal
-      ? NEUTRAL_COLORS
-      : { gradientFrom, gradientTo, iconGradientFrom, iconGradientTo }
-
-  const handleGoalSubmit = () => {
-    const parsed = parseFloat(tempGoal.replace(',', '.'))
-    if (!isNaN(parsed) && parsed > 0) {
-      onGoalChange(goalKey, parsed)
-    }
-    setEditing(false)
-    setTempGoal('')
-  }
-
-  return (
-    <div className="group relative animate-slide-up" style={{ animationDelay: delay }}>
-      <div
-        className="absolute inset-0 rounded-2xl blur-lg group-hover:blur-xl transition-all duration-300 opacity-60"
-        style={{
-          background: `linear-gradient(135deg, ${colors.gradientFrom}33, ${colors.gradientTo}33)`,
-        }}
-      />
-      <div
-        className="relative backdrop-blur-lg rounded-2xl p-6 border border-white/20 dark:border-gray-700/50 shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-2"
-        style={{
-          background: hasGoal && goalValue > 0
-            ? `linear-gradient(135deg, ${colors.gradientFrom}20, ${colors.gradientTo}30)`
-            : 'rgba(255,255,255,0.8)',
-        }}
-      >
-        <div className="flex items-start justify-between mb-4">
-          <div
-            className="w-12 h-12 rounded-xl flex items-center justify-center shadow-lg"
-            style={{
-              background: `linear-gradient(135deg, ${colors.iconGradientFrom}, ${colors.iconGradientTo})`,
-            }}
-          >
-            <Icon className="w-6 h-6 text-white" />
-          </div>
-          <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: colors.iconGradientFrom }} />
-        </div>
-        <h3 className="text-sm font-semibold text-text-muted-light dark:text-text-muted-dark mb-2">
-          {title}
-        </h3>
-        <p className="text-3xl font-bold bg-clip-text text-transparent mb-1" style={{
-          backgroundImage: `linear-gradient(135deg, ${colors.iconGradientFrom}, ${colors.iconGradientTo})`,
-        }}>
-          {value}
-        </p>
-        {subtitle && (
-          <p className="text-xs text-text-muted-light dark:text-text-muted-dark flex items-center gap-1 mt-1">
-            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colors.iconGradientFrom }} />
-            {subtitle}
-          </p>
-        )}
-
-        {hasGoal && (
-          <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700/50">
-            {editing ? (
-              <div className="flex items-center gap-1.5">
-                {goalPrefix && <span className="text-xs text-text-muted-light dark:text-text-muted-dark">{goalPrefix}</span>}
-                <input
-                  type="text"
-                  value={tempGoal}
-                  onChange={(e) => setTempGoal(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleGoalSubmit()
-                    if (e.key === 'Escape') { setEditing(false); setTempGoal('') }
-                  }}
-                  onBlur={handleGoalSubmit}
-                  autoFocus
-                  placeholder="0"
-                  className="w-20 px-2 py-1 text-xs rounded-lg border border-primary/30 bg-white/80 dark:bg-gray-800/80 text-text-light dark:text-text-dark outline-none focus:ring-2 focus:ring-primary/20"
-                />
-                {goalSuffix && <span className="text-xs text-text-muted-light dark:text-text-muted-dark">{goalSuffix}</span>}
-              </div>
-            ) : (
-              <button
-                onClick={() => { setEditing(true); setTempGoal(goalValue > 0 ? String(goalValue) : '') }}
-                className="flex items-center gap-1.5 text-xs text-text-muted-light dark:text-text-muted-dark hover:text-primary transition-colors"
-              >
-                <FaBullseye className="w-3 h-3" />
-                {goalValue > 0
-                  ? `Meta: ${goalPrefix || ''}${goalValue}${goalSuffix || ''}`
-                  : 'Definir meta'}
-                <FaPen className="w-2.5 h-2.5 opacity-50 group-hover:opacity-100 transition-opacity" />
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  )
+const DEFAULT_FILTERS = {
+  period: 'today',
+  customStart: null,
+  customEnd: null,
+  compare: false,
+  utmSources: [],
+  utmMediums: [],
+  utmCampaigns: [],
+  tags: [],
 }
 
 const TrafficMonitor = () => {
-  const [trafficData, setTrafficData] = useState([])
-  const [filteredData, setFilteredData] = useState([])
-  const [metrics, setMetrics] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [filters, setFilters] = useState(DEFAULT_FILTERS)
+  const [activeTab, setActiveTab] = useState('overview')
+
+  // Loading flags
+  const [loadingCore, setLoadingCore] = useState(true)
   const [error, setError] = useState(null)
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [refreshInterval, setRefreshInterval] = useState(60000)
   const [lastUpdate, setLastUpdate] = useState(null)
-  const [updateIntervalId, setUpdateIntervalId] = useState(null)
+  const refreshTimerRef = useRef(null)
 
-  // Estado de metas com persistência no Firebase (global)
+  // Goals (Postgres)
   const [goals, setGoals] = useState({ cpm: 0, ctr: 0, cpl: 0, conversao: 0 })
 
-  // Carrega metas do backend ao montar
+  // Core data (overview-level)
+  const [overview, setOverview] = useState(null)
+  const [attribution, setAttribution] = useState(null)
+  const [tagsMetrics, setTagsMetrics] = useState(null)
+  const [metaInsights, setMetaInsights] = useState(null)
+  const [metaDaily, setMetaDaily] = useState(null)
+  const [clientsTotal, setClientsTotal] = useState(0)
+  const [surveyTotal, setSurveyTotal] = useState(0)
+
+  // Compare data (período anterior)
+  const [prev, setPrev] = useState(null)
+  const [metaError, setMetaError] = useState(null)
+
+  // Lazy data (carregados quando aba é ativada)
+  const [allClients, setAllClients] = useState(null)
+  const [allSurveyLeads, setAllSurveyLeads] = useState(null)
+  const [loadingHeavy, setLoadingHeavy] = useState(false)
+
+  const periodFilters = useMemo(() => resolvePeriod(filters), [filters])
+
+  // ============ GOALS ============
   useEffect(() => {
-    const loadGoals = async () => {
-      try {
-        const response = await axios.get(`${API_URL}/goals/traffic-goals`)
-        if (response.data?.success && response.data?.data) {
-          setGoals({ cpm: 0, ctr: 0, cpl: 0, conversao: 0, ...response.data.data })
+    axios.get(`${API_URL}/goals/traffic-goals`)
+      .then((res) => {
+        if (res.data?.success && res.data?.data) {
+          setGoals({ cpm: 0, ctr: 0, cpl: 0, conversao: 0, ...res.data.data })
         }
-      } catch (err) {
-        console.error('Erro ao carregar metas:', err)
-      }
-    }
-    loadGoals()
+      })
+      .catch((e) => console.error('goals err', e))
   }, [])
 
   const handleGoalChange = async (key, value) => {
-    const newGoals = { ...goals, [key]: value }
-    setGoals(newGoals)
-    try {
-      await axios.put(`${API_URL}/goals/traffic-goals`, newGoals)
-    } catch (err) {
-      console.error('Erro ao salvar meta:', err)
-    }
+    const next = { ...goals, [key]: value }
+    setGoals(next)
+    try { await axios.put(`${API_URL}/goals/traffic-goals`, next) } catch (e) { console.error('goal save err', e) }
   }
 
-  // Estados para filtros de período
-  const [selectedPeriod, setSelectedPeriod] = useState('last7days')
-  const [customDateRange, setCustomDateRange] = useState({
-    start: null,
-    end: null,
-  })
-  const [datePickerOpen, setDatePickerOpen] = useState(false)
-
-  // Busca inicial de dados
-  useEffect(() => {
-    loadData()
-  }, [])
-
-  // Aplica filtro quando período muda
-  useEffect(() => {
-    if (trafficData.length > 0) {
-      applyPeriodFilter()
-    }
-  }, [selectedPeriod, customDateRange, trafficData])
-
-  // Configura auto-refresh
-  useEffect(() => {
-    if (autoRefresh) {
-      const intervalId = trafficSheetsService.startRealTimeUpdates(
-        handleDataUpdate,
-        refreshInterval
-      )
-      setUpdateIntervalId(intervalId)
-
-      return () => {
-        trafficSheetsService.stopRealTimeUpdates(intervalId)
-      }
-    } else {
-      if (updateIntervalId) {
-        trafficSheetsService.stopRealTimeUpdates(updateIntervalId)
-        setUpdateIntervalId(null)
-      }
-    }
-  }, [autoRefresh, refreshInterval])
-
-  // Aplica filtro de período nos dados
-  const applyPeriodFilter = () => {
-    const today = new Date()
-    today.setHours(23, 59, 59, 999)
-    let startDate = new Date()
-    let filtered = [...trafficData]
-
-    switch (selectedPeriod) {
-      case 'today':
-        startDate = new Date()
-        startDate.setHours(0, 0, 0, 0)
-        break
-      case 'yesterday': {
-        const yesterday = new Date()
-        yesterday.setDate(yesterday.getDate() - 1)
-        yesterday.setHours(0, 0, 0, 0)
-        startDate = yesterday
-        const yesterdayEnd = new Date(yesterday)
-        yesterdayEnd.setHours(23, 59, 59, 999)
-        filtered = trafficData.filter((row) => {
-          if (!row.DATA) return false
-          const [day, month, year] = row.DATA.split('/')
-          const rowDate = new Date(year || today.getFullYear(), month - 1, day)
-          return rowDate >= startDate && rowDate <= yesterdayEnd
-        })
-        setFilteredData(filtered)
-        const newMetrics = trafficSheetsService.calculateMetrics(filtered)
-        setMetrics(newMetrics)
-        return
-      }
-      case 'last7days':
-        startDate = new Date()
-        startDate.setDate(today.getDate() - 7)
-        startDate.setHours(0, 0, 0, 0)
-        break
-      case 'last30days':
-        startDate = new Date()
-        startDate.setDate(today.getDate() - 30)
-        startDate.setHours(0, 0, 0, 0)
-        break
-      case 'custom':
-        if (customDateRange.start && customDateRange.end) {
-          startDate = new Date(customDateRange.start)
-          const endDate = new Date(customDateRange.end)
-          filtered = trafficData.filter((row) => {
-            if (!row.DATA) return false
-            const [day, month, year] = row.DATA.split('/')
-            const rowDate = new Date(year || today.getFullYear(), month - 1, day)
-            return rowDate >= startDate && rowDate <= endDate
-          })
-          setFilteredData(filtered)
-          const newMetrics = trafficSheetsService.calculateMetrics(filtered)
-          setMetrics(newMetrics)
-          return
-        }
-        break
-      default:
-        startDate = new Date()
-        startDate.setDate(today.getDate() - 7)
-    }
-
-    filtered = trafficData.filter((row) => {
-      if (!row.DATA) return false
-      const [day, month, year] = row.DATA.split('/')
-      const rowDate = new Date(year || today.getFullYear(), month - 1, day)
-      return rowDate >= startDate && rowDate <= today
-    })
-
-    setFilteredData(filtered)
-    const newMetrics = trafficSheetsService.calculateMetrics(filtered)
-    setMetrics(newMetrics)
-  }
-
-  const loadData = async () => {
-    setLoading(true)
+  // ============ CORE LOAD (sempre que filtros mudam) ============
+  const loadCore = useCallback(async () => {
+    setLoadingCore(true)
     setError(null)
-
-    try {
-      const data = await trafficSheetsService.fetchTrafficData()
-      setTrafficData(data)
-      setLastUpdate(new Date())
-    } catch (err) {
-      setError('Erro ao carregar dados da planilha. Verifique a conexão.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleDataUpdate = ({ data, metrics: m, error: err }) => {
-    if (err) {
-      setError('Erro na atualização automática')
+    const { startDate, endDate, comparePrevStart, comparePrevEnd } = periodFilters
+    if (!startDate || !endDate) {
+      setLoadingCore(false)
       return
     }
-    setTrafficData(data || [])
-    setLastUpdate(new Date())
-  }
+    try {
+      const [
+        ovRes, atRes, tgRes, miRes, mdRes, cTotal, sTotal,
+      ] = await Promise.allSettled([
+        leadsService.fetchOverview({ startDate, endDate }),
+        leadsService.fetchAttribution({ startDate, endDate }),
+        leadsService.fetchTagsMetrics({ startDate, endDate }),
+        metaAdsClient.fetchInsights({ startDate, endDate }).catch((e) => { setMetaError(e?.response?.data?.message || e?.message || 'Meta Ads indisponível'); return null }),
+        metaAdsClient.fetchDailySpend({ days: Math.max(1, periodFilters.days || 7) }).catch(() => null),
+        leadsService.fetchClientsCount({
+          startDate, endDate,
+          utmSource: filters.utmSources?.length ? filters.utmSources.join(',') : undefined,
+          utmMedium: filters.utmMediums?.length ? filters.utmMediums.join(',') : undefined,
+          utmCampaign: filters.utmCampaigns?.length ? filters.utmCampaigns.join(',') : undefined,
+          tags: filters.tags?.length ? filters.tags.join(',') : undefined,
+        }),
+        leadsService.fetchSurveyCount({ startDate, endDate }),
+      ])
 
-  const handlePeriodChange = (period) => {
-    if (period === 'custom') {
-      setDatePickerOpen(true)
-    } else {
-      setSelectedPeriod(period)
-    }
-  }
+      setOverview(ovRes.status === 'fulfilled' ? ovRes.value : null)
+      setAttribution(atRes.status === 'fulfilled' ? atRes.value : null)
+      setTagsMetrics(tgRes.status === 'fulfilled' ? tgRes.value : null)
+      const metaInsightsVal = miRes.status === 'fulfilled' ? miRes.value : null
+      setMetaInsights(metaInsightsVal)
+      setMetaDaily(mdRes.status === 'fulfilled' ? mdRes.value : null)
+      if (metaInsightsVal) setMetaError(null)
+      setClientsTotal(cTotal.status === 'fulfilled' ? cTotal.value : 0)
+      setSurveyTotal(sTotal.status === 'fulfilled' ? sTotal.value : 0)
+      setLastUpdate(new Date())
 
-  const handleCustomDateConfirm = () => {
-    if (customDateRange.start && customDateRange.end) {
-      setSelectedPeriod('custom')
-      setDatePickerOpen(false)
-    }
-  }
-
-  const handleManualRefresh = () => {
-    loadData()
-  }
-
-  const handleIntervalChange = (value) => {
-    setRefreshInterval(value)
-  }
-
-  const toggleAutoRefresh = () => {
-    setAutoRefresh(!autoRefresh)
-  }
-
-  const getPeriodLabel = () => {
-    switch (selectedPeriod) {
-      case 'today':
-        return 'Hoje'
-      case 'yesterday':
-        return 'Ontem'
-      case 'last7days':
-        return 'Últimos 7 dias'
-      case 'last30days':
-        return 'Últimos 30 dias'
-      case 'custom':
-        return `${customDateRange.start?.toLocaleDateString('pt-BR')} - ${customDateRange.end?.toLocaleDateString('pt-BR')}`
-      default:
-        return ''
-    }
-  }
-
-  // Preparar dados para os gráficos
-  const chartData = filteredData
-    .map((row) => {
-      const [day, month] = (row.DATA || '').split('/')
-      const impressoes = row['Nº IMPRESSÕES'] || 0
-      const cliques = row['Nº CLIQUES'] || 0
-      const pageviews = row['Nº PAGEVIEW'] || 0
-      const leads = row['Nº LEADS'] || 0
-      return {
-        date: `${day}/${month}`,
-        fullDate: row.DATA,
-        investimento: row.INVESTIMENTO || 0,
-        impressoes,
-        cliques,
-        pageviews,
-        leads,
-        cpl: row['(CPL)'] || 0,
-        ctr: impressoes > 0 ? parseFloat(((cliques / impressoes) * 100).toFixed(2)) : 0,
-        conversao: pageviews > 0 ? parseFloat(((leads / pageviews) * 100).toFixed(2)) : 0,
+      // Compare period
+      if (filters.compare && comparePrevStart && comparePrevEnd) {
+        const [pCT, pST, pMI, pOv] = await Promise.allSettled([
+          leadsService.fetchClientsCount({ startDate: comparePrevStart, endDate: comparePrevEnd }),
+          leadsService.fetchSurveyCount({ startDate: comparePrevStart, endDate: comparePrevEnd }),
+          metaAdsClient.fetchInsights({ startDate: comparePrevStart, endDate: comparePrevEnd }).catch(() => null),
+          leadsService.fetchOverview({ startDate: comparePrevStart, endDate: comparePrevEnd }),
+        ])
+        setPrev({
+          clientsTotal: pCT.status === 'fulfilled' ? pCT.value : 0,
+          surveyTotal: pST.status === 'fulfilled' ? pST.value : 0,
+          metaInsights: pMI.status === 'fulfilled' ? pMI.value : null,
+          overview: pOv.status === 'fulfilled' ? pOv.value : null,
+        })
+      } else {
+        setPrev(null)
       }
-    })
-    .sort((a, b) => {
-      const [dA, mA, yA] = (a.fullDate || '').split('/')
-      const [dB, mB, yB] = (b.fullDate || '').split('/')
-      const dateA = new Date(yA || 2024, (mA || 1) - 1, dA || 1)
-      const dateB = new Date(yB || 2024, (mB || 1) - 1, dB || 1)
-      return dateA - dateB
-    })
+    } catch (e) {
+      setError('Erro ao carregar dados.')
+      console.error(e)
+    } finally {
+      setLoadingCore(false)
+    }
+  }, [periodFilters.startDate, periodFilters.endDate, periodFilters.comparePrevStart, periodFilters.comparePrevEnd, filters.compare, JSON.stringify(filters.utmSources), JSON.stringify(filters.utmMediums), JSON.stringify(filters.utmCampaigns), JSON.stringify(filters.tags)])
 
-  const totals = metrics?.totals || {}
-  const averages = metrics?.averages || {}
+  useEffect(() => { loadCore() }, [loadCore])
 
-  // Loading state
-  if (loading && !metrics) {
+  // ============ AUTO-REFRESH ============
+  useEffect(() => {
+    if (refreshTimerRef.current) clearInterval(refreshTimerRef.current)
+    if (autoRefresh) {
+      refreshTimerRef.current = setInterval(() => {
+        leadsService.clearCache()
+        metaAdsClient.clearCache()
+        loadCore()
+      }, refreshInterval)
+    }
+    return () => { if (refreshTimerRef.current) clearInterval(refreshTimerRef.current) }
+  }, [autoRefresh, refreshInterval, loadCore])
+
+  // ============ LAZY: Survey (aba pesquisa + attribution + overview) ============
+  useEffect(() => {
+    if (activeTab !== 'survey' && activeTab !== 'overview' && activeTab !== 'attribution') return
+    const { startDate, endDate } = periodFilters
+    if (!startDate || !endDate) return
+    let cancelled = false
+    setLoadingHeavy(true)
+    leadsService.fetchAllSurveyLeads({ startDate, endDate, maxRecords: 8000 })
+      .then((d) => { if (!cancelled) setAllSurveyLeads(d) })
+      .catch(() => { if (!cancelled) setAllSurveyLeads([]) })
+      .finally(() => { if (!cancelled) setLoadingHeavy(false) })
+    return () => { cancelled = true }
+  }, [activeTab, periodFilters.startDate, periodFilters.endDate])
+
+  // ============ LAZY: All clients (aba leads + atribuição + overview) ============
+  useEffect(() => {
+    if (activeTab !== 'leads' && activeTab !== 'attribution' && activeTab !== 'overview') return
+    const { startDate, endDate } = periodFilters
+    if (!startDate || !endDate) return
+    let cancelled = false
+    setLoadingHeavy(true)
+    leadsService.fetchAllClients({
+      startDate, endDate, maxRecords: 8000,
+      utmSource: filters.utmSources?.length ? filters.utmSources.join(',') : undefined,
+      utmMedium: filters.utmMediums?.length ? filters.utmMediums.join(',') : undefined,
+      utmCampaign: filters.utmCampaigns?.length ? filters.utmCampaigns.join(',') : undefined,
+      tags: filters.tags?.length ? filters.tags.join(',') : undefined,
+    })
+      .then((d) => { if (!cancelled) setAllClients(d) })
+      .catch(() => { if (!cancelled) setAllClients([]) })
+      .finally(() => { if (!cancelled) setLoadingHeavy(false) })
+    return () => { cancelled = true }
+  }, [activeTab, periodFilters.startDate, periodFilters.endDate, JSON.stringify(filters.utmSources), JSON.stringify(filters.utmMediums), JSON.stringify(filters.utmCampaigns), JSON.stringify(filters.tags)])
+
+  // ============ FILTER OPTIONS ============
+  const sourceOptions = useMemo(() =>
+    (attribution?.bestSources || []).map(s => ({ value: s.source, label: s.source, count: s.count }))
+  , [attribution])
+
+  const mediumOptions = useMemo(() =>
+    (attribution?.bestMediums || []).map(m => ({ value: m.medium, label: m.medium, count: m.count }))
+  , [attribution])
+
+  const campaignOptions = useMemo(() => {
+    if (!allClients) return []
+    const map = {}
+    for (const c of allClients) {
+      const k = c.utmCampaign
+      if (k) map[k] = (map[k] || 0) + 1
+    }
+    return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 100).map(([v, c]) => ({ value: v, label: v, count: c }))
+  }, [allClients])
+
+  const tagOptions = useMemo(() =>
+    (tagsMetrics?.tagDistribution || []).slice(0, 100).map(t => ({ value: t.tagName, label: t.tagName, count: t.count }))
+  , [tagsMetrics])
+
+  // ============ FILTROS LOCAIS POR DATA (corrige timezone UTC vs local) ============
+  const surveyLeadsLocal = useMemo(
+    () => filterByLocalDate(allSurveyLeads || [], periodFilters.startDate, periodFilters.endDate, (l) => l.createdAt || l.data),
+    [allSurveyLeads, periodFilters.startDate, periodFilters.endDate]
+  )
+  const clientsLocal = useMemo(
+    () => filterByLocalDate(allClients || [], periodFilters.startDate, periodFilters.endDate, (c) => c.createdAt),
+    [allClients, periodFilters.startDate, periodFilters.endDate]
+  )
+
+  // ============ DERIVE KPIS ============
+  const kpis = useMemo(() => {
+    const insights = metaInsights?.data?.[0] || metaInsights || {}
+    const investimento = parseFloat(insights.spend || 0)
+    const impressoes = parseInt(insights.impressions || 0, 10)
+    const cliques = parseInt(insights.clicks || 0, 10)
+    const ctr = parseFloat(insights.ctr || 0)
+    const cpm = parseFloat(insights.cpm || 0)
+
+    // Usa contagens locais (filtradas por dia local) se já carregaram;
+    // cai pro count da API como fallback enquanto carrega
+    const respostas = surveyLeadsLocal.length > 0 || allSurveyLeads ? surveyLeadsLocal.length : surveyTotal
+    const leadsCaptados = clientsLocal.length > 0 || allClients ? clientsLocal.length : clientsTotal
+    const cpl = leadsCaptados > 0 ? investimento / leadsCaptados : 0
+    const taxaResposta = leadsCaptados > 0 ? (respostas / leadsCaptados) * 100 : 0
+    const conversaoPesquisa = leadsCaptados > 0 ? (respostas / leadsCaptados) * 100 : 0
+
+    return {
+      investimento, impressoes, cliques, ctr, cpm, cpl,
+      respostas, leadsCaptados, taxaResposta, conversaoPesquisa,
+    }
+  }, [metaInsights, clientsTotal, surveyTotal, surveyLeadsLocal, clientsLocal, allSurveyLeads, allClients])
+
+  const prevKpis = useMemo(() => {
+    if (!prev) return null
+    const insights = prev.metaInsights?.data?.[0] || prev.metaInsights || {}
+    const investimento = parseFloat(insights.spend || 0)
+    const impressoes = parseInt(insights.impressions || 0, 10)
+    const cliques = parseInt(insights.clicks || 0, 10)
+    const ctr = parseFloat(insights.ctr || 0)
+    const cpm = parseFloat(insights.cpm || 0)
+    const respostas = prev.surveyTotal
+    const leadsCaptados = prev.clientsTotal
+    const cpl = leadsCaptados > 0 ? investimento / leadsCaptados : 0
+    const taxaResposta = leadsCaptados > 0 ? (respostas / leadsCaptados) * 100 : 0
+    const conversaoPesquisa = leadsCaptados > 0 ? (respostas / leadsCaptados) * 100 : 0
+    return {
+      investimento, impressoes, cliques, ctr, cpm, cpl,
+      respostas, leadsCaptados, taxaResposta, conversaoPesquisa,
+    }
+  }, [prev])
+
+  // ============ DAILY SERIES (Overview chart) ============
+  // Agrupa por dia LOCAL (BRT). Restringe ao intervalo do filtro para não mostrar
+  // dias "vazados" via UTC.
+  const dailySeries = useMemo(() => {
+    const surveyByDay = groupByDay(surveyLeadsLocal, (l) => l.createdAt || l.data)
+    const clientsByDay = groupByDay(clientsLocal, (c) => c.createdAt)
+    const metaByDay = {}
+    if (metaDaily?.dailyData) {
+      for (const day of metaDaily.dailyData) {
+        const d = (day.date || day.date_start || '').slice(0, 10)
+        if (!d) continue
+        // Só inclui se cair no intervalo do filtro
+        if (periodFilters.startDate && d < periodFilters.startDate) continue
+        if (periodFilters.endDate && d > periodFilters.endDate) continue
+        metaByDay[d] = day
+      }
+    }
+    const days = new Set([...Object.keys(surveyByDay), ...Object.keys(clientsByDay), ...Object.keys(metaByDay)])
+    return [...days].sort().map((d) => {
+      const meta = metaByDay[d] || {}
+      const respostas = surveyByDay[d] || 0
+      const leads = clientsByDay[d] || 0
+      const investimento = parseFloat(meta.spend || 0)
+      const impressoes = parseInt(meta.impressions || 0, 10)
+      const cliques = parseInt(meta.clicks || 0, 10)
+      const ctr = parseFloat(meta.ctr || 0)
+      const cpl = leads > 0 ? investimento / leads : 0
+      const conversao = leads > 0 ? (respostas / leads) * 100 : 0
+      const [, m, day] = d.split('-')
+      return { date: `${day}/${m}`, fullDate: d, investimento, impressoes, cliques, ctr, leads, respostas, cpl, conversao }
+    })
+  }, [surveyLeadsLocal, clientsLocal, metaDaily, periodFilters.startDate, periodFilters.endDate])
+
+  // Apply filter callback (do AttributionTab → filtros globais)
+  const handleApplyFilter = (patch) => setFilters(f => ({ ...f, ...patch }))
+
+  if (loadingCore && !overview) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background-light via-slate-50 to-blue-50 dark:from-background-dark dark:via-gray-900 dark:to-slate-900 p-6">
-        <div className="max-w-7xl mx-auto flex items-start justify-center pt-32">
-          <div className="flex flex-col items-center animate-fade-in">
-            <div className="relative">
-              <div className="animate-spin rounded-full h-32 w-32 border-4 border-primary/20" />
-              <div className="animate-spin rounded-full h-32 w-32 border-4 border-primary border-t-transparent absolute top-0 left-0" />
-              <div className="absolute inset-0 rounded-full bg-primary/10 animate-pulse" />
-            </div>
-            <p className="mt-6 text-xl text-text-light dark:text-text-dark font-medium animate-pulse">
-              Carregando dados de tráfego...
-            </p>
-          </div>
+      <div className="min-h-screen bg-gradient-to-br from-background-light via-slate-50 to-blue-50 dark:from-background-dark dark:via-gray-900 dark:to-slate-900 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <FaSpinner className="w-12 h-12 text-primary animate-spin" />
+          <p className="text-sm text-gray-500">Carregando Monitor de Tráfego...</p>
         </div>
       </div>
     )
@@ -511,586 +329,125 @@ const TrafficMonitor = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background-light via-slate-50 to-blue-50 dark:from-background-dark dark:via-gray-900 dark:to-slate-900 p-6">
-      <div className="max-w-7xl mx-auto relative">
-        {/* Loading bar sutil durante atualizações */}
-        {loading && metrics && (
-          <div className="fixed top-0 left-0 right-0 h-1 z-[9999] bg-primary/20">
-            <div className="h-full bg-primary animate-pulse w-full" />
-          </div>
-        )}
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <header className="mb-6">
+          <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-text-light to-primary dark:from-text-dark dark:to-primary bg-clip-text text-transparent">
+            Monitor de Tráfego
+          </h1>
+          <p className="text-text-muted-light dark:text-text-muted-dark text-sm mt-1">
+            {periodLabel(filters)} · análise multi-fonte: Leads API · Meta Ads · ActiveCampaign
+          </p>
+        </header>
 
-        {/* ===== HEADER ===== */}
-        <div className="mb-10 relative">
-          <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-blue-500/5 to-purple-500/10 dark:from-primary/20 dark:via-blue-500/10 dark:to-purple-500/20 rounded-3xl blur-xl" />
-          <div className="relative bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
-            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-              <div>
-                <h1 className="text-4xl font-bold bg-gradient-to-r from-text-light to-primary dark:from-text-dark dark:to-primary bg-clip-text text-transparent mb-2">
-                  Monitor de Tráfego
-                </h1>
-                <p className="text-text-muted-light dark:text-text-muted-dark text-lg">
-                  Acompanhe as métricas de performance em tempo real
-                </p>
-              </div>
+        {/* Filtros globais */}
+        <MonitorFilters
+          filters={filters}
+          onChange={setFilters}
+          sourceOptions={sourceOptions}
+          mediumOptions={mediumOptions}
+          campaignOptions={campaignOptions}
+          tagOptions={tagOptions}
+          onRefresh={() => { leadsService.clearCache(); metaAdsClient.clearCache(); loadCore() }}
+          autoRefresh={autoRefresh}
+          onToggleAutoRefresh={() => setAutoRefresh(a => !a)}
+          refreshInterval={refreshInterval}
+          onChangeInterval={setRefreshInterval}
+          lastUpdate={lastUpdate}
+          loading={loadingCore}
+        />
 
-              <div className="flex items-center gap-3">
-                {lastUpdate && (
-                  <span className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm text-sm text-text-muted-light dark:text-text-muted-dark border border-white/20 dark:border-gray-700/50">
-                    <FaClock className="w-3.5 h-3.5" />
-                    {lastUpdate.toLocaleTimeString('pt-BR')}
-                  </span>
-                )}
-
-                <button
-                  onClick={toggleAutoRefresh}
-                  className={`p-3 rounded-xl backdrop-blur-sm border transition-all duration-300 ${
-                    autoRefresh
-                      ? 'bg-primary/10 dark:bg-primary/20 border-primary/30 text-primary'
-                      : 'bg-white/50 dark:bg-gray-800/50 border-white/20 dark:border-gray-700/50 text-text-muted-light dark:text-text-muted-dark'
-                  }`}
-                  title={autoRefresh ? 'Pausar atualização' : 'Iniciar atualização'}
-                >
-                  {autoRefresh ? <FaPause className="w-4 h-4" /> : <FaPlay className="w-4 h-4" />}
-                </button>
-
-                <button
-                  onClick={handleManualRefresh}
-                  className="p-3 rounded-xl bg-gradient-to-r from-primary to-primary-dark text-white shadow-lg hover:shadow-xl hover:shadow-primary/25 transition-all duration-300 transform hover:scale-105"
-                  title="Atualizar agora"
-                >
-                  <FaSync className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                </button>
-              </div>
-            </div>
-
-            {/* Filtros de período */}
-            <div className="mt-6 pt-6 border-t border-white/10 dark:border-gray-700/30">
-              <div className="flex flex-wrap gap-3">
-                {/* Botão HOJE - proeminente */}
-                <button
-                  onClick={() => handlePeriodChange('today')}
-                  className={`px-6 py-3 rounded-xl text-sm font-bold transition-all duration-300 transform hover:scale-105 flex items-center gap-2 ${
-                    selectedPeriod === 'today'
-                      ? 'bg-gradient-to-r from-primary to-primary-dark text-white shadow-lg shadow-primary/25'
-                      : 'bg-primary/10 dark:bg-primary/20 text-primary border-2 border-primary/30 hover:bg-primary/20 dark:hover:bg-primary/30'
-                  }`}
-                >
-                  <FaCalendarDay className="w-4 h-4" />
-                  HOJE
-                </button>
-
-                {/* Ontem */}
-                <button
-                  onClick={() => handlePeriodChange('yesterday')}
-                  className={`px-5 py-3 rounded-xl text-sm font-medium transition-all duration-300 flex items-center gap-2 ${
-                    selectedPeriod === 'yesterday'
-                      ? 'bg-white dark:bg-gray-700 text-text-light dark:text-text-dark shadow-lg border border-primary/30'
-                      : 'bg-white/50 dark:bg-gray-800/50 text-text-muted-light dark:text-text-muted-dark hover:bg-white dark:hover:bg-gray-700 border border-transparent hover:border-gray-200 dark:hover:border-gray-600'
-                  }`}
-                >
-                  <FaCalendarDay className="w-3.5 h-3.5" />
-                  ONTEM
-                </button>
-
-                {/* 7 dias */}
-                <button
-                  onClick={() => handlePeriodChange('last7days')}
-                  className={`px-5 py-3 rounded-xl text-sm font-medium transition-all duration-300 flex items-center gap-2 ${
-                    selectedPeriod === 'last7days'
-                      ? 'bg-white dark:bg-gray-700 text-text-light dark:text-text-dark shadow-lg border border-primary/30'
-                      : 'bg-white/50 dark:bg-gray-800/50 text-text-muted-light dark:text-text-muted-dark hover:bg-white dark:hover:bg-gray-700 border border-transparent hover:border-gray-200 dark:hover:border-gray-600'
-                  }`}
-                >
-                  <FaCalendarWeek className="w-3.5 h-3.5" />
-                  7 dias
-                </button>
-
-                {/* 30 dias */}
-                <button
-                  onClick={() => handlePeriodChange('last30days')}
-                  className={`px-5 py-3 rounded-xl text-sm font-medium transition-all duration-300 flex items-center gap-2 ${
-                    selectedPeriod === 'last30days'
-                      ? 'bg-white dark:bg-gray-700 text-text-light dark:text-text-dark shadow-lg border border-primary/30'
-                      : 'bg-white/50 dark:bg-gray-800/50 text-text-muted-light dark:text-text-muted-dark hover:bg-white dark:hover:bg-gray-700 border border-transparent hover:border-gray-200 dark:hover:border-gray-600'
-                  }`}
-                >
-                  <FaCalendar className="w-3.5 h-3.5" />
-                  30 dias
-                </button>
-
-                {/* Personalizado */}
-                <button
-                  onClick={() => handlePeriodChange('custom')}
-                  className={`px-5 py-3 rounded-xl text-sm font-medium transition-all duration-300 flex items-center gap-2 ${
-                    selectedPeriod === 'custom'
-                      ? 'bg-white dark:bg-gray-700 text-text-light dark:text-text-dark shadow-lg border border-primary/30'
-                      : 'bg-white/50 dark:bg-gray-800/50 text-text-muted-light dark:text-text-muted-dark hover:bg-white dark:hover:bg-gray-700 border border-transparent hover:border-gray-200 dark:hover:border-gray-600'
-                  }`}
-                >
-                  <FaCalendarAlt className="w-3.5 h-3.5" />
-                  Personalizado
-                </button>
-              </div>
-
-              {/* Auto-refresh indicator + interval selector */}
-              {autoRefresh && (
-                <div className="mt-4 flex items-center gap-4 text-sm text-text-muted-light dark:text-text-muted-dark">
-                  <span className="flex items-center gap-2">
-                    <span className="relative flex h-2.5 w-2.5">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary" />
-                    </span>
-                    Auto-refresh ativo
-                  </span>
-                  <div className="flex gap-1 bg-white/50 dark:bg-gray-800/50 rounded-lg p-1">
-                    {[
-                      { label: '30s', value: 30000 },
-                      { label: '1m', value: 60000 },
-                      { label: '5m', value: 300000 },
-                    ].map((opt) => (
-                      <button
-                        key={opt.value}
-                        onClick={() => handleIntervalChange(opt.value)}
-                        className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 ${
-                          refreshInterval === opt.value
-                            ? 'bg-primary text-white shadow-sm'
-                            : 'text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Erro */}
         {error && (
-          <div className="mb-8 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-600 dark:text-red-400 flex items-center gap-3">
-            <span className="w-2 h-2 bg-red-500 rounded-full" />
+          <div className="mb-6 p-4 rounded-xl bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-sm">
             {error}
           </div>
         )}
 
-        {/* ===== INDICADORES GERAIS (5 cards neutros) ===== */}
-        <h2 className="text-xl font-bold text-text-light dark:text-text-dark mb-6 flex items-center gap-2">
-          <FaChartLine className="text-primary" />
-          Indicadores Gerais
-        </h2>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-10">
-          <MetricCard
-            icon={FaDollarSign}
-            title="Investimento Total"
-            value={formatCurrency(totals.investimento || 0)}
-            subtitle={getPeriodLabel()}
-            gradientFrom="#6BA38E"
-            gradientTo="#8DBFAC"
-            iconGradientFrom="#6BA38E"
-            iconGradientTo="#578A76"
-            delay="0s"
-          />
-          <MetricCard
-            icon={FaEye}
-            title="Impressões"
-            value={formatNumber(totals.impressoes || 0)}
-            subtitle={getPeriodLabel()}
-            gradientFrom="#7B9CC7"
-            gradientTo="#9BB6DA"
-            iconGradientFrom="#7B9CC7"
-            iconGradientTo="#6183B0"
-            delay="0.1s"
-          />
-          <MetricCard
-            icon={FaMousePointer}
-            title="Cliques"
-            value={formatNumber(totals.cliques || 0)}
-            subtitle={getPeriodLabel()}
-            gradientFrom="#9688BF"
-            gradientTo="#AFA3D1"
-            iconGradientFrom="#9688BF"
-            iconGradientTo="#7D6DAA"
-            delay="0.2s"
-          />
-          <MetricCard
-            icon={FaUsers}
-            title="Leads Gerados"
-            value={formatNumber(totals.leads || 0)}
-            subtitle={getPeriodLabel()}
-            gradientFrom="#C4A46C"
-            gradientTo="#D6BB8E"
-            iconGradientFrom="#C4A46C"
-            iconGradientTo="#A98B55"
-            delay="0.3s"
-          />
-          <MetricCard
-            icon={FaDollarSign}
-            title="CPC Médio"
-            value={formatCurrency(averages.cpc || 0)}
-            subtitle="Custo por Clique"
-            gradientFrom="#6BAFAA"
-            gradientTo="#8DC7C3"
-            iconGradientFrom="#6BAFAA"
-            iconGradientTo="#579692"
-            delay="0.4s"
-          />
-        </div>
-
-        {/* ===== METAS DE PERFORMANCE (4 cards com meta) ===== */}
-        <h2 className="text-xl font-bold text-text-light dark:text-text-dark mb-6 flex items-center gap-2">
-          <FaBullseye className="text-blue-500" />
-          Metas de Performance
-        </h2>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-          <MetricCard
-            icon={FaDollarSign}
-            title="CPM"
-            value={formatCurrency(averages.cpm || 0)}
-            subtitle="Custo por Mil"
-            goalKey="cpm"
-            goalValue={goals.cpm}
-            onGoalChange={handleGoalChange}
-            isInverse={true}
-            rawValue={averages.cpm || 0}
-            goalPrefix="R$ "
-            delay="0s"
-          />
-          <MetricCard
-            icon={FaPercent}
-            title="CTR Médio"
-            value={formatPercent(averages.ctr || 0)}
-            subtitle="Click-Through Rate"
-            goalKey="ctr"
-            goalValue={goals.ctr}
-            onGoalChange={handleGoalChange}
-            isInverse={false}
-            rawValue={averages.ctr || 0}
-            goalSuffix="%"
-            delay="0.1s"
-          />
-          <MetricCard
-            icon={FaUsers}
-            title="CPL Médio"
-            value={formatCurrency(averages.cpl || 0)}
-            subtitle="Custo por Lead"
-            goalKey="cpl"
-            goalValue={goals.cpl}
-            onGoalChange={handleGoalChange}
-            isInverse={true}
-            rawValue={averages.cpl || 0}
-            goalPrefix="R$ "
-            delay="0.2s"
-          />
-          <MetricCard
-            icon={FaBullseye}
-            title="Conversão Página"
-            value={formatPercent(averages.conversaoPagina || 0)}
-            subtitle="Lead / Pageview"
-            goalKey="conversao"
-            goalValue={goals.conversao}
-            onGoalChange={handleGoalChange}
-            isInverse={false}
-            rawValue={averages.conversaoPagina || 0}
-            goalSuffix="%"
-            delay="0.3s"
-          />
-        </div>
-
-        {/* ===== GRÁFICO PRINCIPAL - MÉTRICAS DIÁRIAS ===== */}
-        <div className="group relative animate-slide-up mb-10">
-          <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-blue-500/5 to-amber-500/10 dark:from-primary/15 dark:via-blue-500/10 dark:to-amber-500/15 rounded-3xl blur-xl" />
-          <div className="relative bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-3">
-              <div>
-                <h2 className="text-2xl font-bold text-text-light dark:text-text-dark flex items-center gap-3">
-                  <FaChartLine className="text-primary" />
-                  Métricas Diárias
-                </h2>
-                <p className="text-text-muted-light dark:text-text-muted-dark mt-1 text-sm">
-                  {getPeriodLabel()} — Investimento, Leads, CPL, CTR e Conversão por dia
-                </p>
-              </div>
-              <span className="px-3 py-1.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
-                {chartData.length} {chartData.length === 1 ? 'dia' : 'dias'}
-              </span>
-            </div>
-
-            {chartData.length > 0 ? (
-              <div className="h-[500px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={chartData} margin={{ top: 5, right: 70, bottom: 5, left: 10 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" strokeOpacity={0.5} />
-                    <XAxis
-                      dataKey="date"
-                      tick={{ fontSize: 12, fill: '#94A3B8' }}
-                      stroke="#CBD5E1"
-                      tickLine={false}
-                    />
-                    {/* Eixo esquerdo: Investimento + CPL (R$) */}
-                    <YAxis
-                      yAxisId="currency"
-                      orientation="left"
-                      tick={{ fontSize: 11, fill: '#22c55e' }}
-                      stroke="#22c55e"
-                      strokeOpacity={0.3}
-                      tickFormatter={(v) => `R$${v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v}`}
-                      tickLine={false}
-                    />
-                    {/* Eixo direito: Leads (quantidade) */}
-                    <YAxis
-                      yAxisId="count"
-                      orientation="right"
-                      tick={{ fontSize: 11, fill: '#F59E0B' }}
-                      stroke="#F59E0B"
-                      strokeOpacity={0.3}
-                      tickLine={false}
-                    />
-                    {/* Eixo oculto para CPL (escala independente) */}
-                    <YAxis
-                      yAxisId="cpl"
-                      orientation="right"
-                      hide={true}
-                    />
-                    {/* Eixo oculto para CTR (escala independente) */}
-                    <YAxis
-                      yAxisId="ctr"
-                      orientation="right"
-                      hide={true}
-                    />
-                    {/* Eixo direito 2: Conversão (%) */}
-                    <YAxis
-                      yAxisId="percent"
-                      orientation="right"
-                      tick={{ fontSize: 11, fill: '#10B981' }}
-                      stroke="#10B981"
-                      strokeOpacity={0.3}
-                      tickFormatter={(v) => `${v}%`}
-                      tickLine={false}
-                      dx={40}
-                    />
-                    <RechartsTooltip content={<CustomChartTooltip />} />
-                    <Legend
-                      wrapperStyle={{ paddingTop: '20px' }}
-                      iconType="circle"
-                      iconSize={8}
-                    />
-                    <Bar
-                      yAxisId="currency"
-                      dataKey="investimento"
-                      name="Investimento"
-                      fill="#22c55e"
-                      fillOpacity={0.85}
-                      radius={[6, 6, 0, 0]}
-                      barSize={chartData.length > 14 ? 18 : chartData.length > 7 ? 28 : 40}
-                    />
-                    <Line
-                      yAxisId="count"
-                      type="monotone"
-                      dataKey="leads"
-                      name="Leads"
-                      stroke="#F59E0B"
-                      strokeWidth={2.5}
-                      dot={{ fill: '#F59E0B', r: 4, strokeWidth: 0 }}
-                      activeDot={{ r: 6, strokeWidth: 2, stroke: '#fff' }}
-                    />
-                    <Line
-                      yAxisId="cpl"
-                      type="monotone"
-                      dataKey="cpl"
-                      name="CPL"
-                      stroke="#EF4444"
-                      strokeWidth={2}
-                      strokeDasharray="5 5"
-                      dot={{ fill: '#EF4444', r: 3, strokeWidth: 0 }}
-                      activeDot={{ r: 5, strokeWidth: 2, stroke: '#fff' }}
-                    />
-                    <Line
-                      yAxisId="ctr"
-                      type="monotone"
-                      dataKey="ctr"
-                      name="CTR"
-                      stroke="#8B5CF6"
-                      strokeWidth={2}
-                      dot={{ fill: '#8B5CF6', r: 3, strokeWidth: 0 }}
-                      activeDot={{ r: 5, strokeWidth: 2, stroke: '#fff' }}
-                    />
-                    <Line
-                      yAxisId="percent"
-                      type="monotone"
-                      dataKey="conversao"
-                      name="Conversão"
-                      stroke="#10B981"
-                      strokeWidth={2}
-                      dot={{ fill: '#10B981', r: 3, strokeWidth: 0 }}
-                      activeDot={{ r: 5, strokeWidth: 2, stroke: '#fff' }}
-                    />
-                  </ComposedChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <div className="h-96 flex items-center justify-center text-text-muted-light dark:text-text-muted-dark">
-                <div className="text-center">
-                  <FaChartLine className="w-16 h-16 mx-auto mb-4 opacity-20" />
-                  <p className="text-lg font-medium">Sem dados para o período selecionado</p>
-                  <p className="text-sm mt-1">Tente selecionar outro período</p>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* ===== RESUMO DO PERÍODO ===== */}
-        <div className="group relative animate-slide-up mb-10">
-          <div className="absolute inset-0 bg-gradient-to-r from-slate-500/10 via-gray-500/5 to-zinc-500/10 dark:from-slate-500/15 dark:via-gray-500/10 dark:to-zinc-500/15 rounded-3xl blur-xl" />
-          <div className="relative bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <FaCalendar className="text-primary text-xl" />
-              <h2 className="text-2xl font-bold text-text-light dark:text-text-dark">
-                Resumo do Período
-              </h2>
-              <span className="px-3 py-1.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
-                {getPeriodLabel()}
-              </span>
-            </div>
-
-            <div className="border-t border-white/10 dark:border-gray-700/30 pt-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Coluna esquerda */}
-                <div>
-                  <h3 className="text-sm font-semibold text-text-muted-light dark:text-text-muted-dark uppercase tracking-wider mb-4">
-                    Dados do Período
-                  </h3>
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-800">
-                      <span className="text-text-muted-light dark:text-text-muted-dark text-sm">Total de dias analisados</span>
-                      <span className="font-bold text-text-light dark:text-text-dark text-lg">{metrics?.dataCount || 0}</span>
-                    </div>
-                    <div className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-800">
-                      <span className="text-text-muted-light dark:text-text-muted-dark text-sm">ROI estimado</span>
-                      <span className="font-bold text-primary text-lg">
-                        {totals.leads > 0 ? ((totals.leads * 100 / (totals.investimento || 1))).toFixed(1) : '0'}%
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center py-2">
-                      <span className="text-text-muted-light dark:text-text-muted-dark text-sm">Custo por mil (CPM)</span>
-                      <span className="font-bold text-text-light dark:text-text-dark text-lg">
-                        {formatCurrency(averages.cpm || 0)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Coluna direita */}
-                <div>
-                  <h3 className="text-sm font-semibold text-text-muted-light dark:text-text-muted-dark uppercase tracking-wider mb-4">
-                    Estatísticas de Engajamento
-                  </h3>
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-800">
-                      <span className="text-text-muted-light dark:text-text-muted-dark text-sm">Taxa de carregamento</span>
-                      <span className="font-bold text-text-light dark:text-text-dark text-lg">
-                        {formatPercent(averages.carregamentoPagina || 0)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-800">
-                      <span className="text-text-muted-light dark:text-text-muted-dark text-sm">Média de pageviews/dia</span>
-                      <span className="font-bold text-text-light dark:text-text-dark text-lg">
-                        {formatNumber(Math.round((totals.pageviews || 0) / (metrics?.dataCount || 1)))}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center py-2">
-                      <span className="text-text-muted-light dark:text-text-muted-dark text-sm">Eficiência do investimento</span>
-                      <span className="font-bold text-primary text-lg">
-                        {totals.cliques > 0 ? ((totals.leads / totals.cliques * 100)).toFixed(1) : '0'}%
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ===== MODAL DE PERÍODO PERSONALIZADO ===== */}
-        {datePickerOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div
-              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-              onClick={() => setDatePickerOpen(false)}
-            />
-            <div className="relative bg-white dark:bg-secondary rounded-3xl p-8 shadow-2xl border border-gray-200 dark:border-gray-700 max-w-md w-full animate-slide-up">
-              <h3 className="text-xl font-bold text-text-light dark:text-text-dark mb-6">
-                Selecionar Período
-              </h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-text-muted-light dark:text-text-muted-dark mb-2">
-                    Data Inicial
-                  </label>
-                  <input
-                    type="date"
-                    value={
-                      customDateRange.start
-                        ? customDateRange.start.toLocaleDateString('en-CA')
-                        : ''
-                    }
-                    onChange={(e) =>
-                      setCustomDateRange({
-                        ...customDateRange,
-                        start: e.target.value ? new Date(e.target.value + 'T12:00:00') : null,
-                      })
-                    }
-                    className="w-full px-4 py-3 border border-primary/20 rounded-xl text-text-light dark:text-text-dark bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg focus:ring-4 focus:ring-primary/20 focus:border-primary transition-all outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-text-muted-light dark:text-text-muted-dark mb-2">
-                    Data Final
-                  </label>
-                  <input
-                    type="date"
-                    value={
-                      customDateRange.end
-                        ? customDateRange.end.toLocaleDateString('en-CA')
-                        : ''
-                    }
-                    onChange={(e) =>
-                      setCustomDateRange({
-                        ...customDateRange,
-                        end: e.target.value ? new Date(e.target.value + 'T12:00:00') : null,
-                      })
-                    }
-                    min={
-                      customDateRange.start
-                        ? customDateRange.start.toLocaleDateString('en-CA')
-                        : ''
-                    }
-                    className="w-full px-4 py-3 border border-primary/20 rounded-xl text-text-light dark:text-text-dark bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg focus:ring-4 focus:ring-primary/20 focus:border-primary transition-all outline-none"
-                  />
-                </div>
-              </div>
-              <div className="flex justify-end gap-3 mt-8">
-                <button
-                  onClick={() => setDatePickerOpen(false)}
-                  className="px-6 py-3 rounded-xl bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition-all"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleCustomDateConfirm}
-                  disabled={!customDateRange.start || !customDateRange.end}
-                  className="px-6 py-3 rounded-xl bg-gradient-to-r from-primary to-primary-dark text-white font-medium shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Confirmar
-                </button>
-              </div>
+        {metaError && (
+          <div className="mb-6 p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-sm flex items-start gap-3">
+            <span className="font-bold shrink-0">⚠ Meta Ads indisponível</span>
+            <div className="flex-1">
+              <p className="text-xs">Os cards de Investimento, Impressões, Cliques, CTR, CPM e CPC ficarão zerados até o token ser renovado. Demais fontes (Leads API, ActiveCampaign) operam normalmente.</p>
+              <p className="text-[10px] mt-1 font-mono opacity-70 break-all">{metaError}</p>
             </div>
           </div>
         )}
+
+        {/* Tabs */}
+        <div className="flex gap-1.5 overflow-x-auto pb-2 mb-6 items-center">
+          {TABS.map(t => {
+            const Icon = t.icon
+            const active = activeTab === t.id
+            return (
+              <button
+                key={t.id}
+                onClick={() => setActiveTab(t.id)}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-xl font-medium text-xs sm:text-sm transition-all whitespace-nowrap shrink-0 ${
+                  active
+                    ? 'bg-gradient-to-r from-primary to-primary-dark text-white shadow-lg shadow-primary/25'
+                    : 'bg-white dark:bg-[#141419] text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-[#27272a]'
+                }`}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                {t.label}
+              </button>
+            )
+          })}
+
+          <Link
+            to="/dados"
+            className="ml-2 flex items-center gap-1.5 px-4 py-2 rounded-xl font-medium text-xs sm:text-sm transition-all whitespace-nowrap shrink-0 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border border-emerald-300/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/40"
+            title="Abrir explorador de dados (planilha)"
+          >
+            <FaDatabase className="w-3.5 h-3.5" />
+            Dados (planilha)
+            <FaExternalLinkAlt className="w-2.5 h-2.5 opacity-60" />
+          </Link>
+        </div>
+
+        {/* Tab content */}
+        {activeTab === 'overview' && (
+          <OverviewTab
+            filters={filters}
+            periodFilters={periodFilters}
+            dailySeries={dailySeries}
+            kpis={kpis}
+            prevKpis={prevKpis}
+            goals={goals}
+            onGoalChange={handleGoalChange}
+          />
+        )}
+        {activeTab === 'attribution' && (
+          <AttributionTab
+            attribution={attribution}
+            allClients={allClients || []}
+            allSurveyLeads={allSurveyLeads || []}
+            onApplyFilter={handleApplyFilter}
+            filters={filters}
+          />
+        )}
+        {activeTab === 'survey' && (
+          <SurveyTab
+            allSurveyLeads={allSurveyLeads || []}
+            allClients={allClients || []}
+            loading={loadingHeavy}
+            periodFilters={periodFilters}
+          />
+        )}
+        {activeTab === 'leads' && (
+          <LeadsTab
+            allClients={allClients || []}
+            tagsMetrics={tagsMetrics}
+            periodFilters={periodFilters}
+            filters={filters}
+            onApplyFilter={handleApplyFilter}
+            loading={loadingHeavy}
+          />
+        )}
+        {activeTab === 'activecampaign' && (
+          <ActiveCampaignTab periodFilters={periodFilters} filters={filters} />
+        )}
+        {activeTab === 'realtime' && <RealTimeTab />}
       </div>
     </div>
   )

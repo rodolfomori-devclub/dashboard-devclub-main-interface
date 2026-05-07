@@ -19,6 +19,7 @@ import TSDashboard from './pages/TSDashboard'
 import TrafficDashboard from './pages/TrafficDashboard'
 import TrafficMonitor from './pages/TrafficMonitor'
 import LeadsPage from './pages/LeadsPage'
+import DataExplorer from './pages/DataExplorer'
 import VidometroPage from './pages/VidometroPage'
 import RefundsPage from './pages/RefundsPage'
 
@@ -172,6 +173,12 @@ function AppRouter() {
       <Route path="/monitor" element={
         <ProtectedRoute>
           <AuthenticatedLayout><TrafficMonitor /></AuthenticatedLayout>
+        </ProtectedRoute>
+      } />
+
+      <Route path="/dados" element={
+        <ProtectedRoute>
+          <AuthenticatedLayout><DataExplorer /></AuthenticatedLayout>
         </ProtectedRoute>
       } />
 
