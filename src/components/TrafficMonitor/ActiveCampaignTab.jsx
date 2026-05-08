@@ -6,14 +6,14 @@ import {
 import {
   FaEnvelope, FaList, FaSearch, FaSpinner, FaChevronLeft, FaChevronRight,
   FaExclamationTriangle, FaUserPlus, FaDatabase, FaSortUp, FaSortDown,
-  FaFilter, FaTimes,
+  FaFilter, FaTimes, FaDollarSign, FaSync,
 } from 'react-icons/fa'
-import { formatNumber, periodLabel } from './utils'
+import { formatNumber, formatCurrency, periodLabel } from './utils'
 import { activeCampaignService } from '../../services/activeCampaignService'
 
 const PAGE_SIZE = 25
 
-const ActiveCampaignTab = ({ periodFilters, filters }) => {
+const ActiveCampaignTab = ({ periodFilters, filters, kpis = {} }) => {
   const [summary, setSummary] = useState(null)
   const [dailySeries, setDailySeries] = useState([])
   const [loading, setLoading] = useState(true)
@@ -33,6 +33,27 @@ const ActiveCampaignTab = ({ periodFilters, filters }) => {
   const [contactsLoading, setContactsLoading] = useState(false)
 
   // ============ load summary + series quando período/lista mudam ============
+  const reloadSummary = (force = false) => {
+    if (force) activeCampaignService.clearCache()
+    setLoading(true)
+    setError(null)
+    return Promise.all([
+      activeCampaignService.getListsSummary({
+        startDate: periodFilters.startDate, endDate: periodFilters.endDate,
+      }),
+      activeCampaignService.getDailySeries({
+        startDate: periodFilters.startDate, endDate: periodFilters.endDate,
+        listId: selectedListId || undefined,
+      }),
+    ])
+      .then(([s, d]) => {
+        setSummary(s?.data || null)
+        setDailySeries(d?.data || [])
+      })
+      .catch((err) => setError(err?.response?.data?.message || err.message))
+      .finally(() => setLoading(false))
+  }
+
   useEffect(() => {
     let cancelled = false
     setLoading(true)
@@ -141,6 +162,29 @@ const ActiveCampaignTab = ({ periodFilters, filters }) => {
 
   return (
     <div className="space-y-6">
+      {/* Indicador de período + botão refresh forçado */}
+      <section className="bg-emerald-50 dark:bg-emerald-900/10 rounded-xl border border-emerald-200 dark:border-emerald-800/40 p-3 flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2 text-xs">
+          <FaFilter className="text-emerald-600 w-3.5 h-3.5" />
+          <span className="text-gray-500 uppercase font-semibold">Período consultado:</span>
+          <span className="font-bold text-emerald-700 dark:text-emerald-300">
+            {periodLabel(filters)}
+            {periodFilters.startDate && (
+              <span className="ml-2 text-gray-500 font-normal">({periodFilters.startDate} → {periodFilters.endDate})</span>
+            )}
+          </span>
+        </div>
+        <button
+          onClick={() => reloadSummary(true)}
+          disabled={loading}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white dark:bg-[#141419] border border-gray-200 dark:border-[#27272a] hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
+          title="Limpar cache local e recarregar"
+        >
+          <FaSync className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
+          Forçar atualização
+        </button>
+      </section>
+
       {/* Filtro de lista (afeta SÓ esta aba) */}
       <section className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] p-4 shadow-sm flex items-center gap-3 flex-wrap">
         <FaFilter className="text-gray-400 w-3.5 h-3.5" />
@@ -180,17 +224,31 @@ const ActiveCampaignTab = ({ periodFilters, filters }) => {
       </section>
 
       {/* KPIs */}
-      <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
         <KpiBox
           icon={FaUserPlus}
-          label={selectedListId ? 'Novos nesta lista' : 'Novos no período'}
+          label={selectedListId ? 'Entradas nesta lista' : 'Entradas em listas'}
           value={formatNumber(newInPeriodKpi)}
           color="from-emerald-500 to-teal-500"
-          sub={periodLabel(filters)}
+          sub={`${periodLabel(filters)} · novos + reentradas`}
         />
+        {(() => {
+          const investimento = Number(kpis?.investimento) || 0
+          const leads = newInPeriodKpi || 0
+          const cpl = leads > 0 ? investimento / leads : 0
+          return (
+            <KpiBox
+              icon={FaDollarSign}
+              label="Preço por Lead AC"
+              value={cpl > 0 ? formatCurrency(cpl) : '—'}
+              color="from-rose-500 to-pink-500"
+              sub={`${formatCurrency(investimento)} ÷ ${formatNumber(leads)}`}
+            />
+          )
+        })()}
         <KpiBox
           icon={FaList}
-          label="Listas com novos"
+          label="Listas com entradas"
           value={formatNumber(activeLists.length)}
           color="from-purple-500 to-fuchsia-500"
           sub={`de ${formatNumber(summary?.totalLists || 0)} totais`}
@@ -211,11 +269,79 @@ const ActiveCampaignTab = ({ periodFilters, filters }) => {
         />
       </section>
 
+      {/* Split: novos vs recorrentes */}
+      {(() => {
+        const novos = selectedList ? selectedList.novosInPeriod : (summary?.totalNewContacts || 0)
+        const existentes = selectedList ? selectedList.existentesInPeriod : (summary?.totalExistingContacts || 0)
+        const total = novos + existentes
+        const pctNovos = total > 0 ? (novos / total) * 100 : 0
+        const pctExistentes = total > 0 ? (existentes / total) * 100 : 0
+        return (
+          <section className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] p-5 shadow-sm">
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+              <h3 className="text-sm font-bold flex items-center gap-2">
+                <FaUserPlus className="text-emerald-500" />
+                Novos vs Recorrentes {selectedList && <span className="text-gray-500 font-normal">· {selectedList.listName}</span>}
+              </h3>
+              <span className="text-xs text-gray-500">total: <span className="font-semibold text-text-light dark:text-text-dark">{formatNumber(total)}</span> entradas</span>
+            </div>
+
+            {total > 0 ? (
+              <>
+                {/* Barra empilhada */}
+                <div className="flex h-8 rounded-lg overflow-hidden mb-3 shadow-inner">
+                  <div
+                    className="bg-gradient-to-r from-emerald-500 to-teal-500 flex items-center justify-end pr-3 text-white text-xs font-bold transition-all"
+                    style={{ width: `${pctNovos}%` }}
+                    title={`${formatNumber(novos)} novos`}
+                  >
+                    {pctNovos >= 12 && `${pctNovos.toFixed(1)}%`}
+                  </div>
+                  <div
+                    className="bg-gradient-to-r from-amber-500 to-orange-500 flex items-center justify-start pl-3 text-white text-xs font-bold transition-all"
+                    style={{ width: `${pctExistentes}%` }}
+                    title={`${formatNumber(existentes)} recorrentes`}
+                  >
+                    {pctExistentes >= 12 && `${pctExistentes.toFixed(1)}%`}
+                  </div>
+                </div>
+
+                {/* Legenda + números */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20">
+                    <span className="w-3 h-3 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500" />
+                    <div className="flex-1">
+                      <p className="text-[10px] text-gray-500 uppercase font-semibold">Novos contatos</p>
+                      <p className="text-lg font-bold text-emerald-700 dark:text-emerald-300">
+                        {formatNumber(novos)} <span className="text-xs font-normal text-gray-500">({pctNovos.toFixed(1)}%)</span>
+                      </p>
+                      <p className="text-[10px] text-gray-400">1ª vez no AC</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20">
+                    <span className="w-3 h-3 rounded-full bg-gradient-to-r from-amber-500 to-orange-500" />
+                    <div className="flex-1">
+                      <p className="text-[10px] text-gray-500 uppercase font-semibold">Recorrentes</p>
+                      <p className="text-lg font-bold text-amber-700 dark:text-amber-300">
+                        {formatNumber(existentes)} <span className="text-xs font-normal text-gray-500">({pctExistentes.toFixed(1)}%)</span>
+                      </p>
+                      <p className="text-[10px] text-gray-400">já existiam em outra lista</p>
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <p className="text-xs text-gray-400 text-center py-6">Sem entradas no período</p>
+            )}
+          </section>
+        )
+      })()}
+
       {/* Série diária */}
       <section className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] p-4 shadow-sm">
         <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
           <FaUserPlus className="text-emerald-500" />
-          Contatos novos por dia {selectedListId && <span className="text-gray-500 font-normal">· {selectedList?.listName}</span>}
+          Entradas em listas por dia {selectedListId && <span className="text-gray-500 font-normal">· {selectedList?.listName}</span>}
         </h3>
         {dailySeries.length > 0 ? (
           <div className="h-72">
@@ -228,7 +354,7 @@ const ActiveCampaignTab = ({ periodFilters, filters }) => {
                 <XAxis dataKey="date" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} />
                 <RechartsTooltip />
-                <Line type="monotone" dataKey="total" name="Novos contatos" stroke="#10b981" strokeWidth={2.5} dot={{ r: 3 }} />
+                <Line type="monotone" dataKey="total" name="Entradas" stroke="#10b981" strokeWidth={2.5} dot={{ r: 3 }} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -240,7 +366,7 @@ const ActiveCampaignTab = ({ periodFilters, filters }) => {
         <section className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] p-4 shadow-sm">
           <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
             <FaList className="text-purple-500" />
-            Novos contatos por lista (top 15)
+            Entradas por lista (top 15)
           </h3>
           <div style={{ height: Math.max(280, barData.length * 30 + 40) }}>
             <ResponsiveContainer width="100%" height="100%">
@@ -256,14 +382,14 @@ const ActiveCampaignTab = ({ periodFilters, filters }) => {
                       <div className="bg-white dark:bg-[#141419] border border-gray-200 dark:border-[#27272a] rounded-lg p-3 shadow-xl text-xs min-w-[200px] max-w-[340px]">
                         <p className="font-bold mb-2 break-words border-b border-gray-200 dark:border-gray-700 pb-1.5">{d.name}</p>
                         <div className="flex justify-between gap-3 py-0.5">
-                          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-purple-500" />Contatos novos</span>
+                          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-purple-500" />Entradas</span>
                           <span className="font-bold">{formatNumber(d.value)}</span>
                         </div>
                       </div>
                     )
                   }}
                 />
-                <Bar dataKey="value" name="Contatos novos" fill="#8b5cf6" radius={[0, 4, 4, 0]} barSize={20} />
+                <Bar dataKey="value" name="Entradas" fill="#8b5cf6" radius={[0, 4, 4, 0]} barSize={20} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -295,7 +421,7 @@ const ActiveCampaignTab = ({ periodFilters, filters }) => {
                   <th className="text-left py-2 px-3 cursor-pointer hover:text-primary" onClick={() => toggleSort('listName')}>Lista{sortIcon('listName')}</th>
                   <th className="text-right py-2 px-3 cursor-pointer hover:text-primary" onClick={() => toggleSort('totalSubscribers')}>Total{sortIcon('totalSubscribers')}</th>
                   <th className="text-right py-2 px-3 cursor-pointer hover:text-primary" onClick={() => toggleSort('activeSubscribers')}>Ativos{sortIcon('activeSubscribers')}</th>
-                  <th className="text-right py-2 px-3 cursor-pointer hover:text-primary" onClick={() => toggleSort('newInPeriod')}>Novos no período{sortIcon('newInPeriod')}</th>
+                  <th className="text-right py-2 px-3 cursor-pointer hover:text-primary" onClick={() => toggleSort('newInPeriod')}>Entradas no período{sortIcon('newInPeriod')}</th>
                   <th className="text-left py-2 px-3">ID</th>
                 </tr>
               </thead>
@@ -342,7 +468,7 @@ const ActiveCampaignTab = ({ periodFilters, filters }) => {
         <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
           <h2 className="text-lg font-bold flex items-center gap-2">
             <FaEnvelope className="text-emerald-500" />
-            Contatos novos no período {selectedList && <span className="text-gray-500 font-normal text-sm">· {selectedList.listName}</span>}
+            Entradas no período {selectedList && <span className="text-gray-500 font-normal text-sm">· {selectedList.listName}</span>}
           </h2>
           <div className="relative">
             <FaSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-3 h-3" />

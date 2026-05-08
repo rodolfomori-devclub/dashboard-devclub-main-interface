@@ -131,6 +131,29 @@ const LeadsTab = ({ allClients, tagsMetrics, periodFilters, filters, onApplyFilt
     window.open(url, '_blank')
   }
 
+  // Classifica clientes em novos vs recorrentes baseado em firstSeenAt vs período.
+  // Novo = firstSeenAt dentro do período (1ª vez visto)
+  // Recorrente = firstSeenAt antes do período (já existia)
+  const splitNovosRecorrentes = useMemo(() => {
+    const start = periodFilters?.startDate || ''
+    let novos = 0, recorrentes = 0
+    for (const c of allClients) {
+      const fs = c.firstSeenAt
+      if (!fs) { novos++; continue }
+      const d = new Date(fs)
+      if (isNaN(d.getTime())) { novos++; continue }
+      const localDay = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      if (start && localDay < start) recorrentes++
+      else novos++
+    }
+    const total = novos + recorrentes
+    return {
+      novos, recorrentes, total,
+      pctNovos: total > 0 ? (novos / total) * 100 : 0,
+      pctRecorrentes: total > 0 ? (recorrentes / total) * 100 : 0,
+    }
+  }, [allClients, periodFilters?.startDate])
+
   return (
     <div className="space-y-6">
       {/* KPIs */}
@@ -145,6 +168,61 @@ const LeadsTab = ({ allClients, tagsMetrics, periodFilters, filters, onApplyFilt
           const arr = allClients.map(c => c._count?.utmTracking ?? 0)
           return arr.length ? (arr.reduce((s, x) => s + x, 0) / arr.length).toFixed(1) : '0'
         })()} color="from-cyan-500 to-blue-500" />
+      </section>
+
+      {/* Split: novos vs recorrentes (baseado em firstSeenAt vs início do período) */}
+      <section className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] p-5 shadow-sm">
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+          <h3 className="text-sm font-bold flex items-center gap-2">
+            <FaUsers className="text-blue-500" />
+            Novos vs Recorrentes (por firstSeenAt)
+          </h3>
+          <span className="text-xs text-gray-500">total: <span className="font-semibold text-text-light dark:text-text-dark">{formatNumber(splitNovosRecorrentes.total)}</span> clientes no período</span>
+        </div>
+        {splitNovosRecorrentes.total > 0 ? (
+          <>
+            <div className="flex h-8 rounded-lg overflow-hidden mb-3 shadow-inner">
+              <div
+                className="bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-end pr-3 text-white text-xs font-bold transition-all"
+                style={{ width: `${splitNovosRecorrentes.pctNovos}%` }}
+                title={`${formatNumber(splitNovosRecorrentes.novos)} novos`}
+              >
+                {splitNovosRecorrentes.pctNovos >= 12 && `${splitNovosRecorrentes.pctNovos.toFixed(1)}%`}
+              </div>
+              <div
+                className="bg-gradient-to-r from-amber-500 to-orange-500 flex items-center justify-start pl-3 text-white text-xs font-bold transition-all"
+                style={{ width: `${splitNovosRecorrentes.pctRecorrentes}%` }}
+                title={`${formatNumber(splitNovosRecorrentes.recorrentes)} recorrentes`}
+              >
+                {splitNovosRecorrentes.pctRecorrentes >= 12 && `${splitNovosRecorrentes.pctRecorrentes.toFixed(1)}%`}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+                <span className="w-3 h-3 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500" />
+                <div className="flex-1">
+                  <p className="text-[10px] text-gray-500 uppercase font-semibold">Novos clientes</p>
+                  <p className="text-lg font-bold text-blue-700 dark:text-blue-300">
+                    {formatNumber(splitNovosRecorrentes.novos)} <span className="text-xs font-normal text-gray-500">({splitNovosRecorrentes.pctNovos.toFixed(1)}%)</span>
+                  </p>
+                  <p className="text-[10px] text-gray-400">primeiro contato no período</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20">
+                <span className="w-3 h-3 rounded-full bg-gradient-to-r from-amber-500 to-orange-500" />
+                <div className="flex-1">
+                  <p className="text-[10px] text-gray-500 uppercase font-semibold">Recorrentes</p>
+                  <p className="text-lg font-bold text-amber-700 dark:text-amber-300">
+                    {formatNumber(splitNovosRecorrentes.recorrentes)} <span className="text-xs font-normal text-gray-500">({splitNovosRecorrentes.pctRecorrentes.toFixed(1)}%)</span>
+                  </p>
+                  <p className="text-[10px] text-gray-400">já existiam antes (re-registraram)</p>
+                </div>
+              </div>
+            </div>
+          </>
+        ) : (
+          <p className="text-xs text-gray-400 text-center py-6">Sem clientes no período</p>
+        )}
       </section>
 
       {/* Time series */}

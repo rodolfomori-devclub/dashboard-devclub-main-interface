@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import axios from 'axios'
 import {
-  FaChartLine, FaShare, FaPoll, FaUsers, FaEnvelope, FaBolt, FaSpinner,
+  FaChartLine, FaShare, FaPoll, FaEnvelope, FaBolt, FaSpinner,
   FaDatabase, FaExternalLinkAlt,
 } from 'react-icons/fa'
 
@@ -10,13 +10,13 @@ import MonitorFilters from '../components/MonitorFilters'
 import OverviewTab from '../components/TrafficMonitor/OverviewTab'
 import AttributionTab from '../components/TrafficMonitor/AttributionTab'
 import SurveyTab from '../components/TrafficMonitor/SurveyTab'
-import LeadsTab from '../components/TrafficMonitor/LeadsTab'
 import ActiveCampaignTab from '../components/TrafficMonitor/ActiveCampaignTab'
 import RealTimeTab from '../components/TrafficMonitor/RealTimeTab'
 import { resolvePeriod, periodLabel, groupByDay, filterByLocalDate } from '../components/TrafficMonitor/utils'
 
 import { leadsService } from '../services/leadsService'
 import { metaAdsClient } from '../services/metaAdsClient'
+import { activeCampaignService } from '../services/activeCampaignService'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
 
@@ -24,7 +24,6 @@ const TABS = [
   { id: 'overview', label: 'Visão Geral', icon: FaChartLine },
   { id: 'attribution', label: 'Atribuição & UTM', icon: FaShare },
   { id: 'survey', label: 'Pesquisa Detalhada', icon: FaPoll },
-  { id: 'leads', label: 'Leads', icon: FaUsers },
   { id: 'activecampaign', label: 'ActiveCampaign', icon: FaEnvelope },
   { id: 'realtime', label: 'Real-Time', icon: FaBolt },
 ]
@@ -61,6 +60,7 @@ const TrafficMonitor = () => {
   const [tagsMetrics, setTagsMetrics] = useState(null)
   const [metaInsights, setMetaInsights] = useState(null)
   const [metaDaily, setMetaDaily] = useState(null)
+  const [acSummary, setAcSummary] = useState(null)
   const [clientsTotal, setClientsTotal] = useState(0)
   const [surveyTotal, setSurveyTotal] = useState(0)
 
@@ -109,7 +109,7 @@ const TrafficMonitor = () => {
         leadsService.fetchAttribution({ startDate, endDate }),
         leadsService.fetchTagsMetrics({ startDate, endDate }),
         metaAdsClient.fetchInsights({ startDate, endDate }).catch((e) => { setMetaError(e?.response?.data?.message || e?.message || 'Meta Ads indisponível'); return null }),
-        metaAdsClient.fetchDailySpend({ days: Math.max(1, periodFilters.days || 7) }).catch(() => null),
+        metaAdsClient.fetchDailySpend({ days: Math.max(1, periodFilters.days || 7) }).catch((e) => null),
         leadsService.fetchClientsCount({
           startDate, endDate,
           utmSource: filters.utmSources?.length ? filters.utmSources.join(',') : undefined,
@@ -126,7 +126,12 @@ const TrafficMonitor = () => {
       const metaInsightsVal = miRes.status === 'fulfilled' ? miRes.value : null
       setMetaInsights(metaInsightsVal)
       setMetaDaily(mdRes.status === 'fulfilled' ? mdRes.value : null)
-      if (metaInsightsVal) setMetaError(null)
+      // Detecta payload "indisponível" (backend respondeu 200 mas com flag)
+      if (metaInsightsVal?.unavailable) {
+        setMetaError(metaInsightsVal.message || 'Meta Ads indisponível (token ausente/expirado em produção)')
+      } else if (metaInsightsVal) {
+        setMetaError(null)
+      }
       setClientsTotal(cTotal.status === 'fulfilled' ? cTotal.value : 0)
       setSurveyTotal(sTotal.status === 'fulfilled' ? sTotal.value : 0)
       setLastUpdate(new Date())
@@ -185,9 +190,9 @@ const TrafficMonitor = () => {
     return () => { cancelled = true }
   }, [activeTab, periodFilters.startDate, periodFilters.endDate])
 
-  // ============ LAZY: All clients (aba leads + atribuição + overview) ============
+  // ============ LAZY: All clients (atribuição + overview) ============
   useEffect(() => {
-    if (activeTab !== 'leads' && activeTab !== 'attribution' && activeTab !== 'overview') return
+    if (activeTab !== 'attribution' && activeTab !== 'overview') return
     const { startDate, endDate } = periodFilters
     if (!startDate || !endDate) return
     let cancelled = false
@@ -204,6 +209,18 @@ const TrafficMonitor = () => {
       .finally(() => { if (!cancelled) setLoadingHeavy(false) })
     return () => { cancelled = true }
   }, [activeTab, periodFilters.startDate, periodFilters.endDate, JSON.stringify(filters.utmSources), JSON.stringify(filters.utmMediums), JSON.stringify(filters.utmCampaigns), JSON.stringify(filters.tags)])
+
+  // ============ LAZY: AC summary (overview + activecampaign) ============
+  useEffect(() => {
+    if (activeTab !== 'overview' && activeTab !== 'activecampaign') return
+    const { startDate, endDate } = periodFilters
+    if (!startDate || !endDate) return
+    let cancelled = false
+    activeCampaignService.getListsSummary({ startDate, endDate })
+      .then((r) => { if (!cancelled) setAcSummary(r?.data || null) })
+      .catch(() => { if (!cancelled) setAcSummary(null) })
+    return () => { cancelled = true }
+  }, [activeTab, periodFilters.startDate, periodFilters.endDate])
 
   // ============ FILTER OPTIONS ============
   const sourceOptions = useMemo(() =>
@@ -415,6 +432,9 @@ const TrafficMonitor = () => {
             prevKpis={prevKpis}
             goals={goals}
             onGoalChange={handleGoalChange}
+            allClients={allClients || []}
+            allSurveyLeads={allSurveyLeads || []}
+            acSummary={acSummary}
           />
         )}
         {activeTab === 'attribution' && (
@@ -434,18 +454,8 @@ const TrafficMonitor = () => {
             periodFilters={periodFilters}
           />
         )}
-        {activeTab === 'leads' && (
-          <LeadsTab
-            allClients={allClients || []}
-            tagsMetrics={tagsMetrics}
-            periodFilters={periodFilters}
-            filters={filters}
-            onApplyFilter={handleApplyFilter}
-            loading={loadingHeavy}
-          />
-        )}
         {activeTab === 'activecampaign' && (
-          <ActiveCampaignTab periodFilters={periodFilters} filters={filters} />
+          <ActiveCampaignTab periodFilters={periodFilters} filters={filters} kpis={kpis} />
         )}
         {activeTab === 'realtime' && <RealTimeTab />}
       </div>

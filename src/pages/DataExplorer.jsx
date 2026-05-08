@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import { Link } from 'react-router-dom'
 import {
   FaTable, FaSearch, FaDownload, FaSpinner, FaSortUp, FaSortDown,
   FaChevronLeft, FaChevronRight, FaFilter, FaTimes, FaColumns,
-  FaUsers, FaPoll, FaEnvelope, FaSync, FaDatabase,
+  FaUsers, FaPoll, FaEnvelope, FaSync, FaDatabase, FaArrowLeft,
+  FaTachometerAlt,
 } from 'react-icons/fa'
 import { leadsService } from '../services/leadsService'
 import { activeCampaignService } from '../services/activeCampaignService'
@@ -339,15 +341,26 @@ const DataExplorer = () => {
     <div className="min-h-screen bg-gradient-to-br from-background-light via-slate-50 to-blue-50 dark:from-background-dark dark:via-gray-900 dark:to-slate-900 p-6">
       <div className="max-w-full mx-auto">
         {/* Header */}
-        <header className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-text-light to-primary dark:from-text-dark dark:to-primary bg-clip-text text-transparent flex items-center gap-3">
-              <FaDatabase className="text-primary" />
-              Explorador de Dados
-            </h1>
-            <p className="text-text-muted-light dark:text-text-muted-dark text-sm mt-1">
-              Visualizador estilo planilha · {source.description}
-            </p>
+        <header className="mb-6 flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-3">
+            <Link
+              to="/monitor"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white dark:bg-[#141419] border border-gray-200 dark:border-[#27272a] text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-primary transition shadow-sm font-medium text-sm"
+              title="Voltar para o Monitor de Tráfego"
+            >
+              <FaArrowLeft className="w-3.5 h-3.5" />
+              <FaTachometerAlt className="w-3.5 h-3.5" />
+              Voltar ao Monitor
+            </Link>
+            <div>
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-text-light to-primary dark:from-text-dark dark:to-primary bg-clip-text text-transparent flex items-center gap-3">
+                <FaDatabase className="text-primary" />
+                Explorador de Dados
+              </h1>
+              <p className="text-text-muted-light dark:text-text-muted-dark text-sm mt-1">
+                Visualizador estilo planilha · {source.description}
+              </p>
+            </div>
           </div>
           <button
             onClick={() => load()}

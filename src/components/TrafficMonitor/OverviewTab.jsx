@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid,
   Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
@@ -6,6 +6,7 @@ import {
 import {
   FaChartLine, FaDollarSign, FaEye, FaMousePointer, FaUsers, FaPercent,
   FaBullseye, FaSnowflake, FaReply, FaFunnelDollar,
+  FaExclamationTriangle, FaHeartbeat, FaCheckCircle,
 } from 'react-icons/fa'
 import MetricCard from '../MetricCard'
 import { formatCurrency, formatPercent, formatNumber, calcDelta, periodLabel, CHART_COLORS } from './utils'
@@ -34,7 +35,7 @@ const ChartTooltip = ({ active, payload, label }) => {
 
 const OverviewTab = ({
   filters, periodFilters, dailySeries, kpis, prevKpis,
-  goals, onGoalChange,
+  goals, onGoalChange, allClients = [], allSurveyLeads = [], acSummary = null,
 }) => {
   const [seriesToggles, setSeriesToggles] = useState({
     investimento: true, leads: true, respostas: true, cpl: true, ctr: false, conversao: false,
@@ -43,18 +44,86 @@ const OverviewTab = ({
 
   const compareEnabled = filters.compare && prevKpis
 
+  // ====== Cruzamento real de emails — fórmula correta da Taxa de Resposta ======
+  // (D1+D2+D3) Calcula em local com base no que está carregado.
+  // Quando o leads-data tiver /api/metrics/response-rate (D4), trocar por fetch direto.
+  const funnelHealth = useMemo(() => {
+    const start = periodFilters?.startDate || ''
+    const end = periodFilters?.endDate || ''
+    const localDay = (iso) => {
+      if (!iso) return ''
+      const d = new Date(iso)
+      if (isNaN(d.getTime())) return ''
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    }
+    const inPeriod = (iso) => {
+      const day = localDay(iso)
+      if (!day) return false
+      if (start && day < start) return false
+      if (end && day > end) return false
+      return true
+    }
+    const norm = (e) => (e || '').trim().toLowerCase()
+
+    // Clients criados no período (em local time)
+    const clientsLocais = allClients.filter((c) => inPeriod(c.createdAt))
+    const emailsClients = new Set(clientsLocais.map((c) => norm(c.email)))
+
+    // Survey leads no período
+    const leadsLocais = allSurveyLeads.filter((l) => inPeriod(l.createdAt || l.data))
+    const leadsByEmail = new Map()
+    const dupCount = {}
+    for (const l of leadsLocais) {
+      const k = norm(l.email)
+      dupCount[k] = (dupCount[k] || 0) + 1
+      if (!leadsByEmail.has(k)) leadsByEmail.set(k, l)
+    }
+    const leadsUnicos = [...leadsByEmail.keys()] // emails únicos normalizados
+    const duplicatas = Object.values(dupCount).reduce((s, n) => s + (n - 1), 0)
+
+    // Cruzamento
+    let comResposta = 0
+    let semResposta = 0
+    for (const e of emailsClients) {
+      if (leadsByEmail.has(e)) comResposta++
+      else semResposta++
+    }
+    let vazados = 0
+    for (const e of leadsUnicos) {
+      if (!emailsClients.has(e)) vazados++
+    }
+
+    const totalClients = clientsLocais.length
+    const totalLeads = leadsLocais.length
+
+    return {
+      totalClients,
+      totalLeads,
+      leadsUnicos: leadsUnicos.length,
+      duplicatas,
+      comResposta,
+      semResposta,
+      vazados,
+      taxaResposta: totalClients > 0 ? +((comResposta / totalClients) * 100).toFixed(2) : 0,
+      pctVazamento: totalLeads > 0 ? +((vazados / totalLeads) * 100).toFixed(2) : 0,
+      // Disponibilidade dos dados pra confiança no número
+      dadosCarregados: allClients.length > 0 && allSurveyLeads.length > 0,
+    }
+  }, [allClients, allSurveyLeads, periodFilters?.startDate, periodFilters?.endDate])
+
   const cards = [
     { title: 'Investimento', value: formatCurrency(kpis.investimento), raw: kpis.investimento, prev: prevKpis?.investimento, deltaInverse: false, icon: FaDollarSign, colors: ['#10b981', '#34d399'] },
     { title: 'Impressões', value: formatNumber(kpis.impressoes), raw: kpis.impressoes, prev: prevKpis?.impressoes, icon: FaEye, colors: ['#3b82f6', '#60a5fa'] },
     { title: 'Cliques', value: formatNumber(kpis.cliques), raw: kpis.cliques, prev: prevKpis?.cliques, icon: FaMousePointer, colors: ['#8b5cf6', '#a78bfa'] },
     { title: 'Leads Captados', value: formatNumber(kpis.leadsCaptados), raw: kpis.leadsCaptados, prev: prevKpis?.leadsCaptados, icon: FaUsers, colors: ['#f59e0b', '#fbbf24'] },
     { title: 'Respostas Pesquisa', value: formatNumber(kpis.respostas), raw: kpis.respostas, prev: prevKpis?.respostas, icon: FaReply, colors: ['#ec4899', '#f472b6'] },
+    // Taxa de Resposta REAL (cruzamento de emails) — substitui a fórmula errada anterior
     {
       title: 'Taxa de Resposta',
-      value: formatPercent(Math.min(100, kpis.taxaResposta)),
-      subtitle: kpis.taxaResposta > 100 ? `Real: ${kpis.taxaResposta.toFixed(1)}%` : undefined,
-      badge: kpis.taxaResposta > 100 ? 'ressub' : undefined,
-      raw: kpis.taxaResposta, prev: prevKpis?.taxaResposta,
+      value: funnelHealth.dadosCarregados ? formatPercent(funnelHealth.taxaResposta) : '...',
+      subtitle: funnelHealth.dadosCarregados ? `${formatNumber(funnelHealth.comResposta)} de ${formatNumber(funnelHealth.totalClients)} clients` : 'carregando',
+      badge: funnelHealth.pctVazamento > 5 ? 'vazando' : undefined,
+      raw: funnelHealth.taxaResposta, prev: prevKpis?.taxaResposta,
       icon: FaPercent, colors: ['#06b6d4', '#22d3ee'],
     },
   ]
@@ -91,6 +160,12 @@ const OverviewTab = ({
           })}
         </div>
       </section>
+
+      {/* Split: novos vs recorrentes (cruzamento via ActiveCampaign) — logo após os KPIs */}
+      <NovosVsRecorrentes acSummary={acSummary} />
+
+      {/* D2 + D3 + D5: Saúde do Funil — 4 KPIs corretos + banner de alerta */}
+      <FunnelHealthSection funnel={funnelHealth} acSummary={acSummary} />
 
       {/* Metas de Performance */}
       <section>
@@ -247,6 +322,219 @@ const OverviewTab = ({
           <div><span className="block text-xs text-gray-500">Avg invest/dia</span><span className="font-bold text-lg">{formatCurrency(kpis.investimento / Math.max(1, dailySeries.length))}</span></div>
         </div>
       </section>
+
+    </div>
+  )
+}
+
+const NovosVsRecorrentes = ({ acSummary }) => {
+  const split = useMemo(() => {
+    const novos = acSummary?.totalNewContacts || 0
+    const recorrentes = acSummary?.totalExistingContacts || 0
+    const total = novos + recorrentes
+    return {
+      novos, recorrentes, total,
+      pctNovos: total > 0 ? (novos / total) * 100 : 0,
+      pctRecorrentes: total > 0 ? (recorrentes / total) * 100 : 0,
+    }
+  }, [acSummary])
+
+  return (
+    <section className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] p-5 shadow-sm">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+        <h3 className="text-sm font-bold flex items-center gap-2">
+          <FaUsers className="text-blue-500" />
+          Novos vs Recorrentes (via ActiveCampaign)
+        </h3>
+        <span className="text-xs text-gray-500">
+          total: <span className="font-semibold text-text-light dark:text-text-dark">{formatNumber(split.total)}</span> entradas no período
+        </span>
+      </div>
+      {split.total > 0 ? (
+        <>
+          <div className="flex h-8 rounded-lg overflow-hidden mb-3 shadow-inner">
+            <div
+              className="bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-end pr-3 text-white text-xs font-bold transition-all"
+              style={{ width: `${split.pctNovos}%` }}
+              title={`${formatNumber(split.novos)} novos`}
+            >
+              {split.pctNovos >= 12 && `${split.pctNovos.toFixed(1)}%`}
+            </div>
+            <div
+              className="bg-gradient-to-r from-amber-500 to-orange-500 flex items-center justify-start pl-3 text-white text-xs font-bold transition-all"
+              style={{ width: `${split.pctRecorrentes}%` }}
+              title={`${formatNumber(split.recorrentes)} recorrentes`}
+            >
+              {split.pctRecorrentes >= 12 && `${split.pctRecorrentes.toFixed(1)}%`}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+              <span className="w-3 h-3 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500" />
+              <div className="flex-1">
+                <p className="text-[10px] text-gray-500 uppercase font-semibold">Novos clientes</p>
+                <p className="text-lg font-bold text-blue-700 dark:text-blue-300">
+                  {formatNumber(split.novos)} <span className="text-xs font-normal text-gray-500">({split.pctNovos.toFixed(1)}%)</span>
+                </p>
+                <p className="text-[10px] text-gray-400">primeiro contato no período</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20">
+              <span className="w-3 h-3 rounded-full bg-gradient-to-r from-amber-500 to-orange-500" />
+              <div className="flex-1">
+                <p className="text-[10px] text-gray-500 uppercase font-semibold">Recorrentes</p>
+                <p className="text-lg font-bold text-amber-700 dark:text-amber-300">
+                  {formatNumber(split.recorrentes)} <span className="text-xs font-normal text-gray-500">({split.pctRecorrentes.toFixed(1)}%)</span>
+                </p>
+                <p className="text-[10px] text-gray-400">já existiam antes (re-registraram)</p>
+              </div>
+            </div>
+          </div>
+        </>
+      ) : (
+        <p className="text-xs text-gray-400 text-center py-6">Sem clientes no período</p>
+      )}
+    </section>
+  )
+}
+
+// ====== Saúde do Funil — D2/D3/D5 ======
+const FunnelHealthSection = ({ funnel, acSummary }) => {
+  const showWarning = funnel.dadosCarregados && funnel.pctVazamento > 5
+
+  return (
+    <section className="space-y-3">
+      {/* Banner de alerta (D3) */}
+      {showWarning && (
+        <div className="bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 rounded-lg p-4 flex items-start gap-3">
+          <FaExclamationTriangle className="text-amber-500 w-5 h-5 mt-0.5 shrink-0" />
+          <div className="flex-1">
+            <p className="font-bold text-amber-900 dark:text-amber-200 text-sm">
+              ⚠ Vazamento detectado: {funnel.pctVazamento.toFixed(1)}% das respostas estão sem cadastro de cliente
+            </p>
+            <p className="text-xs text-amber-800 dark:text-amber-300 mt-1">
+              <span className="font-semibold">{formatNumber(funnel.vazados)}</span> respostas no período não têm Client correspondente
+              {' — '}provável falha na integração da LP com o ActiveCampaign (iOS in-app browsers, ITP).
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* 4 KPIs (D2) */}
+      <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] p-5 shadow-sm">
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+          <h3 className="text-sm font-bold flex items-center gap-2">
+            <FaHeartbeat className={showWarning ? "text-amber-500" : "text-emerald-500"} />
+            Saúde do Funil — {showWarning ? 'atenção' : 'ok'}
+          </h3>
+          <span className="text-[10px] text-gray-400">
+            cruzamento real de emails entre Lead × Client (calculado client-side enquanto leads-data não expõe endpoint)
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <FunnelKpi
+            icon={FaUsers}
+            label="Clients no período"
+            value={formatNumber(funnel.totalClients)}
+            color="from-blue-500 to-cyan-500"
+            sub="leads captados (deduped)"
+          />
+          <FunnelKpi
+            icon={FaReply}
+            label="Respostas únicas"
+            value={formatNumber(funnel.leadsUnicos)}
+            color="from-pink-500 to-rose-500"
+            sub={funnel.duplicatas > 0 ? `${funnel.duplicatas} duplicatas excluídas` : 'pesquisa preenchida'}
+          />
+          <FunnelKpi
+            icon={FaCheckCircle}
+            label="Clients que responderam"
+            value={formatNumber(funnel.comResposta)}
+            color="from-emerald-500 to-teal-500"
+            sub={`${funnel.taxaResposta.toFixed(1)}% taxa real`}
+            highlight
+          />
+          <FunnelKpi
+            icon={FaExclamationTriangle}
+            label="Vazados"
+            value={formatNumber(funnel.vazados)}
+            color={showWarning ? 'from-amber-500 to-orange-500' : 'from-gray-400 to-gray-500'}
+            sub={`${funnel.pctVazamento.toFixed(1)}% das respostas sem Client`}
+            warn={showWarning}
+          />
+        </div>
+
+        {/* Reconciliação matemática expandível */}
+        <details className="mt-4 group">
+          <summary className="cursor-pointer text-xs text-gray-500 hover:text-primary select-none">
+            Como esses números se relacionam? (clique pra ver matemática)
+          </summary>
+          <div className="mt-2 p-3 bg-gray-50 dark:bg-gray-900/40 rounded-lg text-xs font-mono space-y-1 text-gray-700 dark:text-gray-300">
+            <div>Leads totais (com duplicatas): {formatNumber(funnel.totalLeads)}</div>
+            <div>  − {formatNumber(funnel.duplicatas)} duplicatas</div>
+            <div>= {formatNumber(funnel.leadsUnicos)} respostas únicas</div>
+            <div>  − {formatNumber(funnel.vazados)} vazados (sem Client)</div>
+            <div>= {formatNumber(funnel.leadsUnicos - funnel.vazados)} clients que responderam = {formatNumber(funnel.comResposta)} ✓</div>
+            <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+              Taxa real: {formatNumber(funnel.comResposta)} / {formatNumber(funnel.totalClients)} = <span className="font-bold text-emerald-600">{funnel.taxaResposta.toFixed(2)}%</span>
+            </div>
+          </div>
+        </details>
+      </div>
+
+      {/* D5: Saúde técnica (parcial — full quando leads-data /health/detailed estiver pronto) */}
+      <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] p-5 shadow-sm">
+        <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+          <FaHeartbeat className="text-blue-500" />
+          Saúde técnica
+        </h3>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <TechHealth label="% vazamento" value={funnel.dadosCarregados ? `${funnel.pctVazamento.toFixed(1)}%` : '—'}
+            status={funnel.pctVazamento > 5 ? 'bad' : funnel.pctVazamento > 1 ? 'warn' : 'ok'} />
+          <TechHealth label="Contatos AC" value={acSummary?.grandTotalSubscribers ? formatNumber(acSummary.grandTotalSubscribers) : '—'}
+            status={acSummary ? 'ok' : 'pending'} />
+          <TechHealth label="Listas ativas AC" value={acSummary?.activeLists != null ? formatNumber(acSummary.activeLists) : '—'}
+            status={acSummary ? 'ok' : 'pending'} />
+          <TechHealth label="Lag webhook AC" value="aguardando endpoint"
+            status="pending" subtitle="leads-data L5" />
+        </div>
+        <p className="text-[10px] text-gray-400 mt-3">
+          Métricas completas (lag webhook, fila BullMQ, jobs falhados) requerem o endpoint <code>GET /health/detailed</code> do leads-data (ainda não implementado — D5 parcial).
+        </p>
+      </div>
+    </section>
+  )
+}
+
+const FunnelKpi = ({ icon: Icon, label, value, color, sub, highlight, warn }) => (
+  <div className={`p-3 rounded-lg ${warn ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-300/50' : highlight ? 'bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-300/50' : 'bg-gray-50 dark:bg-gray-900/30'}`}>
+    <div className="flex items-center gap-2 mb-2">
+      <div className={`w-7 h-7 rounded-md bg-gradient-to-br ${color} flex items-center justify-center`}>
+        <Icon className="text-white w-3 h-3" />
+      </div>
+      <span className="text-[10px] text-gray-500 uppercase font-semibold">{label}</span>
+    </div>
+    <p className="text-2xl font-bold">{value}</p>
+    {sub && <p className="text-[10px] text-gray-500 mt-1">{sub}</p>}
+  </div>
+)
+
+const TechHealth = ({ label, value, status, subtitle }) => {
+  const dotColor = {
+    ok: 'bg-emerald-500',
+    warn: 'bg-amber-500',
+    bad: 'bg-rose-500',
+    pending: 'bg-gray-300',
+  }[status] || 'bg-gray-300'
+  return (
+    <div className="flex items-center gap-3 p-2 rounded-lg bg-gray-50 dark:bg-gray-900/30">
+      <span className={`w-2.5 h-2.5 rounded-full ${dotColor} ${status !== 'pending' ? 'animate-pulse' : ''}`} />
+      <div className="flex-1">
+        <p className="text-[10px] text-gray-500 uppercase font-semibold">{label}</p>
+        <p className="text-sm font-bold">{value}</p>
+        {subtitle && <p className="text-[9px] text-gray-400">{subtitle}</p>}
+      </div>
     </div>
   )
 }
