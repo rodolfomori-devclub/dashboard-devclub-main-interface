@@ -7,6 +7,7 @@ import {
   FaChartLine, FaDollarSign, FaEye, FaMousePointer, FaUsers, FaPercent,
   FaBullseye, FaSnowflake, FaReply, FaFunnelDollar,
   FaExclamationTriangle, FaHeartbeat, FaCheckCircle,
+  FaFileExcel, FaExternalLinkAlt, FaFacebook, FaGoogle,
 } from 'react-icons/fa'
 import MetricCard from '../MetricCard'
 import { formatCurrency, formatPercent, formatNumber, calcDelta, periodLabel, CHART_COLORS } from './utils'
@@ -36,6 +37,7 @@ const ChartTooltip = ({ active, payload, label }) => {
 const OverviewTab = ({
   filters, periodFilters, dailySeries, kpis, prevKpis,
   goals, onGoalChange, allClients = [], allSurveyLeads = [], acSummary = null,
+  sheetRows = null, sheetMetrics = null, sheetError = null, channelData = null,
 }) => {
   const [seriesToggles, setSeriesToggles] = useState({
     investimento: true, leads: true, respostas: true, cpl: true, ctr: false, conversao: false,
@@ -130,12 +132,26 @@ const OverviewTab = ({
 
   return (
     <div className="space-y-10">
-      {/* KPI Cards */}
+      {/* KPI Cards (Meta Ads + APIs) */}
       <section>
-        <h2 className="text-xl font-bold text-text-light dark:text-text-dark mb-6 flex items-center gap-2">
+        <h2 className="text-xl font-bold text-text-light dark:text-text-dark mb-2 flex items-center gap-2 flex-wrap">
           <FaChartLine className="text-primary" />
           Indicadores ({periodLabel(filters)})
+          <span className="ml-2 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200">
+            Meta Ads · Leads API
+          </span>
+          {filters.metaBucket === 'cap' && (
+            <span className="ml-1 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-600 text-white">
+              filtro: só Captação
+            </span>
+          )}
         </h2>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-6">
+          Investimento, impressões, cliques e CTR vêm da Meta Ads API. Leads/Respostas vêm do banco (Postgres).
+          {filters.metaBucket === 'cap' && (
+            <span className="text-blue-600 dark:text-blue-400 font-semibold"> · Meta filtrado para campanhas com "| CAP |" no nome.</span>
+          )}
+        </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {cards.map((c, i) => {
             const delta = compareEnabled ? calcDelta(c.raw, c.prev) : null
@@ -160,6 +176,9 @@ const OverviewTab = ({
           })}
         </div>
       </section>
+
+      {/* Dados da Planilha (AUX | Dashboard) — fonte legada manual */}
+      <SheetSection sheetRows={sheetRows} sheetMetrics={sheetMetrics} sheetError={sheetError} kpis={kpis} channelData={channelData} />
 
       {/* Split: novos vs recorrentes (cruzamento via ActiveCampaign) — logo após os KPIs */}
       <NovosVsRecorrentes acSummary={acSummary} />
@@ -536,6 +555,281 @@ const TechHealth = ({ label, value, status, subtitle }) => {
         {subtitle && <p className="text-[9px] text-gray-400">{subtitle}</p>}
       </div>
     </div>
+  )
+}
+
+// ====== Dados da Planilha (AUX | Dashboard) — fonte manual legada ======
+const SHEET_URL = 'https://docs.google.com/spreadsheets/d/1dGBzqdZpenGDy5RB6K_RXvq7qA5lMgeGWK818a7q5iU/edit'
+
+const SheetSection = ({ sheetRows, sheetMetrics, sheetError, kpis, channelData }) => {
+  const loading = sheetRows === null && !sheetError
+  const empty = !loading && (sheetRows?.length || 0) === 0
+
+  // Comparativo: Meta vs Planilha (delta percentual em relação à Meta)
+  const compare = useMemo(() => {
+    if (!sheetMetrics?.totals) return null
+    const t = sheetMetrics.totals
+    const pct = (a, b) => (b > 0 ? ((a - b) / b) * 100 : null)
+    return {
+      investimento: { sheet: t.investimento, meta: kpis.investimento, delta: pct(t.investimento, kpis.investimento) },
+      impressoes:   { sheet: t.impressoes,   meta: kpis.impressoes,   delta: pct(t.impressoes,   kpis.impressoes) },
+      cliques:      { sheet: t.cliques,      meta: kpis.cliques,      delta: pct(t.cliques,      kpis.cliques) },
+      leads:        { sheet: t.leads,        meta: kpis.leadsCaptados, delta: pct(t.leads,       kpis.leadsCaptados) },
+    }
+  }, [sheetMetrics, kpis])
+
+  return (
+    <section>
+      <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+        <h2 className="text-xl font-bold text-text-light dark:text-text-dark flex items-center gap-2 flex-wrap">
+          <FaFileExcel className="text-emerald-600" />
+          Dados da Planilha
+          <span className="ml-2 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200">
+            Google Sheets · AUX | Dashboard
+          </span>
+        </h2>
+        <a
+          href={SHEET_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-300 hover:underline"
+        >
+          Abrir planilha <FaExternalLinkAlt className="w-2.5 h-2.5" />
+        </a>
+      </div>
+      <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+        Fonte manual histórica preenchida pelo gestor de tráfego. Pode divergir da Meta (consolidação manual + atraso).
+      </p>
+
+      {sheetError && (
+        <div className="mb-3 p-3 rounded-lg bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs">
+          Falha ao carregar planilha: {sheetError}
+        </div>
+      )}
+
+      {loading && (
+        <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] p-5 text-xs text-gray-500">
+          Carregando CSV da planilha…
+        </div>
+      )}
+
+      {empty && !sheetError && (
+        <div className="bg-white dark:bg-[#141419] rounded-xl border border-dashed border-gray-300 dark:border-[#27272a] p-5 text-xs text-gray-500">
+          Nenhuma linha da planilha cai no período selecionado. (A planilha tem 1 linha por dia em DD/MM/YYYY — confira se foi preenchida.)
+        </div>
+      )}
+
+      {sheetMetrics?.totals && (
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-3">
+            <SheetCard label="Investimento" value={formatCurrency(sheetMetrics.totals.investimento)} />
+            <SheetCard label="Impressões" value={formatNumber(sheetMetrics.totals.impressoes)} />
+            <SheetCard label="Cliques" value={formatNumber(sheetMetrics.totals.cliques)} />
+            <SheetCard label="Pageviews" value={formatNumber(sheetMetrics.totals.pageviews)} />
+            <SheetCard label="Leads" value={formatNumber(sheetMetrics.totals.leads)} />
+            <SheetCard label="CTR médio" value={formatPercent(sheetMetrics.averages.ctr)} />
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-4">
+            <SheetCard label="CPL médio" value={formatCurrency(sheetMetrics.averages.cpl)} />
+            <SheetCard label="CPC médio" value={formatCurrency(sheetMetrics.averages.cpc)} />
+            <SheetCard label="CPM médio" value={formatCurrency(sheetMetrics.averages.cpm)} />
+            <SheetCard label="Conversão Página" value={formatPercent(sheetMetrics.averages.conversaoPagina)} />
+            <SheetCard label="Carregamento Página" value={formatPercent(sheetMetrics.averages.carregamentoPagina)} />
+            <SheetCard label="Dias na planilha" value={formatNumber(sheetMetrics.dataCount)} />
+          </div>
+
+          {/* Quebra por canal: Facebook × Google (planilha aba Resumo Campanhas) */}
+          <ChannelSplitBlock channelData={channelData} />
+
+          {compare && (
+            <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] p-4 shadow-sm">
+              <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+                <FaChartLine className="text-blue-500" />
+                Planilha × Meta — divergência
+              </h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-left text-gray-500 border-b border-gray-200 dark:border-gray-700">
+                      <th className="py-2 pr-3 font-semibold">Métrica</th>
+                      <th className="py-2 pr-3 font-semibold text-right">Planilha</th>
+                      <th className="py-2 pr-3 font-semibold text-right">Meta API</th>
+                      <th className="py-2 pr-3 font-semibold text-right">Δ vs Meta</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                    <CompareRow label="Investimento" sheet={formatCurrency(compare.investimento.sheet)} meta={formatCurrency(compare.investimento.meta)} delta={compare.investimento.delta} />
+                    <CompareRow label="Impressões"   sheet={formatNumber(compare.impressoes.sheet)}    meta={formatNumber(compare.impressoes.meta)}    delta={compare.impressoes.delta} />
+                    <CompareRow label="Cliques"      sheet={formatNumber(compare.cliques.sheet)}       meta={formatNumber(compare.cliques.meta)}       delta={compare.cliques.delta} />
+                    <CompareRow label="Leads"        sheet={formatNumber(compare.leads.sheet)}         meta={formatNumber(compare.leads.meta)}         delta={compare.leads.delta} />
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-[10px] text-gray-400 mt-2">
+                Δ é a diferença percentual da planilha em relação à Meta. Diferenças significativas indicam atraso de preenchimento ou consolidação manual.
+              </p>
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  )
+}
+
+// Quebra Facebook × Google (vinda da planilha — aba "Resumo Campanhas", colunas Dia Face/Valor Gasto Facebook/Leads Face × Dia Google/Valor Gasto Google/Leads Google)
+const ChannelSplitBlock = ({ channelData }) => {
+  if (!channelData) {
+    return (
+      <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] p-4 mb-3 text-xs text-gray-500">
+        Carregando quebra Facebook × Google da planilha…
+      </div>
+    )
+  }
+  const fb = channelData.facebook || { spend: 0, leads: 0, cpl: 0, days: 0, avgDailySpend: 0 }
+  const gg = channelData.google || { spend: 0, leads: 0, cpl: 0, days: 0, avgDailySpend: 0 }
+  const totalSpend = fb.spend + gg.spend
+  const totalLeads = fb.leads + gg.leads
+  const fbPctSpend = totalSpend > 0 ? (fb.spend / totalSpend) * 100 : 0
+  const ggPctSpend = totalSpend > 0 ? (gg.spend / totalSpend) * 100 : 0
+  const fbPctLeads = totalLeads > 0 ? (fb.leads / totalLeads) * 100 : 0
+  const ggPctLeads = totalLeads > 0 ? (gg.leads / totalLeads) * 100 : 0
+
+  if (totalSpend === 0 && totalLeads === 0) {
+    return (
+      <div className="bg-white dark:bg-[#141419] rounded-xl border border-dashed border-gray-300 dark:border-[#27272a] p-4 mb-3 text-xs text-gray-500">
+        Sem dados de Facebook/Google na planilha para o período. (Aba "Resumo Campanhas" — colunas Dia Face/Dia Google.)
+      </div>
+    )
+  }
+
+  return (
+    <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] p-4 shadow-sm mb-3">
+      <h3 className="text-sm font-bold mb-3 flex items-center gap-2">
+        <FaChartLine className="text-blue-500" />
+        Por Canal: Facebook × Google
+        <span className="text-[10px] font-normal text-gray-400 ml-1">(planilha · Resumo Campanhas)</span>
+      </h3>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+        <ChannelCard
+          name="Facebook"
+          icon={FaFacebook}
+          colorFrom="from-blue-600" colorTo="to-blue-400"
+          textColor="text-blue-700 dark:text-blue-300"
+          bgColor="bg-blue-50 dark:bg-blue-900/20"
+          borderColor="border-blue-300/50"
+          channel={fb}
+          pctSpend={fbPctSpend}
+          pctLeads={fbPctLeads}
+        />
+        <ChannelCard
+          name="Google"
+          icon={FaGoogle}
+          colorFrom="from-rose-500" colorTo="to-amber-400"
+          textColor="text-amber-700 dark:text-amber-300"
+          bgColor="bg-amber-50 dark:bg-amber-900/20"
+          borderColor="border-amber-300/50"
+          channel={gg}
+          pctSpend={ggPctSpend}
+          pctLeads={ggPctLeads}
+        />
+      </div>
+
+      {/* Barra comparativa de share de investimento */}
+      <div className="mb-2">
+        <div className="flex justify-between text-[10px] font-semibold text-gray-500 uppercase mb-1">
+          <span>Share de investimento</span>
+          <span>{formatCurrency(totalSpend)} total</span>
+        </div>
+        <div className="flex h-6 rounded-md overflow-hidden">
+          {fbPctSpend > 0 && (
+            <div className="bg-gradient-to-r from-blue-600 to-blue-400 flex items-center justify-end pr-2 text-white text-[10px] font-bold" style={{ width: `${fbPctSpend}%` }}>
+              {fbPctSpend >= 10 && `${fbPctSpend.toFixed(1)}%`}
+            </div>
+          )}
+          {ggPctSpend > 0 && (
+            <div className="bg-gradient-to-r from-rose-500 to-amber-400 flex items-center justify-start pl-2 text-white text-[10px] font-bold" style={{ width: `${ggPctSpend}%` }}>
+              {ggPctSpend >= 10 && `${ggPctSpend.toFixed(1)}%`}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Barra comparativa de share de leads */}
+      <div>
+        <div className="flex justify-between text-[10px] font-semibold text-gray-500 uppercase mb-1">
+          <span>Share de leads</span>
+          <span>{formatNumber(totalLeads)} total</span>
+        </div>
+        <div className="flex h-6 rounded-md overflow-hidden">
+          {fbPctLeads > 0 && (
+            <div className="bg-gradient-to-r from-blue-600 to-blue-400 flex items-center justify-end pr-2 text-white text-[10px] font-bold" style={{ width: `${fbPctLeads}%` }}>
+              {fbPctLeads >= 10 && `${fbPctLeads.toFixed(1)}%`}
+            </div>
+          )}
+          {ggPctLeads > 0 && (
+            <div className="bg-gradient-to-r from-rose-500 to-amber-400 flex items-center justify-start pl-2 text-white text-[10px] font-bold" style={{ width: `${ggPctLeads}%` }}>
+              {ggPctLeads >= 10 && `${ggPctLeads.toFixed(1)}%`}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const ChannelCard = ({ name, icon: Icon, colorFrom, colorTo, textColor, bgColor, borderColor, channel, pctSpend, pctLeads }) => (
+  <div className={`${bgColor} border ${borderColor} rounded-lg p-4`}>
+    <div className="flex items-center gap-2 mb-3">
+      <div className={`w-9 h-9 rounded-md bg-gradient-to-br ${colorFrom} ${colorTo} flex items-center justify-center`}>
+        <Icon className="text-white w-4 h-4" />
+      </div>
+      <div>
+        <p className={`text-sm font-bold ${textColor}`}>{name}</p>
+        <p className="text-[10px] text-gray-500">{channel.days} dia{channel.days === 1 ? '' : 's'} no período</p>
+      </div>
+    </div>
+    <div className="grid grid-cols-3 gap-2">
+      <div>
+        <p className="text-[10px] text-gray-500 uppercase font-semibold">Investido</p>
+        <p className="text-base font-bold text-text-light dark:text-text-dark">{formatCurrency(channel.spend)}</p>
+        <p className="text-[9px] text-gray-400">{pctSpend.toFixed(1)}% do total</p>
+      </div>
+      <div>
+        <p className="text-[10px] text-gray-500 uppercase font-semibold">Leads</p>
+        <p className="text-base font-bold text-text-light dark:text-text-dark">{formatNumber(channel.leads)}</p>
+        <p className="text-[9px] text-gray-400">{pctLeads.toFixed(1)}% do total</p>
+      </div>
+      <div>
+        <p className="text-[10px] text-gray-500 uppercase font-semibold">CPL</p>
+        <p className={`text-base font-bold ${textColor}`}>{formatCurrency(channel.cpl)}</p>
+        <p className="text-[9px] text-gray-400">por lead</p>
+      </div>
+    </div>
+    <div className="mt-2 pt-2 border-t border-gray-200/50 dark:border-gray-700/50">
+      <p className="text-[10px] text-gray-500">Média diária: <span className="font-semibold text-text-light dark:text-text-dark">{formatCurrency(channel.avgDailySpend)}</span></p>
+    </div>
+  </div>
+)
+
+const SheetCard = ({ label, value }) => (
+  <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200/60 dark:border-emerald-800/40">
+    <p className="text-[10px] text-emerald-700 dark:text-emerald-300 uppercase font-semibold tracking-wider">{label}</p>
+    <p className="text-lg font-bold text-text-light dark:text-text-dark mt-1">{value}</p>
+    <p className="text-[9px] text-gray-400 mt-0.5">via Planilha</p>
+  </div>
+)
+
+const CompareRow = ({ label, sheet, meta, delta }) => {
+  const deltaColor = delta == null ? 'text-gray-400' : Math.abs(delta) < 5 ? 'text-emerald-600' : Math.abs(delta) < 20 ? 'text-amber-600' : 'text-rose-600'
+  const deltaText = delta == null ? '—' : `${delta > 0 ? '+' : ''}${delta.toFixed(1)}%`
+  return (
+    <tr>
+      <td className="py-2 pr-3 font-medium text-text-light dark:text-text-dark">{label}</td>
+      <td className="py-2 pr-3 text-right font-mono">{sheet}</td>
+      <td className="py-2 pr-3 text-right font-mono">{meta}</td>
+      <td className={`py-2 pr-3 text-right font-mono font-semibold ${deltaColor}`}>{deltaText}</td>
+    </tr>
   )
 }
 

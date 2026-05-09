@@ -4,10 +4,10 @@ const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
 
 const api = axios.create({
   baseURL: BASE_URL,
-  timeout: 60000,
+  timeout: 180000, // 3min — ranges grandes (7d/30d) percorrem dezenas de páginas paginadas no AC
 })
 
-const CACHE_TTL = 60 * 1000
+const CACHE_TTL = 5 * 60 * 1000 // 5 min — ranges grandes são caros, vale cachear mais
 const cache = new Map()
 
 function cacheGet(key) {
@@ -35,12 +35,12 @@ export const activeCampaignService = {
     return data
   },
 
-  async getListsSummary({ startDate, endDate } = {}) {
-    const key = `summary:${startDate || ''}:${endDate || ''}`
+  async getListsSummary({ startDate, endDate, mode } = {}) {
+    const key = `summary:${mode || 'auto'}:${startDate || ''}:${endDate || ''}`
     const cached = cacheGet(key)
     if (cached) return cached
     const { data } = await api.get('/activecampaign/lists-summary', {
-      params: { startDate, endDate },
+      params: { startDate, endDate, mode },
     })
     cacheSet(key, data)
     return data

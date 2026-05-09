@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react'
 import {
   FaCalendarDay, FaCalendarWeek, FaCalendar, FaCalendarAlt,
   FaFilter, FaTimes, FaSync, FaPause, FaPlay, FaClock, FaExchangeAlt,
-  FaChevronDown,
+  FaChevronDown, FaBullseye,
 } from 'react-icons/fa'
 import DateRangePicker from './DateRangePicker'
 
@@ -127,6 +127,7 @@ const MonitorFilters = ({
   }
 
   const toggleCompare = () => onChange({ ...filters, compare: !filters.compare })
+  const toggleMetaCap = () => onChange({ ...filters, metaBucket: filters.metaBucket === 'cap' ? null : 'cap' })
 
   const handleCustomConfirm = (start, end) => {
     onChange({ ...filters, period: 'custom', customStart: start, customEnd: end })
@@ -187,6 +188,20 @@ const MonitorFilters = ({
           >
             <FaExchangeAlt className="w-3 h-3" />
             Comparar
+          </button>
+
+          <button
+            onClick={toggleMetaCap}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition border ${
+              filters.metaBucket === 'cap'
+                ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-400/50'
+                : 'bg-white dark:bg-[#141419] text-gray-600 dark:text-gray-300 border-gray-200 dark:border-[#27272a]'
+            }`}
+            title="Filtrar Meta Ads para mostrar apenas campanhas de Captação (nome contém | CAP |)"
+          >
+            <FaBullseye className="w-3 h-3" />
+            Só Captação
+            {filters.metaBucket === 'cap' && <span className="text-[9px] opacity-70">(Meta)</span>}
           </button>
 
           <div className="flex-1" />

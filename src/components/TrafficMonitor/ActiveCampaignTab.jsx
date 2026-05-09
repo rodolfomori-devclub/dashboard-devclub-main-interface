@@ -56,6 +56,7 @@ const ActiveCampaignTab = ({ periodFilters, filters, kpis = {} }) => {
 
   useEffect(() => {
     let cancelled = false
+    console.log("[AC tab] period changed →", periodFilters.startDate, "→", periodFilters.endDate, "list=", selectedListId || "all")
     setLoading(true)
     setError(null)
 
@@ -70,6 +71,7 @@ const ActiveCampaignTab = ({ periodFilters, filters, kpis = {} }) => {
     ])
       .then(([s, d]) => {
         if (cancelled) return
+        console.log("[AC tab] received → totalContacts=", s?.data?.totalContacts, "dailySeries=", d?.data?.length, "pontos")
         setSummary(s?.data || null)
         setDailySeries(d?.data || [])
       })
@@ -161,13 +163,57 @@ const ActiveCampaignTab = ({ periodFilters, filters, kpis = {} }) => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      {/* Barra de progresso global quando carregando */}
+      {loading && (
+        <div className="fixed top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-primary to-transparent z-[100]"
+          style={{ animation: 'pulse 1.4s ease-in-out infinite' }}
+        />
+      )}
+
+      {/* Aviso enquanto carrega range grande */}
+      {(() => {
+        const isLargeRange = filters.period === 'last7days' || filters.period === 'last30days' || filters.period === 'last90days'
+        if (!isLargeRange || !loading) return null
+        return (
+          <section className="bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800/40 rounded-xl p-3 flex items-center gap-3">
+            <FaSpinner className="text-blue-600 w-4 h-4 animate-spin shrink-0" />
+            <p className="text-xs text-blue-800 dark:text-blue-200">
+              <span className="font-semibold">Carregando {periodLabel(filters)}...</span>{' '}
+              Pode levar 10-30s. Depois fica cacheado por 5 min.
+            </p>
+          </section>
+        )
+      })()}
+
+      {/* Aviso de modo "fast" — pra ranges grandes mostramos só contatos novos */}
+      {summary?.mode === 'fast' && !loading && (
+        <section className="bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/40 rounded-xl p-3 flex items-center gap-3">
+          <span className="text-amber-600 text-base">ℹ️</span>
+          <p className="text-xs text-amber-900 dark:text-amber-200">
+            <span className="font-semibold">Modo rápido ativo.</span>{' '}
+            Para ranges acima de 2 dias, mostramos apenas <strong>contatos novos no AC</strong> (não inclui recadastros/reentradas).{' '}
+            <strong>Hoje/Ontem</strong> mostram todas as entradas (novos + recorrentes).
+          </p>
+        </section>
+      )}
+
       {/* Indicador de período + botão refresh forçado */}
-      <section className="bg-emerald-50 dark:bg-emerald-900/10 rounded-xl border border-emerald-200 dark:border-emerald-800/40 p-3 flex items-center justify-between gap-3 flex-wrap">
+      <section className={`rounded-xl border p-3 flex items-center justify-between gap-3 flex-wrap transition-colors ${
+        loading
+          ? 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800/40'
+          : 'bg-emerald-50 dark:bg-emerald-900/10 border-emerald-200 dark:border-emerald-800/40'
+      }`}>
         <div className="flex items-center gap-2 text-xs">
-          <FaFilter className="text-emerald-600 w-3.5 h-3.5" />
-          <span className="text-gray-500 uppercase font-semibold">Período consultado:</span>
-          <span className="font-bold text-emerald-700 dark:text-emerald-300">
+          {loading ? (
+            <FaSpinner className="text-amber-600 w-3.5 h-3.5 animate-spin" />
+          ) : (
+            <FaFilter className="text-emerald-600 w-3.5 h-3.5" />
+          )}
+          <span className="text-gray-500 uppercase font-semibold">
+            {loading ? 'Atualizando dados...' : 'Período consultado:'}
+          </span>
+          <span className={`font-bold ${loading ? 'text-amber-700 dark:text-amber-300' : 'text-emerald-700 dark:text-emerald-300'}`}>
             {periodLabel(filters)}
             {periodFilters.startDate && (
               <span className="ml-2 text-gray-500 font-normal">({periodFilters.startDate} → {periodFilters.endDate})</span>
@@ -181,7 +227,7 @@ const ActiveCampaignTab = ({ periodFilters, filters, kpis = {} }) => {
           title="Limpar cache local e recarregar"
         >
           <FaSync className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
-          Forçar atualização
+          {loading ? 'Atualizando...' : 'Forçar atualização'}
         </button>
       </section>
 
@@ -231,6 +277,7 @@ const ActiveCampaignTab = ({ periodFilters, filters, kpis = {} }) => {
           value={formatNumber(newInPeriodKpi)}
           color="from-emerald-500 to-teal-500"
           sub={`${periodLabel(filters)} · novos + reentradas`}
+          loading={loading}
         />
         {(() => {
           const investimento = Number(kpis?.investimento) || 0
@@ -243,6 +290,7 @@ const ActiveCampaignTab = ({ periodFilters, filters, kpis = {} }) => {
               value={cpl > 0 ? formatCurrency(cpl) : '—'}
               color="from-rose-500 to-pink-500"
               sub={`${formatCurrency(investimento)} ÷ ${formatNumber(leads)}`}
+              loading={loading}
             />
           )
         })()}
@@ -252,6 +300,7 @@ const ActiveCampaignTab = ({ periodFilters, filters, kpis = {} }) => {
           value={formatNumber(activeLists.length)}
           color="from-purple-500 to-fuchsia-500"
           sub={`de ${formatNumber(summary?.totalLists || 0)} totais`}
+          loading={loading}
         />
         <KpiBox
           icon={FaDatabase}
@@ -259,14 +308,29 @@ const ActiveCampaignTab = ({ periodFilters, filters, kpis = {} }) => {
           value={formatNumber(selectedList ? selectedList.totalSubscribers : (summary?.grandTotalSubscribers || 0))}
           color="from-blue-500 to-cyan-500"
           sub={selectedListId ? null : 'soma de todas as listas'}
+          loading={loading}
         />
-        <KpiBox
-          icon={FaEnvelope}
-          label="Listas totais"
-          value={formatNumber(summary?.totalLists || 0)}
-          color="from-amber-500 to-orange-500"
-          sub="cadastradas no AC"
-        />
+        {(() => {
+          const investimento = Number(kpis?.investimento) || 0
+          // Calcular dias do período pra mostrar média diária
+          const ds = periodFilters?.startDate
+          const de = periodFilters?.endDate
+          let dias = 1
+          if (ds && de) {
+            dias = Math.max(1, Math.round((new Date(de) - new Date(ds)) / 86400000) + 1)
+          }
+          const mediaDia = investimento / dias
+          return (
+            <KpiBox
+              icon={FaDollarSign}
+              label="Investimento (Meta)"
+              value={formatCurrency(investimento)}
+              color="from-amber-500 to-orange-500"
+              sub={dias > 1 ? `${formatCurrency(mediaDia)} / dia · ${dias} dias` : `${periodLabel(filters)}`}
+              loading={loading}
+            />
+          )
+        })()}
       </section>
 
       {/* Split: novos vs recorrentes */}
@@ -530,14 +594,29 @@ const ActiveCampaignTab = ({ periodFilters, filters, kpis = {} }) => {
   )
 }
 
-const KpiBox = ({ icon: Icon, label, value, color, sub }) => (
-  <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] p-4 shadow-sm">
+const KpiBox = ({ icon: Icon, label, value, color, sub, loading = false }) => (
+  <div className={`relative bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] p-4 shadow-sm overflow-hidden transition-opacity ${loading ? 'opacity-60' : ''}`}>
+    {/* Barra de progresso animada no topo enquanto carrega */}
+    {loading && (
+      <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-primary to-transparent animate-pulse" />
+    )}
     <div className="flex items-center gap-2 mb-2">
-      <div className={`w-8 h-8 rounded-md bg-gradient-to-br ${color} flex items-center justify-center`}><Icon className="text-white w-3.5 h-3.5" /></div>
+      <div className={`w-8 h-8 rounded-md bg-gradient-to-br ${color} flex items-center justify-center`}>
+        <Icon className="text-white w-3.5 h-3.5" />
+      </div>
       <span className="text-[10px] text-gray-500 uppercase font-semibold">{label}</span>
     </div>
-    <p className="text-2xl font-bold">{value}</p>
-    {sub && <p className="text-[10px] text-gray-400 mt-1">{sub}</p>}
+    {loading ? (
+      <div className="space-y-1.5">
+        <div className="h-7 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+        {sub && <div className="h-3 w-32 bg-gray-100 dark:bg-gray-800 rounded animate-pulse" />}
+      </div>
+    ) : (
+      <>
+        <p className="text-2xl font-bold">{value}</p>
+        {sub && <p className="text-[10px] text-gray-400 mt-1">{sub}</p>}
+      </>
+    )}
   </div>
 )
 

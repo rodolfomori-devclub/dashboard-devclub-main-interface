@@ -17,6 +17,7 @@ import { resolvePeriod, periodLabel, groupByDay, filterByLocalDate } from '../co
 import { leadsService } from '../services/leadsService'
 import { metaAdsClient } from '../services/metaAdsClient'
 import { activeCampaignService } from '../services/activeCampaignService'
+import trafficSheetsService from '../services/trafficSheetsService'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
 
@@ -37,6 +38,7 @@ const DEFAULT_FILTERS = {
   utmMediums: [],
   utmCampaigns: [],
   tags: [],
+  metaBucket: null, // null = todas campanhas Meta | 'cap' = só Captação
 }
 
 const TrafficMonitor = () => {
@@ -73,6 +75,12 @@ const TrafficMonitor = () => {
   const [allSurveyLeads, setAllSurveyLeads] = useState(null)
   const [loadingHeavy, setLoadingHeavy] = useState(false)
 
+  // Planilha (Google Sheets — AUX | Dashboard)
+  const [sheetRows, setSheetRows] = useState(null)
+  const [sheetMetrics, setSheetMetrics] = useState(null)
+  const [sheetError, setSheetError] = useState(null)
+  const [channelData, setChannelData] = useState(null) // { facebook, google }
+
   const periodFilters = useMemo(() => resolvePeriod(filters), [filters])
 
   // ============ GOALS ============
@@ -108,8 +116,8 @@ const TrafficMonitor = () => {
         leadsService.fetchOverview({ startDate, endDate }),
         leadsService.fetchAttribution({ startDate, endDate }),
         leadsService.fetchTagsMetrics({ startDate, endDate }),
-        metaAdsClient.fetchInsights({ startDate, endDate }).catch((e) => { setMetaError(e?.response?.data?.message || e?.message || 'Meta Ads indisponível'); return null }),
-        metaAdsClient.fetchDailySpend({ days: Math.max(1, periodFilters.days || 7) }).catch((e) => null),
+        metaAdsClient.fetchInsights({ startDate, endDate, bucket: filters.metaBucket }).catch((e) => { setMetaError(e?.response?.data?.message || e?.message || 'Meta Ads indisponível'); return null }),
+        metaAdsClient.fetchDailySpend({ days: Math.max(1, periodFilters.days || 7), bucket: filters.metaBucket }).catch((e) => null),
         leadsService.fetchClientsCount({
           startDate, endDate,
           utmSource: filters.utmSources?.length ? filters.utmSources.join(',') : undefined,
@@ -141,7 +149,7 @@ const TrafficMonitor = () => {
         const [pCT, pST, pMI, pOv] = await Promise.allSettled([
           leadsService.fetchClientsCount({ startDate: comparePrevStart, endDate: comparePrevEnd }),
           leadsService.fetchSurveyCount({ startDate: comparePrevStart, endDate: comparePrevEnd }),
-          metaAdsClient.fetchInsights({ startDate: comparePrevStart, endDate: comparePrevEnd }).catch(() => null),
+          metaAdsClient.fetchInsights({ startDate: comparePrevStart, endDate: comparePrevEnd, bucket: filters.metaBucket }).catch(() => null),
           leadsService.fetchOverview({ startDate: comparePrevStart, endDate: comparePrevEnd }),
         ])
         setPrev({
@@ -159,7 +167,7 @@ const TrafficMonitor = () => {
     } finally {
       setLoadingCore(false)
     }
-  }, [periodFilters.startDate, periodFilters.endDate, periodFilters.comparePrevStart, periodFilters.comparePrevEnd, filters.compare, JSON.stringify(filters.utmSources), JSON.stringify(filters.utmMediums), JSON.stringify(filters.utmCampaigns), JSON.stringify(filters.tags)])
+  }, [periodFilters.startDate, periodFilters.endDate, periodFilters.comparePrevStart, periodFilters.comparePrevEnd, filters.compare, filters.metaBucket, JSON.stringify(filters.utmSources), JSON.stringify(filters.utmMediums), JSON.stringify(filters.utmCampaigns), JSON.stringify(filters.tags)])
 
   useEffect(() => { loadCore() }, [loadCore])
 
@@ -209,6 +217,35 @@ const TrafficMonitor = () => {
       .finally(() => { if (!cancelled) setLoadingHeavy(false) })
     return () => { cancelled = true }
   }, [activeTab, periodFilters.startDate, periodFilters.endDate, JSON.stringify(filters.utmSources), JSON.stringify(filters.utmMediums), JSON.stringify(filters.utmCampaigns), JSON.stringify(filters.tags)])
+
+  // ============ PLANILHA (AUX | Dashboard) ============
+  // Carrega CSV público e filtra por período (DATA é DD/MM/YYYY).
+  useEffect(() => {
+    if (activeTab !== 'overview') return
+    const { startDate, endDate } = periodFilters
+    if (!startDate || !endDate) return
+    let cancelled = false
+    const startD = new Date(`${startDate}T00:00:00`)
+    const endD = new Date(`${endDate}T23:59:59`)
+    trafficSheetsService.getDataByPeriod(startD, endD)
+      .then((rows) => {
+        if (cancelled) return
+        setSheetRows(rows)
+        setSheetMetrics(trafficSheetsService.calculateMetrics(rows))
+        setSheetError(null)
+      })
+      .catch((e) => {
+        if (cancelled) return
+        setSheetRows([])
+        setSheetMetrics(null)
+        setSheetError(e?.message || 'Falha ao carregar planilha')
+      })
+    // Quebra por canal Facebook × Google (aba diferente da planilha)
+    trafficSheetsService.getChannelDataByPeriod(startD, endD)
+      .then((d) => { if (!cancelled) setChannelData(d) })
+      .catch(() => { if (!cancelled) setChannelData(null) })
+    return () => { cancelled = true }
+  }, [activeTab, periodFilters.startDate, periodFilters.endDate])
 
   // ============ LAZY: AC summary (overview + activecampaign) ============
   useEffect(() => {
@@ -435,6 +472,10 @@ const TrafficMonitor = () => {
             allClients={allClients || []}
             allSurveyLeads={allSurveyLeads || []}
             acSummary={acSummary}
+            sheetRows={sheetRows}
+            sheetMetrics={sheetMetrics}
+            sheetError={sheetError}
+            channelData={channelData}
           />
         )}
         {activeTab === 'attribution' && (

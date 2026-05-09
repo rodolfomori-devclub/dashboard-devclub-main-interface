@@ -25,25 +25,25 @@ function cacheSet(key, data) {
 }
 
 export const metaAdsClient = {
-  async fetchInsights({ startDate, endDate, accountId, level } = {}) {
-    const key = `insights:${accountId || 'default'}:${startDate || ''}:${endDate || ''}:${level || ''}`
+  async fetchInsights({ startDate, endDate, accountId, level, bucket } = {}) {
+    const key = `insights:${accountId || 'default'}:${startDate || ''}:${endDate || ''}:${level || ''}:${bucket || ''}`
     const cached = cacheGet(key)
     if (cached) return cached
 
     const url = accountId ? `/meta/insights/${accountId}` : '/meta/insights'
     const { data } = await api.get(url, {
-      params: { start_date: startDate, end_date: endDate, level },
+      params: { start_date: startDate, end_date: endDate, level, bucket },
     })
     cacheSet(key, data)
     return data
   },
 
-  async fetchDailySpend({ days = 30, accountId } = {}) {
-    const key = `dailySpend:${days}:${accountId || ''}`
+  async fetchDailySpend({ days = 30, accountId, bucket } = {}) {
+    const key = `dailySpend:${days}:${accountId || ''}:${bucket || ''}`
     const cached = cacheGet(key)
     if (cached) return cached
     const { data } = await api.get(`/meta/daily-spend/${days}`, {
-      params: { accountId },
+      params: { accountId, bucket },
     })
     cacheSet(key, data)
     return data
