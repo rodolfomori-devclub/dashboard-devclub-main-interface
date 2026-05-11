@@ -198,6 +198,45 @@ export const boletoApiService = {
   },
 
   /**
+   * Buscar vendas Boletex (3ª fonte de boletos parcelados) por data específica.
+   * Shape compatível com Asaas: { totalGross, totalNet, totalFees, count, totalPurchaseValue, sales: {...} }
+   * @param {Date} date Data para filtrar
+   */
+  async getBoletexSalesByDate(date) {
+    try {
+      const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      const response = await axios.get(`${API_URL}/boleto/boletex/vendas`, {
+        params: { date: dateStr },
+        timeout: 60000,
+      });
+      if (response.data?.success) return response.data.data || null;
+      return null;
+    } catch (error) {
+      console.error('Erro ao buscar vendas Boletex por data:', error);
+      return null;
+    }
+  },
+
+  /**
+   * Buscar vendas Boletex por intervalo de datas.
+   */
+  async getBoletexSalesByDateRange(startDate, endDate) {
+    try {
+      const startStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`;
+      const endStr = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
+      const response = await axios.get(`${API_URL}/boleto/boletex/vendas`, {
+        params: { data_inicio: startStr, data_final: endStr },
+        timeout: 120000,
+      });
+      if (response.data?.success) return response.data.data || null;
+      return null;
+    } catch (error) {
+      console.error('Erro ao buscar vendas Boletex por período:', error);
+      return null;
+    }
+  },
+
+  /**
    * Buscar status da integração
    * @returns {Promise<Object>} Informações sobre a fonte de dados
    */

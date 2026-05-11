@@ -28,6 +28,7 @@ function Today() {
   const [commercialData, setCommercialData] = useState(null)
   const [boletoData, setBoletoData] = useState(null)
   const [asaasData, setAsaasData] = useState(null)
+  const [boletexData, setBoletexData] = useState(null)
   const [hotmartData, setHotmartData] = useState(null)
   const [hotmartRefundsData, setHotmartRefundsData] = useState(null)
   const [showRefundsModal, setShowRefundsModal] = useState(false)
@@ -87,7 +88,7 @@ function Today() {
       })
 
       // Executar todas as chamadas em paralelo usando Promise.allSettled
-      const [transactionsResult, refundsResult, boletoResult, asaasResult, hotmartResult, hotmartRefundsResult] = await Promise.allSettled([
+      const [transactionsResult, refundsResult, boletoResult, asaasResult, hotmartResult, hotmartRefundsResult, boletexResult] = await Promise.allSettled([
         // Buscar transações aprovadas (Guru)
         axios.post(
           `${import.meta.env.VITE_API_URL}/transactions`,
@@ -156,7 +157,29 @@ function Today() {
             timeout: 30000,
             signal,
           },
-        )
+        ),
+        // Buscar vendas Boletex (3ª fonte de boletos parcelados) com retry para 429
+        (async () => {
+          for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+              return await axios.get(
+                `${import.meta.env.VITE_API_URL}/boleto/boletex/vendas`,
+                {
+                  params: { date },
+                  timeout: 60000,
+                  signal,
+                },
+              )
+            } catch (err) {
+              if (err?.response?.status === 429 && attempt < 3) {
+                console.log(`Boletex 429 - retry ${attempt}/3 em ${attempt * 10}s...`)
+                await new Promise(r => setTimeout(r, attempt * 10000))
+                continue
+              }
+              throw err
+            }
+          }
+        })()
       ])
 
       // Processar resultado de transações
@@ -499,6 +522,14 @@ function Today() {
       const asaasPurchaseValue = asaasSales.totalValue || 0
       const asaasCount = asaasSales.count || 0
 
+      // Extrair vendas Boletex (3ª fonte de boletos parcelados)
+      const boletexSales =
+        boletexResult.status === 'fulfilled' && boletexResult.value?.data?.success
+          ? boletexResult.value.data.data?.sales || {}
+          : {}
+      const boletexPurchaseValue = boletexSales.totalValue || 0
+      const boletexCount = boletexSales.count || 0
+
       // Extrair vendas Hotmart
       const hotmartSales =
         hotmartResult.status === 'fulfilled' && hotmartResult.value?.data?.success
@@ -549,8 +580,8 @@ function Today() {
         hourlyData.filter((hour) => hour.sales > 0 || hour.boletoSales > 0).length || 1
 
       const totalCardSales = totalSales + (hotmartCount - hotmartHourlySales)
-      totalSales += totalBoletoSales + asaasCount + (hotmartCount - hotmartHourlySales)
-      const totalCombinedValue = totalValue + totalBoletoValue + asaasPurchaseValue + (hotmartNetValue - hotmartHourlyValue)
+      totalSales += totalBoletoSales + asaasCount + boletexCount + (hotmartCount - hotmartHourlySales)
+      const totalCombinedValue = totalValue + totalBoletoValue + asaasPurchaseValue + boletexPurchaseValue + (hotmartNetValue - hotmartHourlyValue)
       const averageSalesPerHour = totalSales / hoursWithSalesUpdated
 
       const processedHourlyData = hourlyData.map((hour) => ({
@@ -613,6 +644,23 @@ function Today() {
         })
       } else {
         setAsaasData({ count: 0, totalPurchaseValue: 0, entryValue: 0, entries: [] })
+      }
+
+      // Processar dados do Boletex (3ª fonte — boleto parcelado)
+      if (boletexResult.status === 'fulfilled' && boletexResult.value?.data?.success) {
+        const boletex = boletexResult.value.data.data
+        const sales = boletex.sales || {}
+        setBoletexData({
+          count: sales.count || 0,
+          totalPurchaseValue: boletex.totalPurchaseValue || sales.totalValue || 0,
+          confirmedValue: sales.confirmedValue || 0,
+          pendingValue: sales.pendingValue || 0,
+          confirmedCount: sales.confirmedCount || 0,
+          pendingCount: sales.pendingCount || 0,
+          entries: sales.entries || [],
+        })
+      } else {
+        setBoletexData({ count: 0, totalPurchaseValue: 0, confirmedValue: 0, pendingValue: 0, confirmedCount: 0, pendingCount: 0, entries: [] })
       }
 
       // Processar dados da Hotmart
@@ -786,7 +834,7 @@ function Today() {
                 Vendas Cartão
               </h3>
               <p className="text-4xl font-bold text-green-500 mb-2">
-                {formatCurrency((todayData?.totalValue || 0) - (boletoData?.totalBoletoValue || 0) - (asaasData?.totalPurchaseValue || 0))}
+                {formatCurrency((todayData?.totalValue || 0) - (boletoData?.totalBoletoValue || 0) - (asaasData?.totalPurchaseValue || 0) - (boletexData?.totalPurchaseValue || 0))}
               </p>
               <p className="text-sm text-text-muted-light dark:text-text-muted-dark flex items-center">
                 <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
@@ -795,7 +843,7 @@ function Today() {
               <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 space-y-1">
                 <div className="flex justify-between text-xs">
                   <span className="text-text-muted-light dark:text-text-muted-dark">Guru</span>
-                  <span className="font-medium text-text-light dark:text-text-dark">{(todayData?.totalCardSales || 0) - (hotmartData?.count || 0)} ({formatCurrency((todayData?.totalValue || 0) - (boletoData?.totalBoletoValue || 0) - (asaasData?.totalPurchaseValue || 0) - (hotmartData?.totalNet || 0))})</span>
+                  <span className="font-medium text-text-light dark:text-text-dark">{(todayData?.totalCardSales || 0) - (hotmartData?.count || 0)} ({formatCurrency((todayData?.totalValue || 0) - (boletoData?.totalBoletoValue || 0) - (asaasData?.totalPurchaseValue || 0) - (boletexData?.totalPurchaseValue || 0) - (hotmartData?.totalNet || 0))})</span>
                 </div>
                 <div className="flex justify-between text-xs">
                   <span className="text-text-muted-light dark:text-text-muted-dark">Hotmart</span>
@@ -823,11 +871,11 @@ function Today() {
                 Vendas Boleto
               </h3>
               <p className="text-4xl font-bold text-yellow-500 mb-2">
-                {formatCurrency((boletoData?.totalBoletoValue || 0) + (asaasData?.totalPurchaseValue || 0))}
+                {formatCurrency((boletoData?.totalBoletoValue || 0) + (asaasData?.totalPurchaseValue || 0) + (boletexData?.totalPurchaseValue || 0))}
               </p>
               <p className="text-sm text-text-muted-light dark:text-text-muted-dark flex items-center">
                 <span className="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
-                {(boletoData?.totalBoletoSales || 0) + (asaasData?.count || 0)} vendas hoje
+                {(boletoData?.totalBoletoSales || 0) + (asaasData?.count || 0) + (boletexData?.count || 0)} vendas hoje
               </p>
               <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 space-y-1">
                 <div className="flex justify-between text-xs">
@@ -837,6 +885,14 @@ function Today() {
                 <div className="flex justify-between text-xs">
                   <span className="text-text-muted-light dark:text-text-muted-dark">Asaas (vendas)</span>
                   <span className="font-medium text-text-light dark:text-text-dark">{asaasData?.count || 0} ({formatCurrency(asaasData?.totalPurchaseValue || 0)})</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-text-muted-light dark:text-text-muted-dark">Boletex (vendas)</span>
+                  <span className="font-medium text-text-light dark:text-text-dark">{boletexData?.count || 0} ({formatCurrency(boletexData?.totalPurchaseValue || 0)})</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-text-muted-light dark:text-text-muted-dark">Boletex (entradas pagas)</span>
+                  <span className="font-medium text-green-500">{formatCurrency(boletexData?.confirmedValue || 0)}</span>
                 </div>
                 <div
                   className={`flex justify-between text-xs ${asaasData?.entries?.length > 0 ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 -mx-1 px-1 rounded transition-colors' : ''}`}
