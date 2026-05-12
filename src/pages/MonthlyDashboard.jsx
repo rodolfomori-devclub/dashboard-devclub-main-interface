@@ -28,6 +28,8 @@ function MonthlyDashboard() {
   const [boletoData, setBoletoData] = useState(null)
   const [asaasData, setAsaasData] = useState(null)
   const [showAsaasEntries, setShowAsaasEntries] = useState(false)
+  const [boletexData, setBoletexData] = useState(null)
+  const [showBoletexEntries, setShowBoletexEntries] = useState(false)
   const [hotmartData, setHotmartData] = useState(null)
   const [productData, setProductData] = useState([])
   const [offerData, setOfferData] = useState([])
@@ -142,7 +144,7 @@ function MonthlyDashboard() {
       setLoadingStates({ transactions: true, refunds: true, boleto: true })
 
       // Fazer as 3 chamadas em paralelo
-      const [transactionsResult, refundsResult, boletoResult, asaasResult, hotmartResult] = await Promise.allSettled([
+      const [transactionsResult, refundsResult, boletoResult, asaasResult, boletexResult, hotmartResult] = await Promise.allSettled([
         axios.post(
           `${import.meta.env.VITE_API_URL}/transactions`,
           {
@@ -189,6 +191,28 @@ function MonthlyDashboard() {
             } catch (err) {
               if (err?.response?.status === 429 && attempt < 3) {
                 console.log(`Asaas 429 - retry ${attempt}/3 em ${attempt * 10}s...`)
+                await new Promise(r => setTimeout(r, attempt * 10000))
+                continue
+              }
+              throw err
+            }
+          }
+        })(),
+        // Fetch Boletex sales (3a fonte de boleto parcelado) com retry para 429
+        (async () => {
+          for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+              return await axios.get(
+                `${import.meta.env.VITE_API_URL}/boleto/boletex/vendas`,
+                {
+                  params: { data_inicio: firstDayOfMonth, data_final: lastDayOfMonth },
+                  timeout: 60000,
+                  signal,
+                }
+              )
+            } catch (err) {
+              if (err?.response?.status === 429 && attempt < 3) {
+                console.log(`Boletex 429 - retry ${attempt}/3 em ${attempt * 10}s...`)
                 await new Promise(r => setTimeout(r, attempt * 10000))
                 continue
               }
@@ -608,6 +632,20 @@ function MonthlyDashboard() {
         setAsaasData({ count: 0, totalPurchaseValue: 0, entryValue: 0, entries: [] })
       }
 
+      // Processar dados do Boletex (3a fonte de boleto parcelado)
+      if (boletexResult.status === 'fulfilled' && boletexResult.value?.data?.success) {
+        const boletex = boletexResult.value.data.data
+        const sales = boletex.sales || {}
+        setBoletexData({
+          count: sales.count || 0,
+          totalPurchaseValue: sales.totalValue || 0,
+          confirmedValue: sales.confirmedValue || 0,
+          entries: sales.entries || [],
+        })
+      } else {
+        setBoletexData({ count: 0, totalPurchaseValue: 0, confirmedValue: 0, entries: [] })
+      }
+
       // Processar dados da Hotmart
       if (hotmartResult.status === 'fulfilled' && hotmartResult.value?.data?.success) {
         const hotmart = hotmartResult.value.data.data || {}
@@ -661,7 +699,7 @@ function MonthlyDashboard() {
 
   // Calcular progresso das metas
   const metaProgress = useMemo(() => {
-    const currentAmount = (monthlyData?.totals?.total_net_amount || 0) + (asaasData?.totalPurchaseValue || 0) + (hotmartData?.totalNet || 0)
+    const currentAmount = (monthlyData?.totals?.total_net_amount || 0) + (asaasData?.totalPurchaseValue || 0) + (boletexData?.totalPurchaseValue || 0) + (hotmartData?.totalNet || 0)
     return {
       meta: calculateProgress(currentAmount, parseCurrencyInput(goals.meta)),
       superMeta: calculateProgress(
@@ -673,7 +711,7 @@ function MonthlyDashboard() {
         parseCurrencyInput(goals.ultraMeta),
       ),
     }
-  }, [monthlyData, asaasData, hotmartData, goals, calculateProgress])
+  }, [monthlyData, asaasData, boletexData, hotmartData, goals, calculateProgress])
 
   // Nomes dos meses para exibição
   const monthNames = [
@@ -922,11 +960,11 @@ function MonthlyDashboard() {
                 Valor Total de Vendas
               </h3>
               <p className="text-4xl font-bold bg-gradient-to-r from-primary to-primary-dark bg-clip-text text-transparent mb-2">
-                {formatCurrency((monthlyData?.totals?.total_net_amount || 0) + (asaasData?.totalPurchaseValue || 0) + (hotmartData?.totalNet || 0))}
+                {formatCurrency((monthlyData?.totals?.total_net_amount || 0) + (asaasData?.totalPurchaseValue || 0) + (boletexData?.totalPurchaseValue || 0) + (hotmartData?.totalNet || 0))}
               </p>
               <p className="text-sm text-text-muted-light dark:text-text-muted-dark flex items-center">
                 <span className="w-2 h-2 bg-primary rounded-full mr-2"></span>
-                {(monthlyData?.totals?.total_transactions || 0) + (asaasData?.count || 0) + (hotmartData?.count || 0)} vendas realizadas
+                {(monthlyData?.totals?.total_transactions || 0) + (asaasData?.count || 0) + (boletexData?.count || 0) + (hotmartData?.count || 0)} vendas realizadas
               </p>
             </div>
           </div>
@@ -987,11 +1025,11 @@ function MonthlyDashboard() {
                 Vendas Boleto
               </h3>
               <p className="text-4xl font-bold text-yellow-500 mb-2">
-                {formatCurrency((boletoData?.total_boleto_value || 0) + (asaasData?.totalPurchaseValue || 0))}
+                {formatCurrency((boletoData?.total_boleto_value || 0) + (asaasData?.totalPurchaseValue || 0) + (boletexData?.totalPurchaseValue || 0))}
               </p>
               <p className="text-sm text-text-muted-light dark:text-text-muted-dark flex items-center">
                 <span className="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
-                {(boletoData?.total_boleto_quantity || 0) + (asaasData?.count || 0)} vendas
+                {(boletoData?.total_boleto_quantity || 0) + (asaasData?.count || 0) + (boletexData?.count || 0)} vendas
               </p>
               <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 space-y-1">
                 <div className="flex justify-between text-xs">
@@ -1007,7 +1045,7 @@ function MonthlyDashboard() {
                   onClick={() => asaasData?.entries?.length > 0 && setShowAsaasEntries(!showAsaasEntries)}
                 >
                   <span className="text-text-muted-light dark:text-text-muted-dark flex items-center gap-1">
-                    Entradas recebidas
+                    Entradas recebidas (Asaas)
                     {asaasData?.entries?.length > 0 && (
                       <svg className={`w-3 h-3 transition-transform ${showAsaasEntries ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -1023,6 +1061,37 @@ function MonthlyDashboard() {
                         <div className="flex flex-col min-w-0 mr-2">
                           <span className="text-text-light dark:text-text-dark font-medium truncate">{entry.customerName || 'Cliente'}</span>
                           <span className="text-[10px] text-text-muted-light dark:text-text-muted-dark truncate">{entry.productDescription || 'Boleto Parcelado'} ({entry.installmentCount}x)</span>
+                        </div>
+                        <span className="font-medium text-green-500 whitespace-nowrap">{formatCurrency(entry.entryValue || 0)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex justify-between text-xs">
+                  <span className="text-text-muted-light dark:text-text-muted-dark">Boletex (vendas)</span>
+                  <span className="font-medium text-text-light dark:text-text-dark">{boletexData?.count || 0} ({formatCurrency(boletexData?.totalPurchaseValue || 0)})</span>
+                </div>
+                <div
+                  className={`flex justify-between text-xs ${boletexData?.entries?.length > 0 ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 -mx-1 px-1 rounded transition-colors' : ''}`}
+                  onClick={() => boletexData?.entries?.length > 0 && setShowBoletexEntries(!showBoletexEntries)}
+                >
+                  <span className="text-text-muted-light dark:text-text-muted-dark flex items-center gap-1">
+                    Boletex (entradas pagas)
+                    {boletexData?.entries?.length > 0 && (
+                      <svg className={`w-3 h-3 transition-transform ${showBoletexEntries ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    )}
+                  </span>
+                  <span className="font-medium text-green-500">{formatCurrency(boletexData?.confirmedValue || 0)}</span>
+                </div>
+                {showBoletexEntries && boletexData?.entries?.length > 0 && (
+                  <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 space-y-1.5">
+                    {boletexData.entries.map((entry, idx) => (
+                      <div key={entry.id || idx} className="flex justify-between items-start text-xs bg-gray-50 dark:bg-gray-800/50 rounded px-2 py-1.5">
+                        <div className="flex flex-col min-w-0 mr-2">
+                          <span className="text-text-light dark:text-text-dark font-medium truncate">{entry.customerName || 'Cliente'}</span>
+                          <span className="text-[10px] text-text-muted-light dark:text-text-muted-dark truncate">{entry.productDescription || 'Boleto Parcelado'}</span>
                         </div>
                         <span className="font-medium text-green-500 whitespace-nowrap">{formatCurrency(entry.entryValue || 0)}</span>
                       </div>

@@ -27,6 +27,8 @@ function DailyDashboard() {
   const [boletoData, setBoletoData] = useState(null)
   const [asaasData, setAsaasData] = useState(null)
   const [showAsaasEntries, setShowAsaasEntries] = useState(false)
+  const [boletexData, setBoletexData] = useState(null)
+  const [showBoletexEntries, setShowBoletexEntries] = useState(false)
   const [hotmartData, setHotmartData] = useState(null)
   const [productData, setProductData] = useState([])
   const [offerData, setOfferData] = useState([])
@@ -308,7 +310,7 @@ function DailyDashboard() {
       })
 
       // Executar todas as chamadas em paralelo usando Promise.allSettled
-      const [transactionsResult, refundsResult, boletoResult, asaasResult, hotmartResult] = await Promise.allSettled([
+      const [transactionsResult, refundsResult, boletoResult, asaasResult, boletexResult, hotmartResult] = await Promise.allSettled([
         // Fetch approved transactions
         axios.post(
           `${import.meta.env.VITE_API_URL}/transactions`,
@@ -354,6 +356,28 @@ function DailyDashboard() {
             } catch (err) {
               if (err?.response?.status === 429 && attempt < 3) {
                 console.log(`Asaas 429 - retry ${attempt}/3 em ${attempt * 10}s...`)
+                await new Promise(r => setTimeout(r, attempt * 10000))
+                continue
+              }
+              throw err
+            }
+          }
+        })(),
+        // Fetch Boletex sales (3a fonte de boleto parcelado) com retry para 429
+        (async () => {
+          for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+              return await axios.get(
+                `${import.meta.env.VITE_API_URL}/boleto/boletex/vendas`,
+                {
+                  params: { data_inicio: startDate, data_final: endDate },
+                  timeout: 60000,
+                  signal,
+                }
+              )
+            } catch (err) {
+              if (err?.response?.status === 429 && attempt < 3) {
+                console.log(`Boletex 429 - retry ${attempt}/3 em ${attempt * 10}s...`)
                 await new Promise(r => setTimeout(r, attempt * 10000))
                 continue
               }
@@ -784,6 +808,37 @@ function DailyDashboard() {
         categoryTotals.programacao.totalQuantity += asaasCount
       }
 
+      // Processar dados do Boletex (3a fonte de boleto parcelado)
+      let boletexValue = 0
+      let boletexCount = 0
+      let boletexConfirmedValue = 0
+      let boletexEntries = []
+      if (boletexResult.status === 'fulfilled' && boletexResult.value?.data?.success) {
+        const boletex = boletexResult.value.data.data
+        const sales = boletex.sales || {}
+        boletexValue = sales.totalValue || 0
+        boletexCount = sales.count || 0
+        boletexConfirmedValue = sales.confirmedValue || 0
+        boletexEntries = sales.entries || []
+
+        // Distribuir Boletex proporcionalmente pelos dias (mesmo padrao do Asaas)
+        const days = Object.keys(dailyDataMap)
+        if (days.length > 0 && boletexValue > 0) {
+          const valuePerDay = boletexValue / days.length
+          const qtyPerDay = boletexCount / days.length
+          days.forEach(day => {
+            dailyDataMap[day].boleto_value += valuePerDay
+            dailyDataMap[day].net_amount += valuePerDay
+            dailyDataMap[day].quantity += qtyPerDay
+          })
+        }
+
+        categoryTotals.programacao.boletoValue += boletexValue
+        categoryTotals.programacao.boletoQuantity += boletexCount
+        categoryTotals.programacao.totalValue += boletexValue
+        categoryTotals.programacao.totalQuantity += boletexCount
+      }
+
       const chartData = Object.values(dailyDataMap)
 
       // Convert product summary to array and sort by value descending
@@ -797,10 +852,10 @@ function DailyDashboard() {
         totals: {
           total_transactions:
             transactionsResponse.data.totals.total_transactions +
-            totalBoletoQuantity + asaasCount,
+            totalBoletoQuantity + asaasCount + boletexCount,
           total_net_amount:
             transactionsResponse.data.totals.total_net_amount +
-            totalBoletoValue + asaasValue,
+            totalBoletoValue + asaasValue + boletexValue,
           total_net_affiliate_value: totalAffiliateValue,
           total_card_transactions:
             transactionsResponse.data.totals.total_transactions,
@@ -819,8 +874,8 @@ function DailyDashboard() {
       })
 
       setBoletoData({
-        total_boleto_value: totalBoletoValue + asaasValue,
-        total_boleto_quantity: totalBoletoQuantity + asaasCount,
+        total_boleto_value: totalBoletoValue + asaasValue + boletexValue,
+        total_boleto_quantity: totalBoletoQuantity + asaasCount + boletexCount,
       })
 
       setAsaasData({
@@ -828,6 +883,13 @@ function DailyDashboard() {
         totalPurchaseValue: asaasValue,
         entryValue: asaasEntryValue,
         entries: asaasEntries,
+      })
+
+      setBoletexData({
+        count: boletexCount,
+        totalPurchaseValue: boletexValue,
+        confirmedValue: boletexConfirmedValue,
+        entries: boletexEntries,
       })
 
       // Processar dados da Hotmart
@@ -982,6 +1044,8 @@ function DailyDashboard() {
         total_boleto_quantity: boletoData?.total_boleto_quantity || 0,
         total_asaas_value: asaasData?.totalPurchaseValue || 0,
         total_asaas_quantity: asaasData?.count || 0,
+        total_boletex_value: boletexData?.totalPurchaseValue || 0,
+        total_boletex_quantity: boletexData?.count || 0,
         total_hotmart_value: hotmartData?.totalNet || 0,
         total_hotmart_quantity: hotmartData?.count || 0,
         total_refund_amount: refundsData?.total_refund_amount || 0,
@@ -1018,6 +1082,8 @@ function DailyDashboard() {
       total_boleto_quantity: tmbQuantity,
       total_asaas_value: (asaasData?.totalPurchaseValue || 0) * ratio,
       total_asaas_quantity: Math.round((asaasData?.count || 0) * ratio),
+      total_boletex_value: (boletexData?.totalPurchaseValue || 0) * ratio,
+      total_boletex_quantity: Math.round((boletexData?.count || 0) * ratio),
       total_hotmart_value: (hotmartData?.totalNet || 0) * ratio,
       total_hotmart_quantity: Math.round((hotmartData?.count || 0) * ratio),
       total_refund_amount: (refundsData?.total_refund_amount || 0) * ratio,
@@ -1485,7 +1551,7 @@ function DailyDashboard() {
             <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 space-y-1">
               <div className="flex justify-between text-xs">
                 <span className="text-gray-500 dark:text-gray-400">TMB</span>
-                <span className="font-medium text-text-light dark:text-text-dark">{formatCurrency((filteredTotals.total_boleto_value || 0) - (filteredTotals.total_asaas_value || 0))}</span>
+                <span className="font-medium text-text-light dark:text-text-dark">{formatCurrency((filteredTotals.total_boleto_value || 0) - (filteredTotals.total_asaas_value || 0) - (filteredTotals.total_boletex_value || 0))}</span>
               </div>
               <div className="flex justify-between text-xs">
                 <span className="text-gray-500 dark:text-gray-400">Asaas (vendas)</span>
@@ -1496,7 +1562,7 @@ function DailyDashboard() {
                 onClick={() => asaasData?.entries?.length > 0 && setShowAsaasEntries(!showAsaasEntries)}
               >
                 <span className="text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                  Entradas recebidas
+                  Entradas recebidas (Asaas)
                   {asaasData?.entries?.length > 0 && (
                     <svg className={`w-3 h-3 transition-transform ${showAsaasEntries ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -1512,6 +1578,37 @@ function DailyDashboard() {
                       <div className="flex flex-col min-w-0 mr-2">
                         <span className="text-text-light dark:text-text-dark font-medium truncate">{entry.customerName || 'Cliente'}</span>
                         <span className="text-[10px] text-text-muted-light dark:text-text-muted-dark truncate">{entry.productDescription || 'Boleto Parcelado'} ({entry.installmentCount}x)</span>
+                      </div>
+                      <span className="font-medium text-green-500 whitespace-nowrap">{formatCurrency(entry.entryValue || 0)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500 dark:text-gray-400">Boletex (vendas)</span>
+                <span className="font-medium text-text-light dark:text-text-dark">{filteredTotals.total_boletex_quantity || 0} ({formatCurrency(filteredTotals.total_boletex_value || 0)})</span>
+              </div>
+              <div
+                className={`flex justify-between text-xs ${boletexData?.entries?.length > 0 ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 -mx-1 px-1 rounded transition-colors' : ''}`}
+                onClick={() => boletexData?.entries?.length > 0 && setShowBoletexEntries(!showBoletexEntries)}
+              >
+                <span className="text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                  Boletex (entradas pagas)
+                  {boletexData?.entries?.length > 0 && (
+                    <svg className={`w-3 h-3 transition-transform ${showBoletexEntries ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  )}
+                </span>
+                <span className="font-medium text-green-500">{formatCurrency(boletexData?.confirmedValue || 0)}</span>
+              </div>
+              {showBoletexEntries && boletexData?.entries?.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 space-y-1.5">
+                  {boletexData.entries.map((entry, idx) => (
+                    <div key={entry.id || idx} className="flex justify-between items-start text-xs bg-gray-50 dark:bg-gray-800/50 rounded px-2 py-1.5">
+                      <div className="flex flex-col min-w-0 mr-2">
+                        <span className="text-text-light dark:text-text-dark font-medium truncate">{entry.customerName || 'Cliente'}</span>
+                        <span className="text-[10px] text-text-muted-light dark:text-text-muted-dark truncate">{entry.productDescription || 'Boleto Parcelado'}</span>
                       </div>
                       <span className="font-medium text-green-500 whitespace-nowrap">{formatCurrency(entry.entryValue || 0)}</span>
                     </div>
