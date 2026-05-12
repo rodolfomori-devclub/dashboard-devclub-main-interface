@@ -33,6 +33,8 @@ function Today() {
   const [hotmartRefundsData, setHotmartRefundsData] = useState(null)
   const [showRefundsModal, setShowRefundsModal] = useState(false)
   const [showAsaasEntries, setShowAsaasEntries] = useState(false)
+  const [showBoletexEntries, setShowBoletexEntries] = useState(false)
+  const [showBoletexEmitted, setShowBoletexEmitted] = useState(false)
   const [categoryData, setCategoryData] = useState({ ia: {}, programacao: {} })
   const [loading, setLoading] = useState(true)
   const [loadingStates, setLoadingStates] = useState({
@@ -647,20 +649,33 @@ function Today() {
       }
 
       // Processar dados do Boletex (3ª fonte — boleto parcelado)
+      // Importante: "venda" só conta quem PAGOU a entrada (sales.count).
+      // Boletos emitidos sem entrada paga ficam em `emitted` (lista separada).
       if (boletexResult.status === 'fulfilled' && boletexResult.value?.data?.success) {
         const boletex = boletexResult.value.data.data
         const sales = boletex.sales || {}
+        const emitted = boletex.emitted || {}
         setBoletexData({
-          count: sales.count || 0,
-          totalPurchaseValue: boletex.totalPurchaseValue || sales.totalValue || 0,
-          confirmedValue: sales.confirmedValue || 0,
-          pendingValue: sales.pendingValue || 0,
-          confirmedCount: sales.confirmedCount || 0,
-          pendingCount: sales.pendingCount || 0,
-          entries: sales.entries || [],
+          count: sales.count || 0,                       // apenas vendas com entrada paga
+          totalPurchaseValue: sales.totalValue || 0,     // total com juros
+          listPriceValue: sales.listPriceValue || 0,     // preço de tabela (sem juros)
+          confirmedValue: sales.confirmedValue || 0,     // já recebido (entrada + parcelas)
+          pendingValue: sales.pendingValue || 0,         // parcelas pendentes
+          confirmedCount: sales.confirmedCount || 0,     // 100% pagas
+          partialCount: sales.partialCount || 0,         // entrada paga, faltam parcelas
+          entries: sales.entries || [],                  // lista detalhada das vendas
+          // Boletos emitidos aguardando pagamento da entrada
+          emittedCount: emitted.count || 0,
+          emittedValue: emitted.expectedEntryValue || 0,
+          emittedDetails: emitted.details || [],
         })
       } else {
-        setBoletexData({ count: 0, totalPurchaseValue: 0, confirmedValue: 0, pendingValue: 0, confirmedCount: 0, pendingCount: 0, entries: [] })
+        setBoletexData({
+          count: 0, totalPurchaseValue: 0, listPriceValue: 0,
+          confirmedValue: 0, pendingValue: 0,
+          confirmedCount: 0, partialCount: 0, entries: [],
+          emittedCount: 0, emittedValue: 0, emittedDetails: [],
+        })
       }
 
       // Processar dados da Hotmart
@@ -886,14 +901,82 @@ function Today() {
                   <span className="text-text-muted-light dark:text-text-muted-dark">Asaas (vendas)</span>
                   <span className="font-medium text-text-light dark:text-text-dark">{asaasData?.count || 0} ({formatCurrency(asaasData?.totalPurchaseValue || 0)})</span>
                 </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-text-muted-light dark:text-text-muted-dark">Boletex (vendas)</span>
+                {/* === BOLETEX === */}
+                {/* "Vendas" = só quem pagou entrada (confirmadas + parciais). Boletos emitidos sem entrada paga ficam em linha separada abaixo. */}
+                <div
+                  className={`flex justify-between text-xs ${boletexData?.entries?.length > 0 ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 -mx-1 px-1 rounded transition-colors' : ''}`}
+                  onClick={() => boletexData?.entries?.length > 0 && setShowBoletexEntries(!showBoletexEntries)}
+                >
+                  <span className="text-text-muted-light dark:text-text-muted-dark flex items-center gap-1">
+                    Boletex (vendas)
+                    {boletexData?.entries?.length > 0 && (
+                      <svg className={`w-3 h-3 transition-transform ${showBoletexEntries ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    )}
+                  </span>
                   <span className="font-medium text-text-light dark:text-text-dark">{boletexData?.count || 0} ({formatCurrency(boletexData?.totalPurchaseValue || 0)})</span>
                 </div>
+                {showBoletexEntries && boletexData?.entries?.length > 0 && (
+                  <div className="mt-1 mb-2 pt-2 border-t border-gray-200 dark:border-gray-700 space-y-1.5">
+                    {boletexData.entries.map((entry, idx) => (
+                      <div key={entry.id || idx} className="flex justify-between items-start text-xs bg-gray-50 dark:bg-gray-800/50 rounded px-2 py-1.5">
+                        <div className="flex flex-col min-w-0 mr-2">
+                          <span className="text-text-light dark:text-text-dark font-medium truncate">{entry.customerName || 'Cliente'}</span>
+                          <span className="text-[10px] text-text-muted-light dark:text-text-muted-dark truncate">
+                            {entry.productDescription || 'Boleto parcelado'} · tabela {formatCurrency(entry.listPrice || 0)}
+                          </span>
+                        </div>
+                        <div className="flex flex-col items-end text-right whitespace-nowrap">
+                          <span className="font-medium text-green-500">entrada {formatCurrency(entry.entryValue || 0)}</span>
+                          <span className="text-[10px] text-text-muted-light dark:text-text-muted-dark">total {formatCurrency(entry.totalValue || 0)}</span>
+                        </div>
+                      </div>
+                    ))}
+                    <div className="flex justify-between text-[10px] text-text-muted-light dark:text-text-muted-dark pt-1 px-1">
+                      <span>Soma preço tabela:</span>
+                      <span>{formatCurrency(boletexData?.listPriceValue || 0)}</span>
+                    </div>
+                  </div>
+                )}
                 <div className="flex justify-between text-xs">
                   <span className="text-text-muted-light dark:text-text-muted-dark">Boletex (entradas pagas)</span>
                   <span className="font-medium text-green-500">{formatCurrency(boletexData?.confirmedValue || 0)}</span>
                 </div>
+                {/* Boletos Boletex emitidos mas aguardando entrada (não conta como venda) */}
+                {(boletexData?.emittedCount || 0) > 0 && (
+                  <>
+                    <div
+                      className={`flex justify-between text-xs ${boletexData?.emittedDetails?.length > 0 ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 -mx-1 px-1 rounded transition-colors' : ''}`}
+                      onClick={() => boletexData?.emittedDetails?.length > 0 && setShowBoletexEmitted(!showBoletexEmitted)}
+                    >
+                      <span className="text-text-muted-light dark:text-text-muted-dark flex items-center gap-1">
+                        Boletex (aguardando entrada)
+                        {boletexData?.emittedDetails?.length > 0 && (
+                          <svg className={`w-3 h-3 transition-transform ${showBoletexEmitted ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        )}
+                      </span>
+                      <span className="font-medium text-yellow-600 dark:text-yellow-400">{boletexData?.emittedCount || 0} ({formatCurrency(boletexData?.emittedValue || 0)})</span>
+                    </div>
+                    {showBoletexEmitted && boletexData?.emittedDetails?.length > 0 && (
+                      <div className="mt-1 pt-2 border-t border-gray-200 dark:border-gray-700 space-y-1.5">
+                        {boletexData.emittedDetails.map((d, idx) => (
+                          <div key={d.id || idx} className="flex justify-between items-start text-xs bg-yellow-50 dark:bg-yellow-900/10 rounded px-2 py-1.5">
+                            <div className="flex flex-col min-w-0 mr-2">
+                              <span className="text-text-light dark:text-text-dark font-medium truncate">{d.customerName || 'Cliente'}</span>
+                              <span className="text-[10px] text-text-muted-light dark:text-text-muted-dark truncate">
+                                {d.productDescription || 'Boleto pendente'} · tabela {formatCurrency(d.listPrice || 0)}
+                              </span>
+                            </div>
+                            <span className="font-medium text-yellow-600 dark:text-yellow-400 whitespace-nowrap">{formatCurrency(d.expectedEntry || 0)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
                 <div
                   className={`flex justify-between text-xs ${asaasData?.entries?.length > 0 ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 -mx-1 px-1 rounded transition-colors' : ''}`}
                   onClick={() => asaasData?.entries?.length > 0 && setShowAsaasEntries(!showAsaasEntries)}
