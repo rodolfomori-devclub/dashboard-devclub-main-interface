@@ -4,7 +4,7 @@ import { goalScope, recordMatchesGoal, recordUnallocatedForGoal } from './goalSc
 export const PACE_METRICS = {
   gross: { label: 'Bruto', field: 'gross', unit: 'currency' },
   net: { label: 'Líquido', field: 'net', unit: 'currency' },
-  cash: { label: 'Cash collected · caixa recebido', field: 'received', unit: 'currency' },
+  cash: { label: 'Cash collected · novas vendas', field: 'received', unit: 'currency' },
   operational: { label: 'Valor operacional', field: 'revenue', unit: 'currency' },
   count: { label: 'Quantidade de vendas', field: 'quantity', unit: 'count' },
 }

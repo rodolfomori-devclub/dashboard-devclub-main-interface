@@ -7,7 +7,7 @@ Cartão e Boleto listam somente plataformas que possuem registros daquele meio n
 Boleto exibe por plataforma:
 
 - Valor bruto: bruto dos contratos/vendas selecionados.
-- Cash collected: líquido integral Guru/Hotmart, 40% do bruto TMB, caixa manual declarado conforme as regras existentes. Extrato Asaas sem vínculo ao método/contrato continua no card geral. Recebimento acumulado Boletex não vira caixa do período.
+- Cash collected: líquido integral Guru/Hotmart, 40% do bruto TMB, caixa manual declarado conforme as regras existentes. Asaas inclui somente a entrada de novos contratos; o extrato de faturas fica fora do card geral e das metas. Recebimento acumulado Boletex não vira caixa do período.
 - Entrada recebida: só o campo confirmado do contrato Asaas legado, quando disponível. Dados ausentes ficam Não informado, sem estimar a partir do caixa ou entrada prevista.
 
 Auditoria somente leitura do cache existente: 645 pedidos TMB têm valor_entrada mas não confirmação de recebimento desse valor; isConfirmed/data_efetivado não são prova de entrada paga. Em 1.550 contratos Boletex, entryValue inclui entrada e parcelas acumuladas, sem separar a entrada. Asaas em produção está sem checkout/contratos, disponibilizando apenas recebimentos do extrato. Guru, Hotmart e manuais também não informam entrada recebida separada.

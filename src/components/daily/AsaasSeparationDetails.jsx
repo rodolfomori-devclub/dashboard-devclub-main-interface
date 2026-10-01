@@ -22,7 +22,7 @@ export default function AsaasSeparationDetails({ model, loading = false, ready =
       </article>
       <article className="asaas-receipts-block" aria-label="Recebimentos de faturas Asaas">
         <h3><Wallet size={18} aria-hidden="true" />Recebimentos de faturas{cash?.partial && ready && <small>Parcial</small>}</h3>
-        <p className="asaas-block-caption">Pagamentos recebidos no período, antes das taxas.</p>
+        <p className="asaas-block-caption">Extrato de faturas recebidas. Separado do cash collected de novas vendas e das metas.</p>
         <p className="asaas-block-value" data-metric="receipts-gross">{value(cashVisible ? cash.gross : null)}</p>
         <dl className="asaas-receipt-origins">{[
           ['currentPeriod', 'Vendas do período', 'Recebimentos vinculados a contratos deste período.'],
@@ -31,12 +31,12 @@ export default function AsaasSeparationDetails({ model, loading = false, ready =
         ].map(([key, label, description]) => <div key={key} className={`asaas-origin--${key}`}>
           <dt><span>{label}</span><small>{description}</small></dt><dd data-metric={`receipts-${key}`}>{value(cashVisible ? receipts[key]?.received : null)}</dd>
         </div>)}</dl>
-        <p className="asaas-block-note">{cash?.allocationMissing ? 'Caixa sem distribuição para estes filtros. Não há vínculo para atribuir estes recebimentos ao produto, meio de pagamento ou campanha.' : receipts.status !== 'ready' && cashVisible ? 'Classificação incompleta: os valores por período incluem apenas vínculos confirmados. O restante permanece com origem não identificada.' : 'Os três grupos compõem os recebimentos acima. Faturas antigas entram no caixa, sem aumentar as vendas do período.'}</p>
+        <p className="asaas-block-note">{cash?.allocationMissing ? 'Caixa sem distribuição para estes filtros. Não há vínculo para atribuir estes recebimentos ao produto, meio de pagamento ou campanha.' : receipts.status !== 'ready' && cashVisible ? 'Classificação incompleta: os valores por período incluem apenas vínculos confirmados. O restante permanece com origem não identificada.' : 'Os três grupos compõem os recebimentos acima. Este extrato não é somado ao cash collected principal nem às metas de novas vendas.'}</p>
       </article>
     </div>
     <dl className="asaas-cash-totals">{[['Recebimentos líquidos', 'net', true], ['Taxas de recebimento', 'fees', true], ['Movimentações recebidas', 'count', false]].map(([label, key, currency]) => <div key={key}><dt>{label}</dt><dd data-metric={`receipts-${key}`}>{value(cashVisible ? cash[key] : null, currency)}</dd></div>)}</dl>
     <details className="asaas-cash-details"><summary>Critérios de vendas e recebimentos</summary>
-      <p>Vendas novas e recebimentos são indicadores diferentes e não são somados entre si. As entradas dos contratos já podem fazer parte do extrato e não são adicionadas novamente ao caixa. O líquido desconta taxas de pagamento e notificação; não representa o saldo da conta.</p>
+      <p>Vendas novas e recebimentos são indicadores diferentes e não são somados entre si. O cash collected principal usa somente a entrada dos novos contratos; este extrato permanece separado e não é somado novamente. O líquido desconta taxas de pagamento e notificação; não representa o saldo da conta.</p>
       <p>A origem de cada recebimento usa a data de criação do contrato confirmado. A data de emissão ou vencimento da fatura não é tratada como data da venda. Sem esse vínculo, o recebimento fica com origem não identificada.</p>
     </details>
   </>

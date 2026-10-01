@@ -1,6 +1,6 @@
 # Asaas: vendas e recebimentos
 
-O painel separa contratos confirmados criados no período, suas entradas e dinheiro recebido por faturas. Um pagamento de parcela não aumenta as vendas; as entradas não são somadas novamente ao extrato.
+O painel separa contratos confirmados criados no período, suas entradas e dinheiro recebido por faturas. O cash collected principal e as metas incluem somente as entradas confirmadas de novos contratos; o extrato de faturas não entra nessa soma, independentemente de conter vínculos de origem. Um pagamento de parcela não aumenta as vendas; as entradas não são somadas novamente ao extrato.
 
 O extrato é detalhado em recebimentos vinculados a vendas do período, vendas anteriores e origem não identificada. A comparação acontece no período final selecionado, depois de juntar os snapshots. Uma venda dia 1 recebida dia 2 é anterior no diário do dia 2 e pertence ao mês quando o mês inteiro é selecionado.
 

@@ -192,11 +192,11 @@ try {
     await assertMoney(revenue(), '2.000,00')
     assert.equal((await panel().locator('[data-metric="sales-count"]').innerText()).trim(), '1')
     await assertMoney(panel().locator('[data-metric="sales-entry"]'), '200,00')
-    await assertMoney(cash(), '350,00')
+    await assertMoney(cash(), '200,00')
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${path} ${width} overflow`)
     await panel().getByRole('heading', { name: 'Asaas: vendas e recebimentos', exact: true }).click()
     await panel().screenshot({ path: `${out}/${path}-${width}-${theme}.png`, animations: 'disabled' })
-    checks.push(`${path}/${width}/${theme}: R$ 2,000 one-sale contract is separate from R$ 350 receipts and does not double-count its R$ 200 entry`)
+    checks.push(`${path}/${width}/${theme}: R$ 2,000 one-sale contract and R$ 200 new-sale cash are separate from R$ 350 invoice receipts`)
     const before = calls.length
     const product = path === 'diario' ? page.getByLabel('Família de produto', { exact: true }) : page.locator('#period-product')
     await product.selectOption('DevClub')
@@ -220,7 +220,7 @@ try {
   await assertMoney(metric('Recebimentos de faturas'), '350,00')
   await assertMoney(metric('Origem não identificada'), '350,00')
   assert.doesNotMatch(await revenue().innerText(), /350,00|2\.000,00/)
-  await assertMoney(cash(), '350,00')
+  assert.doesNotMatch(await cash().innerText(), /350,00/, 'Invoice receipts must not become new-sales cash')
   checks.push('Cash-only source is unknown new sales and unknown origin, never R$ 350 of invented sales')
 
   scenario = 'annual-later-week'

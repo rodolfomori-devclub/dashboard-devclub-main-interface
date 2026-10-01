@@ -135,8 +135,8 @@ try {
    const row = provider(card('Boleto'), 'asaas')
    await assertMoney(metric(row, 'Valor bruto'), '1.000,00')
    await assertMoney(metric(row, 'Entrada recebida'), '200,00')
-   assert.match(await metric(row, 'Cash collected').innerText(), /Não informado/, 'Asaas statement is not assigned to boleto contracts')
-   await assertMoney(page.locator('.revenue-card--cash .revenue-card-value'), '4.140,00')
+   await assertMoney(metric(row, 'Cash collected'), '200,00', 'Only confirmed new-contract entry counts as Asaas sales cash')
+   await assertMoney(page.locator('.revenue-card--cash .revenue-card-value'), '3.440,00')
   }
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${path}/${width}/${theme} overflow`)
   for (const row of await providers(card('Boleto')).all()) {
@@ -175,9 +175,9 @@ try {
  await navigate('diario', 1440, 'light')
  assert.deepEqual(await providerIds(card('Boleto')), ['tmb', 'boletex'])
  assert.deepEqual(await providerIds(card('Cartão')), ['guru', 'hotmart'])
- await assertMoney(page.locator('.revenue-card--cash .revenue-card-value'), '2.500,00')
+ await assertMoney(page.locator('.revenue-card--cash .revenue-card-value'), '1.600,00')
  assert.equal(await provider(card('Boleto'), 'asaas').count(), 0)
- checks.push('Statement-only Asaas remains in main cash; no invented boleto provider')
+ checks.push('Statement-only Asaas stays outside new-sales cash and creates no boleto provider')
  assert.deepEqual(errors, []); assert.deepEqual(blocked, []); assert.deepEqual(unexpected, [])
  await fs.writeFile(`${out}/results.json`, JSON.stringify({ passed: true, published, assets, checks, apiCalls: calls.length, errors, blocked, unexpected }, null, 2))
  console.log(JSON.stringify({ passed: true, published, assets, checks: checks.length, apiCalls: calls.length, errors, blocked, unexpected }))

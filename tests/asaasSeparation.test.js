@@ -82,7 +82,7 @@ test('filters never allocate the unlinked statement to products, teams, people o
   }
 })
 
-test('a manual Asaas sale remains gross only and never duplicates the statement or linked contract', () => {
+test('a manual Asaas sale keeps its declared cash separate from the statement and excludes a linked contract', () => {
   const data = payload([receipt(null, 200)])
   const manual = { id: 'manual:1', sourceId: 'manual', isManual: true, kind: 'sale', quantity: 1, platform: 'Asaas', gross: 2000, received: 200, date: '2026-10-10', utm: {} }
   const linked = { ...manual, id: 'manual:linked', original: { linkedExternalId: 'existing-contract' } }
@@ -93,7 +93,11 @@ test('a manual Asaas sale remains gross only and never duplicates the statement 
   assert.equal(result.sales.entry, null)
   assert.equal(result.sales.partial, true)
   assert.equal(result.cash.gross, 200)
-  assert.equal(prepareGoalData(args).cashRecords.some(row => row.isManual), false)
+  const prepared = prepareGoalData({ ...args, records: [manual, linked] })
+  assert.equal(prepared.cashRecords.length, 1)
+  assert.equal(prepared.cashRecords[0].isManual, true)
+  assert.equal(prepared.cashRecords[0].received, 200)
+  assert.equal(prepared.cashRecords.some(row => row.isReceipt), false)
   reconciles(result)
 })
 

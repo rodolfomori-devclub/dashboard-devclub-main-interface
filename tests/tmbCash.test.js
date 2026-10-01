@@ -104,17 +104,17 @@ test('missing TMB cash stays unknown, failed sources do not become zero, and sta
   }
 })
 
-test('Asaas receipts and manual duplicate protection remain unchanged alongside the TMB rule', () => {
+test('new Asaas manual cash counts once alongside TMB while statement receipts remain separate', () => {
   const receipts = [{ date: '2026-09-30', received: 300, count: 1 }]
   const asaasManual = manualSaleRecord({ id: 'a1', platform: 'Asaas', gross: 1000, net: 900, cashCollected: 300, date: '2026-09-30' })
   assert.equal(asaasManual.received, 300)
   assert.equal(asaasManual.cashRule, undefined)
   const prepared = prepareGoalData({ records: [tmb(), asaasManual], sources: [source, manualSource,
-    { id: 'asaas', kind: 'sale', status: 'partial', cashReceipts: receipts }],
+    { id: 'asaas', kind: 'sale', status: 'partial', salesAvailable: false, cashReceipts: receipts }],
   }, directory)
-  assert.equal(prepared.excludedCashManuals.length, 1)
-  assert.equal(prepared.cashRecords.filter(row => row.sourceId === 'asaas').length, 1)
-  assert.equal(prepared.cashRecords.find(row => row.sourceId === 'asaas').received, 300)
+  assert.equal(prepared.excludedCashManuals.length, 0)
+  assert.equal(prepared.cashRecords.filter(row => row.sourceId === 'asaas').length, 0)
+  assert.equal(prepared.cashRecords.find(row => row.isManual).received, 300)
   assert.equal(pace(prepared).actual, 340)
   assert.equal(pace(prepared).definitive, false)
   const asaasRow = normalizeSource('asaas', { data: { sales: { count: 1, totalValue: 1000, entryValue: 100,

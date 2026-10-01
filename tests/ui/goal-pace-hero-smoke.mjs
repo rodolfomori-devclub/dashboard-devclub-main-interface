@@ -141,7 +141,7 @@ try {
   await openMonth()
   const beforeFilters = calls.length
   await page.getByLabel('Base financeira', { exact: true }).selectOption('cash')
-  assert.match(await selectedTotal(), /5\.320,00/, 'Cash includes full Guru net, TMB 40%, confirmed Asaas and manual cash')
+  assert.match(await selectedTotal(), /4\.420,00/, 'Cash includes full Guru net, TMB 40% and manual cash; invoice receipts do not advance new-sales goals')
   for (const scope of ['Time', 'Indivíduo', 'Produto']) {
     await page.getByRole('group', { name: 'Escopo da meta' }).getByRole('button', { name: scope, exact: true }).click()
     if (scope === 'Produto') await page.getByLabel('Família de produto', { exact: true }).selectOption('DevClub')

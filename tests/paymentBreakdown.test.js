@@ -37,8 +37,8 @@ test('boleto platform details separate gross, operational cash and confirmed dow
   assert.deepEqual(details.hotmart, [2000, 1880, null])
   assert.deepEqual(details.tmb, [3000, 1200, null])
   assert.deepEqual(details.boletex, [5000, null, null])
-  assert.deepEqual(details.asaas, [4000, null, 300])
-  assert.equal(model.cash.value, 900 + 1880 + 1200 + 900)
+  assert.deepEqual(details.asaas, [4000, 300, 300])
+  assert.equal(model.cash.value, 900 + 1880 + 1200 + 300)
   assert.equal(model.payments.boleto.value, 900 + 1880 + 3000 + 5000 + 4000)
   assert.equal(model.payments.boleto.providers.find(provider => provider.id === 'tmb').entry.partial, true)
 })
@@ -49,7 +49,7 @@ test('a cash-only Asaas statement never becomes a boleto platform, gross or entr
   assert.deepEqual(ids(model.payments.boleto), [])
   assert.deepEqual(ids(model.payments.card), [])
   assert.equal(model.payments.boleto.value, null)
-  assert.equal(model.cash.value, 500)
+  assert.equal(model.cash.value, null)
 })
 
 test('manual platform attribution combines the right method while preserving declared cash once', () => {
