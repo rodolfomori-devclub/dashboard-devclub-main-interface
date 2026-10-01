@@ -1,6 +1,7 @@
 # Produção verificada — 1 de outubro de 2026
 
-Dashboard: https://dashboard.launchcontrol.com.br  
+Dashboard: https://dashboard.launchcontrol.com.br
+
 Vault: https://auth.clubeducacao.com.br
 
 ## Versões publicadas
