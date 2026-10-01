@@ -1,5 +1,6 @@
 import type { SellerRank } from '@/hooks/useSalesRanking';
 import { SellerAvatar } from '@/components/SellerAvatar';
+import { rankingMoney } from '@/lib/rankingAmounts';
 
 interface RankingListProps {
   sellers: SellerRank[];
@@ -20,7 +21,8 @@ export function RankingList({ sellers }: RankingListProps) {
       {sellers.map((seller, i) => (
         <div
           key={seller.id}
-          className={`group flex items-center gap-4 p-4 rounded-xl border transition-all duration-500 ${
+          data-testid={`legacy-ranking-seller-${seller.id}`}
+          className={`group flex flex-wrap sm:flex-nowrap items-center gap-3 sm:gap-4 p-4 rounded-xl border transition-all duration-500 ${
             i === 0
               ? 'bg-gradient-to-r from-yellow-400/10 to-transparent border-yellow-400/20 shadow-lg shadow-yellow-400/5'
               : i === 1
@@ -52,7 +54,7 @@ export function RankingList({ sellers }: RankingListProps) {
             }
           />
 
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-[90px]">
             <p className="font-semibold truncate text-foreground">{seller.name}</p>
             <div className="flex items-center gap-3 mt-1">
               <div className="flex-1 max-w-[200px]">
@@ -77,9 +79,12 @@ export function RankingList({ sellers }: RankingListProps) {
             </div>
           </div>
 
-          <div className="text-right">
-            <p className="font-bold text-lg text-foreground">R$ {seller.totalSales.toLocaleString('pt-BR')}</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">({seller.cashCollectedPct}% de CC)</p>
+          <div className="text-right w-full sm:w-auto shrink-0">
+            <p className="text-xs text-muted-foreground">Valor bruto{seller.grossPartial ? ' · parcial' : ''}</p>
+            <p className="font-bold text-xl text-primary" data-testid="legacy-gross">{rankingMoney(seller.totalDealValue)}</p>
+            <p className="text-xs text-muted-foreground mt-1">Cash collected{seller.cashPartial ? ' · parcial' : ''}</p>
+            <p className="font-medium text-sm text-foreground" data-testid="legacy-cash">{rankingMoney(seller.cashCollected)}</p>
+            {seller.goal > 0 && <p className="text-xs text-muted-foreground mt-2">Realizado da meta: {rankingMoney(seller.totalSales)} / {rankingMoney(seller.goal)}</p>}
             {seller.remaining > 0 && (
               <p className="text-xs text-muted-foreground">Faltam R$ {seller.remaining.toLocaleString('pt-BR')}</p>
             )}

@@ -2,7 +2,8 @@ import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useSales, useProfiles, useTeamSettings } from '@/hooks/useSupabaseData';
 import { useGoals } from '@/hooks/useGoals';
 import { audioManager } from '@/lib/audioManager';
-import { parseLocalDate, getCashCollected } from '@/lib/utils';
+import { parseLocalDate } from '@/lib/utils';
+import { rankingAmounts } from '@/lib/rankingAmounts';
 import { filterVisibleProfiles } from '@/lib/hiddenUsers';
 import type { CelebrationEvent } from '@/components/CelebrationOverlay';
 import type { SaleNotificationData } from '@/components/ranking/SaleNotifications';
@@ -14,8 +15,11 @@ export interface SellerRank {
   initials: string;
   avatarUrl?: string | null;
   totalSales: number;
-  totalDealValue: number;
-  cashCollectedPct: number;
+  totalDealValue: number | null;
+  cashCollected: number | null;
+  grossPartial: boolean;
+  cashPartial: boolean;
+  cashCollectedPct: number | null;
   goal: number;
   goalProgress: number;
   remaining: number;
@@ -78,9 +82,9 @@ export function useSalesRanking() {
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     });
     const totalTeamSales = monthSales.reduce((sum: number, s: any) => sum + Number(s.amount), 0);
-    // Cash collected geral do time (dinheiro de fato recebido)
-    const teamCashCollected = monthSales.reduce((sum: number, s: any) => sum + getCashCollected(s), 0);
-    const teamCashCollectedPct = totalTeamSales > 0 ? Math.round((teamCashCollected / totalTeamSales) * 100) : 0;
+    const teamAmounts = rankingAmounts(monthSales);
+    const teamCashCollected = teamAmounts.cash;
+    const teamCashCollectedPct = teamAmounts.gross && teamCashCollected !== null ? Math.round((teamCashCollected / teamAmounts.gross) * 100) : null;
 
     // Prefer monthly_goals (configurable per month) over global team_settings
     const teamGoal = goals?.team_goal || settings.team_goal || 0;
@@ -97,21 +101,9 @@ export function useSalesRanking() {
     const sellers: SellerRank[] = users.map((u: any) => {
       const userSales = monthSales.filter((s: any) => s.seller_id === u.id);
       const total = userSales.reduce((sum: number, s: any) => sum + Number(s.amount), 0);
-      // Cash Collected = dinheiro DE FATO recebido (qualquer plataforma).
-      // Valores pendentes/futuros NÃO contam.
-      const hublaCashCollected = userSales.reduce(
-        (sum: number, s: any) => sum + getCashCollected(s),
-        0,
-      );
-
-      // Valor vendido = soma do valor total negociado de todas as vendas
-      const totalDealValue = userSales.reduce((sum: number, s: any) => {
-        const cash = Number(s.amount) || 0;
-        const outstanding = Number(s.future_outstanding_value) || 0;
-        const deal = Number(s.total_sale_value) || (cash + outstanding);
-        return sum + deal;
-      }, 0);
-      const cashCollectedPct = totalDealValue > 0 ? Math.round((hublaCashCollected / totalDealValue) * 100) : 0;
+      const amounts = rankingAmounts(userSales);
+      const totalDealValue = amounts.gross;
+      const cashCollectedPct = totalDealValue && amounts.cash !== null ? Math.round((amounts.cash / totalDealValue) * 100) : null;
 
       const goal = Number(u.individual_goal) || 0;
 
@@ -131,6 +123,7 @@ export function useSalesRanking() {
         avatarUrl: u.avatar_url || null,
         totalSales: total,
         totalDealValue,
+        cashCollected: amounts.cash, grossPartial: amounts.grossPartial, cashPartial: amounts.cashPartial,
         cashCollectedPct,
         goal,
         goalProgress: goal > 0 ? Math.round((total / goal) * 100) : 0,
@@ -141,7 +134,7 @@ export function useSalesRanking() {
     }).sort((a, b) => b.totalSales - a.totalSales);
 
 
-    return { sellers, totalTeamSales, teamCashCollected, teamCashCollectedPct, teamGoal, monthlyHyperGoal, teamProgress, daysRemaining, weeksRemaining, extraDays, salesCount: monthSales.length, monthSales, users, directoryAvailable, directoryLoading };
+    return { sellers, totalTeamSales, teamAmounts, teamCashCollected, teamCashCollectedPct, teamGoal, monthlyHyperGoal, teamProgress, daysRemaining, weeksRemaining, extraDays, salesCount: monthSales.length, monthSales, users, directoryAvailable, directoryLoading };
   }, [allSales, profiles, settingsRaw, goals, directoryAvailable, directoryLoading]);
 
   const queueCelebration = useCallback((event: CelebrationEvent) => {

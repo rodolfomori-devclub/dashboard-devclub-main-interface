@@ -28,10 +28,12 @@ export function validPublicPresentation(value) {
 // A stale TV can retain its last known amounts, but cannot claim a current pace.
 export function stalePublicTvModel(model) {
   if (!model) return model
-  const pace = item => item ? { ...item, definitive: false, sourceIncomplete: true } : item
-  return { ...model, totals: { ...model.totals, partial: true }, overview: pace(model.overview), pace: pace(model.pace),
-    daily: model.daily ? { ...model.daily, partial: true } : undefined,
-    ...Object.fromEntries(['teamGoals', 'productGoals'].filter(key => model[key]).map(key => [key, model[key].map(row => ({ ...row, pace: pace(row.pace) }))])),
-    ...Object.fromEntries(['sellers', 'products', 'payments'].filter(key => model[key]).map(key => [key, model[key].map(row => ({ ...row, partial: true }))])),
+  const financials = item => item ? { ...item, grossPartial: true, cashPartial: true } : item
+  const pace = item => item ? { ...financials(item), definitive: false, sourceIncomplete: true } : item
+  return { ...model, totals: { ...financials(model.totals), partial: true }, overview: pace(model.overview), pace: pace(model.pace),
+    daily: model.daily ? { ...financials(model.daily), partial: true, hours: (model.daily.hours || []).map(financials) } : undefined,
+    unassigned: model.unassigned ? Object.fromEntries(Object.entries(model.unassigned).map(([key, row]) => [key, { ...financials(row), partial: true }])) : undefined,
+    ...Object.fromEntries(['teamGoals', 'productGoals'].filter(key => model[key]).map(key => [key, model[key].map(row => ({ ...financials(row), pace: pace(row.pace) }))])),
+    ...Object.fromEntries(['sellers', 'products', 'payments'].filter(key => model[key]).map(key => [key, model[key].map(row => ({ ...financials(row), partial: true }))])),
   }
 }

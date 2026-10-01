@@ -10,6 +10,7 @@ import { chromium } from 'playwright'
 import { expect } from '@playwright/test'
 import { periodCacheFixture, emptyProviderPayload } from './period-cache-fixture.mjs'
 import { readPublishedVault } from './published-vault.mjs'
+import { expectTvDual, expectTvScene } from './tv-dual-metrics-assertions.mjs'
 
 const root = fileURLToPath(new URL('../../', import.meta.url))
 const published = process.env.DASHBOARD_SMOKE_PRODUCTION === '1'
@@ -39,7 +40,7 @@ const scopes = [
   ...['DevClub', 'MBA', 'IAClub'].map(product => ({ scope: 'product', scopeId: product, scopeName: product, product })),
   ...directory.individuals.map(person => ({ scope: 'individual', scopeId: person.id, scopeName: person.name, product: 'all' })),
 ]
-const plans = ['gross', 'cash'].flatMap(metric => scopes.map((scope, index) => ({ ...scope, id: `${metric}-${index}`, metric, target: scope.scope === 'overall' ? 5000 : 2000, superTarget: 7000, ultraTarget: 9000, paceBasis: 'calendar' })))
+const plans = ['gross', 'cash', 'count'].flatMap(metric => scopes.map((scope, index) => ({ ...scope, id: `${metric}-${index}`, metric, target: metric === 'count' ? 10 : scope.scope === 'overall' ? 5000 : 2000, superTarget: 7000, ultraTarget: 9000, paceBasis: 'calendar' })))
 const includes = (range, date) => range.startDate <= date && range.endDate >= date
 function provider(id, range) {
   if (scenario === 'empty') return emptyProviderPayload(id)
@@ -105,6 +106,11 @@ async function fixture(route) {
     const table = path.split('/').pop()
     if (table === 'profiles') body = [profile, ...directory.individuals.map(person => ({ ...person, role: 'vendedor', team_id: person.teamId, individual_goal: 2000 }))]
     else if (table === 'teams') body = directory.teams
+    else if (table === 'sales') body = [
+      { id: 'legacy-a', date: today, seller_id: 'ana', amount: 500, total_sale_value: 900, dashboard_ledger_id: 'mirror-a', dashboard_value: 900, dashboard_gross: 1200, real_collected_this_month: 200, cash_collected: 250, platform: 'Hotmart' },
+      { id: 'legacy-b', date: today, seller_id: 'bruno', amount: 300, total_sale_value: 700, real_collected_this_month: 0, cash_collected: 300, platform: 'TMB' },
+      { id: 'legacy-head', date: today, seller_id: profile.id, amount: 100, total_sale_value: 1000, real_collected_this_month: 100, cash_collected: 100, platform: 'Hubla' },
+    ]
     else if (table === 'team_settings') body = { id: 'setting', team_goal: 5000, origins: [] }
     else if (table === 'monthly_goals') body = { month: 10, year: 2026, team_goal: 5000, monthly_hyper_goal: 7000 }
     else body = []
@@ -122,6 +128,9 @@ async function fixture(route) {
     body = provider(source, { startDate: url.searchParams.get('data_inicio') || date, endDate: url.searchParams.get('data_final') || date })
   }
   if (method !== (path === '/api/tv/settings' && method === 'PUT' ? 'PUT' : (path === '/api/tv/share' && method === 'POST') || ['/api/transactions', '/api/refunds'].includes(path) ? 'POST' : 'GET')) { unexpected.push(`${method} ${path}`); await route.abort(); return }
+  if (path === '/api/hub/rest/v1/sales' && scenario === 'legacy-unknown-gross') body = body.map(row => row.seller_id === 'ana' ? { ...row, dashboard_gross: null } : row)
+  if (path === '/api/hub/rest/v1/sales' && scenario === 'legacy-unknown') body = body.map(row => row.seller_id === 'ana' ? { ...row, dashboard_cash_known: false } : row)
+  if (path === '/api/hub/rest/v1/sales' && Array.isArray(body)) body = body.slice(Number(url.searchParams.get('offset') || 0), Number(url.searchParams.get('offset') || 0) + Number(url.searchParams.get('limit') || 500))
   await route.fulfill({ status, contentType: 'application/json', headers: { 'access-control-allow-origin': base }, body: JSON.stringify(body) })
 }
 
@@ -193,13 +202,13 @@ try {
   const configure = async () => { await page.getByRole('button', { name: 'Configurar TV', exact: true }).click(); await editor().waitFor() }
   const save = async () => { await editor().getByRole('button', { name: 'Salvar programação', exact: true }).click(); await editor().waitFor({ state: 'hidden' }) }
   const start = async () => { await page.getByRole('button', { name: 'Iniciar TV', exact: true }).click(); await player().waitFor() }
-  const noOverflow = async name => assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${name}: viewport fits`)
+  const noOverflow = async name => { if (controlledClock) await page.clock.runFor(35); else await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))); assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${name}: viewport fits`) }
   const screenshot = async name => { await noOverflow(name); await page.screenshot({ path: `${out}/${name}.png`, fullPage: await player().count() === 0, animations: 'disabled' }) }
 
   await visit()
-  await expectMain(preview(), '1.233,64')
+  await expectMain(preview(), '1.900,00'); await expectTvDual(preview(), 1900, 1233.64)
   assert.doesNotMatch(await preview().innerText(), /1\.255,36|2\.489,00/, 'Invoice cash cannot appear in the new-sales TV')
-  record('Initial monthly preview uses shared financial rules: Hotmart net833.64 + TMB40%400, with Asaas invoices excluded')
+  record('Initial cash-goal preview emphasizes gross1900 and retains cash1233.64; historical Asaas invoices are excluded from both')
 
   const sharing = () => page.getByTestId('tv-sharing')
   const publicAddress = () => sharing().getByRole('textbox', { name: 'Endereço público da TV', exact: true })
@@ -267,7 +276,9 @@ try {
   assert.equal(savedSettings.paceScope, 'team')
   assert.equal(savedSettings.paceScopeId, 'commercial')
   await visit()
-  await expectMain(preview(), '1.233,64')
+  await expectMain(preview(), '1.900,00'); await expectTvDual(preview(), 1900, 1233.64)
+  await expect(preview()).toContainText('Base da meta: Cash collected')
+  await expect(preview().locator('.tv-goal-dial')).toContainText('24,67%')
   record('Admin config persists panel selection, custom order, independent durations and theme through a fresh page load')
 
   await page.setViewportSize({ width: 1920, height: 1080 })
@@ -277,7 +288,7 @@ try {
   await page.waitForLoadState('networkidle')
   await start()
   assert.equal(await player().getAttribute('data-panel-id'), 'monthly-goal')
-  await expectMain(player(), '1.233,64')
+  await expectMain(player(), '1.900,00')
   assert.equal(await player().getAttribute('data-tv-theme'), 'light')
   await screenshot('monthly-1920-light')
   await page.getByRole('button', { name: 'Pausar apresentação', exact: true }).click()
@@ -300,11 +311,12 @@ try {
   for (let index = 0; index < 8; index++) {
     const id = await player().getAttribute('data-panel-id')
     seen.add(id)
+    await expectTvScene(player(), id)
     const text = await player().innerText()
     assert.doesNotMatch(text, /1\.255,36|2\.489,00/, `${id}: old invoice receipts stay excluded`)
-    if (id === 'monthly-goal') await expectMain(player(), '1.233,64')
-    if (id === 'pace') { await expectMain(player(), '955,76'); assert.match(text, /Comercial/i) }
-    if (id === 'daily') await expectMain(player(), '277,88')
+    if (id === 'monthly-goal') await expectMain(player(), '1.900,00')
+    if (id === 'pace') { await expectMain(player(), '1.600,00'); assert.match(text, /Comercial/i) }
+    if (id === 'daily') await expectMain(player(), '300,00')
     if (id === 'sellers') { assert.match(text, /Ana/); assert.match(text, /Bruno/); assert.match(text, /955,76/) }
     if (id === 'products') { assert.match(text, /DevClub/); assert.match(text, /MBA/); assert.match(text, /IAClub/) }
     if (id === 'team-goals') { assert.match(text, /Comercial/); assert.match(text, /Marketing/) }
@@ -341,7 +353,7 @@ try {
   await configure()
   await editor().getByRole('combobox', { name: /^Exibição/ }).selectOption('fixed')
   await editor().getByRole('combobox', { name: /^Painel fixo/ }).selectOption('monthly-goal')
-  await editor().getByRole('combobox', { name: /^Base financeira/ }).selectOption('gross')
+  await editor().getByRole('combobox', { name: /^Base das metas e da ordenação/ }).selectOption('gross')
   await editor().getByRole('combobox', { name: /^Período/ }).selectOption('fixed')
   await editor().getByLabel(/^Mês de referência/).fill('2026-09')
   await editor().getByRole('combobox', { name: /^Tema da TV/ }).selectOption('dark')
@@ -357,7 +369,10 @@ try {
   await player().getByRole('group', { name: /^Explorar Ritmo diário/ }).focus()
   await page.keyboard.press('Escape')
   await player().waitFor({ state: 'hidden' })
-  record('Fixed scene and September selection remain fixed; gross mode shows1900 rather than cash1233.64')
+  await expectTvDual(preview(), 1900, 1233.64)
+  await expect(preview()).toContainText('Base da meta: Valor bruto')
+  await expect(preview().locator('.tv-goal-dial')).toContainText('38%')
+  record('Fixed September selection preserves both revenues; goal attainment follows the saved gross base')
   await page.clock.resume()
   controlledClock = false
 
@@ -380,6 +395,29 @@ try {
   assert.equal(settingsWrites, writesBeforeReader)
   record('Non-admin viewer inherits saved September/gross/dark settings on mobile and has no editor or write path')
 
+  // Saved count/cash bases still govern progress; neither may hide the two financial measures.
+  admin = true
+  savedSettings = { ...savedSettings, mode: 'rotate', fixedPanel: 'monthly-goal', metric: 'count', monthMode: 'current', month: '', theme: 'dark' }
+  revision++
+  await visit()
+  await expectTvDual(preview(), 1900, 1233.64)
+  await expect(preview()).toContainText('Base da meta: Quantidade de vendas')
+  await expect(preview().locator('.tv-goal-dial')).toContainText('40%')
+  await start()
+  await page.getByRole('button', { name: 'Pausar apresentação', exact: true }).click()
+  const countSeen = new Set()
+  for (let index = 0; index < 8; index++) {
+    const id = await player().getAttribute('data-panel-id')
+    countSeen.add(id)
+    await expectTvScene(player(), id)
+    await screenshot(`${id}-360-dark-count`)
+    await page.getByRole('button', { name: 'Próximo painel', exact: true }).click()
+  }
+  assert.deepEqual([...countSeen].sort(), [...panelIds].sort())
+  await page.keyboard.press('Escape')
+  record('A saved count goal retains40% attainment while every narrow dark scene displays gross primary and cash secondary')
+  admin = false
+
   // Permissions remain enforced even though TV settings are shared by the workspace.
   permissions = ['ranking']
   const permissionStart = calls.length
@@ -389,23 +427,68 @@ try {
   const forbidden = calls.slice(permissionStart).filter(call => /^\/api\/(?:period-cache|goal-plans|sales-ops\/ledger|transactions|hotmart|boleto)/.test(call.path))
   assert.deepEqual(forbidden, [], 'Ranking-only access cannot trigger unauthorized financial reads')
   await page.getByRole('button', { name: 'Ranking comercial', exact: true }).click()
-  await page.getByRole('heading', { name: 'Sales Ranking', exact: true }).waitFor()
+  await page.getByRole('heading', { name: 'Ranking comercial', exact: true }).waitFor()
+  const legacyPair = async (testId, gross, cash) => {
+    const item = page.getByTestId(testId)
+    const expected = amount => new RegExp(`R\\$\\s*${amount.replaceAll('.', '\\.')}(?:,00)?`)
+    await expect(item.getByTestId('legacy-gross')).toHaveText(expected(gross))
+    await expect(item.getByTestId('legacy-cash')).toHaveText(expected(cash))
+    const grossSize = await item.getByTestId('legacy-gross').evaluate(node => parseFloat(getComputedStyle(node).fontSize))
+    const cashSize = await item.getByTestId('legacy-cash').evaluate(node => parseFloat(getComputedStyle(node).fontSize))
+    assert.ok(grossSize > cashSize, `${testId}: gross is visually primary`)
+  }
+  for (const theme of ['light', 'dark']) {
+    await page.evaluate(theme => localStorage.setItem('workspace-theme', theme), theme)
+    for (const width of [1440, 360]) {
+      await page.setViewportSize({ width, height: 1000 })
+      await visit()
+      await page.getByRole('button', { name: 'Ranking comercial', exact: true }).click()
+      await page.getByRole('heading', { name: 'Ranking comercial', exact: true }).waitFor()
+      await legacyPair('legacy-ranking-overall', '2.900', '300')
+      await legacyPair('legacy-ranking-seller-ana', '1.200', '200')
+      await legacyPair('legacy-ranking-seller-bruno', '700', '0')
+      await legacyPair('legacy-ranking-team-commercial', '1.200', '200')
+      await expect(page.getByTestId('legacy-ranking-overall')).toContainText('18%')
+      await expect(page.getByTestId(`legacy-ranking-seller-${profile.id}`)).toHaveCount(0)
+      await screenshot(`legacy-ranking-${width}-${theme}`)
+    }
+  }
+  scenario = 'legacy-unknown'
+  await visit()
+  await page.getByRole('button', { name: 'Ranking comercial', exact: true }).click()
+  await expect(page.getByTestId('legacy-ranking-seller-ana').getByTestId('legacy-cash')).toHaveText('A confirmar')
+  await expect(page.getByTestId('legacy-ranking-seller-ana').getByTestId('legacy-gross')).toHaveText(/R\$\s*1\.200,00/)
+  await expect(page.getByTestId('legacy-ranking-seller-ana')).toContainText('Cash collected · parcial')
+  await expect(page.getByTestId('legacy-ranking-overall').getByTestId('legacy-cash')).toHaveText(/R\$\s*100,00/)
+  scenario = 'legacy-unknown-gross'
+  await visit()
+  await page.getByRole('button', { name: 'Ranking comercial', exact: true }).click()
+  await expect(page.getByTestId('legacy-ranking-seller-ana').getByTestId('legacy-gross')).toHaveText('A confirmar')
+  await expect(page.getByTestId('legacy-ranking-seller-ana').getByTestId('legacy-cash')).toHaveText(/R\$\s*200,00/)
+  await expect(page.getByTestId('legacy-ranking-seller-ana')).toContainText('Valor bruto · parcial')
+  await expect(page.getByTestId('legacy-ranking-overall').getByTestId('legacy-gross')).toHaveText(/R\$\s*1\.700,00/)
+  scenario = 'normal'
+  record('A Dashboard mirror uses authoritative gross1200 instead of net900; missing gross remains unknown with known cash intact')
+  record('Legacy ranking displays contractual gross and actual cash, preserves explicitzero and18% original goal progress, and excludes the head only from people rankings')
   record('Ranking-only account cannot fetch TV financial data and retains access to the original commercial ranking')
 
   admin = true
   permissions = ['ranking', 'monthly', 'goals']
+  savedSettings = { ...savedSettings, mode: 'fixed', fixedPanel: 'monthly-goal', metric: 'gross' }; revision++
   scenario = 'empty'
   await page.setViewportSize({ width: 1440, height: 1000 })
   await visit()
   await expectMain(preview(), '0,00')
   assert.match(await preview().innerText(), /meta|configurad/i)
-  record('A valid empty month renders zero with an unconfigured-goal state')
+  await expectTvDual(preview(), 0, 0)
+  record('A valid empty month renders both financial zeros with an unconfigured-goal state')
 
   scenario = 'data-error'
   await visit()
   await page.getByText(/Vendas indisponíveis|carregar os dados da TV/).first().waitFor()
   await expect(preview().getByTestId('tv-main-value')).toHaveText('—')
-  record('Financial read failure renders an explicit unavailable state instead of invented zero values')
+  await expectTvDual(preview(), null, null)
+  record('Financial read failure renders explicit unavailable values for gross and cash instead of invented zeroes')
 
   scenario = 'settings-error'
   await visit()

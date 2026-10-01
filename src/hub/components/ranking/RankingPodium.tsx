@@ -1,5 +1,6 @@
 import type { SellerRank } from '@/hooks/useSalesRanking';
 import { SellerAvatar } from '@/components/SellerAvatar';
+import { rankingMoney } from '@/lib/rankingAmounts';
 
 interface RankingPodiumProps {
   sellers: SellerRank[];
@@ -21,16 +22,16 @@ export function RankingPodium({ sellers }: RankingPodiumProps) {
     'border-yellow-400/50',
     'border-amber-600/50',
   ];
-  const podiumPositions = [2, 1, 3];
+  const podiumPositions = top3.length === 3 ? [2, 1, 3] : top3.map((_, index) => index + 1);
 
   return (
-    <div className="flex items-end justify-center gap-4 pt-3 pb-2">
+    <div className="flex flex-wrap items-end justify-center gap-3 sm:gap-4 pt-3 pb-2">
       {podiumOrder.map((seller, i) => {
         if (!seller) return null;
         const pos = podiumPositions[i];
         const isFirst = pos === 1;
         return (
-          <div key={seller.id} className="flex flex-col items-center" style={{ width: isFirst ? '200px' : '170px' }}>
+          <div key={seller.id} data-testid={`legacy-ranking-podium-${seller.id}`} className="flex flex-col items-center min-w-0 flex-1" style={{ maxWidth: isFirst ? '200px' : '170px', minWidth: '125px' }}>
             <div className={`relative mb-3 ${isFirst ? 'scale-110' : ''}`}>
               {isFirst && (
                 <div className="absolute -inset-2 bg-gradient-to-r from-yellow-400 via-amber-300 to-yellow-500 rounded-full blur-md opacity-40 animate-pulse" />
@@ -50,10 +51,10 @@ export function RankingPodium({ sellers }: RankingPodiumProps) {
               </div>
             </div>
             <p className="font-semibold text-sm text-center truncate w-full text-foreground">{seller.name}</p>
-            <p className="text-lg font-bold text-primary">
-              R$ {seller.totalSales.toLocaleString('pt-BR')}
-            </p>
-            <p className="text-[11px] text-muted-foreground">({seller.cashCollectedPct}% de CC)</p>
+            <p className="text-[11px] text-muted-foreground mt-1">Valor bruto{seller.grossPartial ? ' · parcial' : ''}</p>
+            <p className="text-lg font-bold text-primary" data-testid="legacy-gross">{rankingMoney(seller.totalDealValue)}</p>
+            <p className="text-[11px] text-muted-foreground">Cash collected{seller.cashPartial ? ' · parcial' : ''}</p>
+            <p className="text-sm font-medium text-foreground" data-testid="legacy-cash">{rankingMoney(seller.cashCollected)}</p>
             <p className="text-xs text-muted-foreground">{seller.goalProgress}% da meta</p>
 
             <div className={`mt-3 w-full ${podiumHeights[i]} rounded-t-xl bg-gradient-to-t ${podiumColors[i]} opacity-20 border-t border-x border-border`} />

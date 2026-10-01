@@ -44,6 +44,8 @@ export function buildTvData({ sales = {}, plans = [], directory = {}, plansError
   const goalData = prepareGoalData({ ...sales, records: normalized, sources }, directory, !directoryError)
   const selectedRecords = selectedMetric === 'cash' ? goalData.cashRecords : goalData.records
   const selectedSources = selectedMetric === 'cash' ? goalData.cashSources : goalData.sources
+  const financialSummary = (grossPace, cashPace) => ({ gross: grossPace.actual, cash: cashPace.actual,
+    grossPartial: !grossPace.definitive, cashPartial: !cashPace.definitive })
   const usablePlans = (Array.isArray(plans) ? plans : []).filter(plan => plan.metric === selectedMetric)
   const planFor = (scope, scopeId = '') => usablePlans.find(plan => { const target = goalScope(plan); return target.scope === scope && target.scopeId === scopeId }) || null
   const calculate = (scope, scopeId = '', chosenMetric = selectedMetric, plan = planFor(scope, scopeId)) => calculateGoalPace({
@@ -58,11 +60,28 @@ export function buildTvData({ sales = {}, plans = [], directory = {}, plansError
   const gross = calculate('overall', '', 'gross', null)
   const cash = calculate('overall', '', 'cash', null)
   const count = calculate('overall', '', 'count', null)
+  const scopeFinancials = (scope, scopeId = '') => financialSummary(
+    calculate(scope, scopeId, 'gross', null), calculate(scope, scopeId, 'cash', null))
+  Object.assign(overview, financialSummary(gross, cash))
+  Object.assign(pace, selectedScope === 'overall' ? financialSummary(gross, cash) : scopeFinancials(selectedScope, selectedScopeId))
   const revenue = buildRevenueBreakdown(goalData.records, sources)
   const attributionAvailable = sales.operationsStatus !== 'unavailable'
   const available = selectedSources.some(source => source.kind === 'sale' && sourceHasSales(source)
     && (source.id !== 'manual' || selectedRecords.some(row => row.isManual)))
   const sourcePartial = !overview.definitive || !attributionAvailable
+  const metricAvailable = (rows, metricSources) => metricSources.some(source => source.kind === 'sale' && sourceHasSales(source)
+    && (source.id !== 'manual' || rows.some(row => row.isManual)))
+  const observedCashRecords = goalData.cashRecords.filter(row => {
+    const date = dateForRecord({ date: row.cashDate })
+    return observedEnd !== null && (!date || (date >= bounds.start && date <= observedEnd))
+  })
+  const grossAvailable = metricAvailable(goalData.records, goalData.sources)
+  const cashAvailable = metricAvailable(observedCashRecords, goalData.cashSources)
+  const financialSubtotal = (predicate, scopeAvailable = true) => {
+    const grossTotal = subtotal(goalData.records.filter(predicate), 'gross', grossAvailable && scopeAvailable, !gross.definitive || !attributionAvailable)
+    const cashTotal = subtotal(observedCashRecords.filter(predicate), 'received', cashAvailable && scopeAvailable, !cash.definitive || !attributionAvailable)
+    return { gross: grossTotal.value, cash: cashTotal.value, grossPartial: grossTotal.partial, cashPartial: cashTotal.partial }
+  }
   const people = new Map((directory.individuals || []).map(person => [person.id, person]))
   const teams = new Map((directory.teams || []).map(team => [team.id, team]))
   const paceName = selectedScope === 'overall' ? 'Meta geral'
@@ -71,27 +90,32 @@ export function buildTvData({ sales = {}, plans = [], directory = {}, plansError
   const scopeGoals = scope => usablePlans.filter(plan => goalScope(plan).scope === scope && (scope !== 'individual' || (!directoryError && isRankingParticipant(people.get(goalScope(plan).scopeId))))).map(plan => {
     const id = goalScope(plan).scopeId
     const catalogName = scope === 'team' ? teams.get(id)?.name : scope === 'individual' ? people.get(id)?.name : id
-    return { id, name: catalogName || goalScopeName(plan), plan, pace: calculate(scope, id, selectedMetric, plan) }
+    return { id, name: catalogName || goalScopeName(plan), plan, pace: calculate(scope, id, selectedMetric, plan), ...scopeFinancials(scope, id) }
   }).sort((a, b) => (b.pace.attainment ?? -Infinity) - (a.pace.attainment ?? -Infinity) || a.name.localeCompare(b.name, 'pt-BR'))
   const ranking = (dimension, scope) => {
     if (scope === 'individual' && directoryError) return []
     const rankingRecords = scope === 'individual' ? selectedRecords.filter(isRankingParticipant) : selectedRecords
-    const ids = [...new Set(rankingRecords.map(row => row[dimension]).filter(value => hasIdentity(value) && value !== 'Não informado'))]
+    // A missing cash ledger must not hide a known gross sale from the ranking.
+    const identityRecords = scope === 'individual' ? goalData.records.filter(isRankingParticipant) : goalData.records
+    const ids = [...new Set([...identityRecords, ...rankingRecords].map(row => row[dimension]).filter(value => hasIdentity(value) && value !== 'Não informado'))]
     return ids.map(id => {
       const rows = rankingRecords.filter(row => row[dimension] === id)
       const pace = calculate(scope, id)
       const summary = subtotal(rows, info.field, available, sourcePartial)
       const name = scope === 'individual' ? people.get(id)?.name || rows.find(row => row.sellerName)?.sellerName || planFor(scope, id)?.scopeName || 'Vendedor identificado' : id
       return { id, name, value: pace.actual, count: summary.count, partial: summary.partial || !pace.definitive,
-        goal: planFor(scope, id), pace }
+        goal: planFor(scope, id), pace, ...scopeFinancials(scope, id) }
     }).sort((a, b) => (b.value ?? -Infinity) - (a.value ?? -Infinity) || (b.count ?? 0) - (a.count ?? 0) || a.name.localeCompare(b.name, 'pt-BR'))
   }
-  const unassigned = Object.fromEntries([['seller', 'sellerId'], ['team', 'teamId'], ['product', 'family']].map(([name, dimension]) => [name,
-    subtotal(selectedRecords.filter(row => (name === 'product' || isRankingParticipant(row)) && (!hasIdentity(row[dimension]) || row[dimension] === 'Não informado')), info.field,
-      available && (name === 'product' || !directoryError), sourcePartial),
-  ]))
+  const unassigned = Object.fromEntries([['seller', 'sellerId'], ['team', 'teamId'], ['product', 'family']].map(([name, dimension]) => {
+    const predicate = row => (name === 'product' || isRankingParticipant(row)) && (!hasIdentity(row[dimension]) || row[dimension] === 'Não informado')
+    const scopeAvailable = name === 'product' || !directoryError
+    return [name, { ...subtotal(selectedRecords.filter(predicate), info.field, available && scopeAvailable, sourcePartial),
+      ...financialSubtotal(predicate, scopeAvailable) }]
+  }))
   const payments = Object.entries(PAYMENT_NAMES).map(([id, name]) => ({ id, name,
     ...subtotal(selectedRecords.filter(row => revenuePaymentGroup(row.payment) === id), info.field, available, sourcePartial),
+    ...financialSubtotal(row => revenuePaymentGroup(row.payment) === id),
   }))
   const inSelectedMonth = today.slice(0, 7) === key
   const dailyRecords = goalData.records.filter(row => dateForRecord(row) === today)
@@ -107,19 +131,30 @@ export function buildTvData({ sales = {}, plans = [], directory = {}, plansError
     cashSources: goalData.cashSources.map(source => ({ ...source, status: dailySources.find(item => item.id === source.id)?.status === 'unavailable' ? 'unavailable' : source.status })) }
   const dailyPace = key => calculateGoalPace({ ...dailyGoalData, year, month, today, plan: { scope: 'overall', metric: key } })
   const dayMetric = inSelectedMonth ? dailyPace(selectedMetric) : null
+  const dailyGross = inSelectedMonth ? dailyPace('gross') : null
+  const dailyCash = inSelectedMonth ? dailyPace('cash') : null
+  const grossHours = hourlySales(dailyRecords.map(row => ({ ...row, revenue: row.gross })))
+  const cashHours = hourlySales(dailyCashRecords.map(row => ({ ...row, date: row.cashDateBasis === 'sale_date' ? row.date : row.cashDate || row.date, revenue: row.received })))
   const hourly = hourlySales((selectedMetric === 'cash' ? dailyCashRecords : dailyRecords).map(row => ({ ...row, revenue: row[info.field] })))
-  if (!inSelectedMonth || !dayMetric?.available) for (const hour of hourly.hours) { hour.value = null; hour.count = null }
+  for (const [index, hour] of hourly.hours.entries()) {
+    if (!inSelectedMonth || !dayMetric?.available) { hour.value = null; hour.count = null }
+    Object.assign(hour, { gross: dailyGross?.available ? grossHours.hours[index].value : null,
+      cash: dailyCash?.available ? cashHours.hours[index].value : null,
+      grossPartial: !dailyGross?.definitive || grossHours.hours[index].missingAmounts > 0,
+      cashPartial: !dailyCash?.definitive || cashHours.hours[index].missingAmounts > 0 })
+  }
   return { month: key, year: Number(year), monthNumber: Number(month), today, metric: selectedMetric, metricLabel: info.label, unit: info.unit,
     overview, pace, overallPlan, pacePlan, paceName,
     directory: { teams: [...teams.values()].map(({ id, name, active }) => ({ id, name, active })),
       individuals: [...people.values()].filter(isRankingParticipant).map(({ id, name, teamId, active }) => ({ id, name, teamId, active })) },
     teamGoals: scopeGoals('team'), productGoals: scopeGoals('product'), individualGoals: scopeGoals('individual'),
     sellers: ranking('sellerId', 'individual'), products: ranking('family', 'product'),
-    totals: { gross: gross.actual, cash: cash.actual, count: count.actual, revenue: revenue.revenue.value, partial: !gross.definitive || !cash.definitive || !count.definitive },
+    totals: { ...financialSummary(gross, cash), count: count.actual, revenue: revenue.revenue.value, partial: !gross.definitive || !cash.definitive || !count.definitive },
     daily: { date: today, inSelectedMonth, value: dayMetric?.actual ?? null,
-      gross: inSelectedMonth ? dailyPace('gross').actual : null, cash: inSelectedMonth ? dailyPace('cash').actual : null,
+      gross: dailyGross?.actual ?? null, cash: dailyCash?.actual ?? null,
+      grossPartial: !dailyGross?.definitive, cashPartial: !dailyCash?.definitive,
       count: inSelectedMonth ? dailyPace('count').actual : null, revenue: inSelectedMonth ? dailyRevenue.revenue.value : null,
-      partial: !dayMetric?.definitive, hours: hourly.hours, unknownHourCount: hourly.unknown },
+      partial: !dayMetric?.definitive, hours: hourly.hours, unknownHourCount: Math.max(hourly.unknown, grossHours.unknown, cashHours.unknown) },
     payments, coverage: selectedSources.filter(source => source.kind === 'sale').map(source => ({ id: source.id, name: source.label || source.id,
       status: source.salesAvailable === false ? 'unavailable' : source.status,
       label: STATUS_NAMES[source.salesAvailable === false ? 'unavailable' : source.status] || 'Indisponível' })),

@@ -43,12 +43,12 @@ function LegacyRanking() {
       <OvertakeNotifications notifications={notifications} />
       <SaleNotifications sales={saleNotifications} variant={liveMode ? 'tv' : 'default'} />
 
-      <div className="relative z-10 max-w-6xl mx-auto px-6 py-8 space-y-8">
+      <div className="relative z-10 max-w-6xl mx-auto px-3 sm:px-6 py-8 space-y-8">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Trophy className="h-7 w-7 text-primary" />
-            <h1 className="text-2xl font-bold text-foreground">Sales Ranking</h1>
+            <h1 className="text-2xl font-bold text-foreground">Ranking comercial</h1>
           </div>
           <div className="flex gap-2 items-center">
             <SoundControlPanel variant={liveMode ? 'tv' : 'default'} />
@@ -61,6 +61,9 @@ function LegacyRanking() {
 
         <TeamGoalBar
           totalTeamSales={data.totalTeamSales}
+          gross={data.teamAmounts.gross}
+          grossPartial={data.teamAmounts.grossPartial}
+          cashPartial={data.teamAmounts.cashPartial}
           teamGoal={data.teamGoal}
           teamProgress={data.teamProgress}
           weeksRemaining={data.weeksRemaining}

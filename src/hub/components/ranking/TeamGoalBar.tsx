@@ -1,15 +1,20 @@
+import { rankingMoney } from '@/lib/rankingAmounts';
+
 interface TeamGoalBarProps {
   totalTeamSales: number;
+  gross: number | null;
+  grossPartial: boolean;
+  cashPartial: boolean;
   teamGoal: number;
   teamProgress: number;
   weeksRemaining: number;
   extraDays: number;
   hyperGoal?: number;
-  cashCollected?: number;
-  cashCollectedPct?: number;
+  cashCollected?: number | null;
+  cashCollectedPct?: number | null;
 }
 
-export function TeamGoalBar({ totalTeamSales, teamGoal, teamProgress, weeksRemaining, extraDays, hyperGoal = 0, cashCollected, cashCollectedPct }: TeamGoalBarProps) {
+export function TeamGoalBar({ totalTeamSales, gross, grossPartial, cashPartial, teamGoal, teamProgress, weeksRemaining, extraDays, hyperGoal = 0, cashCollected, cashCollectedPct }: TeamGoalBarProps) {
 
   const isHyperStage = hyperGoal > teamGoal && totalTeamSales >= teamGoal;
   const hyperRange = hyperGoal - teamGoal;
@@ -17,27 +22,25 @@ export function TeamGoalBar({ totalTeamSales, teamGoal, teamProgress, weeksRemai
   const hyperProgress = isHyperStage && hyperRange > 0 ? Math.round((hyperCurrent / hyperRange) * 100) : 0;
 
   return (
-    <div className={`glass-card p-6 transition-all duration-500 ${isHyperStage ? 'ring-2 ring-yellow-500/40' : ''}`}
+    <div data-testid="legacy-ranking-overall" className={`glass-card p-4 sm:p-6 transition-all duration-500 ${isHyperStage ? 'ring-2 ring-yellow-500/40' : ''}`}
       style={isHyperStage ? { background: 'linear-gradient(135deg, hsla(45,80%,50%,0.06), hsla(30,70%,40%,0.1))' } : undefined}
     >
-      {/* Stage 1 or Completed */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="grid gap-4 sm:grid-cols-[1.4fr_1fr] mb-6">
+        <div><p className="text-sm text-muted-foreground">Valor bruto das vendas{grossPartial ? ' · parcial' : ''}</p><p className="text-3xl sm:text-4xl font-bold text-primary mt-1" data-testid="legacy-gross">{rankingMoney(gross)}</p></div>
+        <div><p className="text-sm text-muted-foreground">Cash collected{cashPartial ? ' · parcial' : ''}</p><p className="text-xl sm:text-2xl font-semibold text-foreground mt-1" data-testid="legacy-cash">{rankingMoney(cashCollected)}</p>{cashCollectedPct !== null && cashCollectedPct !== undefined && <p className="text-xs text-muted-foreground mt-1">{cashCollectedPct}% do valor bruto</p>}</div>
+      </div>
+      <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
         <div>
           <p className={`text-sm uppercase tracking-wider font-semibold ${isHyperStage ? 'text-yellow-400/80' : 'text-muted-foreground'}`}>
             {isHyperStage ? '🏆 Hipermeta do Time' : 'Meta do Time'}
           </p>
-          <p className="text-3xl font-bold mt-1 text-foreground">
+          <p className="text-xs text-muted-foreground mt-2">Realizado na base da meta</p>
+          <p className="text-lg font-semibold mt-1 text-foreground">
             R$ {totalTeamSales.toLocaleString('pt-BR')}
             <span className="text-lg font-normal text-muted-foreground">
               {' '}/ R$ {(isHyperStage ? hyperGoal : teamGoal).toLocaleString('pt-BR')}
             </span>
           </p>
-          {cashCollected !== undefined && (
-            <p className="text-sm mt-1 text-emerald-400 font-medium">
-              Cash Collected: R$ {Math.round(cashCollected).toLocaleString('pt-BR')}
-              <span className="text-muted-foreground font-normal"> · {cashCollectedPct ?? 0}% do valor vendido</span>
-            </p>
-          )}
           {isHyperStage && (
 
             <p className="text-sm text-yellow-400/80 mt-1 font-medium">

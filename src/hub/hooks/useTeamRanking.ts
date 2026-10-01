@@ -3,6 +3,7 @@ import { useSales, useProfiles } from '@/hooks/useSupabaseData';
 import { useTeams } from '@/hooks/useTeams';
 import { useTeamGoals } from '@/hooks/useTeamGoals';
 import { parseLocalDate } from '@/lib/utils';
+import { rankingAmounts } from '@/lib/rankingAmounts';
 import { filterVisibleProfiles, filterVisibleSales } from '@/lib/hiddenUsers';
 
 export interface TeamRank {
@@ -10,6 +11,10 @@ export interface TeamRank {
   name: string;
   image_url: string;
   totalSales: number;
+  gross: number | null;
+  cash: number | null;
+  grossPartial: boolean;
+  cashPartial: boolean;
   salesCount: number;
   goal: number;
   hyperGoal: number;
@@ -81,6 +86,7 @@ export const useTeamRanking = (month?: number, year?: number) => {
         name: t.name,
         image_url: t.image_url,
         totalSales: total,
+        ...rankingAmounts(teamSales),
         salesCount: teamSales.length,
         goal,
         hyperGoal,
@@ -105,6 +111,7 @@ export const useTeamRanking = (month?: number, year?: number) => {
         name: 'Sem Time',
         image_url: '',
         totalSales: total,
+        ...rankingAmounts(noTeamSales),
         salesCount: noTeamSales.length,
         goal: 0,
         hyperGoal: 0,

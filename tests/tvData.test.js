@@ -182,3 +182,103 @@ test('retained values after a failed refresh remain visible without asserting a 
   assert.equal(model.sellers[0].partial, true)
   assert.equal(model.coverage[0].status, 'partial')
 })
+
+test('every TV financial scene includes gross and cash without changing a cash goal or ranking basis', () => {
+  const plans = [
+    { scope: 'overall', metric: 'cash', target: 2000 },
+    { scope: 'overall', metric: 'gross', target: 9000 },
+    { scope: 'team', scopeId: 'sales', metric: 'cash', target: 1000 },
+    { scope: 'product', scopeId: 'MBA', metric: 'cash', target: 1000 },
+  ]
+  const model = run({ today: '2026-10-01', plans, paceScope: 'team', paceScopeId: 'sales', sales: {
+    records: [sale('tmb', { sourceId: 'tmb', platform: 'TMB', gross: 1000, family: 'MBA', payment: 'Boleto', sellerId: 'ana' }),
+      sale('hotmart', { gross: 700, net: 650, sellerId: 'bia' })], sources: [source('tmb'), source('hotmart')],
+  } })
+  assert.equal(model.overview.gross, 1700)
+  assert.equal(model.overview.cash, 1050)
+  assert.equal(model.overview.actual, 1050)
+  assert.equal(model.overview.target, 2000)
+  assert.equal(model.overview.attainment, 52.5)
+  assert.deepEqual(model.sellers.map(row => row.id), ['bia', 'ana'], 'explicit cash order remains cash order')
+  assert.equal(model.sellers[1].gross, 1000)
+  assert.equal(model.sellers[1].cash, 400)
+  for (const scoped of [model.pace, model.teamGoals[0], model.productGoals[0], model.products.find(row => row.id === 'MBA'), model.payments.find(row => row.id === 'boleto')]) {
+    assert.equal(scoped.gross, 1000)
+    assert.equal(scoped.cash, 400)
+    assert.equal(scoped.grossPartial, false)
+    assert.equal(scoped.cashPartial, false)
+  }
+  assert.equal(model.pace.target, 1000)
+  assert.equal(model.pace.actual, 400)
+  assert.equal(model.pace.attainment, 40)
+  assert.equal(model.daily.gross, 1700)
+  assert.equal(model.daily.cash, 1050)
+  assert.equal(model.daily.hours[11].gross, 1700)
+  assert.equal(model.daily.hours[11].cash, 1050)
+})
+
+test('gross and cash availability stay independent across scopes, payment groups and hourly readings', () => {
+  const model = run({ today: '2026-10-01', sales: {
+    records: [sale('missing-net', { gross: 1000, net: null, sellerId: 'ana' })], sources: [source('hotmart')],
+  } })
+  for (const row of [model.totals, model.overview, model.sellers[0], model.products[0], model.payments.find(row => row.id === 'card'), model.daily, model.daily.hours[11]]) {
+    assert.equal(row.gross, 1000)
+    assert.equal(row.cash, null)
+    assert.equal(row.grossPartial, false)
+    assert.equal(row.cashPartial, true)
+  }
+  const explicitZero = run({ sales: { records: [sale('free', { gross: 0, net: 0 })], sources: [source('hotmart')] } })
+  assert.equal(explicitZero.totals.gross, 0)
+  assert.equal(explicitZero.totals.cash, 0)
+  assert.equal(explicitZero.totals.cashPartial, false)
+})
+
+test('a provider with gross sales and no current cash ledger remains visible in cash-selected rankings', () => {
+  const model = run({ sales: { records: [sale('boletex-sale', { sourceId: 'boletex', sellerId: 'ana', gross: 1200, received: 100 })],
+    sources: [source('boletex')] } })
+  assert.equal(model.sellers.length, 1)
+  assert.equal(model.products.length, 1)
+  assert.equal(model.sellers[0].gross, 1200)
+  assert.equal(model.sellers[0].cash, null)
+  assert.equal(model.sellers[0].cashPartial, true)
+  assert.equal(model.payments.find(row => row.id === 'card').gross, 1200)
+  assert.equal(model.payments.find(row => row.id === 'card').cash, null)
+})
+
+test('unassigned totals show both metrics while excluded sellers stay out of people-based figures only', () => {
+  const model = run({ directory: { ...directory, individuals: directory.individuals.map(person => ({ ...person, excludedFromRanking: person.id === 'ana' })) },
+    sales: { records: [sale('excluded', { sellerId: 'ana', gross: 900, net: 800 }), sale('assigned', { sellerId: 'bia', gross: 500, net: 450 }),
+      sale('unassigned', { gross: 300, net: 250 })], sources: [source('hotmart')] } })
+  assert.deepEqual(model.sellers.map(row => row.id), ['bia'])
+  assert.equal(model.sellers[0].gross, 500)
+  assert.equal(model.sellers[0].cash, 450)
+  assert.equal(model.unassigned.seller.gross, 300)
+  assert.equal(model.unassigned.seller.cash, 250)
+  assert.equal(model.totals.gross, 1700)
+  assert.equal(model.totals.cash, 1500)
+  assert.equal(model.products[0].gross, 1700)
+  assert.equal(model.products[0].cash, 1500)
+})
+
+test('unavailable participant data cannot expose scoped gross/cash; archived daily hours never become zero', () => {
+  const model = run({ directoryError: true, paceScope: 'team', paceScopeId: 'sales',
+    plans: [{ scope: 'team', scopeId: 'sales', metric: 'cash', target: 4000 }] })
+  for (const row of [model.pace, model.teamGoals[0], model.unassigned.seller, model.unassigned.team]) {
+    assert.equal(row.gross, null)
+    assert.equal(row.cash, null)
+    assert.equal(row.grossPartial, true)
+    assert.equal(row.cashPartial, true)
+  }
+  const archive = run({ month: 9 })
+  assert.ok(archive.daily.hours.every(row => row.gross === null && row.cash === null && row.grossPartial && row.cashPartial))
+})
+
+test('TV model defaults and invalid metric fallback use gross with both amounts still available', () => {
+  for (const metric of [undefined, 'unexpected']) {
+    const model = run({ metric })
+    assert.equal(model.metric, 'gross')
+    assert.equal(model.overview.actual, 900)
+    assert.equal(model.overview.gross, 900)
+    almost(model.overview.cash, 833.64)
+  }
+})

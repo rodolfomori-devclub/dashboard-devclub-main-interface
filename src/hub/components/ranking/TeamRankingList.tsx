@@ -2,6 +2,7 @@ import { Trophy, Target, TrendingUp } from 'lucide-react';
 import { useTeamRanking } from '@/hooks/useTeamRanking';
 import { TeamAvatar } from '@/components/TeamAvatar';
 import { Progress } from '@/components/ui/progress';
+import { rankingMoney } from '@/lib/rankingAmounts';
 
 const fmt = (n: number) => `R$ ${n.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`;
 
@@ -35,18 +36,18 @@ export function TeamRankingList({ month, year, variant = 'default' }: { month?: 
           i === 2 ? 'bg-amber-600/20 text-amber-500' :
           'bg-muted text-muted-foreground';
         return (
-          <div key={r.id ?? 'none'} className={`p-4 rounded-xl border ${medal} flex items-center gap-4`}>
+          <div key={r.id ?? 'none'} data-testid={`legacy-ranking-team-${r.id ?? 'none'}`} className={`p-3 sm:p-4 rounded-xl border ${medal} flex items-center gap-2 sm:gap-4`}>
             <div className={`${isTv ? 'w-14 h-14 text-2xl' : 'w-10 h-10 text-lg'} rounded-lg flex items-center justify-center font-bold ${positionBg}`}>{i + 1}</div>
             <TeamAvatar name={r.name} imageUrl={r.image_url} size={isTv ? 'lg' : 'md'} />
             <div className="flex-1 min-w-0">
               <div className="flex items-baseline justify-between gap-3 flex-wrap">
                 <p className={`${isTv ? 'text-2xl' : 'text-base'} font-bold text-foreground truncate`}>{r.name}</p>
-                <p className={`${isTv ? 'text-3xl' : 'text-lg'} font-bold text-primary`}>{fmt(r.totalSales)}</p>
+                <div className="text-left sm:text-right"><p className="text-xs text-muted-foreground">Valor bruto{r.grossPartial ? ' · parcial' : ''}</p><p className={`${isTv ? 'text-3xl' : 'text-xl'} font-bold text-primary`} data-testid="legacy-gross">{rankingMoney(r.gross)}</p><p className="text-xs text-muted-foreground mt-1">Cash collected{r.cashPartial ? ' · parcial' : ''}</p><p className="text-sm font-medium text-foreground" data-testid="legacy-cash">{rankingMoney(r.cash)}</p></div>
               </div>
               {r.goal > 0 ? (
                 <>
                   <div className="flex items-center justify-between text-xs text-muted-foreground mt-1">
-                    <span className="flex items-center gap-1"><Target className="h-3 w-3" /> Meta {fmt(r.goal)}</span>
+                    <span className="flex items-center gap-1 flex-wrap"><Target className="h-3 w-3" /> Meta: {fmt(r.totalSales)} / {fmt(r.goal)}</span>
                     <span className="flex items-center gap-1"><TrendingUp className="h-3 w-3" /> {r.progress}%</span>
                   </div>
                   <Progress value={Math.min(100, r.progress)} className="h-2 mt-2" />

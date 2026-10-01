@@ -10,6 +10,7 @@ import { chromium } from 'playwright'
 import { expect } from '@playwright/test'
 import { buildTvData } from '../../src/components/tv/tvData.js'
 import { defaultTvSettings } from '../../src/components/tv/tvConfig.js'
+import { expectTvDual, expectTvScene } from './tv-dual-metrics-assertions.mjs'
 
 const root = fileURLToPath(new URL('../../', import.meta.url))
 const published = process.env.DASHBOARD_SMOKE_PRODUCTION === '1'
@@ -18,21 +19,23 @@ await fs.mkdir(out, { recursive: true })
 const token = 'fixtureTv0000001'
 const now = new Date('2026-10-15T15:00:00-03:00')
 const source = id => ({ id, label: id, platform: id, kind: 'sale', status: 'ready' })
-const directory = { teams: [{ id: 'sales', name: 'Comercial' }], individuals: [{ id: 'ana', name: 'Ana', teamId: 'sales' }] }
+const directory = { teams: [{ id: 'commercial', name: 'Comercial' }, { id: 'marketing', name: 'Marketing' }], individuals: [{ id: 'ana', name: 'Ana', teamId: 'commercial' }, { id: 'bruno', name: 'Bruno', teamId: 'marketing' }] }
 const sale = (id, extra = {}) => ({ id, sourceId: 'hotmart', platform: 'Hotmart', kind: 'sale', quantity: 1, date: '2026-10-15T14:00:00Z', family: 'DevClub', gross: 300, net: 277.88, revenue: 277.88, payment: 'Cartão', sellerId: 'ana', ...extra })
-const initialModel = buildTvData({ year: 2026, month: 10, today: '2026-10-15', metric: 'cash', directory,
-  plans: [{ scope: 'overall', metric: 'cash', target: 5000 }, { scope: 'team', scopeId: 'sales', metric: 'cash', target: 5000 }],
-  sales: { records: [sale('h1'), sale('h2'), sale('h3'), sale('t1', { sourceId: 'tmb', platform: 'TMB', gross: 1000, revenue: 1000, family: 'MBA', payment: 'Boleto' })], sources: [source('hotmart'), source('tmb')] },
+const scopes = [{ scope: 'overall' }, ...directory.teams.map(team => ({ scope: 'team', scopeId: team.id })), ...['DevClub', 'MBA', 'IAClub'].map(id => ({ scope: 'product', scopeId: id }))]
+const initialModel = buildTvData({ year: 2026, month: 10, today: '2026-10-15', metric: 'cash', paceScope: 'team', paceScopeId: 'commercial', directory,
+  plans: scopes.map(scope => ({ ...scope, metric: 'cash', target: scope.scope === 'overall' ? 5000 : 2000 })),
+  sales: { records: [sale('h1', { date: '2026-10-01T14:00:00Z' }), sale('h2', { date: '2026-10-07T14:00:00Z' }), sale('h3', { sellerId: 'bruno', family: 'MBA', payment: 'Pix' }), sale('t1', { sourceId: 'tmb', platform: 'TMB', gross: 1000, revenue: 1000, family: 'IAClub', payment: 'Boleto', date: '2026-10-07T14:00:00Z' })], sources: [source('hotmart'), source('tmb')] },
 })
 delete initialModel.directory // Public projection does not include the internal identity directory.
 assert.equal(Math.round(initialModel.totals.cash * 100), 123364)
 let settings = defaultTvSettings()
 settings.theme = 'dark'
-settings.panels = settings.panels.map(panel => ({ ...panel, enabled: ['monthly-goal', 'pace', 'sellers'].includes(panel.id), durationSeconds: 10 }))
+settings.metric = 'cash' // A persisted cash goal survives the new gross default.
+settings.panels = settings.panels.map(panel => ({ ...panel, enabled: true, durationSeconds: 10 }))
 let model = structuredClone(initialModel), revision = 1, updatedAt = now.toISOString(), scenario = 'ready'
 let base = process.env.DASHBOARD_SMOKE_URL, server, serverOutput = '', browser, page, complete = false
 let contextLabel = 'anonymous', assets = null
-const requests = [], blocked = [], unexpected = [], errors = [], checks = [], privateScripts = []
+const requests = [], blocked = [], unexpected = [], errors = [], checks = [], privateScripts = [], layoutIssues = []
 const applicationAssets = new Map()
 const record = name => checks.push(name)
 
@@ -142,14 +145,17 @@ try {
     assert.equal(await page.getByRole('link', { name: 'Visão global', exact: true }).count(), 0)
     assert.equal(new URL(page.url()).pathname, path)
   }
-  const checkValue = () => expect(player().getByTestId('tv-main-value')).toHaveText('R$ 1.233,64')
+  const checkValue = async () => { await expect(player().getByTestId('tv-main-value')).toHaveText('R$ 1.900,00'); await expectTvDual(player(), 1900, 1233.64) }
   const shot = async name => {
+    await page.clock.runFor(35)
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${name}: no horizontal overflow`)
     await page.screenshot({ path: `${out}/${name}.png`, fullPage: false, animations: 'disabled' })
   }
   await page.goto(`${base}/tv`, { waitUntil: 'networkidle' })
   await player().waitFor()
   await checkValue()
+  await expect(player()).toContainText('Base da meta: Cash collected')
+  await expect(player().locator('.tv-goal-dial')).toContainText('24,67%')
   await noAuth()
   assert.equal(await player().getAttribute('data-tv-theme'), 'dark')
   assert.equal(await page.evaluate(() => localStorage.length), 0, 'Public viewing does not create an authentication session')
@@ -175,6 +181,52 @@ try {
   await player().waitFor()
   await noAuth()
   record('Public playback supports manual navigation and automatic rotation; Escape never opens private workspace')
+
+  // Both metrics must survive the public aggregate contract in every scene and viewport.
+  for (const theme of ['dark', 'light']) {
+    settings = { ...settings, theme }; revision++
+    await page.clock.runFor(61000)
+    await expect(player()).toHaveAttribute('data-tv-theme', theme)
+    const pause = page.getByRole('button', { name: 'Pausar apresentação', exact: true })
+    if (await pause.count()) await pause.click()
+    for (const width of [1920, 360]) {
+      await page.setViewportSize({ width, height: width === 1920 ? 1080 : 900 })
+      const seen = new Set()
+      for (let index = 0; index < 8; index++) {
+        const id = await player().getAttribute('data-panel-id')
+        seen.add(id)
+        await expectTvScene(player(), id)
+        await shot(`public-${id}-${width}-${theme}`)
+        if (width === 1920) {
+          const size = await player().locator('.tv-broadcast-main').evaluate(node => ({ scroll: node.scrollHeight, height: node.clientHeight }))
+          if (size.scroll > size.height + 1) layoutIssues.push({ panel: id, theme, width, ...size })
+        }
+        await page.getByRole('button', { name: 'Próximo painel', exact: true }).click()
+      }
+      assert.equal(seen.size, 8)
+    }
+  }
+  record('All eight public scenes preserve scoped gross and cash, gross emphasis, goal base and responsive layout in both themes')
+  await page.setViewportSize({ width: 1920, height: 1080 })
+
+  model = structuredClone(initialModel)
+  model.sellers = Array.from({ length: 8 }, (_, index) => ({ ...initialModel.sellers[0], id: `layout-${index}`, name: `Vendedor da operação ${index + 1}`, value: 800 - index * 70, gross: 16000 - index * 1000, cash: 800 - index * 70, count: 8 - index }))
+  model.teamGoals = Array.from({ length: 8 }, (_, index) => ({ ...initialModel.teamGoals[0], id: `layout-${index}`, name: `Time da operação ${index + 1}`, gross: 16000 - index * 1000, cash: 800 - index * 70, pace: { ...initialModel.teamGoals[0].pace, actual: 800 - index * 70, target: 2000, attainment: (800 - index * 70) / 20 } }))
+  model.productGoals = model.teamGoals.map(row => ({ ...row, name: row.name.replace('Time', 'Produto') }))
+  for (const theme of ['dark', 'light']) {
+    for (const panel of ['sellers', 'team-goals', 'product-goals']) {
+      settings = { ...settings, mode: 'fixed', fixedPanel: panel, theme }; revision++
+      await page.clock.runFor(61000)
+      await expect(player()).toHaveAttribute('data-panel-id', panel)
+      await expect(player().locator('[data-tv-row-id]')).toHaveCount(8)
+      await expectTvDual(player().locator('[data-tv-row-id="layout-0"]'), 16000, 800)
+      await shot(`public-eight-${panel}-1920-${theme}`)
+      const size = await player().locator('.tv-broadcast-main').evaluate(node => ({ scroll: node.scrollHeight, height: node.clientHeight }))
+      if (size.scroll > size.height + 1) layoutIssues.push({ panel: `eight-${panel}`, theme, width: 1920, ...size })
+    }
+  }
+  model = structuredClone(initialModel)
+  record('Full eight-row rankings and team/product goal broadcasts retain readable gross/cash and fit1920x1080 in both themes')
 
   // The admin can remotely change the program without requiring a new URL.
   settings = { ...settings, mode: 'fixed', fixedPanel: 'monthly-goal', theme: 'light' }
@@ -202,10 +254,32 @@ try {
   await noAuth()
   record('Anonymous viewer remains usable on a narrow display in light mode')
 
+  // Aggregate unavailability cannot be replaced by the other metric or by zero.
+  model = structuredClone(initialModel)
+  model.overview.gross = null; model.totals.gross = null; model.overview.grossPartial = true
+  revision++
+  await page.clock.runFor(61000)
+  await expectTvDual(player(), null, 1233.64)
+  await expect(player().getByTestId('tv-main-value')).toHaveText('—')
+  model = structuredClone(initialModel)
+  model.overview.cash = null; model.totals.cash = null; model.overview.cashPartial = true
+  revision++
+  await page.clock.runFor(61000)
+  await expectTvDual(player(), 1900, null)
+  model = structuredClone(initialModel)
+  model.overview.gross = 0; model.overview.cash = 0; model.totals.gross = 0; model.totals.cash = 0
+  revision++
+  await page.clock.runFor(61000)
+  await expectTvDual(player(), 0, 0)
+  model = structuredClone(initialModel); revision++
+  await page.clock.runFor(61000)
+  await checkValue()
+  record('Unknown gross or cash remains unavailable independently; explicit zeroes remain zero without fallback to the other measure')
+
   scenario = 'revoked'
   await page.clock.runFor(61000)
   await expect(player()).toHaveCount(0)
-  assert.doesNotMatch(await page.locator('body').innerText(), /1\.233,64|5\.000,00/, 'Revoked links must clear previously displayed financial data')
+  assert.doesNotMatch(await page.locator('body').innerText(), /1\.900,00|1\.233,64|5\.000,00/, 'Revoked links must clear previously displayed financial data')
   await expect(page.getByRole('heading').filter({ hasText: /link.*indispon|link.*desativ|acesso.*indispon|TV.*indispon/i })).toBeVisible()
   await noAuth()
   record('A revoked link removes the playing scene and all retained financial values at the next access check')
@@ -269,6 +343,7 @@ try {
   }
   record('Malformed and deep public paths cannot open private workspace or request canonical/legacy API data')
 
+  assert.deepEqual(layoutIssues, [], 'Every 1080p public scene fits without vertical scrolling')
   assert.deepEqual(unexpected, [])
   assert.deepEqual(errors, [])
   assert.deepEqual(privateScripts, [], 'The anonymous entry must not load the private workspace or Vault SDK')
@@ -284,7 +359,7 @@ try {
   }
   throw error
 } finally {
-  await fs.writeFile(`${out}/results.json`, JSON.stringify({ passed: complete, published, assets, checks, requests, blocked, unexpected, errors, privateScripts, realApiRequests: 0, realWrites: 0, applicationAssets: [...applicationAssets.entries()] }, null, 2))
+  await fs.writeFile(`${out}/results.json`, JSON.stringify({ passed: complete, published, assets, checks, requests, blocked, unexpected, errors, privateScripts, layoutIssues, realApiRequests: 0, realWrites: 0, applicationAssets: [...applicationAssets.entries()] }, null, 2))
   if (browser) await browser.close()
   if (server) server.kill('SIGTERM')
 }

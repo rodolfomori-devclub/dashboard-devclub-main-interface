@@ -4,7 +4,7 @@
 .tv-surface[data-tv-theme="light"] { color-scheme: light; --canvas:#f2f5fa; --surface:#ffffff; --surface-subtle:#f7f9fc; --text:#172b37; --muted:#526472; --border:#dce4ef; --accent:#007b73; --chart-1:#465de0; --chart-2:#087eaf; --chart-3:#9160ce; --chart-4:#b87213; --chart-5:#09816b; --chart-6:#627a94; }
 .tv-surface[data-tv-theme="dark"] { color-scheme: dark; --canvas:#0b1222; --surface:#111d32; --surface-subtle:#17263e; --text:#f1f5ff; --muted:#a5b5ce; --border:#293b57; --accent:#54ead4; --chart-1:#8c9cff; --chart-2:#45caff; --chart-3:#c297ff; --chart-4:#ffbd64; --chart-5:#5be5ac; --chart-6:#a5bfdb; }
 .tv-workspace { padding:clamp(18px,3vw,42px); max-width:1800px; margin:0 auto; position:relative; }
-.tv-surface h1,.tv-surface h2,.tv-surface h3,.tv-hero-value,.tv-goal-dial>span,.tv-ranking-leader>strong { font-family:'Outfit Variable',sans-serif; letter-spacing:-.035em; }
+.tv-surface h1,.tv-surface h2,.tv-surface h3,.tv-hero-value,.tv-goal-dial>.tv-goal-attainment,.tv-ranking-leader>strong { font-family:'Outfit Variable',sans-serif; letter-spacing:-.035em; }
 .tv-surface h1,.tv-surface h2,.tv-surface h3,.tv-surface p { margin:0; }
 .tv-surface button { display:inline-flex; align-items:center; justify-content:center; gap:8px; border:1px solid var(--border); border-radius:10px; background:var(--surface); color:var(--text); font:inherit; font-size:13px; font-weight:600; padding:10px 14px; cursor:pointer; transition:background .15s,border-color .15s; }
 .tv-surface button:hover:not(:disabled) { background:var(--surface-subtle); border-color:var(--tv-ink); }
@@ -31,7 +31,7 @@
 .tv-scene-heading h1,.tv-scene-heading h2 { font-size:clamp(24px,2.3vw,40px); line-height:1.2; }
 .tv-refresh-label { font-size:11px; color:var(--muted); margin-left:auto; }
 .tv-monthly-lead { display:grid; grid-template-columns:minmax(0,1fr) minmax(180px,26%); gap:28px; align-items:center; padding:clamp(20px,2.6vw,36px); background:var(--tv-banner); border:1px solid var(--tv-banner); border-radius:14px; margin-bottom:22px; }
-.tv-monthly-lead .tv-hero-value,.tv-monthly-lead .tv-goal-dial>span { color:#fff; }
+.tv-monthly-lead .tv-hero-value,.tv-monthly-lead .tv-goal-dial>.tv-goal-attainment { color:#fff; }
 .tv-monthly-lead .tv-eyebrow,.tv-monthly-lead .tv-status,.tv-monthly-lead .tv-goal-dial small { color:#e2f3f2; }
 .tv-monthly-lead .tv-goal-dial { border-color:#ffffff40; }
 .tv-monthly-lead .tv-track { background:#ffffff30; }
@@ -40,8 +40,10 @@
 .tv-status { display:inline-flex; color:var(--muted); font-size:12px; font-weight:550; }
 .tv-status[data-positive="true"] { color:var(--accent); }
 .tv-status[data-positive="false"] { color:var(--chart-4); }
+.tv-monthly-lead .tv-status[data-positive="false"] { color:#ffebb5; }
+.tv-monthly-lead .tv-status[data-positive="true"] { color:#c7fff1; }
 .tv-goal-dial { border-left:1px solid color-mix(in srgb,var(--tv-ink) 22%,var(--border)); padding-left:28px; }
-.tv-goal-dial>span { display:block; color:var(--tv-ink); font-size:clamp(30px,4vw,60px); font-weight:550; line-height:1.1; }
+.tv-goal-dial>.tv-goal-attainment { display:block; color:var(--tv-ink); font-size:clamp(30px,4vw,60px); font-weight:550; line-height:1.1; }
 .tv-goal-dial small { display:block; color:var(--muted); margin:8px 0 20px; font-size:12px; }
 .tv-track { height:7px; background:color-mix(in srgb,var(--row-color,var(--tv-ink)) 12%,var(--surface-subtle)); border-radius:8px; overflow:hidden; }
 .tv-track i { display:block; height:100%; background:var(--row-color,var(--tv-ink)); border-radius:8px; }
@@ -205,7 +207,7 @@
   .tv-workspace { padding:20px 14px; }
   .tv-monthly-lead { grid-template-columns:1fr; gap:20px; }
   .tv-goal-dial { border-left:0; padding:16px 0 0; border-top:1px solid var(--border); }
-  .tv-goal-dial>span { font-size:36px; }
+  .tv-goal-dial>.tv-goal-attainment { font-size:36px; }
   .tv-goal-dial small { margin-bottom:12px; }
   .tv-program-summary { align-items:flex-start; }
   .tv-program-summary>div { gap:10px; font-size:11px; }
@@ -262,3 +264,99 @@
   .tv-ranking-tabs { padding:16px 14px 0; }
 }
 @media(prefers-reduced-motion:reduce) { .tv-surface * { animation:none!important; transition:none!important; } }
+/* Both sales amounts stay visible; the saved metric still governs targets and ordering. */
+.tv-financial-hero { min-width:0; }
+.tv-financial-hero .tv-hero-value { color:var(--chart-1); }
+.tv-cash-secondary { display:flex; align-items:baseline; flex-wrap:wrap; gap:5px 12px; margin:10px 0 3px; }
+.tv-cash-secondary>span { color:var(--muted); font-size:13px; }
+.tv-cash-secondary>strong { color:var(--accent); font-family:'Outfit Variable',sans-serif; font-size:clamp(22px,2.35vw,36px); font-weight:500; letter-spacing:-.025em; overflow-wrap:anywhere; }
+.tv-cash-secondary>small { color:var(--muted); font-size:10px; }
+.tv-monthly-lead .tv-hero-value { color:#fff; }
+.tv-monthly-lead .tv-cash-secondary>strong { color:#c7fff1; }
+.tv-monthly-lead .tv-cash-secondary>span,.tv-monthly-lead .tv-cash-secondary>small { color:#e2f3f2; }
+.tv-goal-basis { display:block; color:var(--muted); font-size:12px; line-height:1.6; margin-bottom:8px; }
+.tv-goal-dial .tv-goal-basis { margin-top:0; margin-bottom:10px; }
+.tv-goal-dial .tv-status { margin-top:13px; line-height:1.6; }
+.tv-pace-status { text-align:right; max-width:300px; }
+.tv-pace-heading,.tv-daily-lead { margin-bottom:24px; }
+.tv-dual-amount { min-width:0; text-align:right; }
+.tv-dual-amount .tv-amount-label { display:block; color:var(--muted); font-size:10px; line-height:1.6; margin-bottom:2px; }
+.tv-dual-amount>strong { display:block; color:var(--chart-1); font-family:'Outfit Variable',sans-serif; font-size:clamp(24px,2.2vw,34px); line-height:1.15; letter-spacing:-.035em; font-weight:550; overflow-wrap:anywhere; }
+.tv-dual-amount .tv-cash-amount { display:flex; justify-content:flex-end; align-items:baseline; flex-wrap:wrap; gap:3px 7px; color:var(--muted); font-size:11px; line-height:1.6; margin-top:4px; }
+.tv-dual-amount .tv-cash-amount b { color:var(--accent); font-size:14px; font-weight:600; overflow-wrap:anywhere; }
+.tv-goal-row { grid-template-columns:minmax(0,1fr) minmax(210px,.85fr) auto; align-items:center; }
+.tv-row-name { display:block; }
+.tv-row-name .tv-goal-context { display:block; margin-top:8px; line-height:1.6; font-size:12px; color:var(--muted); }
+.tv-goal-row>.tv-track { grid-column:1/-1; }
+.tv-order-basis { color:var(--muted); font-size:12px; line-height:1.7; margin-bottom:14px!important; }
+.tv-ranking-leader>.tv-ranking-leader-name { flex:1; }
+.tv-ranking-leader>.tv-dual-amount { flex:0 1 auto; }
+.tv-ranking-leader .tv-amount-label { color:#e1d7ff; }
+.tv-ranking-leader .tv-dual-amount>strong { color:#fff; font-size:clamp(30px,3vw,48px); }
+.tv-ranking-leader .tv-cash-amount { color:#e1d7ff; }
+.tv-ranking-leader .tv-cash-amount b { color:#c7fff1; font-size:18px; }
+.tv-ranking-name>span { display:block; color:var(--muted); font-size:11px; line-height:1.5; margin-top:6px; }
+.tv-ranking-result { min-width:200px; }
+.tv-ranking-result .tv-dual-amount>strong { font-size:25px; }
+.tv-payment-row>.tv-dual-amount { min-width:200px; }
+.tv-player .tv-ranking-result .tv-dual-amount>strong { font-size:clamp(26px,2vw,34px); }
+.tv-player .tv-ranking-result .tv-cash-amount b { font-size:16px; }
+@media(max-width:900px) {
+  .tv-goal-row { grid-template-columns:minmax(0,1fr) minmax(190px,.9fr) auto; gap:12px; }
+  .tv-goal-row>strong { min-width:70px; }
+  .tv-pace-status { max-width:230px; }
+  .tv-broadcast-context { flex-wrap:wrap; gap:6px 15px; }
+}
+@media(max-width:600px) {
+  .tv-cash-secondary { align-items:flex-start; gap:4px 8px; }
+  .tv-cash-secondary>span { font-size:11px; }
+  .tv-cash-secondary>strong { font-size:24px; }
+  .tv-cash-secondary>small { flex-basis:100%; font-size:9px; }
+  .tv-pace-status { text-align:left; max-width:none; margin-top:18px; }
+  .tv-goal-row { grid-template-columns:minmax(0,1fr) auto; align-items:start; gap:14px; }
+  .tv-goal-row>.tv-row-name { grid-column:1/-1; }
+  .tv-goal-row>.tv-dual-amount { text-align:left; }
+  .tv-goal-row .tv-cash-amount { justify-content:flex-start; }
+  .tv-goal-row>strong { align-self:center; }
+  .tv-dual-amount>strong { font-size:26px; }
+  .tv-dual-amount .tv-amount-label { font-size:9px; }
+  .tv-dual-amount .tv-cash-amount { font-size:9px; }
+  .tv-dual-amount .tv-cash-amount b { font-size:13px; }
+  .tv-ranking-leader>.tv-dual-amount { flex-basis:100%; text-align:left; padding-left:37px; }
+  .tv-ranking-leader .tv-cash-amount { justify-content:flex-start; }
+  .tv-ranking-leader .tv-dual-amount>strong { font-size:32px; }
+  .tv-ranking-leader .tv-cash-amount b { font-size:15px; }
+  .tv-ranking-row { grid-template-columns:25px minmax(0,1fr); gap:8px 10px; }
+  .tv-ranking-result { min-width:0; grid-column:2; text-align:left; }
+  .tv-ranking-result .tv-dual-amount { text-align:left; }
+  .tv-ranking-result .tv-cash-amount { justify-content:flex-start; }
+  .tv-ranking-result .tv-dual-amount>strong,.tv-player .tv-ranking-result .tv-dual-amount>strong { font-size:25px; }
+  .tv-ranking-name>strong,.tv-player .tv-ranking-name>strong { font-size:15px; }
+  .tv-ranking-name>span { font-size:10px; }
+  .tv-player .tv-ranking-result .tv-cash-amount b { font-size:13px; }
+  .tv-payment-row { grid-template-columns:8px minmax(0,1fr) auto; gap:12px 10px; }
+  .tv-payment-row>.tv-dual-amount { grid-column:2; min-width:0; text-align:left; }
+  .tv-payment-row .tv-cash-amount { justify-content:flex-start; }
+  .tv-payment-row>b { grid-column:3; grid-row:1; align-self:center; }
+  .tv-daily-lead>svg { width:32px; flex-shrink:0; }
+  .tv-broadcast-context>span:last-child { line-height:1.5; }
+}
+@media(min-width:901px) {
+  .tv-player .tv-ranking-row { padding:7px 0; }
+  .tv-player .tv-ranking-name>strong { line-height:1.15; margin-bottom:5px; }
+  .tv-player .tv-ranking-name>span { line-height:1.3; margin-top:3px; }
+  .tv-player .tv-ranking-result .tv-dual-amount { display:grid; grid-template-columns:auto auto; align-items:baseline; column-gap:12px; }
+  .tv-player .tv-ranking-result .tv-amount-label { margin:0; }
+  .tv-player .tv-ranking-result .tv-dual-amount>strong { font-size:30px; }
+  .tv-player .tv-ranking-result .tv-cash-amount { grid-column:1/-1; margin-top:0; line-height:1.4; }
+  .tv-player .tv-ranking-result .tv-cash-amount b { font-size:14px; }
+}
+@media(min-width:901px) {
+  .tv-player .tv-goal-row { padding:7px 0; row-gap:7px; }
+  .tv-player .tv-goal-row .tv-row-name h3 { font-size:27px; line-height:1.15; }
+  .tv-player .tv-goal-row .tv-goal-context { margin-top:4px; line-height:1.4; }
+  .tv-player .tv-goal-row>.tv-dual-amount { display:grid; grid-template-columns:auto auto; align-items:baseline; column-gap:12px; }
+  .tv-player .tv-goal-row .tv-amount-label { margin:0; }
+  .tv-player .tv-goal-row .tv-dual-amount>strong { font-size:30px; }
+  .tv-player .tv-goal-row .tv-cash-amount { grid-column:1/-1; margin-top:0; line-height:1.4; }
+}

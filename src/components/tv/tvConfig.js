@@ -8,9 +8,9 @@ export const TV_PANELS = [
   { id: 'daily', title: 'Vendas do dia', description: 'Resultado de hoje e distribuição por hora, no horário de Brasília.' },
   { id: 'payment-mix', title: 'Meios de pagamento', description: 'Participação de cartão, boleto, Pix e outros meios.' },
 ]
-export const TV_METRICS = { cash: 'Cash collected · novas vendas', gross: 'Valor bruto das vendas', count: 'Quantidade de vendas' }
+export const TV_METRICS = { gross: 'Valor bruto das vendas', cash: 'Cash collected · novas vendas', count: 'Quantidade de vendas' }
 export function defaultTvSettings() {
-  return { version: 1, mode: 'rotate', fixedPanel: 'monthly-goal', metric: 'cash', monthMode: 'current', month: '', theme: 'system', paceScope: 'overall', paceScopeId: '',
+  return { version: 1, mode: 'rotate', fixedPanel: 'monthly-goal', metric: 'gross', monthMode: 'current', month: '', theme: 'system', paceScope: 'overall', paceScopeId: '',
     panels: TV_PANELS.map((panel, index) => ({ id: panel.id, enabled: index < 6, durationSeconds: 20 })) }
 }
 export function activeTvPanels(settings) {
