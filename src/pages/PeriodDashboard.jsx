@@ -4,9 +4,12 @@ import { sourceHasSales } from '../utils/sourceAvailability'
 import { useEffect, useMemo, useState, Fragment } from 'react'
 import { Link } from 'react-router-dom'
 import axios from 'axios'
-import { RefreshCw, ArrowUpRight, ChevronDown, ChevronUp, Download, CircleAlert } from 'lucide-react'
+import { RefreshCw, ArrowUpRight, ChevronDown, ChevronUp, Download } from 'lucide-react'
 import { ReferenceChart } from '../components/charts/ReferenceChart'
 import { ChartPanel, RankedBars, MixChart } from '../components/charts/AnalyticsVisuals'
+import RevenueHighlights from '../components/charts/RevenueHighlights'
+import RevenueNotifications from '../components/charts/RevenueNotifications'
+import { buildRevenueNotices } from '../utils/revenueBreakdown'
 import '../components/charts/periodAnalytics.css'
 import WeekSelector from '../components/WeekSelector'
 import { loadPeriodSales, bucketHasSalesSource } from '../services/periodSalesService'
@@ -158,10 +161,10 @@ export default function PeriodDashboard({ mode = 'global' }) {
   const currentPage = Math.min(detailPage, detailPages)
   const visibleDetails = details.slice((currentPage - 1) * 20, currentPage * 20)
   const hasFilters = Object.values(filters).some(Boolean) || Boolean(offer)
-  const unavailable = relevantSources.filter(source => source.status !== 'ready')
   const salesPartial = relevantSources.some(source => source.kind === 'sale' && source.status !== 'ready')
   const boletoPartial = relevantSources.some(source => ['asaas', 'boletex', 'tmb', 'manual'].includes(source.id) && source.status !== 'ready')
   const cacheStatus = progress.generatedAt ? progress : data?.cache
+  const notifications = data ? buildRevenueNotices(relevantSources, { ...filters, offer }, { partial: salesPartial || summary.total.revenue.missing > 0, cache: cacheStatus, records: filtered }) : []
 
   function selectGroup(name) {
     const value = name === 'Não informado' ? UNKNOWN : name
@@ -208,7 +211,8 @@ export default function PeriodDashboard({ mode = 'global' }) {
   }
 
   return <div className="hub-page period-analytics space-y-6">
-    <header className="page-heading flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[.16em] text-slate-500 mb-2">Performance comercial</p><h1 className="text-3xl font-semibold">{TITLE[mode]}</h1><p className="text-sm text-slate-500 mt-2">Receita, produtos e meios de pagamento. Do consolidado a cada venda.</p></div><div className="flex gap-2"><button type="button" className="btn btn-ghost disabled:opacity-40" onClick={exportRows} disabled={!filtered.length || loading}><Download size={16} />Exportar</button><button type="button" className="btn btn-ghost disabled:opacity-40" disabled={loading} title={mode === 'global' ? 'Atualizar fontes' : 'Atualizar histórico e hoje'} onClick={() => setRange(previous => ({ ...previous, force: true }))}><RefreshCw size={16} className={loading ? 'animate-spin' : ''} />Atualizar</button></div></header>
+    <header className="page-heading flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[.16em] text-slate-500 mb-2">Performance comercial</p><h1 className="text-3xl font-semibold">{TITLE[mode]}</h1><p className="text-sm text-slate-500 mt-2">Receita, produtos e meios de pagamento. Do consolidado a cada venda.</p></div><div className="period-heading-actions"><RevenueNotifications items={notifications} /><button type="button" className="btn btn-ghost disabled:opacity-40" onClick={exportRows} disabled={!filtered.length || loading}><Download size={16} />Exportar</button><button type="button" className="btn btn-ghost disabled:opacity-40" disabled={loading} title={mode === 'global' ? 'Atualizar fontes' : 'Atualizar histórico e hoje'} onClick={() => setRange(previous => ({ ...previous, force: true }))}><RefreshCw size={16} className={loading ? 'animate-spin' : ''} />Atualizar</button></div></header>
+    <RevenueHighlights records={filtered} sources={relevantSources} filters={{ ...filters, offer }} title="Receita operacional" loading={loading} ready={Boolean(data)} />
     <form onSubmit={applyRange} className="filter-bar ds-card p-4 flex flex-wrap items-end gap-3">
       {mode === 'month' ? <div><label htmlFor="period-month" className="ds-label">Mês</label><input id="period-month" className="ds-input" type="month" required value={draft.startDate.slice(0, 7)} onChange={e => { const value = monthRange(e.target.value); if (value) setDraft(value) }} /></div>
         : mode === 'year' ? <div><label htmlFor="period-year" className="ds-label">Ano</label><input id="period-year" type="number" min="2020" max={new Date().getFullYear() + 1} required className="ds-input" value={Number(draft.startDate.slice(0, 4))} onChange={e => { if (/^\d{4}$/.test(e.target.value)) setDraft({ startDate: `${e.target.value}-01-01`, endDate: `${e.target.value}-12-31` }) }} /></div>
@@ -219,13 +223,8 @@ export default function PeriodDashboard({ mode = 'global' }) {
     <details className="ds-card p-4"><summary className="text-sm font-medium cursor-pointer">Origem e campanhas</summary><div className="grid sm:grid-cols-2 xl:grid-cols-5 gap-3 mt-4">{[['source', 'Origem UTM'], ['medium', 'Mídia'], ['campaign', 'Campanha'], ['content', 'Conteúdo'], ['term', 'Termo']].map(([key, label]) => <div key={key}><label htmlFor={`period-utm-${key}`} className="ds-label">{label}</label><select id={`period-utm-${key}`} className="ds-input" value={filters[key]} onChange={e => changeFilter(key, e.target.value)}><option value="">Todos</option>{(key === 'platform' ? [...new Set([...(data?.sources.filter(source => source.kind === 'sale').map(source => source.platform) || []), ...filterOptions(allRecords, key)])] : filterOptions(allRecords, key)).map(value => <option key={value} value={value}>{value}</option>)}<option value={UNKNOWN}>Não informado</option></select></div>)}</div><p className="text-xs text-slate-500 mt-3">As fontes que não enviam atribuição permanecem como não informadas.</p></details>
     {error && <div className="ds-card p-4 text-red-600 text-sm" role="alert">{error}</div>}
     {loading && <div role="status" className="ds-card p-5 text-sm flex items-center gap-3"><RefreshCw size={18} className="animate-spin text-blue-600 shrink-0" /><span>{mode === 'global' ? 'Consultando as plataformas' : data ? 'Atualizando o período' : 'Preparando o período'}{progress.total > 0 && mode !== 'global' ? ` · ${progress.current} de ${progress.total} consultas concluídas` : ''}. {data ? 'Os valores anteriores permanecem disponíveis.' : 'Os valores aparecem após a consolidação.'}</span></div>}
-    {cacheStatus?.pollTimedOut && <p role="status" className="ds-card p-4 text-sm text-amber-800 dark:text-amber-200">A atualização continua no servidor. Os dados disponíveis foram mantidos, mas o período ainda está incompleto. Use Atualizar para acompanhar novamente.</p>}
-    {mode !== 'global' && <section className="ds-card p-4 text-sm space-y-2" aria-label="Atualização do histórico"><p>Histórico atualizado diariamente às 04h (Brasília). Somente hoje permanece em atualização durante o dia. Use Atualizar para consultar novamente o período completo.</p>{cacheStatus?.oldestSnapshotAt && <p className="text-xs text-slate-500">Histórico coletado: {snapshotDate(cacheStatus.oldestSnapshotAt)}{cacheStatus.newestSnapshotAt !== cacheStatus.oldestSnapshotAt ? ` a ${snapshotDate(cacheStatus.newestSnapshotAt)}` : ''} (Brasília).</p>}{cacheStatus?.todaySnapshotAt && <p className="text-xs text-slate-500">Dados de hoje coletados em {snapshotDate(cacheStatus.todaySnapshotAt)}{cacheStatus.todayNewestSnapshotAt !== cacheStatus.todaySnapshotAt ? ` a ${snapshotDate(cacheStatus.todayNewestSnapshotAt)}` : ''} (Brasília).</p>}{cacheStatus?.staleSources > 0 && <p className="text-xs text-amber-800 dark:text-amber-200">{cacheStatus.staleSources} consultas usam a última versão disponível. A data de coleta não foi alterada; a atualização está {cacheStatus.pending > 0 ? 'em andamento' : 'pendente após uma falha'}.</p>}<p className="text-xs text-slate-500">Vendas manuais e atribuições são consultadas novamente a cada carregamento.</p></section>}
+    {mode !== 'global' && <section className="period-cache-summary" aria-label="Atualização do histórico"><p>Histórico atualizado diariamente às 04h (Brasília). Somente hoje permanece em atualização durante o dia.</p>{cacheStatus?.oldestSnapshotAt && <p>Histórico coletado: {snapshotDate(cacheStatus.oldestSnapshotAt)}{cacheStatus.newestSnapshotAt !== cacheStatus.oldestSnapshotAt ? ` a ${snapshotDate(cacheStatus.newestSnapshotAt)}` : ''} (Brasília).</p>}{cacheStatus?.todaySnapshotAt && <p>Dados de hoje coletados em {snapshotDate(cacheStatus.todaySnapshotAt)}{cacheStatus.todayNewestSnapshotAt !== cacheStatus.todaySnapshotAt ? ` a ${snapshotDate(cacheStatus.todayNewestSnapshotAt)}` : ''} (Brasília).</p>}<p>Vendas manuais e atribuições são consultadas novamente a cada carregamento. Use Atualizar para consultar novamente o período completo.</p></section>}
     {data && <>
-      <div className="flex flex-wrap gap-2 text-xs" aria-label="Estado das fontes">{data.sources.map(source => <span key={source.id} className={`rounded-md border px-3 py-2 ${source.status === 'ready' ? 'border-slate-200 dark:border-slate-700 text-slate-500' : 'border-amber-300 bg-amber-50 dark:bg-amber-950 text-amber-800 dark:text-amber-200'}`}>{source.label} · {source.status === 'ready' ? 'Disponível' : source.status === 'not_requested' ? 'Caixa sob consulta · vendas indisponíveis' : source.status === 'partial' ? source.reason === 'checkout_disabled' ? 'Caixa disponível · vendas indisponíveis' : 'Dados parciais' : 'Indisponível'}</span>)}</div>
-      {relevantSources.some(source => source.status === 'not_requested') && <p className="text-sm text-amber-800 dark:text-amber-200">Asaas não incluído nesta consolidação. Vendas e valores contratados permanecem indisponíveis; o caixa pode ser consultado separadamente abaixo.</p>}
-      {relevantSources.some(source => source.reason === 'checkout_disabled') && <p className="text-sm text-amber-800 dark:text-amber-200">Asaas: recebimentos disponíveis, mas vendas e valores contratados não informados. As demais fontes mantêm seus próprios indicadores.</p>}
-      {unavailable.length > 0 && <p className="flex gap-2 text-sm text-amber-800 dark:text-amber-200" role="status"><CircleAlert size={18} className="shrink-0" />Visão parcial. Os valores representam as fontes recebidas; dados indisponíveis não equivalem a zero.</p>}
       <ChartPanel
         className="analytics-feature period-revenue"
         title={`Evolução ${mode === 'year' ? 'mensal' : 'diária'}`}
@@ -245,17 +244,8 @@ export default function PeriodDashboard({ mode = 'global' }) {
         </div>}
       >
         <div className="period-revenue-layout">
-          <section className="period-revenue-summary" aria-label="Indicadores principais">
-            <p className="period-observed-range">{dateBR(range.startDate)} a {dateBR(range.endDate)}</p>
-            {[
-              ['Receita operacional', availableSales ? displayAmount(summary.total.revenue) : '—', availableSales ? `${count(summary.total.count)} vendas${salesPartial ? ' · parcial' : ''}` : 'Vendas indisponíveis'],
-              ['Guru + Hotmart', sourceAvailable(['guru', 'hotmart']) || summary.digital.count ? displayAmount(summary.digital.revenue) : '—', digitalAvailable ? `${count(summary.digital.count)} vendas digitais` : 'Vendas digitais indisponíveis'],
-              ['Boletos e parcelamentos', sourceAvailable(['tmb', 'asaas', 'boletex']) || summary.boleto.count ? displayAmount(summary.boleto.revenue) : '—', boletoAvailable ? `${count(summary.boleto.count)} vendas${boletoPartial ? ' · parcial' : ''} · TMB, Asaas e Boletex` : 'Contratos indisponíveis'],
-              ['Ticket médio', availableSales ? currency(summary.ticket) : '—', salesPartial ? 'Receita operacional / vendas · parcial' : 'Receita operacional / vendas'],
-            ].map(([label, value, detail], index) => <article className={`period-revenue-fact${index === 0 ? ' period-revenue-fact--lead' : ''}`} key={label}><h2>{label}</h2><p className="period-fact-value">{value}</p><p className="period-fact-detail">{detail}</p></article>)}
-          </section>
           <div className="period-revenue-plot">
-            <div className="period-plot-context"><span>{mode === 'year' ? 'Leitura mês a mês' : 'Leitura dia a dia'}</span><span className={salesPartial ? 'period-coverage period-coverage--partial' : 'period-coverage'}>{salesPartial ? 'Consolidado parcial' : 'Fontes de vendas disponíveis'}</span></div>
+            <div className="period-plot-context"><span className="period-observed-range">{dateBR(range.startDate)} a {dateBR(range.endDate)} · {mode === 'year' ? 'mês a mês' : 'dia a dia'}</span><span className={salesPartial ? 'period-coverage period-coverage--partial' : 'period-coverage'}>{salesPartial ? 'Consolidado parcial' : 'Fontes de vendas disponíveis'}</span></div>
             <ReferenceChart rows={availableSales ? revenueRows : []} series={[{ key: 'revenue', label: 'Receita operacional', unit: 'currency' }, { key: 'digital', label: 'Guru + Hotmart', unit: 'currency' }, { key: 'boleto', label: 'Boletos', unit: 'currency' }]} title="Evolução da receita" mode={chartMode} daily={mode !== 'year'} height={410} />
           </div>
         </div>
@@ -268,11 +258,13 @@ export default function PeriodDashboard({ mode = 'global' }) {
           <MixChart items={payments.filter(group => Number.isFinite(group.count) && group.count >= 0).map(group => ({ key: group.name, label: group.name, value: group.count }))} totalLabel="vendas no mix" emptyLabel="Sem contagem de vendas neste recorte" />
         </ChartPanel>
       </div>
-      <section className="grid grid-cols-2 xl:grid-cols-4 gap-4" aria-label="Indicadores complementares">{[
+      <section className="period-secondary-metrics" aria-label="Indicadores complementares">{[
+        ['Guru + Hotmart', sourceAvailable(['guru', 'hotmart']) || summary.digital.count ? displayAmount(summary.digital.revenue) : '—', digitalAvailable ? `${count(summary.digital.count)} vendas digitais` : 'Vendas digitais indisponíveis'],
+        ['TMB + Asaas + Boletex', sourceAvailable(['tmb', 'asaas', 'boletex']) || summary.boleto.count ? displayAmount(summary.boleto.revenue) : '—', boletoAvailable ? `${count(summary.boleto.count)} vendas contratadas${boletoPartial ? ' · parcial' : ''}` : 'Contratos indisponíveis'],
         ['Afiliações', sourceAvailable(['guru']) ? displayAmount(summary.total.affiliate) : '—', 'Líquido informado pela Guru'],
         ['Estornos e contestações', sourceAvailable(['guruRefunds', 'hotmartRefunds']) ? displayAmount(summary.refund.revenue) : '—', `${count(summary.refund.count)} registros · valor associado à compra`],
         ['Vendas do comercial', sourceAvailable(['guru']) ? displayAmount(summary.commercial.revenue) : '—', `${count(summary.commercial.count)} vendas · UTM comercial na Guru`],
-        ['Entradas e recebimentos', sourceAvailable(['asaas', 'boletex']) || summary.total.received.known ? displayAmount(summary.total.received) : '—', relevantSources.some(source => source.reason === 'checkout_disabled' || source.status === 'not_requested') ? 'Parcial: entradas de contratos Asaas não informadas' : 'Recebido nas compras Asaas / Boletex'],
+        ['Entradas e recebimentos', sourceAvailable(['asaas', 'boletex']) || summary.total.received.known ? displayAmount(summary.total.received) : '—', 'Recebimentos associados às vendas disponíveis'],
       ].map(([label, value, detail]) => <article className="ds-card p-5" key={label}><h2 className="text-xs font-medium text-slate-500">{label}</h2><p className="text-xl font-semibold mt-3 tabular-nums">{value}</p><p className="text-xs text-slate-500 mt-2">{detail}</p></article>)}</section>
       <>{mode === 'year' ? <AnnualAsaasCashPanel key={`${range.startDate}:${range.endDate}`} startDate={range.startDate} endDate={range.endDate > localDateKey() ? localDateKey() : range.endDate} filters={{ ...filters, offer }} /> : <AsaasCashPanel sources={data.sources} filters={{ ...filters, offer }} />}</>
       <p className="text-xs text-slate-500">O indicador de estornos preserva o valor associado retornado pelas integrações; não comprova o valor efetivamente devolvido. <Link className="text-blue-600 dark:text-blue-300 underline" to="/reembolsos">Ver confirmação e solicitações de reembolso</Link>.</p>

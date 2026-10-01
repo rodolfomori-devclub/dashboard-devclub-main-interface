@@ -1,3 +1,5 @@
+import { applyTmbCashRule } from '../utils/tmbCash.js';
+
 const request = async (path, options) => {
   const { requestApi } = await import('../lib/api');
   const response = await requestApi(`/sales-ops${path}`, options);
@@ -15,7 +17,7 @@ export const getSalesAudit = (type, id) => request(`/audit/${encodeURIComponent(
 const key = (source, id) => JSON.stringify([source, String(id)]);
 
 export function manualSaleRecord(sale) {
-  return {
+  return applyTmbCashRule({
     id: `manual:${sale.id}`, manualId: sale.id, source: 'manual', sourceId: 'manual', externalId: sale.id,
     kind: 'sale', quantity: 1, isManual: true, canAttribute: false, platform: sale.platform,
     buyerName: sale.buyerName, buyerEmail: sale.buyerEmail, date: `${sale.date}T12:00:00-03:00`,
@@ -24,7 +26,7 @@ export function manualSaleRecord(sale) {
     fees: null, affiliate: null, listPrice: null, pending: null,
     utm: sale.utm || {}, sellerId: sale.sellerId, sellerName: sale.sellerName,
     status: sale.status, note: sale.note, syncPending: sale.syncPending, original: sale,
-  };
+  });
 }
 
 // Safe to apply twice (e.g. after refreshing only the ledger). Reconciled

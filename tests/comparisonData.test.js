@@ -32,7 +32,7 @@ test('comparison preserves the shared operational contract, cash separation and 
   assert.equal(actual.metrics.revenue.value, summarizePeriod(result.records).total.revenue.value)
   assert.equal(actual.metrics.count.value, 6)
   assert.equal(actual.metrics.ticket.value, 2120 / 6)
-  assert.equal(actual.metrics.received.value, 310)
+  assert.equal(actual.metrics.received.value, 310 + 80)
   assert.equal(actual.metrics.received.partial, true)
   assert.equal(actual.metrics.net.value, 320)
   assert.equal(actual.metrics.net.partial, true)

@@ -82,13 +82,17 @@ export function mergePeriodSources(results, annual = false) {
   const bySource = new Map()
   for (const batch of results) {
     for (const source of batch.result.sources) {
-      const group = bySource.get(source.id) || { ...source, rows: [], failures: 0, incomplete: 0, notRequested: 0, periods: 0, salesAvailable: false, cash: null }
+      const group = bySource.get(source.id) || { ...source, rows: [], cashReceipts: undefined, failures: 0, incomplete: 0, notRequested: 0, periods: 0, salesAvailable: false, cash: null }
       group.periods++
       if (source.status === 'not_requested') group.notRequested++
       if (source.status === 'unavailable') group.failures++
       if (source.status !== 'ready') group.incomplete++
       if (sourceHasSales(source)) group.salesAvailable = true
       if (source.reason) group.reason = source.reason
+      if (Array.isArray(source.cashReceipts)) {
+        group.cashReceipts ||= []
+        group.cashReceipts.push(...source.cashReceipts)
+      }
       if (source.cash) {
         if (!group.cash) group.cash = { gross: 0, net: 0, fees: 0, count: 0, availablePeriods: 0, periods: 0 }
         for (const key of ['gross', 'net', 'fees', 'count']) group.cash[key] += source.cash[key]

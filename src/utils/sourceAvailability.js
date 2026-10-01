@@ -1,3 +1,5 @@
+import { TMB_CASH_METADATA } from './tmbCash.js'
+
 // A successful receipts query does not imply that new-sale contracts are known.
 export function sourceHasSales(source) {
   return ['ready', 'partial'].includes(source.status) && source.salesAvailable !== false
@@ -8,6 +10,7 @@ export function asaasCashOnly(data) {
 }
 
 export function sourceFinancialMetadata(sourceId, data) {
+  if (sourceId === 'tmb') return { status: 'ready', ...TMB_CASH_METADATA }
   if (sourceId !== 'asaas') return { status: 'ready' }
   const receipts = Array.isArray(data?.cashReceipts) ? { cashReceipts: [
     ...data.cashReceipts,

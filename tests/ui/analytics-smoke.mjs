@@ -84,6 +84,22 @@ try{
   await page.screenshot({path:`${out}/${path}-${theme}-${width}.png`,fullPage:true,animations:'disabled'})
   const hero=page.locator('.period-revenue,.pace-hero,.daily-hourly').first()
   if(await hero.count())await hero.screenshot({path:`${out}/${path}-${theme}-${width}-hero.png`,animations:'disabled'})
+  if(['global','mensal','anual'].includes(path)){
+   assert.equal(await page.evaluate(()=>Boolean(document.querySelector('.revenue-highlights').compareDocumentPosition(document.querySelector('form.filter-bar'))&Node.DOCUMENT_POSITION_FOLLOWING)),true,'period highlights must precede the filters')
+   const beforeDetails=calls.length
+   const card=page.locator('.revenue-card').filter({has:page.getByRole('heading',{name:'Cartão',exact:true})})
+   await card.locator('summary').focus();await page.keyboard.press('Enter')
+   assert.equal(await card.locator('.revenue-provider-list').isVisible(),true)
+   await page.keyboard.press('Enter')
+   const notifications=page.getByRole('region',{name:'Notificações dos dados'})
+   assert.equal(await notifications.isVisible(),false)
+   await page.locator('.revenue-notifications > summary').click()
+   const bounds=await notifications.boundingBox()
+   assert.ok(bounds.x>=-1&&bounds.x+bounds.width<=width+1,`${path} notifications overflow`)
+   await page.screenshot({path:`${out}/${path}-${theme}-${width}-notifications.png`,animations:'disabled'})
+   await page.keyboard.press('Escape');assert.equal(await notifications.isVisible(),false)
+   assert.equal(calls.length,beforeDetails,'payment details/notifications must stay local')
+  }
   checks.push({path,theme,width,timeSeries:chartCount,keyboard:true,overflow:false})
  }
  // Cache protocol and reload regression: real browser state, synthetic APIs.
@@ -107,7 +123,9 @@ try{
  const beforeRefresh=cacheCalls.length
  const beforeLedger=calls.filter(path=>path==='/api/sales-ops/ledger').length
  await page.getByRole('button',{name:'Atualizar',exact:true}).click()
- await page.getByText(/consultas usam a última versão disponível/).waitFor()
+ await page.locator('.revenue-notifications > summary').click()
+ await page.getByRole('region',{name:'Notificações dos dados'}).getByText('Histórico em atualização',{exact:true}).waitFor()
+ await page.locator('.revenue-notifications > summary').click()
  assert.equal(await page.locator('.period-revenue-plot .rr-chart-plot').count(),1,'refresh must preserve the chart')
  await page.waitForFunction(()=>document.querySelector('#period-product option[value="Cache manual QA"]'))
  assert.equal(calls.filter(path=>path==='/api/sales-ops/ledger').length,beforeLedger+1,'new load reads the current ledger once')

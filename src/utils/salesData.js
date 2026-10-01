@@ -1,4 +1,5 @@
 import { asaasCashOnly } from './sourceAvailability.js'
+import { applyTmbCashRule } from './tmbCash.js'
 // Pure adapters. Monetary amounts come from the API; fee rules stay on the server.
 export const SOURCE_DEFINITIONS = [
   { id: 'guru', label: 'Guru', platform: 'Guru', kind: 'sale' },
@@ -121,10 +122,14 @@ export function normalizeSource(sourceId, payload) {
   }
   if (sourceId === 'tmb') {
     if (!Array.isArray(data)) throw new Error('Formato de boletos indisponível')
-    return data.map((raw, i) => record(source, raw, i, {
-      product: raw.product, payment: 'Boleto', date: raw.timestamp,
-      revenue: amount(raw.value), gross: amount(raw.value),
-    }))
+    return data.map((raw, i) => {
+      const calendar = [raw.date?.original, raw.timestamp].find(value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value))
+      return applyTmbCashRule(record(source, raw, i, {
+        product: raw.product, payment: 'Boleto', date: calendar ? `${calendar}T12:00:00Z` : raw.timestamp,
+        revenue: amount(raw.value), gross: amount(raw.value),
+        ...(calendar ? { hasExactTime: false } : {}),
+      }))
+    })
   }
   if (!data || typeof data !== 'object') throw new Error('Consolidado indisponível')
   if (source.platform === 'Hotmart') {

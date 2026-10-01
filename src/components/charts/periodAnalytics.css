@@ -1,6 +1,13 @@
-/* Revenue composition: a quiet financial summary beside the main time series. */
+/* The highlighted totals lead; the main time series uses the full width. */
 .period-analytics { min-width: 0; }
-.period-revenue-layout { display: grid; grid-template-columns: minmax(230px, .68fr) minmax(0, 1.8fr); gap: 28px; align-items: stretch; }
+.period-heading-actions { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; min-width: 0; }
+.period-revenue-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; align-items: stretch; }
+.period-secondary-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.period-secondary-metrics article { min-width: 0; }
+.period-secondary-metrics article > p { overflow-wrap: anywhere; }
+.period-cache-summary { display: flex; flex-wrap: wrap; gap: 4px 20px; font-size: 11px; line-height: 1.6; color: var(--muted); }
+.period-cache-summary p { margin: 0; }
+.period-cache-summary p:first-child, .period-cache-summary p:last-child { flex-basis: 100%; }
 .period-revenue-summary { display: flex; flex-direction: column; min-width: 0; padding-right: 26px; border-right: 1px solid var(--border); }
 .period-observed-range { color: var(--muted); font-size: 12px; line-height: 1.5; margin: 0 0 20px; }
 .period-revenue-fact { padding: 16px 0; border-top: 1px solid var(--border); }
@@ -13,6 +20,7 @@
 .period-revenue-fact--lead .period-fact-detail { font-size: 12px; margin-top: 10px; }
 .period-revenue-plot { min-width: 0; align-self: center; }
 .period-plot-context { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; color: var(--muted); font-size: 11px; margin-bottom: 18px; }
+.period-plot-context .period-observed-range { margin: 0; font-size: inherit; }
 .period-coverage { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
 .period-coverage::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--chart-2); flex-shrink: 0; }
 .period-coverage--partial::before { background: var(--chart-4); }
@@ -34,7 +42,7 @@
 .period-analytics .analytics-panel-body { min-width: 0; }
 
 @media (max-width: 1200px) {
-  .period-revenue-layout { grid-template-columns: minmax(215px, .7fr) minmax(0, 1.6fr); gap: 20px; }
+  .period-revenue-layout { gap: 20px; }
   .period-revenue-summary { padding-right: 20px; }
   .period-chart-controls { justify-content: flex-start; }
   .period-distribution-layout { grid-template-columns: minmax(210px, .7fr) minmax(0, 1.3fr); gap: 20px; }
@@ -51,6 +59,10 @@
   .period-ranking .analytics-ranking-rows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 28px; }
 }
 @media (max-width: 600px) {
+  .period-secondary-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .period-secondary-metrics article { padding: 15px 12px; }
+  .period-secondary-metrics article > p { font-size: 18px; }
+  .period-secondary-metrics article > p:last-child { font-size: 10px; }
   .period-chart-controls { gap: 6px; }
   .period-segment button { padding: 6px 9px; min-height: 34px; }
   .period-revenue-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 18px; }

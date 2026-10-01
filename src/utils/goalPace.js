@@ -57,7 +57,7 @@ export function calculateGoalPace({ year, month, plan, records = [], sources = [
     return !future && (!date || (date >= bounds.start && date <= lastObservedDate))
   })
   const saleSources = selectedSources.filter((source) => source.kind === 'sale')
-  const available = saleSources.some((source) => source.status === 'ready' && (source.id !== 'manual' || observedRows.some((row) => row.sourceId === 'manual')))
+  const available = saleSources.some((source) => ['ready', 'partial'].includes(source.status) && (source.id !== 'manual' || observedRows.some((row) => row.sourceId === 'manual')))
   const sourceIncomplete = saleSources.some((source) => source.status !== 'ready' || source.excludedReceipts > 0) || !available || membershipUnavailable || selectionMissing
   const missing = observedRows.filter((row) => amount(row[metric.field]) === null)
   const known = observedRows.filter((row) => amount(row[metric.field]) !== null)

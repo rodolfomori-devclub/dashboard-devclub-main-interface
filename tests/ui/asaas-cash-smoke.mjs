@@ -120,7 +120,7 @@ try {
     const before = calls.length
     await platform.selectOption('Asaas')
     assert.doesNotMatch(await card(title).innerText(), /R\$/)
-    assert.match(await card(title).innerText(), /indispon|Aguardando/i)
+    assert.match(await card(title).innerText(), /indispon|Aguardando|Não informado/i)
     assert.equal(await cash().count(), 1)
     await platform.selectOption('Guru')
     assert.match(await card(title).innerText(), annual ? /900,00/ : /100,00/)
@@ -129,7 +129,17 @@ try {
     await platform.selectOption('')
     const product = path === '/diario' ? page.getByLabel('Produto original', { exact: true }) : page.locator('#period-product')
     await product.selectOption('DevClub')
-    assert.match(await cash().innerText(), /Caixa sem distribuição/)
+    if (annual) assert.match(await cash().innerText(), /Caixa sem distribuição/)
+    else {
+      assert.match(await cash().innerText(), /Não informado/)
+      const notifications = page.getByRole('region', { name: 'Notificações dos dados' })
+      assert.equal(await notifications.isVisible(), false)
+      await page.locator('.revenue-notifications > summary').click()
+      assert.match(await notifications.innerText(), /Asaas sem atribuição neste recorte/)
+      assert.match(await notifications.innerText(), /O extrato não informa produto/)
+      await page.keyboard.press('Escape')
+      assert.equal(await notifications.isVisible(), false)
+    }
     assert.doesNotMatch(await cash().innerText(), /495,00|18\.315,00/)
     await product.selectOption('')
     assert.equal(calls.length, before, `${path}: filters must be local`)
@@ -162,8 +172,7 @@ try {
   assert.equal(calls.filter(path => path === '/api/boleto/asaas/vendas').length, beforeOptionCache + 1, 'includeAsaas must be part of the cache key')
   failedProviders = true
   await visit('/diario')
-  assert.match(await card('Valor das vendas').innerText(), /Indisponível/)
-  assert.match(await card('Vendas realizadas').innerText(), /Indisponível/)
+  assert.match(await card('Valor das vendas').innerText(), /Indisponível|Não informado/)
   assert.match(await cash().innerText(), /495,00/)
   assert.deepEqual(errors, [])
   console.log('PASS only Asaas cash available with empty manual ledger never becomes zero sales')

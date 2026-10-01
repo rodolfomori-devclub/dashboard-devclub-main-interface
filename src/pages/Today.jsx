@@ -2,6 +2,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ReferenceChart } from '../components/charts/ReferenceChart'
 import { ChartPanel, RankedBars, MixChart } from '../components/charts/AnalyticsVisuals'
+import RevenueHighlights from '../components/charts/RevenueHighlights'
+import RevenueNotifications from '../components/charts/RevenueNotifications'
+import { buildRevenueNotices } from '../utils/revenueBreakdown'
 import { ArrowLeft, ArrowRight, ChevronDown, RefreshCw, SlidersHorizontal } from 'lucide-react'
 import { formatCurrency } from '../utils/currencyUtils'
 import { EMPTY_FILTERS, filterOptions, filterSales, groupSales, hourlySales, PRODUCT_FAMILIES, summarizeSales, UNKNOWN, UTM_FIELDS } from '../utils/salesData'
@@ -20,10 +23,6 @@ function FilterSelect({ label, value, onChange, options, unknown = false }) {
     <option value="">Todos</option>{options.filter((item) => item !== 'Não informado').map((item) => <option key={item} value={item}>{item}</option>)}
     {(unknown || options.includes('Não informado')) && <option value={UNKNOWN}>Não informado</option>}
   </select></label>
-}
-
-function Metric({ title, value, note, accent = false }) {
-  return <article className={`stat-card daily-stat${accent ? ' daily-stat-accent' : ''}`}><h2>{title}</h2><strong>{value}</strong><p>{note}</p></article>
 }
 
 function SectionHeading({ title, description, children }) {
@@ -112,10 +111,12 @@ export default function Today() {
   const originBars = attribution.map(group => ({ key: group.name, label: group.name, value: group.count, ...(group.name === 'Não informado' ? { color: 'var(--muted)' } : {}) })).sort((a, b) => b.value - a.value)
   const paymentMix = payments.map(group => ({ key: group.name, label: group.name, value: group.count, ...(group.name === 'Não informado' ? { color: 'var(--muted)' } : {}) })).sort((a, b) => b.value - a.value)
   const paymentMixValid = paymentMix.every(item => Number.isFinite(item.value) && item.value >= 0)
-
+  const notifications = current ? buildRevenueNotices(relevantSources, filters, { partial, records: filtered }) : []
 
   return <div className="hub-page daily-page">
-    <header className="page-heading daily-heading"><div><h1>Diário de vendas</h1><p>Acompanhe o dia, os produtos e a origem de cada venda.</p></div><div className="daily-refresh"><button className="button button-primary" onClick={() => refresh(true)} disabled={loading}><RefreshCw size={16} className={loading ? 'daily-spin' : ''} />{loading ? 'Atualizando' : 'Atualizar dados'}</button><span>{current ? `Atualizado às ${clock(current.fetchedAt)}` : 'Aguardando dados'}</span></div></header>
+    <header className="page-heading daily-heading"><div><h1>Diário de vendas</h1><p>Acompanhe o dia, os produtos e a origem de cada venda.</p></div><div className="daily-heading-actions"><RevenueNotifications items={notifications} /><div className="daily-refresh"><button className="button button-primary" onClick={() => refresh(true)} disabled={loading}><RefreshCw size={16} className={loading ? 'daily-spin' : ''} />{loading ? 'Atualizando' : 'Atualizar dados'}</button><span>{current ? `Atualizado às ${clock(current.fetchedAt)}` : 'Aguardando dados'}</span></div></div></header>
+
+    <RevenueHighlights records={filtered} sources={relevantSources} filters={filters} title="Valor das vendas" loading={loading} ready={Boolean(current)} />
 
     <section className="surface-panel daily-filters" aria-label="Filtros do diário">
       <div className="daily-filter-heading"><span><SlidersHorizontal size={17} />Visualização do dia</span><button className="button daily-clear" onClick={resetFilters} disabled={!activeFilters}>Limpar filtros{activeFilters ? ` (${activeFilters})` : ''}</button></div>
@@ -127,23 +128,13 @@ export default function Today() {
         <FilterSelect label="Pagamento" value={filters.payment} onChange={(value) => updateFilter('payment', value)} options={filterOptions(records, 'payment')} unknown />
       </div>
       <details className="daily-utm-filters"><summary>Filtrar por UTMs<ChevronDown size={15} /></summary><div className="daily-filter-grid">{UTM_FIELDS.map((field) => <FilterSelect key={field} label={`UTM ${field}`} value={filters[field]} onChange={(value) => updateFilter(field, value)} options={filterOptions(records, field)} unknown />)}</div></details>
-      <div className="daily-filter-foot"><p>Os filtros se aplicam a todos os indicadores, gráficos e registros abaixo.</p><label><input type="checkbox" checked={autoRefresh} onChange={(event) => setAutoRefresh(event.target.checked)} />Atualizar hoje a cada 5 min</label></div>
+      <div className="daily-filter-foot"><p>Os filtros se aplicam a todos os indicadores, gráficos e registros desta tela.</p><label><input type="checkbox" checked={autoRefresh} onChange={(event) => setAutoRefresh(event.target.checked)} />Atualizar hoje a cada 5 min</label></div>
     </section>
 
     <div aria-live="polite" className="daily-feedback">
       {loading && !current && <p className="daily-notice">Carregando as fontes do dia. Os valores aparecerão quando a consulta terminar.</p>}
       {loadError && <p className="daily-notice is-warning" role="alert">Não foi possível atualizar os dados. Use “Atualizar dados” para tentar novamente.</p>}
-      {current && relevantSources.some((source) => source.status === 'unavailable') && <p className="daily-notice is-warning">Dados parciais. {relevantSources.filter((source) => source.status === 'unavailable').map((source) => source.label).join(', ')} indisponível. Os valores abaixo incluem apenas as fontes que responderam.</p>}
     </div>
-
-    {current && relevantSources.some(source => source.salesAvailable === false && source.reason === 'checkout_disabled') && <p className="daily-notice is-warning">Asaas: caixa disponível; vendas e valores contratados não informados. A receita operacional e a contagem incluem somente as demais fontes disponíveis.</p>}
-
-    <section className="stat-grid daily-stats" aria-label="Resumo do dia" aria-busy={loading}>
-      <Metric title="Valor das vendas" value={displayMetric(summary.revenue)} accent note={salesAvailable ? `${partial ? 'Valor parcial. ' : ''}Líquidos Guru/Hotmart + contratos de boleto + manuais.` : 'Aguardando uma fonte de vendas.'} />
-      <Metric title="Vendas realizadas" value={salesAvailable ? summary.count.toLocaleString('pt-BR') : 'Indisponível'} note={salesAvailable ? `${partial ? 'Contagem parcial. ' : ''}Boletex inclui somente entrada paga.` : 'A contagem depende das fontes do dia.'} />
-      <Metric title="Ticket médio" value={salesAvailable && summary.count > 0 && summary.revenue.known ? money(summary.revenue.value / summary.count) : salesAvailable && summary.count === 0 ? '—' : 'Indisponível'} note={`${partial ? 'Ticket parcial. ' : ''}Valor das vendas dividido pela quantidade filtrada.`} />
-      <Metric title="Reembolsos" value={displayMetric(refundSummary.revenue, refundsAvailable)} note={refundsAvailable ? `${refundSummary.count} registros${refundPartial ? ' · consulta parcial' : ''}. Exibidos separadamente das vendas.` : 'Consulta disponível para Guru e Hotmart.'} />
-    </section>
 
     <ChartPanel className="analytics-feature daily-hourly" title="Vendas por hora" description="Evolução do valor das vendas no horário de Brasília. A quantidade aparece em uma escala separada."
       action={<div className="daily-chart-controls"><div className="daily-chart-switch" role="group" aria-label="Leitura do gráfico"><button type="button" aria-pressed={chartView === 'hourly'} onClick={() => setChartView('hourly')}>Por hora</button><button type="button" aria-pressed={chartView === 'cumulative'} onClick={() => setChartView('cumulative')}>Acumulado</button></div><div className="daily-chart-switch" role="group" aria-label="Formato do gráfico"><button type="button" aria-pressed={chartMode === 'area'} onClick={() => setChartMode('area')}>Linhas</button><button type="button" aria-pressed={chartMode === 'bar'} onClick={() => setChartMode('bar')}>Barras</button></div></div>}
@@ -174,7 +165,7 @@ export default function Today() {
 
     <section className="surface-panel daily-panel daily-financial">
       <SectionHeading title="Composição financeira" description="Valores retornados pelas plataformas, sem recalcular as taxas." />
-      <div className="daily-financial-grid">{[['Bruto informado', 'gross'], ['Líquido informado', 'net'], ['Taxas e descontos', 'fees'], ['Afiliados (líquido)', 'affiliate']].map(([label, key]) => <div key={key}><span>{label}</span><strong>{displayMetric(summary[key])}</strong><small>{summary[key].missing ? `${summary[key].missing} registros sem esse valor` : salesAvailable ? 'Dados disponíveis no recorte' : 'Fonte indisponível'}</small></div>)}</div>
+      <div className="daily-financial-grid">{[['Bruto informado', 'gross'], ['Líquido informado', 'net'], ['Taxas e descontos', 'fees'], ['Afiliados (líquido)', 'affiliate']].map(([label, key]) => <div key={key}><span>{label}</span><strong>{displayMetric(summary[key])}</strong><small>{summary[key].missing ? `${summary[key].missing} registros sem esse valor` : salesAvailable ? 'Dados disponíveis no recorte' : 'Fonte indisponível'}</small></div>)}<div className="daily-refund-summary"><h2>Reembolsos</h2><strong>{displayMetric(refundSummary.revenue, refundsAvailable)}</strong><small>{refundsAvailable ? `${refundSummary.count} registros${refundPartial ? ' · parcial' : ''}. Exibidos separadamente.` : 'Consulta disponível para Guru e Hotmart.'}</small></div></div>
       <details className="daily-calculation"><summary>Como ler estes valores<ChevronDown size={15} /></summary><p>O total mantém a regra do diário: líquido calculado pela API Guru, líquido do produtor na Hotmart e valor contratual das vendas TMB, Asaas e Boletex, mais lançamentos manuais ainda não conciliados. Os reembolsos ficam separados. Taxas e afiliação já descontadas do líquido não são subtraídas novamente. Valores de boleto não representam saldo já recebido.</p><p>Campos ausentes permanecem “Não informado”. Um consolidado sem detalhes aparece na lista como “Saldo sem detalhamento”, sem produto, horário ou UTM presumidos.</p></details>
     </section>
 
@@ -183,7 +174,6 @@ export default function Today() {
     <section className="surface-panel daily-panel"><SectionHeading title="Plataformas e recebimentos" description={salesAvailable ? partial ? 'Parcial: há fontes sem dados de vendas.' : 'Todas as fontes de vendas disponíveis.' : 'Dados ainda indisponíveis.'} />
       <div className="daily-table-scroll"><table className="data-table"><thead><tr><th>Plataforma</th><th>Vendas</th><th>Valor das vendas</th><th>Recebido em boleto</th><th>Pendente</th></tr></thead><tbody>{saleSources.map((source) => { const platform = platforms.find((item) => item.name === source.id); return <tr key={source.id}><td><strong>{source.platform}</strong>{source.origin && source.origin !== source.label && <small className="daily-cell-note">Fonte: {source.origin}</small>}</td>{!sourceHasSales(source) ? <td colSpan={4} className="daily-unavailable">{source.reason === 'checkout_disabled' ? 'Vendas e contratos não informados · caixa exibido separadamente' : 'Dado indisponível'}</td> : <><td>{platform?.count || 0}</td><td>{platform ? platform.revenue.known ? money(platform.revenue.value) : 'Não informado' : money(0)}</td><td>{platform?.received.known ? money(platform.received.value) : 'Não informado'}</td><td>{platform?.pending.known ? money(platform.pending.value) : 'Não informado'}</td></>}</tr> })}</tbody></table></div>
       <p className="daily-footnote">Asaas: entrada recebida. Boletex: entrada e parcelas recebidas; boletos apenas emitidos não entram nas vendas.</p>
-      {current && <div className="daily-sources" aria-label="Situação das fontes">{relevantSources.map((source) => <span key={source.id} className={`daily-source ${source.status !== 'ready' ? 'is-unavailable' : ''}`}><i aria-hidden="true" />{source.label}<span>{loading ? 'Atualizando' : source.status === 'ready' ? 'Disponível' : source.status === 'partial' ? 'Caixa disponível · vendas indisponíveis' : 'Indisponível'}</span></span>)}</div>}
     </section>
 
     <section className="surface-panel daily-panel"><SectionHeading title="Registros do dia" description="Os mesmos registros usados nos indicadores acima."><div className="daily-segment" role="group" aria-label="Tipo de registro"><button className="button" aria-pressed={listKind === 'sale'} onClick={() => { setListKind('sale'); setPage(1) }}>Vendas</button><button className="button" aria-pressed={listKind === 'refund'} onClick={() => { setListKind('refund'); setPage(1) }}>Reembolsos</button></div></SectionHeading>
