@@ -1,3 +1,5 @@
+import { mergeAsaasReceiptOrigins } from './asaasSeparation.js'
+
 const DAY = 86_400_000
 export function asaasCashRanges(startDate, endDate) {
   const valid = value => /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(`${value}T12:00:00Z`)) && new Date(`${value}T12:00:00Z`).toISOString().slice(0, 10) === value
@@ -10,11 +12,12 @@ export function asaasCashRanges(startDate, endDate) {
 export function readAsaasCash(payload) {
   const data = payload?.data
   if (payload?.success === false || data?.availability?.cash !== 'ready') throw new Error('Caixa Asaas indisponível')
-  return Object.fromEntries([['gross', 'totalGross'], ['net', 'totalNet'], ['fees', 'totalFees'], ['count', 'count']].map(([field, key]) => {
+  const cash = Object.fromEntries([['gross', 'totalGross'], ['net', 'totalNet'], ['fees', 'totalFees'], ['count', 'count']].map(([field, key]) => {
     const value = data[key]
     if (value === null || value === undefined || value === '' || !Number.isFinite(Number(value)) || (field === 'count' && (!Number.isInteger(Number(value)) || Number(value) < 0))) throw new Error('Caixa Asaas incompleto')
     return [field, Number(value)]
   }))
+  return { ...cash, ...(data.cashReceiptOrigins ? { cashReceiptOrigins: data.cashReceiptOrigins } : {}) }
 }
 
 // Independent from sales queries. Both full-range and weekly requests deduplicate;
@@ -66,7 +69,8 @@ export function createAsaasCashLoader(fetchRange, { now = Date.now, ttl = 60_000
       const available = results.filter(item => item.cash), failedPeriods = results.filter(item => !item.cash).map(({ startDate, endDate }) => ({ startDate, endDate }))
       // No intermediate financial total is published while intervals are pending.
       const cash = available.length ? { ...Object.fromEntries(['gross', 'net', 'fees', 'count'].map(field => [field, available.reduce((sum, item) => sum + item.cash[field], 0)])), availablePeriods: available.length, periods: ranges.length } : null
-      const result = { startDate, endDate, status: !available.length ? 'unavailable' : failedPeriods.length ? 'partial' : 'ready', cash, failedPeriods, fetchedAt: now() }
+      const cashReceiptOrigins = mergeAsaasReceiptOrigins(results.map(item => item.cash?.cashReceiptOrigins))
+      const result = { startDate, endDate, status: !available.length ? 'unavailable' : failedPeriods.length ? 'partial' : 'ready', cash, cashReceiptOrigins, failedPeriods, fetchedAt: now() }
       if (result.status === 'ready' && requestGeneration === generation) cache.set(key, result)
       return result
     }).finally(() => { if (pending.get(key) === entry) pending.delete(key) })

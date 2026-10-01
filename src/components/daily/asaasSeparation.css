@@ -1,0 +1,36 @@
+.asaas-separation { min-width: 0; padding: 24px; }
+.asaas-separation-heading h2 { margin: 0; font-size: 18px; font-weight: 650; }
+.asaas-separation-heading p { margin: 7px 0 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.asaas-separation-grid { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.2fr); gap: 24px; margin-top: 22px; }
+.asaas-separation-grid > article { min-width: 0; padding: 20px; border: 1px solid var(--asaas-border); border-radius: 12px; background: var(--asaas-surface); color: var(--asaas-ink); }
+.asaas-sales-block { --asaas-surface: #f0f3ff; --asaas-border: #ced8fc; --asaas-ink: #293f99; --asaas-muted: #556288; }
+.asaas-receipts-block { --asaas-surface: #eaf8f4; --asaas-border: #b3dfd2; --asaas-ink: #145c4d; --asaas-muted: #476d62; }
+.dark .asaas-sales-block { --asaas-surface: #202943; --asaas-border: #3b4b7a; --asaas-ink: #c6d2ff; --asaas-muted: #b1bad5; }
+.dark .asaas-receipts-block { --asaas-surface: #153831; --asaas-border: #2f6459; --asaas-ink: #b1f5df; --asaas-muted: #add0c4; }
+.asaas-separation-grid h3 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0; font-size: 14px; font-weight: 650; color: var(--asaas-ink); }
+.asaas-separation-grid h3 small { margin-left: auto; font-size: 10px; font-weight: 500; }
+.asaas-block-caption { margin: 8px 0 0; color: var(--asaas-muted); font-size: 11px; line-height: 1.6; }
+.asaas-block-value { margin: 18px 0 20px; font-family: 'Outfit Variable', sans-serif; font-size: clamp(24px, 2.7vw, 38px); font-weight: 650; line-height: 1.25; font-variant-numeric: tabular-nums; letter-spacing: -.03em; overflow-wrap: anywhere; }
+.asaas-sales-details, .asaas-receipt-origins { margin: 0; display: grid; }
+.asaas-sales-details > div, .asaas-receipt-origins > div { display: flex; justify-content: space-between; align-items: baseline; gap: 18px; padding: 12px 0; border-top: 1px solid var(--asaas-border); }
+.asaas-separation-grid dt { font-size: 11px; color: var(--asaas-muted); }
+.asaas-separation-grid dd { margin: 0; text-align: right; font-size: 14px; font-weight: 650; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.asaas-separation-grid dd .financial-value { align-items: flex-end; }
+.asaas-receipt-origins dt span { color: var(--asaas-ink); font-weight: 600; }
+.asaas-receipt-origins dt small { display: block; margin-top: 3px; font-size: 10px; line-height: 1.5; }
+.asaas-block-note { margin: 16px 0 0; color: var(--asaas-muted); font-size: 11px; line-height: 1.65; }
+.asaas-cash-details { margin-top: 18px; color: var(--muted); font-size: 11px; line-height: 1.65; }
+.asaas-cash-details summary { cursor: pointer; font-weight: 600; color: var(--text); }
+.asaas-cash-details summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.asaas-cash-totals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 18px 0 0; color: var(--muted); font-size: 11px; }
+.asaas-cash-totals dd { margin: 4px 0 0; font-size: 16px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.asaas-cash-details p { max-width: 100ch; margin-top: 14px; }
+@media (max-width: 760px) {
+  .asaas-separation { padding: 18px; }
+  .asaas-separation-grid { grid-template-columns: minmax(0, 1fr); gap: 12px; margin-top: 18px; }
+  .asaas-separation-grid > article { padding: 18px; }
+  .asaas-block-value { font-size: 29px; }
+  .asaas-receipt-origins > div { flex-wrap: wrap; gap: 6px; }
+  .asaas-receipt-origins dd { margin-left: auto; }
+  .asaas-cash-totals { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+}

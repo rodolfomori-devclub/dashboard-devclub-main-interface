@@ -28,7 +28,7 @@ function initialDates() {
 }
 const PRIMARY_METRICS = [
   ['revenue', 'Receita operacional', 'currency'], ['count', 'Vendas', 'count'], ['ticket', 'Ticket médio', 'currency'],
-  ['gross', 'Bruto informado', 'currency'], ['net', 'Líquido informado', 'currency'], ['received', 'Caixa informado', 'currency'],
+  ['gross', 'Bruto informado', 'currency'], ['net', 'Líquido informado', 'currency'], ['received', 'Recebimentos das vendas', 'currency'],
 ]
 const DETAIL_METRICS = [
   ['digital', 'Receita digital (Guru + Hotmart)', 'currency'], ['digitalCount', 'Vendas digitais', 'count'],

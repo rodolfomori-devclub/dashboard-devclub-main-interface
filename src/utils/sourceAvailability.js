@@ -21,15 +21,22 @@ export function sourceFinancialMetadata(sourceId, data) {
     ...data.cashReceipts,
     ...(data.cashReceiptsUndated?.count > 0 ? [{ date: null, received: data.cashReceiptsUndated.received, count: data.cashReceiptsUndated.count }] : []),
   ] } : {}
-  if (!asaasCashOnly(data)) return { status: 'ready', ...receipts }
+  const origins = data?.cashReceiptOrigins ? { cashReceiptOrigins: data.cashReceiptOrigins } : {}
   const read = key => {
     const value = data[key]
-    if (value === null || value === undefined || value === '' || !Number.isFinite(Number(value))) throw new Error('Caixa Asaas indisponível')
+    if (value === null || value === undefined || value === '' || typeof value === 'boolean' || !Number.isFinite(Number(value)) || (key === 'count' && (!Number.isInteger(Number(value)) || Number(value) < 0))) throw new Error('Caixa Asaas indisponível')
     return Number(value)
   }
+  let cash
+  try {
+    if (data?.availability?.cash !== 'unavailable') cash = { gross: read('totalGross'), net: read('totalNet'), fees: read('totalFees'), count: read('count'), availablePeriods: 1, periods: 1 }
+  } catch (error) {
+    // Legacy contract-only responses remain valid; they do not establish cash.
+    if (asaasCashOnly(data)) throw error
+  }
+  if (!asaasCashOnly(data)) return { status: 'ready', ...receipts, ...origins, ...(cash ? { cash } : {}) }
   return {
-    ...receipts, status: 'partial', salesAvailable: false, reason: 'checkout_disabled',
-    cash: { gross: read('totalGross'), net: read('totalNet'), fees: read('totalFees'), count: read('count'), availablePeriods: 1, periods: 1 },
+    ...receipts, ...origins, status: 'partial', salesAvailable: false, reason: 'checkout_disabled', cash,
   }
 }
 

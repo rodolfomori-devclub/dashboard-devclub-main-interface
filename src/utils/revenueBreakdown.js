@@ -101,7 +101,7 @@ export function buildRevenueBreakdown(records = [], sources = [], filters = {}) 
   const cashProviders = [
     ...platformCash,
     { id: 'tmb', label: 'TMB · 40% das vendas', value: tmbKnown ? sum(tmbRows) : null },
-    { id: 'asaas', label: 'Asaas · recebimentos', value: asaasKnown ? asaas.gross : null },
+    { id: 'asaas', label: 'Asaas · faturas recebidas', value: asaasKnown ? asaas.gross : null },
     ...(manuals.length ? [{ id: 'manual', label: 'Caixa manual declarado', value: manualKnown ? sum(manuals) : null }] : []),
   ]
   const cashKnown = cashProviders.some(provider => provider.value !== null)
