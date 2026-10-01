@@ -51,6 +51,7 @@ await context.route('**/*',async route=>{
  if(!['GET','HEAD'].includes(method))writes.push({path:url.pathname,method,body:request.headers()['content-type']?.includes('json')?request.postDataJSON():request.postData()})
  let body
  if(url.pathname==='/api/access')body={user:{sub:'fixture-user',email:'qa@example.test',name:'QA local',permissions:admin?['admin']:goalReader?['goals']:['materials'],isAdmin:admin}}
+ else if(url.pathname==='/api/tv/settings')body={revision:0,updatedAt:null,settings:{version:1,mode:'rotate',fixedPanel:'monthly-goal',metric:'cash',monthMode:'current',month:'',theme:'system',paceScope:'overall',paceScopeId:'',panels:['monthly-goal','pace','team-goals','product-goals','sellers','products','daily','payment-mix'].map((id,index)=>({id,enabled:index<6,durationSeconds:20}))}}
  else if(url.pathname==='/api/period-cache')body=periodCacheFixture(url,{today:date,payloadForSource:(id,range)=>id==='guru'?{data:guruRows.filter(row=>{const day=new Date(row.dates.created_at*1000).toISOString().slice(0,10);return day>=range.startDate&&day<=range.endDate})}:emptyProviderPayload(id)})
 
  else if(url.pathname==='/api/hub/session')body={user:{...profile,role:admin?'gestor':'vendedor'}}

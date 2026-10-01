@@ -35,5 +35,6 @@ try {
  await run('./financial-loading-smoke.mjs')
  await run('./asaas-separation-smoke.mjs')
  await run('./new-sales-cash-smoke.mjs')
+ await run('./tv-mode-smoke.mjs')
  await run('./chart-primitives-smoke.mjs')
 } finally { server.kill('SIGTERM') }

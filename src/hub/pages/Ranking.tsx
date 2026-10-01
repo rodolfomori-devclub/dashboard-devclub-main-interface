@@ -10,16 +10,22 @@ import { OvertakeNotifications } from '@/components/ranking/OvertakeNotification
 import { SaleNotifications } from '@/components/ranking/SaleNotifications';
 import { CelebrationOverlay } from '@/components/CelebrationOverlay';
 import { SoundControlPanel } from '@/components/SoundControlPanel';
+import TVWorkspace from '../../components/tv/TVWorkspace';
 
 export default function RankingPage() {
+  const [view, setView] = useState('tv');
+  return <><nav className="tv-ranking-tabs" aria-label="Visualização do ranking"><button aria-pressed={view === 'tv'} onClick={() => setView('tv')}>TV Mode</button><button aria-pressed={view === 'ranking'} onClick={() => setView('ranking')}>Ranking comercial</button></nav>{view === 'tv' ? <TVWorkspace /> : <LegacyRanking />}</>;
+}
+
+function LegacyRanking() {
   const [liveMode, setLiveMode] = useState(false);
   const { data, notifications, saleNotifications, celebrationEvent, handleCelebrationDone } = useSalesRanking();
 
   const toggleLiveMode = useCallback(() => {
     if (!liveMode) {
-      document.documentElement.requestFullscreen?.();
+      document.documentElement.requestFullscreen?.().catch(() => {});
     } else {
-      document.exitFullscreen?.();
+      document.exitFullscreen?.().catch(() => {});
     }
     setLiveMode(!liveMode);
   }, [liveMode]);
@@ -48,7 +54,7 @@ export default function RankingPage() {
             <SoundControlPanel variant={liveMode ? 'tv' : 'default'} />
             <Button variant="ghost" size="sm" onClick={toggleLiveMode} className="text-muted-foreground hover:text-foreground gap-1.5">
               {liveMode ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-              {liveMode ? 'Sair' : 'TV Mode'}
+              {liveMode ? 'Sair' : 'Ampliar ranking'}
             </Button>
           </div>
         </div>
