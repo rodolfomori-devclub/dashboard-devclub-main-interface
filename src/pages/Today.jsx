@@ -1,6 +1,7 @@
 /* eslint-disable react/prop-types -- Internal UI props; React 19 does not use runtime propTypes. */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ReferenceChart } from '../components/charts/ReferenceChart'
+import { ChartPanel, RankedBars, MixChart } from '../components/charts/AnalyticsVisuals'
 import { ArrowLeft, ArrowRight, ChevronDown, RefreshCw, SlidersHorizontal } from 'lucide-react'
 import { formatCurrency } from '../utils/currencyUtils'
 import { EMPTY_FILTERS, filterOptions, filterSales, groupSales, hourlySales, PRODUCT_FAMILIES, summarizeSales, UNKNOWN, UTM_FIELDS } from '../utils/salesData'
@@ -38,7 +39,8 @@ export default function Today() {
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [utmDimension, setUtmDimension] = useState('source')
   const [listKind, setListKind] = useState('sale')
-  const [chartMode, setChartMode] = useState('line')
+  const [chartMode, setChartMode] = useState('area')
+  const [chartView, setChartView] = useState('cumulative')
   const [page, setPage] = useState(1)
   const requestId = useRef(0)
 
@@ -72,6 +74,7 @@ export default function Today() {
   const refundSummary = useMemo(() => summarizeSales(refunds), [refunds])
   const products = useMemo(() => groupSales(sales, 'product'), [sales])
   const platforms = useMemo(() => groupSales(sales, 'sourceId'), [sales])
+  const payments = useMemo(() => groupSales(sales, 'payment'), [sales])
   const attribution = useMemo(() => groupSales(sales, utmDimension), [sales, utmDimension])
   const hourly = useMemo(() => hourlySales(sales), [sales])
   const relevantSources = (current?.sources || []).filter((source) => !filters.platform || source.platform === filters.platform || source.id === 'manual')
@@ -90,8 +93,26 @@ export default function Today() {
   const updateFilter = (key, value) => { setFilters((previous) => ({ ...previous, [key]: value })); setPage(1) }
   const resetFilters = () => { setFilters({ ...EMPTY_FILTERS }); setPage(1) }
   const displayMetric = (metric, available = salesAvailable) => !available ? 'Indisponível' : metric.known || !metric.missing ? money(metric.value) : 'Não informado'
-  const maximumProductValue = Math.max(...products.map((item) => item.revenue.value), 1)
   const knownUtmCount = sales.filter((row) => row.utm[utmDimension]).reduce((sum, row) => sum + row.quantity, 0)
+  const observedHour = date === localDateKey() ? Number(new Intl.DateTimeFormat('en-US', { timeZone: 'America/Sao_Paulo', hour: '2-digit', hourCycle: 'h23' }).format(new Date(current?.fetchedAt || Date.now()))) : 23
+  const chartHours = useMemo(() => {
+    let cumulative = 0, complete = true
+    return hourly.hours.map((hour, index) => {
+      const future = index > observedHour
+      if (!future) {
+        if (hour.value === null) complete = false
+        else cumulative += hour.value
+      }
+      return { ...hour, label: hour.hour, future, value: future ? null : hour.value, count: future ? null : hour.count, cumulative: future || !complete ? null : cumulative }
+    })
+  }, [hourly, observedHour])
+  const hasTimedSales = summary.count === 0 || hourly.unknown < summary.count
+  const amountGaps = chartHours.some(hour => !hour.future && hour.missingAmounts > 0)
+  const productBars = products.map(product => ({ key: product.name, label: product.name, value: product.revenue.known ? product.revenue.value : null, count: product.count, partial: product.revenue.missing > 0, ...(product.name === 'Não informado' ? { color: 'var(--muted)' } : {}) }))
+  const originBars = attribution.map(group => ({ key: group.name, label: group.name, value: group.count, ...(group.name === 'Não informado' ? { color: 'var(--muted)' } : {}) })).sort((a, b) => b.value - a.value)
+  const paymentMix = payments.map(group => ({ key: group.name, label: group.name, value: group.count, ...(group.name === 'Não informado' ? { color: 'var(--muted)' } : {}) })).sort((a, b) => b.value - a.value)
+  const paymentMixValid = paymentMix.every(item => Number.isFinite(item.value) && item.value >= 0)
+
 
   return <div className="hub-page daily-page">
     <header className="page-heading daily-heading"><div><h1>Diário de vendas</h1><p>Acompanhe o dia, os produtos e a origem de cada venda.</p></div><div className="daily-refresh"><button className="button button-primary" onClick={() => refresh(true)} disabled={loading}><RefreshCw size={16} className={loading ? 'daily-spin' : ''} />{loading ? 'Atualizando' : 'Atualizar dados'}</button><span>{current ? `Atualizado às ${clock(current.fetchedAt)}` : 'Aguardando dados'}</span></div></header>
@@ -124,6 +145,33 @@ export default function Today() {
       <Metric title="Reembolsos" value={displayMetric(refundSummary.revenue, refundsAvailable)} note={refundsAvailable ? `${refundSummary.count} registros${refundPartial ? ' · consulta parcial' : ''}. Exibidos separadamente das vendas.` : 'Consulta disponível para Guru e Hotmart.'} />
     </section>
 
+    <ChartPanel className="analytics-feature daily-hourly" title="Vendas por hora" description="Evolução do valor das vendas no horário de Brasília. A quantidade aparece em uma escala separada."
+      action={<div className="daily-chart-controls"><div className="daily-chart-switch" role="group" aria-label="Leitura do gráfico"><button type="button" aria-pressed={chartView === 'hourly'} onClick={() => setChartView('hourly')}>Por hora</button><button type="button" aria-pressed={chartView === 'cumulative'} onClick={() => setChartView('cumulative')}>Acumulado</button></div><div className="daily-chart-switch" role="group" aria-label="Formato do gráfico"><button type="button" aria-pressed={chartMode === 'area'} onClick={() => setChartMode('area')}>Linhas</button><button type="button" aria-pressed={chartMode === 'bar'} onClick={() => setChartMode('bar')}>Barras</button></div></div>}
+      footer={<p className="daily-footnote">{hourly.unknownRecords > 0 ? `${hourly.unknownRecords} registros sem horário (${hourly.unknown} vendas) não entram no gráfico.` : 'Apenas registros com horário informado entram na leitura por hora.'} {date === localDateKey() && 'As horas após a última atualização permanecem em aberto.'} {partial && 'A leitura inclui apenas as fontes disponíveis.'}</p>}>
+      {!salesAvailable ? <p className="daily-empty">Vendas por hora indisponíveis até uma fonte responder.</p> : !hasTimedSales ? <p className="daily-empty">As vendas deste recorte não têm horário informado. Seus valores continuam nos indicadores e registros do dia.</p> : <>
+        <div className="daily-primary-chart"><div className="daily-chart-caption"><span><i aria-hidden="true" />{chartView === 'cumulative' ? 'Valor acumulado' : 'Valor por hora'}</span><small>{date === localDateKey() ? `Hoje, até ${current ? clock(current.fetchedAt) : 'a última atualização'}` : 'Dia completo'}{partial ? ' · parcial' : ''}</small></div><ReferenceChart title={chartView === 'cumulative' ? 'Valor acumulado por hora' : 'Valor das vendas por hora'} rows={chartHours} series={[{ key: chartView === 'cumulative' ? 'cumulative' : 'value', label: chartView === 'cumulative' ? 'Valor acumulado' : 'Valor por hora', unit: 'currency', color: 'var(--chart-1)' }]} daily={false} mode={chartMode} height={350} showLegend={false} /></div>
+        {amountGaps && <p className="daily-footnote daily-chart-gap">Há valores não informados em alguns horários. O acumulado fica em aberto a partir da primeira lacuna.</p>}
+        <div className="daily-volume-chart"><div className="daily-chart-caption"><h3>Quantidade por hora</h3><small>Mesmos horários e filtros</small></div><ReferenceChart title="Quantidade de vendas por hora" rows={chartHours} series={[{ key: 'count', label: 'Vendas', unit: 'count', color: 'var(--chart-2)' }]} daily={false} mode="bar" height={145} showLegend={false} /></div>
+        <details className="daily-hour-table"><summary>Ver tabela por hora<ChevronDown size={15} /></summary><div className="daily-table-scroll"><table className="data-table"><thead><tr><th>Hora</th><th>Vendas</th><th>Valor contabilizado</th></tr></thead><tbody>{chartHours.map(hour => <tr key={hour.hour}><td>{hour.hour}{hour.future && <small className="daily-cell-note">Ainda não observado</small>}</td><td>{hour.future ? '—' : hour.count}</td><td>{hour.future ? '—' : money(hour.value)}</td></tr>)}</tbody></table></div></details>
+      </>}
+    </ChartPanel>
+
+    <div className="analytics-grid analytics-grid--wide daily-sales-analysis">
+      <ChartPanel className="daily-products" title="Produtos do dia" description="Nome original preservado. Ordenados pelo valor das vendas." footer={products.some(product => product.revenue.missing > 0) ? <p className="daily-footnote">Produtos com valores ausentes são identificados como parciais ou não informados.</p> : null}>
+        {!salesAvailable ? <p className="daily-empty">Produtos indisponíveis até uma fonte responder.</p> : !products.length ? <p className="daily-empty">Nenhuma venda encontrada com estes filtros.</p> : <RankedBars items={productBars} limit={7} />}
+      </ChartPanel>
+      <ChartPanel className="daily-payment-mix" title="Formas de pagamento" description="Distribuição da quantidade de vendas no recorte." footer={<p className="daily-footnote">Pagamentos ausentes permanecem como “Não informado”. {partial && 'A consulta é parcial.'}</p>}>
+        {!salesAvailable ? <p className="daily-empty">Pagamentos indisponíveis até uma fonte responder.</p> : !paymentMixValid ? <p className="daily-empty">A fonte informou ajustes de quantidade. A distribuição não é exibida; confira os valores nos registros do dia.</p> : <MixChart items={paymentMix} totalLabel="vendas" emptyLabel="Nenhuma venda neste recorte." />}
+      </ChartPanel>
+    </div>
+
+    <ChartPanel className="daily-origin-panel" title="Origem das vendas" description="UTMs recebidas nas transações. Ausência de UTM não é classificada como orgânico." action={<label className="daily-field daily-dimension"><span>Agrupar por</span><select aria-label="Agrupar por UTM" className="ds-input" value={utmDimension} onChange={event => setUtmDimension(event.target.value)}>{UTM_FIELDS.map(field => <option value={field} key={field}>UTM {field}</option>)}</select></label>}>
+      {salesAvailable && <p className="daily-origin-coverage"><strong>{knownUtmCount.toLocaleString('pt-BR')} de {summary.count.toLocaleString('pt-BR')}</strong> vendas com UTM {utmDimension} informada.</p>}
+      <div className="daily-attribution-layout"><div className="daily-origin-chart"><h3>Quantidade por UTM {utmDimension}</h3>{salesAvailable ? <RankedBars items={originBars} unit="count" limit={6} /> : <p className="daily-empty">Origem indisponível até as fontes responderem.</p>}</div>
+        <div className="daily-table-scroll"><table className="data-table daily-attribution-table"><thead><tr><th>UTM {utmDimension}</th><th>Vendas</th><th>Valor das vendas</th><th>Participação em vendas</th></tr></thead><tbody>{attribution.map(group => <tr key={group.name}><td>{group.name}</td><td>{group.count}</td><td>{group.revenue.known ? money(group.revenue.value) : 'Não informado'}</td><td>{summary.count ? `${(group.count / summary.count * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%` : '—'}</td></tr>)}{!attribution.length && <tr><td colSpan={4} className="daily-empty">{salesAvailable ? 'Nenhuma venda neste recorte.' : 'Origem indisponível até as fontes responderem.'}</td></tr>}</tbody></table></div>
+      </div>
+    </ChartPanel>
+
     <section className="surface-panel daily-panel daily-financial">
       <SectionHeading title="Composição financeira" description="Valores retornados pelas plataformas, sem recalcular as taxas." />
       <div className="daily-financial-grid">{[['Bruto informado', 'gross'], ['Líquido informado', 'net'], ['Taxas e descontos', 'fees'], ['Afiliados (líquido)', 'affiliate']].map(([label, key]) => <div key={key}><span>{label}</span><strong>{displayMetric(summary[key])}</strong><small>{summary[key].missing ? `${summary[key].missing} registros sem esse valor` : salesAvailable ? 'Dados disponíveis no recorte' : 'Fonte indisponível'}</small></div>)}</div>
@@ -131,23 +179,6 @@ export default function Today() {
     </section>
 
     {current && <AsaasCashPanel sources={current.sources} filters={filters} />}
-
-    <div className="daily-analysis-grid">
-      <section className="surface-panel daily-panel daily-hourly">
-        <SectionHeading title="Vendas por hora" description="Quantidade e valor no horário de Brasília."><div className="daily-segment" role="group" aria-label="Formato do gráfico"><button className="button" aria-pressed={chartMode === 'line'} onClick={() => setChartMode('line')}>Linhas</button><button className="button" aria-pressed={chartMode === 'bar'} onClick={() => setChartMode('bar')}>Barras</button></div></SectionHeading>
-        {salesAvailable ? <><ReferenceChart title="Vendas por hora" rows={hourly.hours.map((hour) => ({ ...hour, label: hour.hour }))} series={[{ key: 'count', label: 'Vendas', unit: 'count' }, { key: 'value', label: 'Valor', unit: 'currency' }]} daily={false} mode={chartMode} height={285} />
-          <p className="daily-footnote">{hourly.unknownRecords > 0 ? `${hourly.unknownRecords} registros sem horário (${hourly.unknown} vendas) não entram no gráfico.` : 'Todos os registros com horário informado estão no gráfico.'} {partial && 'Fontes indisponíveis não estão incluídas.'}</p>
-          <details className="daily-hour-table"><summary>Ver tabela por hora</summary><div className="daily-table-scroll"><table className="data-table"><thead><tr><th>Hora</th><th>Vendas</th><th>Valor contabilizado</th></tr></thead><tbody>{hourly.hours.map((hour) => <tr key={hour.hour}><td>{hour.hour}</td><td>{hour.count}</td><td>{money(hour.value)}</td></tr>)}</tbody></table></div></details></> : <p className="daily-empty">Vendas por hora indisponíveis até uma fonte responder.</p>}
-      </section>
-      <section className="surface-panel daily-panel daily-products"><SectionHeading title="Produtos do dia" description="Nome original preservado. Ordenados pelo valor das vendas." />
-        {!salesAvailable ? <p className="daily-empty">Produtos indisponíveis até uma fonte responder.</p> : !products.length ? <p className="daily-empty">Nenhuma venda encontrada com estes filtros.</p> : <div className="daily-product-list">{products.map((product) => <div className="daily-product" key={product.name}><div><strong>{product.name}</strong><span>{product.count} {product.count === 1 ? 'venda' : 'vendas'}</span></div><div className="daily-product-amount"><div className="daily-bar-track"><i style={{ width: `${Math.max(0, product.revenue.value / maximumProductValue * 100)}%` }} /></div><b>{product.revenue.known ? money(product.revenue.value) : 'Não informado'}</b></div></div>)}</div>}
-      </section>
-    </div>
-
-    <section className="surface-panel daily-panel"><SectionHeading title="Origem das vendas" description="UTMs recebidas nas transações. Ausência de UTM não é classificada como orgânico."><label className="daily-field daily-dimension"><span>Agrupar por</span><select className="ds-input" value={utmDimension} onChange={(event) => setUtmDimension(event.target.value)}>{UTM_FIELDS.map((field) => <option value={field} key={field}>UTM {field}</option>)}</select></label></SectionHeading>
-      {salesAvailable && <p className="daily-footnote">{knownUtmCount} de {summary.count} vendas com UTM {utmDimension} informada.</p>}
-      <div className="daily-table-scroll"><table className="data-table daily-attribution-table"><thead><tr><th>UTM {utmDimension}</th><th>Vendas</th><th>Valor das vendas</th><th>Participação em vendas</th></tr></thead><tbody>{attribution.map((group) => <tr key={group.name}><td>{group.name}</td><td>{group.count}</td><td>{group.revenue.known ? money(group.revenue.value) : 'Não informado'}</td><td>{summary.count ? `${(group.count / summary.count * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%` : '—'}</td></tr>)}{!attribution.length && <tr><td colSpan={4} className="daily-empty">{salesAvailable ? 'Nenhuma venda neste recorte.' : 'Origem indisponível até as fontes responderem.'}</td></tr>}</tbody></table></div>
-    </section>
 
     <section className="surface-panel daily-panel"><SectionHeading title="Plataformas e recebimentos" description={salesAvailable ? partial ? 'Parcial: há fontes sem dados de vendas.' : 'Todas as fontes de vendas disponíveis.' : 'Dados ainda indisponíveis.'} />
       <div className="daily-table-scroll"><table className="data-table"><thead><tr><th>Plataforma</th><th>Vendas</th><th>Valor das vendas</th><th>Recebido em boleto</th><th>Pendente</th></tr></thead><tbody>{saleSources.map((source) => { const platform = platforms.find((item) => item.name === source.id); return <tr key={source.id}><td><strong>{source.platform}</strong>{source.origin && source.origin !== source.label && <small className="daily-cell-note">Fonte: {source.origin}</small>}</td>{!sourceHasSales(source) ? <td colSpan={4} className="daily-unavailable">{source.reason === 'checkout_disabled' ? 'Vendas e contratos não informados · caixa exibido separadamente' : 'Dado indisponível'}</td> : <><td>{platform?.count || 0}</td><td>{platform ? platform.revenue.known ? money(platform.revenue.value) : 'Não informado' : money(0)}</td><td>{platform?.received.known ? money(platform.received.value) : 'Não informado'}</td><td>{platform?.pending.known ? money(platform.pending.value) : 'Não informado'}</td></>}</tr> })}</tbody></table></div>

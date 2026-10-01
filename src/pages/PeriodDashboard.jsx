@@ -6,6 +6,8 @@ import { Link } from 'react-router-dom'
 import axios from 'axios'
 import { RefreshCw, ArrowUpRight, ChevronDown, ChevronUp, Download, CircleAlert } from 'lucide-react'
 import { ReferenceChart } from '../components/charts/ReferenceChart'
+import { ChartPanel, RankedBars, MixChart } from '../components/charts/AnalyticsVisuals'
+import '../components/charts/periodAnalytics.css'
 import WeekSelector from '../components/WeekSelector'
 import { loadPeriodSales } from '../services/periodSalesService'
 import { useAuth } from '../contexts/AuthContext'
@@ -20,6 +22,27 @@ const displayAmount = value => value.known || !value.missing ? currency(value.va
 const dateBR = value => value ? value.slice(0, 10).split('-').reverse().join('/') : 'Sem data'
 const TITLE = { global: 'Visão global', month: 'Visão mensal', year: 'Visão anual' }
 const GOALS = { meta: 'Meta', superMeta: 'Super meta', ultraMeta: 'Ultra meta' }
+const GROUP_NAMES = { product: 'Produtos', family: 'Famílias', offer: 'Ofertas', payment: 'Meios de pagamento' }
+const REVENUE_KEYS = ['revenue', 'digital', 'boleto']
+
+// An unknown bucket makes every later accumulated value unknown for that series.
+// Keep independent series and future buckets intact; never restart the sum at zero.
+function accumulatedRevenue(rows) {
+  const totals = Object.fromEntries(REVENUE_KEYS.map(key => [key, 0]))
+  return rows.map(row => {
+    const next = { ...row }
+    for (const key of REVENUE_KEYS) {
+      const value = row[key]
+      totals[key] = totals[key] === null || !Number.isFinite(value) ? null : totals[key] + value
+      next[key] = totals[key]
+    }
+    return next
+  })
+}
+
+function rankedGroup(group, partial = false, label = group.name) {
+  return { key: group.name, label, value: group.revenue.known || !group.revenue.missing ? group.revenue.value : null, count: group.count, partial: partial || group.revenue.missing > 0 }
+}
 
 function initialRange(mode) {
   const today = localDateKey()
@@ -49,7 +72,8 @@ export default function PeriodDashboard({ mode = 'global' }) {
   const [error, setError] = useState('')
   const [progress, setProgress] = useState({ current: 0, total: 1 })
   const [refresh, setRefresh] = useState(0)
-  const [chartMode, setChartMode] = useState('line')
+  const [chartMode, setChartMode] = useState('area')
+  const [accumulated, setAccumulated] = useState(false)
   const [dimension, setDimension] = useState('product')
   const [selectedWeek, setSelectedWeek] = useState(null)
   const [traffic, setTraffic] = useState(null)
@@ -107,9 +131,11 @@ export default function PeriodDashboard({ mode = 'global' }) {
     values.rows = values.rows.map(row => row.date > today ? { ...row, revenue: null, digital: null, boleto: null, count: null, affiliate: null, refund: null, commercial: null } : { ...row, digital: digitalAvailable ? row.digital : null, boleto: boletoAvailable ? row.boleto : null, affiliate: guruAvailable ? row.affiliate : null, commercial: guruAvailable ? row.commercial : null, refund: refundAvailable ? row.refund : null })
     return values
   }, [filtered, range, mode, digitalAvailable, boletoAvailable, guruAvailable, refundAvailable])
+  const revenueRows = useMemo(() => accumulated ? accumulatedRevenue(chart.rows) : chart.rows, [chart.rows, accumulated])
   const groups = useMemo(() => groupSales(summary.sales, dimension), [summary.sales, dimension])
   const platforms = useMemo(() => groupSales(summary.sales, 'sourceId'), [summary.sales])
   const families = useMemo(() => groupSales(summary.sales, 'family'), [summary.sales])
+  const payments = useMemo(() => groupSales(summary.sales, 'payment'), [summary.sales])
   const details = useMemo(() => filtered.filter(row => row.kind === detailKind).sort((a, b) => (b.date || '').localeCompare(a.date || '')), [filtered, detailKind])
   const detailPages = Math.max(1, Math.ceil(details.length / 20))
   const currentPage = Math.min(detailPage, detailPages)
@@ -119,6 +145,11 @@ export default function PeriodDashboard({ mode = 'global' }) {
   const salesPartial = relevantSources.some(source => source.kind === 'sale' && source.status !== 'ready')
   const boletoPartial = relevantSources.some(source => ['asaas', 'boletex', 'tmb', 'manual'].includes(source.id) && source.status !== 'ready')
 
+  function selectGroup(name) {
+    const value = name === 'Não informado' ? UNKNOWN : name
+    if (dimension === 'offer') { setOffer(value); setDetailPage(1); setExpanded(null) }
+    else changeFilter(dimension, value)
+  }
   function changeFilter(key, value) { setFilters(old => ({ ...old, [key]: value })); setDetailPage(1); setExpanded(null) }
   function applyRange(event) {
     event.preventDefault()
@@ -158,7 +189,7 @@ export default function PeriodDashboard({ mode = 'global' }) {
     const anchor = document.createElement('a'); anchor.href = url; anchor.download = `vendas-${range.startDate}-${range.endDate}.csv`; anchor.click(); URL.revokeObjectURL(url)
   }
 
-  return <div className="hub-page space-y-6">
+  return <div className="hub-page period-analytics space-y-6">
     <header className="page-heading flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[.16em] text-slate-500 mb-2">Performance comercial</p><h1 className="text-3xl font-semibold">{TITLE[mode]}</h1><p className="text-sm text-slate-500 mt-2">Receita, produtos e meios de pagamento. Do consolidado a cada venda.</p></div><div className="flex gap-2"><button type="button" className="btn btn-ghost disabled:opacity-40" onClick={exportRows} disabled={!filtered.length || loading}><Download size={16} />Exportar</button><button type="button" className="btn btn-ghost disabled:opacity-40" disabled={loading} onClick={() => setRefresh(value => value + 1)}><RefreshCw size={16} className={loading ? 'animate-spin' : ''} />Atualizar</button></div></header>
     <form onSubmit={applyRange} className="filter-bar ds-card p-4 flex flex-wrap items-end gap-3">
       {mode === 'month' ? <div><label htmlFor="period-month" className="ds-label">Mês</label><input id="period-month" className="ds-input" type="month" required value={draft.startDate.slice(0, 7)} onChange={e => { const value = monthRange(e.target.value); if (value) setDraft(value) }} /></div>
@@ -175,14 +206,48 @@ export default function PeriodDashboard({ mode = 'global' }) {
       {relevantSources.some(source => source.status === 'not_requested') && <p className="text-sm text-amber-800 dark:text-amber-200">Asaas não incluído nesta consolidação. Vendas e valores contratados permanecem indisponíveis; o caixa pode ser consultado separadamente abaixo.</p>}
       {relevantSources.some(source => source.reason === 'checkout_disabled') && <p className="text-sm text-amber-800 dark:text-amber-200">Asaas: recebimentos disponíveis, mas vendas e valores contratados não informados. As demais fontes mantêm seus próprios indicadores.</p>}
       {unavailable.length > 0 && <p className="flex gap-2 text-sm text-amber-800 dark:text-amber-200" role="status"><CircleAlert size={18} className="shrink-0" />Visão parcial. Os valores representam as fontes recebidas; dados indisponíveis não equivalem a zero.</p>}
-      <section className="grid grid-cols-2 xl:grid-cols-4 gap-4" aria-label="Indicadores principais">{[
-        ['Receita operacional', availableSales ? displayAmount(summary.total.revenue) : '—', availableSales ? `${count(summary.total.count)} vendas${salesPartial ? ' · parcial' : ''}` : 'Vendas indisponíveis'],
-        ['Guru + Hotmart', sourceAvailable(['guru', 'hotmart']) || summary.digital.count ? displayAmount(summary.digital.revenue) : '—', digitalAvailable ? `${count(summary.digital.count)} vendas digitais` : 'Vendas digitais indisponíveis'],
-        ['Boletos e parcelamentos', sourceAvailable(['tmb', 'asaas', 'boletex']) || summary.boleto.count ? displayAmount(summary.boleto.revenue) : '—', boletoAvailable ? `${count(summary.boleto.count)} vendas${boletoPartial ? ' · parcial' : ''} · TMB, Asaas e Boletex` : 'Contratos indisponíveis'],
-        ['Ticket médio', availableSales ? currency(summary.ticket) : '—', salesPartial ? 'Receita operacional / vendas · parcial' : 'Receita operacional / vendas'],
-      ].map(([label, value, detail]) => <article className="ds-card p-5" key={label}><h2 className="text-xs font-medium text-slate-500">{label}</h2><p className="text-2xl xl:text-3xl font-semibold tracking-tight mt-4 break-words tabular-nums">{value}</p><p className="text-xs text-slate-500 mt-3">{detail}</p></article>)}</section>
-      <p className="text-xs text-slate-500 leading-relaxed">Receita operacional mantém a regra do dashboard: líquido calculado Guru + líquido Hotmart + valor contratado TMB/Asaas/Boletex. Entradas e parcelas recebidas são apresentadas separadamente. {summary.total.revenue.missing > 0 && `${summary.total.revenue.missing} registros sem valor disponível.`}</p>
-      <section className="surface-panel ds-card p-5"><div className="flex flex-wrap justify-between gap-3 mb-5"><div><h2 className="font-semibold">Evolução {mode === 'year' ? 'mensal' : 'diária'}</h2><p className="text-xs text-slate-500 mt-1">Valores observados no período, com séries independentes.</p></div><div className="flex gap-1" role="group" aria-label="Tipo de gráfico">{[['line', 'Linhas'], ['bar', 'Barras']].map(([key, label]) => <button key={key} className={`btn btn-sm ${chartMode === key ? 'btn-primary' : 'btn-ghost'}`} type="button" aria-pressed={chartMode === key} onClick={() => setChartMode(key)}>{label}</button>)}</div></div><ReferenceChart rows={availableSales ? chart.rows : []} series={[{ key: 'revenue', label: 'Receita operacional', unit: 'currency' }, { key: 'digital', label: 'Guru + Hotmart', unit: 'currency' }, { key: 'boleto', label: 'Boletos', unit: 'currency' }]} title="Evolução da receita" mode={chartMode} daily={mode !== 'year'} height={350} />{chart.undated > 0 && <p className="text-xs text-amber-700 mt-3">{count(chart.undated)} registros sem data neste eixo. Permanecem no consolidado, sem distribuição proporcional inventada.</p>}</section>
+      <ChartPanel
+        className="analytics-feature period-revenue"
+        title={`Evolução ${mode === 'year' ? 'mensal' : 'diária'}`}
+        description={accumulated ? 'Receita acumulada desde o início do período, com séries independentes.' : 'Receita observada em cada intervalo, com séries independentes.'}
+        action={<div className="period-chart-controls">
+          <div className="period-segment" role="group" aria-label="Leitura da receita">
+            {[[false, 'Por período'], [true, 'Acumulado']].map(([value, label]) => <button key={label} type="button" aria-pressed={accumulated === value} onClick={() => setAccumulated(value)}>{label}</button>)}
+          </div>
+          <div className="period-segment" role="group" aria-label="Tipo de gráfico">
+            {[['area', 'Área'], ['line', 'Linhas'], ['bar', 'Barras']].map(([key, label]) => <button key={key} type="button" aria-pressed={chartMode === key} onClick={() => setChartMode(key)}>{label}</button>)}
+          </div>
+        </div>}
+        footer={<div className="period-chart-notes">
+          <p>Receita operacional mantém a regra do dashboard: líquido calculado Guru + líquido Hotmart + valor contratado TMB/Asaas/Boletex. Entradas e parcelas recebidas são apresentadas separadamente. {summary.total.revenue.missing > 0 && `${summary.total.revenue.missing} registros sem valor disponível.`}</p>
+          {chart.undated > 0 && <p className="period-data-note">{count(chart.undated)} registros sem data neste eixo. Permanecem no consolidado, sem distribuição proporcional inventada.</p>}
+          {accumulated && <p>Quando um intervalo não informa valor, o acumulado dessa série permanece indisponível a partir dele. Datas futuras não são projetadas.</p>}
+        </div>}
+      >
+        <div className="period-revenue-layout">
+          <section className="period-revenue-summary" aria-label="Indicadores principais">
+            <p className="period-observed-range">{dateBR(range.startDate)} a {dateBR(range.endDate)}</p>
+            {[
+              ['Receita operacional', availableSales ? displayAmount(summary.total.revenue) : '—', availableSales ? `${count(summary.total.count)} vendas${salesPartial ? ' · parcial' : ''}` : 'Vendas indisponíveis'],
+              ['Guru + Hotmart', sourceAvailable(['guru', 'hotmart']) || summary.digital.count ? displayAmount(summary.digital.revenue) : '—', digitalAvailable ? `${count(summary.digital.count)} vendas digitais` : 'Vendas digitais indisponíveis'],
+              ['Boletos e parcelamentos', sourceAvailable(['tmb', 'asaas', 'boletex']) || summary.boleto.count ? displayAmount(summary.boleto.revenue) : '—', boletoAvailable ? `${count(summary.boleto.count)} vendas${boletoPartial ? ' · parcial' : ''} · TMB, Asaas e Boletex` : 'Contratos indisponíveis'],
+              ['Ticket médio', availableSales ? currency(summary.ticket) : '—', salesPartial ? 'Receita operacional / vendas · parcial' : 'Receita operacional / vendas'],
+            ].map(([label, value, detail], index) => <article className={`period-revenue-fact${index === 0 ? ' period-revenue-fact--lead' : ''}`} key={label}><h2>{label}</h2><p className="period-fact-value">{value}</p><p className="period-fact-detail">{detail}</p></article>)}
+          </section>
+          <div className="period-revenue-plot">
+            <div className="period-plot-context"><span>{mode === 'year' ? 'Leitura mês a mês' : 'Leitura dia a dia'}</span><span className={salesPartial ? 'period-coverage period-coverage--partial' : 'period-coverage'}>{salesPartial ? 'Consolidado parcial' : 'Fontes de vendas disponíveis'}</span></div>
+            <ReferenceChart rows={availableSales ? revenueRows : []} series={[{ key: 'revenue', label: 'Receita operacional', unit: 'currency' }, { key: 'digital', label: 'Guru + Hotmart', unit: 'currency' }, { key: 'boleto', label: 'Boletos', unit: 'currency' }]} title="Evolução da receita" mode={chartMode} daily={mode !== 'year'} height={410} />
+          </div>
+        </div>
+      </ChartPanel>
+      <div className="analytics-grid analytics-grid--wide">
+        <ChartPanel title="Volume de vendas" description={mode === 'year' ? 'Quantidade observada em cada mês.' : 'Quantidade observada em cada dia.'} footer={salesPartial ? 'Contagem parcial das fontes disponíveis. Dados ausentes não equivalem a zero.' : 'A contagem acompanha o mesmo período e os mesmos filtros da receita.'}>
+          <ReferenceChart rows={availableSales ? chart.rows : []} series={[{ key: 'count', label: 'Vendas', unit: 'count', color: 'var(--chart-2)' }]} title="Volume de vendas" mode="bar" daily={mode !== 'year'} height={285} pointLabels />
+        </ChartPanel>
+        <ChartPanel title="Mix de pagamentos" description="Participação na quantidade de vendas." footer={<>{salesPartial ? 'Mix parcial das vendas recebidas. ' : ''}Meios não identificados aparecem como “Não informado”.{payments.some(group => group.count < 0) && ' Ajustes negativos de contagem permanecem no consolidado e não formam fatias.'}</>}>
+          <MixChart items={payments.filter(group => Number.isFinite(group.count) && group.count >= 0).map(group => ({ key: group.name, label: group.name, value: group.count }))} totalLabel="vendas no mix" emptyLabel="Sem contagem de vendas neste recorte" />
+        </ChartPanel>
+      </div>
       <section className="grid grid-cols-2 xl:grid-cols-4 gap-4" aria-label="Indicadores complementares">{[
         ['Afiliações', sourceAvailable(['guru']) ? displayAmount(summary.total.affiliate) : '—', 'Líquido informado pela Guru'],
         ['Estornos e contestações', sourceAvailable(['guruRefunds', 'hotmartRefunds']) ? displayAmount(summary.refund.revenue) : '—', `${count(summary.refund.count)} registros · valor associado à compra`],
@@ -192,9 +257,28 @@ export default function PeriodDashboard({ mode = 'global' }) {
       <>{mode === 'year' ? <AnnualAsaasCashPanel key={`${range.startDate}:${range.endDate}`} startDate={range.startDate} endDate={range.endDate > localDateKey() ? localDateKey() : range.endDate} filters={{ ...filters, offer }} /> : <AsaasCashPanel sources={data.sources} filters={{ ...filters, offer }} />}</>
       <p className="text-xs text-slate-500">O indicador de estornos preserva o valor associado retornado pelas integrações; não comprova o valor efetivamente devolvido. <Link className="text-blue-600 dark:text-blue-300 underline" to="/reembolsos">Ver confirmação e solicitações de reembolso</Link>.</p>
       <section className="ds-card p-5"><h2 className="font-semibold mb-4">Resultado por fonte</h2><div className="overflow-x-auto"><table className="data-table w-full text-sm min-w-[750px]"><thead><tr>{['Fonte', 'Vendas', 'Receita operacional', 'Bruto', 'Líquido', 'Recebido', 'Pendente'].map(label => <th key={label} className="text-left text-xs font-medium text-slate-500 py-3 pr-4">{label}</th>)}</tr></thead><tbody>{platforms.map(group => <tr className="border-t border-slate-100 dark:border-slate-800" key={group.name}><td className="py-4 font-medium">{data.sources.find(source => source.id === group.name)?.label || group.name}</td><td>{count(group.count)}</td>{['revenue', 'gross', 'net', 'received', 'pending'].map(key => <td key={key} className="tabular-nums pr-4">{displayAmount(group[key])}</td>)}</tr>)}{relevantSources.filter(source => (source.reason === 'checkout_disabled' || source.status === 'not_requested') && !platforms.some(group => group.name === source.id)).map(source => <tr key={source.id}><td className="py-4 font-medium">{source.label}</td><td>—</td><td colSpan={5} className="text-slate-500">Vendas e valores contratados não informados; caixa exibido separadamente.</td></tr>)}</tbody></table></div><p className="text-xs text-slate-500 mt-4">— significa valor não disponibilizado pela fonte. O bruto contratado e o recebido em caixa não são somados entre si.</p></section>
-      <section className="grid xl:grid-cols-2 gap-5"><div className="ds-card p-5"><h2 className="font-semibold mb-4">Volume de vendas</h2><ReferenceChart rows={availableSales ? chart.rows : []} series={[{ key: 'count', label: 'Vendas', unit: 'count' }]} title="Volume de vendas" mode="bar" daily={mode !== 'year'} height={270} pointLabels /></div><div className="ds-card p-5"><h2 className="font-semibold mb-4">Comercial e afiliações</h2><ReferenceChart rows={availableSales ? chart.rows : []} series={[{ key: 'commercial', label: 'Comercial', unit: 'currency' }, { key: 'affiliate', label: 'Afiliação', unit: 'currency' }]} title="Comercial e afiliações" daily={mode !== 'year'} height={270} /></div></section>
-      <section className="ds-card p-5"><div className="flex flex-wrap justify-between gap-3 items-center mb-4"><h2 className="font-semibold">Distribuição das vendas</h2><div><label htmlFor="period-group" className="sr-only">Agrupar por</label><select id="period-group" className="ds-input text-sm" value={dimension} onChange={e => setDimension(e.target.value)}>{[['product', 'Produto'], ['family', 'Família'], ['offer', 'Oferta'], ['payment', 'Pagamento']].map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></div></div><div className="overflow-x-auto"><table className="data-table w-full text-sm min-w-[650px]"><thead><tr>{['Grupo', 'Vendas', 'Receita operacional', 'Participação', 'Ticket médio'].map(label => <th className="py-3 text-left text-xs font-medium text-slate-500 pr-4" key={label}>{label}</th>)}</tr></thead><tbody>{groups.map(group => <tr className="border-t border-slate-100 dark:border-slate-800" key={group.name}><td className="py-4 pr-4 max-w-sm"><button type="button" className="text-left hover:underline" onClick={() => dimension === 'offer' ? setOffer(group.name === 'Não informado' ? UNKNOWN : group.name) : changeFilter(dimension, group.name === 'Não informado' ? UNKNOWN : group.name)}>{group.name}</button></td><td>{count(group.count)}</td><td className="tabular-nums">{displayAmount(group.revenue)}</td><td>{summary.total.revenue.value ? `${(group.revenue.value / summary.total.revenue.value * 100).toFixed(1)}%` : '—'}</td><td className="tabular-nums">{group.count && group.revenue.known ? currency(group.revenue.value / group.count) : '—'}</td></tr>)}</tbody></table></div>{!groups.length && <p className="py-8 text-center text-sm text-slate-500">Nenhuma venda encontrada com estes filtros.</p>}</section>
-      <section className="ds-card p-5"><h2 className="font-semibold mb-4">Famílias de produtos</h2><div className="grid md:grid-cols-2 xl:grid-cols-4 gap-5">{families.map(group => <div className="border-l-2 border-blue-500 pl-4" key={group.name}><h3 className="text-sm font-medium">{group.name}</h3><p className="text-xl font-semibold mt-2">{displayAmount(group.revenue)}</p><p className="text-xs text-slate-500 mt-1">{count(group.count)} vendas</p></div>)}</div></section>
+      <div className="analytics-grid">
+        <ChartPanel title="Famílias de produtos" description="Receita operacional por família, no recorte selecionado." footer={salesPartial ? 'Comparação parcial das fontes recebidas. Valores não informados permanecem indisponíveis.' : 'Sem distribuir valores de produtos não identificados entre as famílias.'}>
+          <RankedBars items={families.map(group => rankedGroup(group, salesPartial))} limit={7} onSelect={item => changeFilter('family', item.key === 'Não informado' ? UNKNOWN : item.key)} />
+        </ChartPanel>
+        <ChartPanel title="Receita por fonte" description="Compare a contribuição de cada plataforma." footer="Valores operacionais das fontes. Recebimentos de caixa não são somados a contratos.">
+          <RankedBars items={[
+            ...platforms.map(group => rankedGroup(group, relevantSources.find(source => source.id === group.name)?.status !== 'ready', data.sources.find(source => source.id === group.name)?.label || group.name)),
+            ...relevantSources.filter(source => source.kind === 'sale' && !sourceHasSales(source) && !platforms.some(group => group.name === source.id)).map(source => ({ key: source.id, label: source.label || source.platform, value: null, partial: true })),
+          ]} limit={10} />
+        </ChartPanel>
+      </div>
+      <ChartPanel title="Distribuição das vendas" description="Ranking e detalhe usam o mesmo agrupamento e os mesmos filtros."
+        action={<div><label htmlFor="period-group" className="sr-only">Agrupar por</label><select id="period-group" className="ds-input text-sm" value={dimension} onChange={e => setDimension(e.target.value)}>{[['product', 'Produto'], ['family', 'Família'], ['offer', 'Oferta'], ['payment', 'Pagamento']].map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></div>}
+        footer={salesPartial ? 'Ranking parcial. A participação considera somente a receita conhecida deste recorte.' : 'A participação considera somente a receita conhecida deste recorte.'}>
+        <div className="period-distribution-layout">
+          <div className="period-ranking"><h3>{GROUP_NAMES[dimension]} com maior receita</h3><p>Selecione um grupo para filtrar as vendas.</p><RankedBars items={groups.map(group => rankedGroup(group, salesPartial))} limit={6} onSelect={item => selectGroup(item.key)} /></div>
+          <div className="period-distribution-table overflow-x-auto"><table className="data-table w-full text-sm min-w-[650px]"><thead><tr>{['Grupo', 'Vendas', 'Receita operacional', 'Participação', 'Ticket médio'].map(label => <th className="py-3 text-left text-xs font-medium text-slate-500 pr-4" key={label}>{label}</th>)}</tr></thead><tbody>{groups.map(group => <tr className="border-t border-slate-100 dark:border-slate-800" key={group.name}><td className="py-4 pr-4 max-w-sm"><button type="button" className="text-left hover:underline" onClick={() => selectGroup(group.name)}>{group.name}</button></td><td>{count(group.count)}</td><td className="tabular-nums">{displayAmount(group.revenue)}</td><td>{summary.total.revenue.value ? `${(group.revenue.value / summary.total.revenue.value * 100).toFixed(1)}%` : '—'}</td><td className="tabular-nums">{group.count && group.revenue.known ? currency(group.revenue.value / group.count) : '—'}</td></tr>)}</tbody></table>{!groups.length && <p className="py-8 text-center text-sm text-slate-500">Nenhuma venda encontrada com estes filtros.</p>}</div>
+        </div>
+      </ChartPanel>
+      <ChartPanel title="Comercial e afiliações" description="Séries informadas pela Guru, dentro do mesmo recorte." footer="Comercial considera vendas com UTM comercial; afiliações preservam o líquido informado pela fonte.">
+        <ReferenceChart rows={availableSales ? chart.rows : []} series={[{ key: 'commercial', label: 'Comercial', unit: 'currency', color: 'var(--chart-2)' }, { key: 'affiliate', label: 'Afiliação', unit: 'currency', color: 'var(--chart-3)' }]} title="Comercial e afiliações" daily={mode !== 'year'} height={255} />
+      </ChartPanel>
       <section className="ds-card p-5"><div className="flex flex-wrap justify-between gap-3 items-center mb-4"><h2 className="font-semibold">Detalhamento</h2><select aria-label="Tipo de registro" className="ds-input !w-auto" value={detailKind} onChange={e => { setDetailKind(e.target.value); setDetailPage(1) }}><option value="sale">Vendas</option><option value="refund">Estornos / contestações</option></select></div><div className="overflow-x-auto"><table className="data-table w-full text-sm min-w-[800px]"><thead><tr>{['Cliente / produto', 'Data', 'Plataforma', 'Pagamento', 'Valor operacional', 'Detalhes'].map(label => <th className="text-left py-3 text-xs text-slate-500 pr-4" key={label}>{label}</th>)}</tr></thead><tbody>{visibleDetails.map((row, index) => {
         const id = `${row.id}-${index}`
         return <Fragment key={id}><tr className="border-t border-slate-100 dark:border-slate-800"><td className="py-4 pr-4 max-w-xs"><p className="font-medium">{row.buyerName || (row.isAggregate ? 'Saldo sem detalhamento' : 'Cliente não informado')}</p><p className="text-xs text-slate-500 mt-1">{row.product || 'Produto não informado'}</p></td><td className="whitespace-nowrap pr-4">{dateBR(localDay(row.date))}</td><td className="pr-4">{row.platform}{row.sourceId === 'manual' ? ' · Manual' : ''}</td><td className="pr-4">{row.payment}</td><td className="tabular-nums pr-4">{currency(row.revenue)}</td><td><button type="button" className="btn btn-ghost btn-sm" aria-label={`Detalhes de ${row.buyerName || 'registro'}`} aria-expanded={expanded === id} onClick={() => setExpanded(expanded === id ? null : id)}>{expanded === id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</button></td></tr>{expanded === id && <tr><td colSpan={6} className="p-4 bg-slate-50 dark:bg-slate-900"><dl className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">{[['E-mail', row.buyerEmail || 'Não informado'], ['Oferta', row.offer || 'Não informada'], ['Identificador', row.externalId || 'Não informado'], ['Bruto', currency(row.gross)], ['Líquido', currency(row.net)], ['Taxas', currency(row.fees)], ['Afiliação', currency(row.affiliate)], ['Recebido', currency(row.received)], ['Preço de tabela', currency(row.listPrice)], ['Pendente', currency(row.pending)], ['Origem UTM', row.utm.source || 'Não informada'], ['Campanha', row.utm.campaign || 'Não informada']].map(([label, value]) => <div key={label}><dt className="text-slate-500 mb-1">{label}</dt><dd className="font-medium break-words">{value}</dd></div>)}</dl>{row.isAggregate && <p className="text-xs text-amber-700 mt-4">Saldo consolidado sem transações individualizadas. Não foi distribuído entre produtos, famílias ou dias.</p>}</td></tr>}</Fragment>

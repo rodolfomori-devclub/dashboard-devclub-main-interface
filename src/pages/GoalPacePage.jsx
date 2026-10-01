@@ -5,6 +5,7 @@ import axios from 'axios'
 import { useAuth } from '../contexts/AuthContext'
 import { RefreshCw, ArrowDownRight, ArrowUpRight, Target } from 'lucide-react'
 import { ReferenceChart } from '../components/charts/ReferenceChart'
+import { ChartPanel, RankedBars } from '../components/charts/AnalyticsVisuals'
 import { formatValue } from '../components/charts/chartFormatters'
 import { loadSalesRange } from '../components/daily/dailyData'
 import { PRODUCT_FAMILIES } from '../utils/salesData'
@@ -33,7 +34,7 @@ export default function GoalPacePage() {
   const [selectedMetric, setSelectedMetric] = useState('gross')
   const [state, setState] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [chartMode, setChartMode] = useState('line')
+  const [chartMode, setChartMode] = useState('area')
   const requestId = useRef(0)
   const bounds = useMemo(() => monthBounds(year, month), [year, month])
   const periodKey = `${year}-${month}`
@@ -82,6 +83,15 @@ export default function GoalPacePage() {
   const pace = calculate(selectedPlan || { ...selection, metric })
   const financialSummary = ['gross', 'cash'].map(key => ({ metric: key, pace: calculate(scopePlans.find(plan => plan.metric === key) || { ...selection, metric: key }) }))
   const overview = plans.filter(item => item.metric === metric).map(plan => ({ plan, pace: calculate(plan) }))
+  const deviationRows = pace.rows.map(row => ({ ...row, deviation: row.observed && row.actual !== null && row.planned !== null ? row.actual - row.planned : null }))
+  const attainmentItems = overview.filter(({ pace: item }) => !item.future && item.attainment !== null).map(({ plan, pace: item }) => ({
+    key: plan.id || `${goalScopeKey(plan)}:${plan.metric}`, label: `${GOAL_SCOPES[goalScope(plan).scope]} · ${goalScopeName(plan)}`,
+    value: item.attainment, partial: !item.definitive, color: goalScopeKey(plan) === goalScopeKey(selection) ? 'var(--chart-1, #e64b63)' : 'var(--chart-4, #2589b8)',
+  })).sort((a, b) => b.value - a.value)
+  const selectOverviewPlan = key => {
+    const selected = overview.find(({ plan }) => (plan.id || `${goalScopeKey(plan)}:${plan.metric}`) === (typeof key === 'object' ? key.key : key))
+    if (selected) { const target = goalScope(selected.plan); setScope(target.scope); setTargetId(target.scopeId) }
+  }
   const unit = pace.metric.unit
   const value = (number) => formatValue(number, unit)
   const percent = (number) => number === null ? '—' : `${number.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`
@@ -123,26 +133,41 @@ export default function GoalPacePage() {
       </button>)}
     </section>
 
-    <section className="stat-grid daily-stats" aria-label="Ritmo da meta" aria-busy={loading}>
-      <PaceCard title="Realizado no mês" value={pace.future ? 'Não iniciado' : value(pace.actual)} note={`${pace.future ? '' : partialLabel}${pace.metric.label}. ${pace.ended ? 'Mês encerrado.' : 'Até a data de hoje.'}`} tone="actual" />
-      <PaceCard title="Esperado até hoje" value={pace.validTarget ? value(pace.expected) : 'Sem meta'} note={elapsedNote} />
-      <PaceCard title="Ritmo da meta" value={percent(pace.pacePercent)} note={pace.pacePercent === null ? 'Disponível após início do mês e definição da meta.' : `${partialLabel}100% significa acompanhar o planejado.`} tone={pace.definitive && pace.pacePercent !== null ? pace.pacePercent >= 100 ? 'ahead' : 'behind' : undefined} />
-      <PaceCard title={pace.ended ? 'Fechamento realizado' : 'Projeção do mês'} value={value(pace.projection)} note={pace.ended ? 'Valor observado no encerramento.' : `${partialLabel}Projeção linear pelo ritmo observado; não é uma previsão garantida.`} />
-    </section>
-
     <section className="surface-panel daily-panel pace-hero">
-      <div className="pace-summary"><div className="pace-summary-title"><Target size={18} /><h2>{goalScopeName(selection)}</h2></div><strong className="pace-target">{pace.validTarget ? value(pace.target) : 'Sem meta definida'}</strong><span className="daily-footnote">{MONTHS[month - 1]} de {year} · {pace.metric.label}</span>
+      <div className="pace-summary"><div className="pace-summary-title"><Target size={18} /><h2>{goalScopeName(selection)}</h2></div><span className="pace-period">{MONTHS[month - 1]} de {year} · {pace.metric.label}</span>
+        <div className="pace-hero-actual"><span>Realizado no mês{!pace.definitive && !pace.future ? ' · parcial' : ''}</span><strong>{pace.future ? 'Não iniciado' : value(pace.actual)}</strong></div>
+        <div className="pace-target-row"><span>Meta do período</span><strong className="pace-target">{pace.validTarget ? value(pace.target) : 'Sem meta definida'}</strong></div>
         <div className="pace-progress" role="progressbar" aria-label="Atingimento da meta" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pace.attainment === null ? undefined : Math.max(0, Math.min(100, pace.attainment))}><i style={{ width: `${Math.max(0, Math.min(100, pace.attainment || 0))}%` }} /></div><p className="pace-attainment">{pace.attainment === null ? 'Atingimento indisponível' : `${percent(pace.attainment)} de atingimento${pace.definitive ? '' : ' parcial'}`}</p>
         <div className="pace-delta">{pace.delta !== null && (pace.delta >= 0 ? <ArrowUpRight size={22} /> : <ArrowDownRight size={22} />)}<div><strong>{pace.delta === null ? 'Comparação indisponível' : `${value(Math.abs(pace.delta))} ${pace.delta >= 0 ? 'à frente' : 'atrás'}`}</strong><span>{pace.delta !== null && pace.pacePercent !== null ? `${percent(Math.abs(pace.pacePercent - 100))} ${pace.delta >= 0 ? 'acima' : 'abaixo'} do esperado${pace.definitive ? '' : ' · parcial'}` : 'O comparativo usa o planejamento acumulado.'}</span></div></div>
         <div className="pace-needed"><span>{pace.ended ? 'Saldo para atingir a meta' : 'Necessário por dia restante'}</span><strong>{value(pace.ended ? pace.remaining : pace.requiredPerDay)}</strong><small>{pace.ended ? 'O período está encerrado.' : `${pace.remainingDays} dias ${pace.basis === 'business' ? 'úteis' : 'corridos'} restantes.${pace.remaining === 0 ? ' Meta atingida.' : ''}`}</small></div>
         <div className="pace-levels">{[['Meta', pace.target], ['Supermeta', pace.superTarget], ['Ultrameta', pace.ultraTarget]].map(([label, target]) => <div key={label}><span>{label}</span><strong>{target > 0 ? value(target) : 'Não definida'}</strong><small>{target > 0 && pace.actual !== null ? percent(pace.actual / target * 100) : '—'}</small></div>)}</div>
         {selectedPlan?.notes && <p className="daily-footnote">{selectedPlan.notes}</p>}
       </div>
-      <div className="pace-visual"><div className="daily-section-heading"><div><h2>Realizado × planejado</h2><p>Acumulado do mês; dias futuros não recebem vendas presumidas.</p></div><div className="daily-segment" role="group" aria-label="Formato do gráfico"><button className="button" aria-pressed={chartMode === 'line'} onClick={() => setChartMode('line')}>Linhas</button><button className="button" aria-pressed={chartMode === 'bar'} onClick={() => setChartMode('bar')}>Barras</button></div></div>
-        <ReferenceChart title="Evolução acumulada da meta" rows={pace.rows} series={[{ key: 'actual', label: pace.definitive ? 'Realizado' : 'Realizado parcial', unit }, { key: 'planned', label: 'Planejado', unit, color: 'var(--chart-4, #2589b8)', dash: '5 4' }]} height={360} mode={chartMode} />
+      <div className="pace-visual"><div className="daily-section-heading"><div><h2>Realizado × planejado</h2><p>Acumulado do mês; dias futuros não recebem vendas presumidas.</p></div><div className="daily-segment" role="group" aria-label="Formato do gráfico"><button className="button" aria-pressed={chartMode === 'area'} onClick={() => setChartMode('area')}>Área</button><button className="button" aria-pressed={chartMode === 'line'} onClick={() => setChartMode('line')}>Linhas</button><button className="button" aria-pressed={chartMode === 'bar'} onClick={() => setChartMode('bar')}>Barras</button></div></div>
+        <ReferenceChart title="Evolução acumulada da meta" rows={pace.rows} series={[{ key: 'actual', label: pace.definitive ? 'Realizado' : 'Realizado parcial', unit }, { key: 'planned', label: 'Planejado', unit, color: 'var(--chart-4, #2589b8)', dash: '5 4', fill: false }]} height={390} mode={chartMode} />
         {pace.unallocatedRecords > 0 && <p className="daily-footnote">{pace.unallocatedRecords} registros ({value(pace.unallocated)}) sem data identificável no mês estão no realizado total, mas não foram distribuídos na curva.</p>}
       </div>
     </section>
+
+    <section className="stat-grid daily-stats pace-rhythm-strip" aria-label="Ritmo da meta" aria-busy={loading}>
+      <PaceCard title="Realizado no mês" value={pace.future ? 'Não iniciado' : value(pace.actual)} note={`${pace.future ? '' : partialLabel}${pace.metric.label}. ${pace.ended ? 'Mês encerrado.' : 'Até a data de hoje.'}`} tone="actual" />
+      <PaceCard title="Esperado até hoje" value={pace.validTarget ? value(pace.expected) : 'Sem meta'} note={elapsedNote} />
+      <PaceCard title="Ritmo da meta" value={percent(pace.pacePercent)} note={pace.pacePercent === null ? 'Disponível após início do mês e definição da meta.' : `${partialLabel}100% significa acompanhar o planejado.`} tone={pace.definitive && pace.pacePercent !== null ? pace.pacePercent >= 100 ? 'ahead' : 'behind' : undefined} />
+      <PaceCard title={pace.ended ? 'Fechamento realizado' : 'Projeção do mês'} value={value(pace.projection)} note={pace.ended ? 'Valor observado no encerramento.' : `${partialLabel}Projeção linear pelo ritmo observado; não é uma previsão garantida.`} />
+    </section>
+
+    <div className="analytics-grid pace-analysis-grid">
+      <ChartPanel title="Entrega de cada dia" description="Realizado diário e parcela planejada da meta, na mesma base financeira." footer={`${pace.definitive ? '' : 'Leitura parcial. '}Dias futuros exibem somente o planejamento; dias sem valor conhecido permanecem indisponíveis.`}>
+        <ReferenceChart title="Realizado diário × meta diária" rows={pace.rows} series={[{ key: 'dailyActual', label: pace.definitive ? 'Realizado no dia' : 'Realizado parcial no dia', unit }, { key: 'dailyTarget', label: 'Meta diária', unit, color: 'var(--chart-4, #2589b8)' }]} height={300} mode="bar" />
+      </ChartPanel>
+      <ChartPanel title="Distância do planejado" description="Diferença acumulada: acima de zero, o realizado está à frente; abaixo, está atrás." footer={pace.validTarget ? `${pace.definitive ? '' : 'Leitura parcial. '}Comparação apenas dos dias observados e valores com data identificada.` : 'Defina uma meta para acompanhar a diferença. Nenhum valor foi substituído por zero.'}>
+        <ReferenceChart title="Diferença acumulada da meta" rows={deviationRows} series={[{ key: 'deviation', label: pace.definitive ? 'Diferença acumulada' : 'Diferença acumulada parcial', unit, color: 'var(--chart-2, #8064d8)' }]} height={300} mode="area" />
+      </ChartPanel>
+    </div>
+
+    {overview.length > 1 && <ChartPanel title="Atingimento das metas" description={`Compare o percentual realizado na base ${pace.metric.label.toLowerCase()}. Cada barra representa uma meta independente.`} footer={`${attainmentItems.length ? 'Selecione uma barra para acompanhar a meta. ' : 'Ainda não há atingimento disponível neste recorte. '}${overview.length > attainmentItems.length ? `${overview.length - attainmentItems.length} metas sem percentual disponível. ` : ''}Os escopos não são somados; metas parciais continuam identificadas.`} className="pace-attainment-panel">
+      <RankedBars items={attainmentItems} unit="percent" limit={8} onSelect={selectOverviewPlan} />
+    </ChartPanel>}
 
     {overview.length > 1 && <section className="surface-panel daily-panel"><div className="daily-section-heading"><div><h2>Metas da operação</h2><p>Metas independentes na base {pace.metric.label.toLowerCase()}. Os escopos não devem ser somados.</p></div></div><div className="daily-table-scroll"><table className="data-table"><thead><tr><th>Escopo</th><th>Meta de</th><th>Meta</th><th>Realizado</th><th>Esperado</th><th>Ritmo</th><th>Atingimento</th></tr></thead><tbody>{overview.map(({ plan, pace: item }) => <tr key={plan.id || `${goalScopeKey(plan)}:${plan.metric}`}><td>{GOAL_SCOPES[goalScope(plan).scope]}</td><td><button className="pace-table-link" onClick={() => { const target = goalScope(plan); setScope(target.scope); setTargetId(target.scopeId) }}>{goalScopeName(plan)}</button>{!item.definitive && <small className="daily-cell-note">Parcial</small>}</td><td>{item.validTarget ? value(item.target) : 'Não definida'}</td><td>{value(item.actual)}</td><td>{value(item.expected)}</td><td>{percent(item.pacePercent)}</td><td>{percent(item.attainment)}</td></tr>)}</tbody></table></div></section>}
 

@@ -1,14 +1,16 @@
 .rr-chart { min-width: 0; width: 100%; }
-.rr-chart-legend { display: flex; justify-content: center; align-items: center; gap: 8px; flex-wrap: wrap; min-height: 32px; margin: 3px 0 12px; }
-.rr-chart-legend button { cursor: pointer; border: 1px solid var(--border, #dde3e8); background: var(--canvas, #f3f5f8); color: var(--text, #172b37); border-radius: 18px; display: flex; align-items: center; gap: 6px; padding: 5px 10px; font-size: 11px; min-height: 30px; white-space: nowrap; }
+.rr-chart-legend { display: flex; justify-content: flex-start; align-items: center; gap: 6px; flex-wrap: wrap; min-height: 32px; margin: 3px 0 12px; }
+.rr-chart-legend button { cursor: pointer; border: 1px solid transparent; background: transparent; color: var(--text, #172b37); border-radius: 7px; display: flex; align-items: center; gap: 7px; padding: 6px 9px; font-size: 11px; min-height: 32px; white-space: nowrap; }
+.rr-chart-legend button:hover { background: var(--surface-subtle); border-color: var(--border); }
 .rr-chart-legend button[aria-pressed="false"] { opacity: .45; }
 .rr-chart-legend i, .rr-chart-tooltip i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
 .rr-chart-plot { position: relative; width: 100%; min-width: 0; outline-offset: -2px; }
 .rr-chart-plot > svg { max-width: 100%; overflow: visible; }
-.rr-graph-grid line { stroke: var(--border, #dde3e8); stroke-width: .7; stroke-dasharray: 2 4; }
+.rr-graph-grid line { stroke: var(--border, #dde3e8); stroke-width: .7; stroke-dasharray: 3 6; }
+.rr-graph-unit { fill: var(--muted); font-size: 10px; font-weight: 500; }
 .rr-graph-grid text, .rr-graph-date { fill: var(--muted, #64748b); font-size: 10px; font-family: inherit; }
 .rr-graph-value { font: 600 10px inherit; }
-.rr-chart-tooltip { position: absolute; z-index: 5; width: min(228px, 95%); border: 1px solid var(--border, #dde3e8); border-radius: 10px; background: var(--surface, #fff); color: var(--text, #172b37); padding: 12px; pointer-events: none; box-shadow: 0 8px 24px #00000012; font-size: 11px; }
+.rr-chart-tooltip { position: absolute; z-index: 5; width: min(228px, 95%); border: 1px solid var(--border, #dde3e8); border-radius: 12px; background: var(--surface, #fff); color: var(--text, #172b37); padding: 14px; pointer-events: none; box-shadow: 0 8px 28px #00000020; font-size: 11px; }
 .rr-chart-tooltip > strong { display: block; margin-bottom: 10px; }
 .rr-chart-tooltip > div { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 6px; }
 .rr-chart-tooltip span { display: inline-flex; align-items: center; gap: 6px; }
@@ -18,3 +20,4 @@
 .rr-chart button:focus-visible, .rr-chart-plot:focus-visible { outline: 2px solid var(--accent, #335cff); outline-offset: 3px; }
 .rr-line-glow { display: none; }
 .dark .rr-line-glow, [data-theme="dark"] .rr-line-glow { display: inline; opacity: .2; filter: blur(3px); }
+@media (max-width: 520px) { .rr-chart-legend { gap: 2px; } .rr-chart-legend button { padding: 6px; font-size: 10px; } .rr-chart-tooltip > div { gap: 8px; } }

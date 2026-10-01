@@ -1,0 +1,66 @@
+/* Revenue composition: a quiet financial summary beside the main time series. */
+.period-analytics { min-width: 0; }
+.period-revenue-layout { display: grid; grid-template-columns: minmax(230px, .68fr) minmax(0, 1.8fr); gap: 28px; align-items: stretch; }
+.period-revenue-summary { display: flex; flex-direction: column; min-width: 0; padding-right: 26px; border-right: 1px solid var(--border); }
+.period-observed-range { color: var(--muted); font-size: 12px; line-height: 1.5; margin: 0 0 20px; }
+.period-revenue-fact { padding: 16px 0; border-top: 1px solid var(--border); }
+.period-revenue-fact h2 { color: var(--muted); font-size: 12px; font-weight: 500; line-height: 1.5; margin: 0; }
+.period-revenue-fact .period-fact-value { color: var(--text); font-size: clamp(19px, 1.7vw, 25px); line-height: 1.25; font-weight: 650; letter-spacing: -.035em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; margin: 7px 0 0; }
+.period-revenue-fact .period-fact-detail { color: var(--muted); font-size: 11px; line-height: 1.65; margin: 6px 0 0; }
+.period-revenue-fact--lead { padding: 0 0 24px; border-top: 0; }
+.period-revenue-fact--lead h2 { color: var(--text); font-weight: 600; font-size: 13px; }
+.period-revenue-fact--lead .period-fact-value { color: var(--chart-1); font-size: clamp(29px, 2.75vw, 42px); line-height: 1.12; letter-spacing: -.055em; margin-top: 12px; }
+.period-revenue-fact--lead .period-fact-detail { font-size: 12px; margin-top: 10px; }
+.period-revenue-plot { min-width: 0; align-self: center; }
+.period-plot-context { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; color: var(--muted); font-size: 11px; margin-bottom: 18px; }
+.period-coverage { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+.period-coverage::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--chart-2); flex-shrink: 0; }
+.period-coverage--partial::before { background: var(--chart-4); }
+.period-chart-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+.period-segment { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-subtle); }
+.period-segment button { min-height: 32px; padding: 6px 11px; border: 1px solid transparent; border-radius: 5px; color: var(--muted); background: transparent; font-size: 11px; line-height: 1.4; font-weight: 600; white-space: nowrap; transition: background-color 140ms, color 140ms; }
+.period-segment button:hover { color: var(--text); }
+.period-segment button[aria-pressed='true'] { color: var(--text); background: var(--surface); border-color: var(--border); box-shadow: 0 1px 2px rgb(0 0 0 / 4%); }
+.period-chart-notes { display: grid; gap: 6px; }
+.period-chart-notes p { margin: 0; }
+.period-data-note { color: var(--muted); }
+.period-distribution-layout { display: grid; grid-template-columns: minmax(210px, .8fr) minmax(0, 1.6fr); gap: 28px; }
+.period-ranking { min-width: 0; padding-right: 25px; border-right: 1px solid var(--border); }
+.period-ranking h3 { font-size: 13px; font-weight: 600; line-height: 1.5; margin: 0 0 5px; color: var(--text); }
+.period-ranking > p { color: var(--muted); font-size: 11px; line-height: 1.5; margin: 0 0 22px; }
+.period-distribution-table { min-width: 0; align-self: start; position: relative; }
+.period-distribution-table .data-table th { white-space: nowrap; }
+.period-analytics .analytics-panel { min-width: 0; }
+.period-analytics .analytics-panel-body { min-width: 0; }
+
+@media (max-width: 1200px) {
+  .period-revenue-layout { grid-template-columns: minmax(215px, .7fr) minmax(0, 1.6fr); gap: 20px; }
+  .period-revenue-summary { padding-right: 20px; }
+  .period-chart-controls { justify-content: flex-start; }
+  .period-distribution-layout { grid-template-columns: minmax(210px, .7fr) minmax(0, 1.3fr); gap: 20px; }
+  .period-ranking { padding-right: 20px; }
+}
+@media (max-width: 1000px) {
+  .period-revenue-layout { grid-template-columns: minmax(0, 1fr); gap: 26px; }
+  .period-revenue-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 22px; padding-right: 0; padding-bottom: 6px; border-right: 0; border-bottom: 1px solid var(--border); }
+  .period-observed-range, .period-revenue-fact--lead { grid-column: 1 / -1; }
+  .period-observed-range { margin-bottom: 12px; }
+  .period-revenue-fact--lead .period-fact-value { font-size: clamp(30px, 5vw, 42px); }
+  .period-distribution-layout { grid-template-columns: minmax(0, 1fr); }
+  .period-ranking { border-right: 0; border-bottom: 1px solid var(--border); padding-right: 0; padding-bottom: 22px; }
+  .period-ranking .analytics-ranking-rows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 28px; }
+}
+@media (max-width: 600px) {
+  .period-chart-controls { gap: 6px; }
+  .period-segment button { padding: 6px 9px; min-height: 34px; }
+  .period-revenue-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 18px; }
+  .period-revenue-fact:last-child { grid-column: 1 / -1; }
+  .period-revenue-fact .period-fact-value { font-size: 20px; }
+  .period-revenue-fact--lead .period-fact-value { font-size: 34px; }
+  .period-revenue-fact .period-fact-detail { font-size: 10px; }
+  .period-ranking .analytics-ranking-rows { grid-template-columns: minmax(0, 1fr); }
+  .period-plot-context { margin-bottom: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .period-segment button { transition: none; }
+}
