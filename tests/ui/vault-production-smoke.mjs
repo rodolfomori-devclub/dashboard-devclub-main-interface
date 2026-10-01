@@ -90,12 +90,22 @@ try {
       assert.equal(await page.getByRole('heading', { name: 'Esta tela não pôde ser aberta', exact: true }).count(), 0)
 
       if (name === 'seller') {
+        const verifyHubLoaded = async tables => {
+          // Titles render before React Query settles. Verify actual successful
+          // reads before navigation can cancel a slow/failed RLS request.
+          await page.waitForLoadState('networkidle', { timeout: 60_000 })
+          for (const table of tables) assert.ok(responses.some(response => response.path === `/api/hub/rest/v1/${table}` && response.status >= 200 && response.status < 300), `Hub table ${table} did not load successfully`)
+          assert.equal(await page.getByText('Alguns dados não puderam ser carregados.', { exact: false }).count(), 0, 'Hub is displaying incomplete data')
+        }
+        stage = 'seller-kpi-data'
+        await verifyHubLoaded(['daily_kpis', 'meetings'])
         stage = 'seller-commissions'
         await Promise.all([
           page.waitForResponse(response => new URL(response.url()).origin === api && new URL(response.url()).pathname === '/api/hub/session' && response.status() === 200),
           page.goto(dashboard + '/commissions', { waitUntil: 'domcontentloaded' }),
         ])
         await page.getByRole('heading', { name: 'Comissões', exact: true }).first().waitFor()
+        await verifyHubLoaded(['sales', 'monthly_income', 'seller_bonuses', 'commission_observations', 'commission_installments', 'commission_reports'])
       }
       if (name !== 'admin') {
         stage = 'direct-route-denial'
