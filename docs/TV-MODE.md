@@ -10,11 +10,11 @@ Os oito painéis são Meta do mês, Ritmo da meta, Metas dos times, Metas dos pr
 
 ## Link público
 
-O cartão **Link público da TV**, visível aos administradores nesta mesma tela, permite criar e copiar um endereço curto no formato `/tv/<16 caracteres>`. Ele abre diretamente a programação, sem conta ou login no Vault. Um botão permite entrar em tela cheia após abrir o link no aparelho.
+O cartão **Link público da TV**, visível aos administradores nesta mesma tela, permite ativar e copiar o endereço fixo **https://dashboard.launchcontrol.com.br/tv**, fácil de digitar em outro aparelho. Ele abre diretamente a programação, sem conta ou login no Vault. Um botão permite entrar em tela cheia após abrir o link no aparelho.
 
-O link é uma chave aleatória de acesso somente à apresentação: quem tiver o endereço poderá ver os indicadores escolhidos. **Trocar link** invalida o anterior; **Desativar link** interrompe o acesso. Aparelhos já conectados removem os indicadores ao detectar a revogação, na próxima atualização. A programação continua compartilhada e só o admin pode editá-la.
+O endereço `/tv` é público enquanto estiver ativo e mostra os indicadores escolhidos pelo administrador. **Desativar link** interrompe o acesso público; **Ativar link público** restaura o mesmo endereço. Os links anteriores com código continuam compatíveis enquanto o respectivo token estiver ativo. Aparelhos já conectados removem os indicadores ao detectar a revogação, na próxima atualização. A programação continua compartilhada e só o admin pode editá-la.
 
-A página pública não carrega o Workspace privado, SDK ou sessão do Vault. Usa `GET /api/tv/public/:token`, sem cookies nem Authorization. O servidor calcula os mesmos indicadores e projeta apenas os campos usados pelos painéis ativos; no modo fixo, apenas o painel fixo. Não envia transações, clientes, e-mails, UTMs, diretório, IDs internos ou notas de metas.
+A página pública não carrega o Workspace privado, SDK ou sessão do Vault. Usa `GET /api/tv/public`, sem cookies nem Authorization. Os links antigos usam `GET /api/tv/public/:token`, mantendo as mesmas verificações de ativação e revogação. O servidor calcula os mesmos indicadores e projeta apenas os campos usados pelos painéis ativos; no modo fixo, apenas o painel fixo. Não envia transações, clientes, e-mails, UTMs, diretório, IDs internos ou notas de metas.
 
 Os cálculos puros são sincronizados no repositório da API, em `src/services/tvModel`, com manifestos de hashes e teste de paridade. Alterações financeiras futuras devem sincronizar as duas cópias na mesma entrega.
 
@@ -22,7 +22,7 @@ Os cálculos puros são sincronizados no repositório da API, em `src/services/t
 
 - A sessão e o menu `ranking` continuam sob controle do Vault.
 - Os indicadores exigem também um dos menus `today`, `daily`, `monthly`, `yearly`, `goal-pace` ou `goals`. Administradores têm acesso. Apenas `ranking` mantém acesso ao ranking comercial sem consultar endpoints financeiros.
-- `GET /api/tv/settings` lê a programação compartilhada; `PUT` é exclusivo de administradores. `GET/POST /api/tv/share` administra o link e também exige admin.
+- `GET /api/tv/settings` lê a programação compartilhada; `PUT` é exclusivo de administradores. `GET/POST /api/tv/share` administra o link e também exige admin. O campo `simplePath` informa `/tv` quando ativo; `token` e `path` são preservados para compatibilidade com clientes antigos.
 - `dashboard_tv_settings` guarda uma configuração para o Workspace. A migração `20261001_tv_settings.sql`, no repositório da API, deve ser aplicada antes do frontend.
 - A migração `20261001_tv_public_links.sql` cria a tabela privada do link, inicialmente sem acesso público ativo. A criação é uma ação explícita do administrador ou uma ativação operacional autorizada. Rota pública responde 404 a links desconhecidos/desativados, revalida após o carregamento dos dados e não aceita parâmetros para alterar período, indicador ou painéis.
 - Revisão otimista impede sobrescrever a edição de outro administrador. No conflito, o rascunho fica visível e o administrador pode carregar a versão mais recente.

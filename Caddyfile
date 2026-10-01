@@ -19,8 +19,9 @@
 	root * /app/dist
 	encode gzip zstd
 	respond /health 200
-	# Public TV addresses grant read access; keep them out of access logs.
-	log_skip /tv/*
+	# Canonical and legacy public TV addresses share privacy/cache headers.
+	@publicTv path /tv /tv/*
+	log_skip @publicTv
 
 	header {
 		X-Content-Type-Options "nosniff"
@@ -43,7 +44,7 @@
 	}
 
 	# Keep ETag revalidation for HTML, including direct routes and OAuth callback.
-	handle /tv/* {
+	handle @publicTv {
 		header Cache-Control "no-store"
 		header Referrer-Policy "no-referrer"
 		header X-Robots-Tag "noindex, nofollow, noarchive"

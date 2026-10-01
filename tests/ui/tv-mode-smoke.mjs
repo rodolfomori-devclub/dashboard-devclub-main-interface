@@ -22,7 +22,7 @@ let admin = true, permissions = ['ranking', 'monthly', 'goals'], scenario = 'nor
 const panelIds = ['monthly-goal', 'pace', 'team-goals', 'product-goals', 'sellers', 'products', 'daily', 'payment-mix']
 let savedSettings = { version: 1, mode: 'rotate', fixedPanel: 'monthly-goal', metric: 'cash', monthMode: 'current', month: '', theme: 'system', paceScope: 'overall', paceScopeId: '', panels: panelIds.map(id => ({ id, enabled: !['daily', 'payment-mix'].includes(id), durationSeconds: 20 })) }
 let settingsWrites = 0, revision = 0, completed = false
-let share = { enabled: false, token: null, path: null, revision: 0, updatedAt: null }
+let share = { enabled: false, token: null, path: null, simplePath: null, revision: 0, updatedAt: null }
 const shareWrites = []
 let controlledClock = false
 const calls = [], checks = [], errors = [], unexpected = [], blocked = [], layoutIssues = []
@@ -77,13 +77,13 @@ async function fixture(route) {
     assert.equal(admin, true, 'Only administrators may read or manage the public TV capability')
     if (method === 'POST') {
       const input = req.postDataJSON()
-      assert.ok(['create', 'rotate', 'disable'].includes(input.action))
+      assert.ok(['create', 'disable'].includes(input.action), 'The canonical sharing UI activates or disables the fixed URL; it never rotates it')
       if (input.expectedRevision !== share.revision) { status = 409; body = { code: 'TV_SHARE_CONFLICT', error: 'O link foi alterado por outro administrador. Atualize antes de continuar.' } }
       else {
         shareWrites.push(input)
         const nextRevision = share.revision + 1
         const token = input.action === 'disable' ? null : `fixtureTv${String(nextRevision).padStart(7, '0')}`
-        share = { enabled: Boolean(token), token, path: token ? `/tv/${token}` : null, revision: nextRevision, updatedAt: now.toISOString() }
+        share = { enabled: Boolean(token), token, path: token ? `/tv/${token}` : null, simplePath: token ? '/tv' : null, revision: nextRevision, updatedAt: now.toISOString() }
         body = share
       }
     } else body = share
@@ -204,47 +204,48 @@ try {
   const sharing = () => page.getByTestId('tv-sharing')
   const publicAddress = () => sharing().getByRole('textbox', { name: 'Endereço público da TV', exact: true })
   await sharing().getByRole('heading', { name: 'Link público da TV', exact: true }).waitFor()
-  await sharing().getByRole('button', { name: 'Criar link público', exact: true }).click()
-  await expect(publicAddress()).toHaveValue(`${base}/tv/fixtureTv0000001`)
+  await sharing().getByRole('button', { name: 'Ativar link público', exact: true }).click()
+  await expect(publicAddress()).toHaveValue(`${base}/tv`)
   assert.equal(shareWrites.length, 1)
   assert.deepEqual(shareWrites[0], { action: 'create', expectedRevision: 0 })
   assert.equal(await publicAddress().getAttribute('readonly'), '')
-  await expect(sharing().getByRole('link', { name: 'Abrir TV pública', exact: true })).toHaveAttribute('href', `${base}/tv/fixtureTv0000001`)
+  await expect(sharing().getByRole('link', { name: 'Abrir TV pública', exact: true })).toHaveAttribute('href', `${base}/tv`)
+  await expect(sharing().getByRole('button', { name: 'Trocar link', exact: true })).toHaveCount(0)
   await screenshot('sharing-1440-admin')
   await page.setViewportSize({ width: 360, height: 900 })
   await visit()
-  await expect(publicAddress()).toHaveValue(`${base}/tv/fixtureTv0000001`)
+  await expect(publicAddress()).toHaveValue(`${base}/tv`)
   await screenshot('sharing-360-admin')
   await page.setViewportSize({ width: 1440, height: 1000 })
   await visit()
-  await expect(publicAddress()).toHaveValue(`${base}/tv/fixtureTv0000001`)
+  await expect(publicAddress()).toHaveValue(`${base}/tv`)
   await sharing().getByRole('button', { name: 'Copiar link', exact: true }).click()
-  assert.equal(await page.evaluate(() => window.fixtureClipboard), `${base}/tv/fixtureTv0000001`)
+  assert.equal(await page.evaluate(() => window.fixtureClipboard), `${base}/tv`)
   await page.evaluate(() => { window.fixtureClipboardDenied = true })
   await sharing().getByRole('button', { name: 'Copiar link', exact: true }).click()
   await expect(sharing()).toContainText(/copi|selecion/i)
-  await expect(publicAddress()).toHaveValue(`${base}/tv/fixtureTv0000001`)
-  assert.equal(await publicAddress().evaluate(element => element.selectionEnd - element.selectionStart), `${base}/tv/fixtureTv0000001`.length, 'A failed clipboard write selects the full URL for manual copying')
-  record('Administrator creates a short public URL, can open/copy it and retains a manual copy fallback when the clipboard is denied')
+  await expect(publicAddress()).toHaveValue(`${base}/tv`)
+  assert.equal(await publicAddress().evaluate(element => element.selectionEnd - element.selectionStart), `${base}/tv`.length, 'A failed clipboard write selects the full URL for manual copying')
+  record('Administrator activates the fixed /tv public URL, can open/copy it and retains a manual copy fallback when the clipboard is denied')
 
-  await sharing().getByRole('button', { name: 'Trocar link', exact: true }).click()
-  await expect(publicAddress()).toHaveValue(`${base}/tv/fixtureTv0000002`)
-  assert.deepEqual(shareWrites[1], { action: 'rotate', expectedRevision: 1 })
   await sharing().getByRole('button', { name: 'Desativar link', exact: true }).click()
-  await expect(sharing().getByRole('button', { name: 'Criar link público', exact: true })).toBeVisible()
-  await expect(publicAddress()).toHaveCount(0)
-  assert.deepEqual(shareWrites[2], { action: 'disable', expectedRevision: 2 })
+  await expect(sharing().getByRole('button', { name: 'Ativar link público', exact: true })).toBeVisible()
+  await expect(sharing().getByRole('link', { name: 'Abrir TV pública', exact: true })).toHaveCount(0)
+  assert.deepEqual(shareWrites[1], { action: 'disable', expectedRevision: 1 })
   assert.equal(share.enabled, false)
-  record('Administrator rotates the capability and disables public sharing; the UI removes the revoked URL')
+  record('Administrator disables public sharing and the UI removes the action to open the disabled broadcast')
 
   share = { ...share, revision: share.revision + 1 } // A second administrator changed the capability.
-  await sharing().getByRole('button', { name: 'Criar link público', exact: true }).click()
+  await sharing().getByRole('button', { name: 'Ativar link público', exact: true }).click()
   await expect(sharing().getByRole('alert')).toContainText(/Outro administrador/)
-  assert.equal(shareWrites.length, 3, 'A stale sharing revision must never overwrite another administrator')
-  await sharing().getByRole('button', { name: 'Criar link público', exact: true }).click()
-  await expect(publicAddress()).toHaveValue(`${base}/tv/fixtureTv0000005`)
-  assert.deepEqual(shareWrites[3], { action: 'create', expectedRevision: 4 })
-  record('Concurrent link modification reloads the current revision and requires a fresh deliberate action')
+  assert.equal(shareWrites.length, 2, 'A stale sharing revision must never overwrite another administrator')
+  await sharing().getByRole('button', { name: 'Ativar link público', exact: true }).click()
+  await expect(publicAddress()).toHaveValue(`${base}/tv`)
+  assert.deepEqual(shareWrites[2], { action: 'create', expectedRevision: 3 })
+  assert.equal(share.enabled, true)
+  assert.equal(share.token, 'fixtureTv0000004', 'Reactivation renews the legacy capability while preserving the simple URL')
+  await expect(sharing().getByRole('link', { name: 'Abrir TV pública', exact: true })).toHaveAttribute('href', `${base}/tv`)
+  record('Concurrent sharing modification reloads the revision; deliberate reactivation restores the same /tv URL')
 
   await configure()
   assert.equal(await editor().getByTestId('tv-config-monthly-goal').count(), 1)

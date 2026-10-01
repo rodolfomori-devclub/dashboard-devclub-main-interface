@@ -40,7 +40,7 @@ async function fixture(route) {
   const request = route.request(), url = new URL(request.url()), method = request.method()
   if (!url.pathname.startsWith('/api/')) {
     if (/\/src\/(?:PrivateWorkspace|contexts\/AuthContext|lib\/(?:vault-sdk|api))\./.test(url.pathname) || /\/assets\/PrivateWorkspace-/.test(url.pathname)) privateScripts.push(url.pathname)
-    const allowedAsset = /^\/tv\/(?:fixtureTv0000001|invalid)$/.test(url.pathname) || url.pathname.startsWith('/assets/') || /^\/(?:devclub-favicon\.svg|devclub-apple-touch-icon\.png|favicon\.ico)$/.test(url.pathname)
+    const allowedAsset = /^\/tv(?:\/.*)?$/.test(url.pathname) || url.pathname.startsWith('/assets/') || /^\/(?:devclub-favicon\.svg|devclub-apple-touch-icon\.png|favicon\.ico)$/.test(url.pathname)
     if (url.origin !== base || method !== 'GET' || (published && !allowedAsset)) {
       blocked.push({ external: url.origin !== base, method, path: url.pathname, resource: request.resourceType() })
       await route.abort(); return
@@ -50,8 +50,8 @@ async function fixture(route) {
   if (method === 'OPTIONS') {
     await route.fulfill({ status: 204, headers: { 'access-control-allow-origin': base, 'access-control-allow-headers': 'content-type', 'access-control-allow-methods': 'GET,OPTIONS' } }); return
   }
-  requests.push({ path: url.pathname, method, context: contextLabel, scenario, authorization: request.headers().authorization || null, cookie: request.headers().cookie || null })
-  if (url.pathname !== `/api/tv/public/${token}` || method !== 'GET') {
+  requests.push({ path: url.pathname, query: url.search, method, context: contextLabel, scenario, authorization: request.headers().authorization || null, cookie: request.headers().cookie || null })
+  if (!['/api/tv/public', `/api/tv/public/${token}`].includes(url.pathname) || url.search || method !== 'GET') {
     unexpected.push(`${method} ${url.pathname}`)
     await route.abort(); return
   }
@@ -82,7 +82,7 @@ async function createContext({ stale = false } = {}) {
     const originalFetch = window.fetch
     window.fetch = (input, options) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-      if (url.includes('/api/tv/public/')) window.fixturePublicFetches.push({ credentials: options?.credentials, hasAuthorization: Boolean(new Headers(options?.headers).get('authorization')) })
+      if (url.includes('/api/tv/public')) window.fixturePublicFetches.push({ credentials: options?.credentials, hasAuthorization: Boolean(new Headers(options?.headers).get('authorization')) })
       return originalFetch(input, options)
     }
     Element.prototype.requestFullscreen = async () => { throw new DOMException('Fixture fullscreen refusal', 'NotAllowedError') }
@@ -124,7 +124,7 @@ try {
   }
   assert.ok(published ? base === 'https://dashboard.launchcontrol.com.br' : ['localhost', '127.0.0.1', '[::1]'].includes(new URL(base).hostname))
   if (published) {
-    const html = await (await fetch(`${base}/tv/${token}`)).text()
+    const html = await (await fetch(`${base}/tv`)).text()
     const main = html.match(/src="([^" ]*\/assets\/index-[^" ]+\.js)"/)?.[1]
     assert.ok(main, 'Production public route serves the application entry point')
     if (process.env.DASHBOARD_EXPECTED_ASSET) assert.equal(main, process.env.DASHBOARD_EXPECTED_ASSET)
@@ -135,25 +135,26 @@ try {
   const first = await createContext()
   page = first.page
   const player = () => page.getByTestId('tv-player')
-  const noAuth = async () => {
+  const noAuth = async (path = '/tv') => {
     assert.equal(await page.getByRole('button', { name: 'Entrar pelo Vault', exact: true }).count(), 0)
     assert.equal(await page.getByRole('button', { name: 'Configurar TV', exact: true }).count(), 0)
-    assert.equal(await page.getByRole('button', { name: 'Criar link público', exact: true }).count(), 0)
+    assert.equal(await page.getByRole('button', { name: 'Ativar link público', exact: true }).count(), 0)
     assert.equal(await page.getByRole('link', { name: 'Visão global', exact: true }).count(), 0)
-    assert.equal(new URL(page.url()).pathname, `/tv/${token}`)
+    assert.equal(new URL(page.url()).pathname, path)
   }
   const checkValue = () => expect(player().getByTestId('tv-main-value')).toHaveText('R$ 1.233,64')
   const shot = async name => {
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${name}: no horizontal overflow`)
     await page.screenshot({ path: `${out}/${name}.png`, fullPage: false, animations: 'disabled' })
   }
-  await page.goto(`${base}/tv/${token}`, { waitUntil: 'networkidle' })
+  await page.goto(`${base}/tv`, { waitUntil: 'networkidle' })
   await player().waitFor()
   await checkValue()
   await noAuth()
   assert.equal(await player().getAttribute('data-tv-theme'), 'dark')
   assert.equal(await page.evaluate(() => localStorage.length), 0, 'Public viewing does not create an authentication session')
-  record('Fresh anonymous browser opens the TV directly with no Vault, sidebar, settings or private API calls')
+  assert.equal(requests.at(-1).path, '/api/tv/public', 'The easy-to-type address requests the canonical anonymous endpoint')
+  record('Fresh anonymous browser opens /tv directly with no Vault, suffix, sidebar, settings or private API calls')
   await shot('public-1920-dark')
   await page.getByRole('button', { name: 'Entrar em tela cheia', exact: true }).click()
   await player().waitFor()
@@ -214,7 +215,7 @@ try {
   contextLabel = 'stale-vault'
   const stale = await createContext({ stale: true })
   page = stale.page
-  await page.goto(`${base}/tv/${token}`, { waitUntil: 'networkidle' })
+  await page.goto(`${base}/tv`, { waitUntil: 'networkidle' })
   await player().waitFor()
   await checkValue()
   await noAuth()
@@ -242,18 +243,36 @@ try {
   await noAuth()
   record('A warming shared cache renders loading rather than fabricated zero sales')
 
-  // A malformed capability is rejected locally and never hits a private endpoint.
-  const beforeInvalid = requests.length
-  await page.goto(`${base}/tv/invalid`, { waitUntil: 'networkidle' })
-  await expect(page.getByRole('heading').filter({ hasText: /link.*inválid|link.*indispon|TV.*indispon/i })).toBeVisible()
-  assert.equal(requests.length, beforeInvalid)
-  assert.equal(await player().count(), 0)
-  record('Malformed public token cannot fall back into the authenticated workspace or make API requests')
+  scenario = 'ready'
+  await page.goto(`${base}/tv/`, { waitUntil: 'networkidle' })
+  await checkValue()
+  await noAuth('/tv/')
+  assert.equal(requests.at(-1).path, '/api/tv/public')
+  record('/tv/ with a trailing slash opens the same anonymous canonical presentation')
+
+  contextLabel = 'legacy-link'
+  await page.goto(`${base}/tv/${token}`, { waitUntil: 'networkidle' })
+  await checkValue()
+  await noAuth(`/tv/${token}`)
+  assert.equal(requests.at(-1).path, `/api/tv/public/${token}`)
+  assert.ok((await page.evaluate(() => window.fixturePublicFetches)).every(request => request.credentials === 'omit' && !request.hasAuthorization))
+  record('Previously shared 16-character token links still work without authentication or credentials')
+
+  // Invalid or deeper URLs cannot silently select the canonical public feed.
+  for (const path of ['/tv/invalid', `/tv/${token}/extra`, '/tv/invalid/extra', '/tv/public']) {
+    const beforeInvalid = requests.length
+    await page.goto(`${base}${path}`, { waitUntil: 'networkidle' })
+    await expect(page.getByRole('heading').filter({ hasText: /link.*inválid|link.*indispon|TV.*indispon/i })).toBeVisible()
+    assert.equal(requests.length, beforeInvalid, `${path}: no API request`)
+    assert.equal(await player().count(), 0)
+    await noAuth(path)
+  }
+  record('Malformed and deep public paths cannot open private workspace or request canonical/legacy API data')
 
   assert.deepEqual(unexpected, [])
   assert.deepEqual(errors, [])
   assert.deepEqual(privateScripts, [], 'The anonymous entry must not load the private workspace or Vault SDK')
-  assert.ok(requests.every(request => request.method === 'GET' && request.path === `/api/tv/public/${token}` && !request.authorization && !request.cookie))
+  assert.ok(requests.every(request => request.method === 'GET' && ['/api/tv/public', `/api/tv/public/${token}`].includes(request.path) && !request.query && !request.authorization && !request.cookie))
   assert.ok([...applicationAssets.values()].every(status => status === 200))
   assert.ok(blocked.every(item => published && !item.external && item.method === 'GET' && item.resource === 'script' && /^\/[A-Za-z0-9_-]{80,}$/.test(item.path)), 'Only optional opaque production scripts may be blocked')
   complete = true
