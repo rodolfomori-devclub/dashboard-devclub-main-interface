@@ -52,7 +52,7 @@ class ScreenBoundary extends Component {
 function Screen({ permission, hub, children }) {
   const { hasPermission } = useAuth()
   const { pathname } = useLocation()
-  if (!hasPermission(permission)) return <section className="surface-panel empty-state"><h1>Acesso não liberado</h1><p>O administrador pode liberar esta tela no Vault.</p></section>
+  if (!hasPermission(permission)) return <section className="surface-panel empty-state"><h1>Acesso não liberado</h1><p>Um administrador pode liberar esta tela em Administração → Usuários e acessos.</p></section>
   return <ScreenBoundary key={pathname}><Suspense fallback={<PageSkeleton />}>{hub ? <HubProvider>{children}</HubProvider> : children}</Suspense></ScreenBoundary>
 }
 function SessionLayout() {
@@ -64,7 +64,7 @@ function SessionLayout() {
     const unavailable = errorStatus === 503 || errorCode === 'VAULT_UNAVAILABLE'
     const title = missingAccess ? 'Acesso ao Dashboard não configurado' : errorStatus === 401 ? 'Sua sessão expirou' : unavailable ? 'Não foi possível verificar seu acesso' : 'Seu ponto de encontro com a operação.'
     const description = missingAccess
-      ? 'Um administrador pode configurar o perfil e os menus desta conta no Vault, em Usuários → Acessos e Permissões → Dashboard. Depois, tente novamente aqui.'
+      ? 'Um administrador pode configurar esta conta no Dashboard, em Administração → Usuários e acessos. Depois, tente novamente aqui.'
       : unavailable ? 'A verificação está temporariamente indisponível. Tente novamente em instantes.' : 'Entre com sua conta do Vault para acessar suas ferramentas.'
     return <main className="session-screen"><section className="surface-panel session-card"><span className="eyebrow">DevClub Workspace</span><h1>{title}</h1><p>{description}</p>{error && <p className="notice notice-error" role="alert">{error}</p>}<div className="flex flex-wrap gap-3 mt-5">
       {missingAccess ? <a className="button button-primary" href={import.meta.env.VITE_VAULT_HUB_URL || vault.vaultUrl} target="_blank" rel="noopener noreferrer">Abrir Vault</a> : !unavailable && <button className="button button-primary" onClick={login}>Entrar pelo Vault</button>}
@@ -76,7 +76,7 @@ function SessionLayout() {
 function StartPage() {
   const { hasPermission } = useAuth()
   const first = SCREENS.find(screen => hasPermission(screen.permission))
-  return first ? <Navigate to={first.path} replace /> : <section className="surface-panel empty-state"><h1>Seu acesso está pronto</h1><p>Peça ao administrador a liberação dos menus no Vault.</p></section>
+  return first ? <Navigate to={first.path} replace /> : <section className="surface-panel empty-state"><h1>Seu acesso está pronto</h1><p>Peça a um administrador para liberar seus menus em Administração → Usuários e acessos.</p></section>
 }
 function AppRouter() {
   const routes = [
