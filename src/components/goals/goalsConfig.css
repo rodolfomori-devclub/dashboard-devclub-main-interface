@@ -47,6 +47,34 @@
 .goal-history td small { display: block; color: var(--muted); font-size: 10px; margin-top: 4px; }
 .goal-scope-empty { padding: 36px 22px; color: var(--muted); font-size: 14px; line-height: 1.8; text-align: center; }
 .goal-plan-help { font-size: 12px; color: var(--muted); line-height: 1.7; }
+.goal-breakdown-summary { background: var(--surface-subtle); border: 1px solid var(--border); border-radius: 12px; padding: 17px; margin-bottom: 20px; }
+.goal-breakdown-summary > p { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px; font-size: 13px; font-weight: 650; margin: 0 0 15px; }
+.goal-breakdown-summary > p span { font-size: 11px; font-weight: 450; color: var(--muted); }
+.goal-breakdown-totals { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 18px; }
+.goal-breakdown-totals > div { min-width: 0; }
+.goal-breakdown-totals > div:first-child { grid-column: 1 / -1; }
+.goal-breakdown-totals > div > span { display: block; color: var(--muted); font-size: 11px; margin-bottom: 5px; }
+.goal-breakdown-total { display: block; font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.goal-breakdown-total[data-field="target"] { font-family: 'Outfit Variable', Outfit, sans-serif; font-size: 34px; font-weight: 550; line-height: 1.15; letter-spacing: -.035em; color: var(--chart-1); }
+.goal-metric-cash .goal-breakdown-total[data-field="target"] { color: var(--chart-2); }
+.goal-breakdown-total[data-pending="true"] { color: var(--muted); font-size: 12px; font-weight: 450; font-family: inherit; letter-spacing: 0; }
+.goal-breakdown-share { display: flex; height: 6px; border-radius: 6px; overflow: hidden; margin-top: 17px; }
+.goal-share-marketing { background: var(--chart-3); }
+.goal-share-sales { background: var(--chart-2); }
+.goal-area { border-left: 3px solid var(--chart-3); padding-left: 15px; margin-top: 20px; }
+.goal-area-sales { border-color: var(--chart-2); }
+.goal-area h4 { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 5px 10px; font-size: 15px; font-weight: 650; margin: 0 0 13px; color: var(--text); }
+.goal-area h4 span { font-size: 10px; font-weight: 450; color: var(--muted); }
+.goal-area .goal-tiers { gap: 9px; margin-bottom: 0; }
+.goal-area .goal-tier { gap: 10px; font-size: 12px; }
+.goal-area .goal-tier input { font-size: 16px; }
+.goal-breakdown-help, .goal-breakdown-previous, .goal-breakdown-legacy p { font-size: 11px; line-height: 1.7; color: var(--muted); }
+.goal-breakdown-help { margin: 16px 0 0; }
+.goal-breakdown-previous { margin: 0 0 15px; padding: 11px 13px; border: 1px solid var(--border); border-radius: 8px; }
+.goal-breakdown-previous strong { color: var(--text); font-weight: 600; }
+.goal-breakdown-legacy { border-top: 1px solid var(--border); padding: 14px 0 2px; }
+.goal-breakdown-legacy .button { margin-top: 10px; font-size: 12px; }
+.goal-breakdown-toggle { margin-top: 12px; border: 0; padding: 0; background: transparent; color: var(--accent); font: inherit; font-size: 11px; text-decoration: underline; cursor: pointer; }
 @media(max-width:1100px) { .goal-scope-nav small { display: none; } .goal-metric-editor { padding: 23px; } }
 @media(max-width:800px) { .goal-financial-grid { grid-template-columns: minmax(0, 1fr); } .goal-metric-editor + .goal-metric-editor { border-left: 0; border-top: 1px solid var(--border); } .goal-metric-editor header { min-height: 0; } }
 @media(max-width:500px) { .goal-scope-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); } .goal-scope-nav button { padding: 13px; } .goal-selection { min-width: 0; width: 100%; } .goal-scope-context { gap: 16px; } .goal-metric-editor { padding: 19px 16px; } .goal-tier { grid-template-columns: minmax(86px, .65fr) minmax(0, 1fr); gap: 12px; } .goal-tier input { font-size: 16px; } .goals-config-page .tab-strip { width: 100%; } .goals-config-page .tab-strip button { text-align: left; font-size: 12px; } .goal-history-heading { display: block; } .goal-history-heading span { display: block; margin-top: 6px; } }

@@ -2,12 +2,22 @@
 
 A configuração e o ritmo mensal usam o mesmo cadastro `dashboard_goal_plans`.
 
-- **Geral**: toda a operação.
+- **Geral**: toda a operação; o planejamento pode ser dividido em Marketing e Vendas, que somam o total geral.
 - **Time**: vendas atribuídas às pessoas que pertencem atualmente ao time.
-- **Produto**: família MBA, DevClub, IAClub, Seu segundo salário com IA ou Outros.
+- **Produto**: família MBA, DevClub, IAClub, Seu segundo salário com IA, Operação 50K ou Outros.
 - **Indivíduo**: vendas atribuídas à pessoa selecionada.
 
 Os escopos são independentes: somar geral, produtos, times e indivíduos duplicaria o mesmo negócio. Cada indicador tem meta, supermeta, ultrameta, dias corridos/úteis e observações próprios. Metas operacionais, líquidas e de quantidade anteriores permanecem disponíveis, sem conversão automática para bruto ou caixa.
+
+## Composição da meta geral
+
+Novas metas gerais são preenchidas por Marketing e Vendas, cada área com meta base, supermeta e ultrameta. O total geral de cada faixa é calculado somando centavos inteiros, de forma independente para bruto, cash collected e os outros indicadores. Uma área sem meta exige zero explícito; campo vazio não é interpretado como zero.
+
+Metas gerais anteriores mantêm seus totais e podem receber a divisão pela ação **Configurar Marketing e Vendas**. A ativação não distribui valores automaticamente: o total anterior permanece gravado até salvar as duas partes. Depois de configurada, alterações dos totais precisam editar as partes; versões antigas do formulário não podem apagar ou contradizer a composição.
+
+A composição aparece no gráfico de ritmo como planejamento. O realizado permanece geral: nenhuma venda é atribuída automaticamente a Marketing ou Vendas por ausência de vendedor ou UTM. Produtos, times e indivíduos continuam com metas independentes, sem serem somados novamente ao total geral.
+
+No backend, aplicar `20261001_goal_breakdown.sql` antes de publicar a API. A migração acrescenta uma coluna opcional e validações, preservando os registros e a auditoria existentes.
 
 ## Bruto e cash collected
 
@@ -25,7 +35,7 @@ A administração continua no Vault. Leitores com acesso à tela consultam metas
 
 A migração mantém os IDs, valores e auditoria anteriores: `product=all` torna-se `overall`; outras famílias tornam-se `product`. Apenas a meta geral operacional sincroniza o consumidor legado mensal. Metas de time/pessoa, bruto e caixa não sobrescrevem os totais legados.
 
-## Verificação da implementação — 1º de outubro de 2026
+## Verificação da implementação inicial — 1º de outubro de 2026
 
 - `npm test`: 78 testes aprovados, incluindo separação de bruto/caixa nos quatro escopos, compatibilidade de metas anteriores e prevenção de caixa manual Asaas duplicado.
 - Build Vite concluído; o aviso existente de tamanho do módulo de PDF permanece.

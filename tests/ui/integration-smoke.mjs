@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import fs from 'node:fs/promises'
 import assert from 'node:assert/strict'
 import {checkComparison} from './comparison-checks.mjs'
-import { checkGoalConfiguration } from './goal-config-checks.mjs'
+import { checkGoalConfiguration, checkGoalConfigurationReader } from './goal-config-checks.mjs'
 import { periodCacheFixture, emptyProviderPayload } from './period-cache-fixture.mjs'
 const out = process.env.DASHBOARD_SMOKE_OUTPUT || fileURLToPath(new URL('./artifacts/integration', import.meta.url))
 await fs.mkdir(out, { recursive: true })
@@ -238,10 +238,7 @@ await page.setViewportSize({width:1440,height:1000})
 admin=false
 goalReader=true
 await visit('/metas','Metas da operação')
-const readonlyGross=page.getByRole('form',{name:'Meta de Bruto',exact:true})
-assert.equal(await readonlyGross.getByLabel(/Meta base/).isDisabled(),true)
-assert.equal(await page.getByRole('button',{name:/^Salvar/}).count(),0)
-checked('Goals reader sees saved targets without write controls')
+await checkGoalConfigurationReader({page,checked})
 goalReader=false
 await visit('/materials','Biblioteca de materiais')
 assert.equal(await page.getByRole('button',{name:'Adicionar material'}).count(),0)

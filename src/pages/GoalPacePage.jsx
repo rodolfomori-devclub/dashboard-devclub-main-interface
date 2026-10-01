@@ -111,7 +111,7 @@ export default function GoalPacePage() {
       <div className="daily-field"><span>Distribuição da meta</span><strong className="pace-basis">{selectedPlan ? pace.basis === 'business' ? 'Dias úteis · seg–sex' : 'Dias corridos' : 'Meta não definida'}</strong></div>
     </div><p className="daily-footnote">O dia atual conta como transcorrido. Dias úteis consideram segunda a sexta, sem calendário de feriados. Horário de Brasília.</p></section>
 
-    <MonthlyPaceChart pace={pace} ready={Boolean(current)} loading={loading} targetUnavailable={Boolean(current?.plansError)} scopeName={goalScopeName(selection)} periodLabel={`${MONTHS[month - 1]} de ${year}`} today={today} selectionKey={`${periodKey}:${goalScopeKey(selection)}:${metric}`} />
+    <MonthlyPaceChart pace={pace} ready={Boolean(current)} loading={loading} targetUnavailable={Boolean(current?.plansError)} breakdown={scope === 'overall' ? selectedPlan?.breakdown : null} scopeName={goalScopeName(selection)} periodLabel={`${MONTHS[month - 1]} de ${year}`} today={today} selectionKey={`${periodKey}:${goalScopeKey(selection)}:${metric}`} />
 
     <div className="daily-feedback" aria-live="polite">
       {loading && !current && <p className="daily-notice">Carregando metas e vendas do período.</p>}

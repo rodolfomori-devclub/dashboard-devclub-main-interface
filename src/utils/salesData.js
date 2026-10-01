@@ -11,7 +11,7 @@ export const SOURCE_DEFINITIONS = [
   { id: 'hotmartRefunds', label: 'Reembolsos Hotmart', platform: 'Hotmart', kind: 'refund' },
 ]
 
-export const PRODUCT_FAMILIES = ['MBA', 'DevClub', 'IAClub', 'Seu segundo salário com IA', 'Outros', 'Não informado']
+export const PRODUCT_FAMILIES = ['MBA', 'DevClub', 'IAClub', 'Seu segundo salário com IA', 'Operação 50K', 'Outros', 'Não informado']
 export const UTM_FIELDS = ['source', 'medium', 'campaign', 'content', 'term']
 export const EMPTY_FILTERS = { family: '', product: '', platform: '', payment: '', source: '', medium: '', campaign: '', content: '', term: '' }
 export const UNKNOWN = '__not_informed__'
@@ -28,6 +28,7 @@ const text = (value) => typeof value === 'string' && value.trim() ? value.trim()
 export function productFamily(name) {
   const value = fold(name)
   if (!value) return 'Não informado'
+  if (/\boperacao[\s-]*50\s*k\b/.test(value)) return 'Operação 50K'
   if (value.includes('seu segundo salario com ia')) return 'Seu segundo salário com IA'
   if (/\bmba\b/.test(value)) return 'MBA'
   if (/ia\s*club|gestor de ia|formacao.*inteligencia artificial/.test(value)) return 'IAClub'

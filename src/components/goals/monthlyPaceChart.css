@@ -20,6 +20,13 @@
 .pace-stage-gap.is-behind .pace-stage-status { color: var(--chart-1); background: color-mix(in srgb, var(--chart-1) 10%, transparent); }
 .pace-stage-gap.is-partial .pace-stage-status { color: var(--chart-4); background: color-mix(in srgb, var(--chart-4) 10%, transparent); }
 .pace-stage-chart { width: 100%; min-width: 0; }
+.pace-stage-allocation { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px 16px; margin: -2px 0 23px; font-size: 12px; color: var(--muted); }
+.pace-stage-allocation > div { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+.pace-stage-allocation strong { color: var(--text); font-variant-numeric: tabular-nums; font-weight: 600; }
+.pace-stage-allocation b { font-weight: 450; margin-right: 7px; }
+.pace-stage-allocation i { width: 7px; height: 7px; border-radius: 50%; }
+.pace-allocation-marketing { background: var(--chart-3); }
+.pace-allocation-sales { background: var(--chart-2); }
 .pace-stage-chart .rr-chart-legend { margin: 0 0 10px; gap: 14px; }
 .pace-stage-chart .rr-chart-legend button { font-size: 12px; padding-left: 0; }
 .pace-stage-chart .rr-chart-legend i { width: 20px; height: 3px; border-radius: 2px; }

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ArrowDownRight, ArrowUpRight, Maximize2, Minimize2, Minus } from 'lucide-react'
 import { ReferenceChart } from '../charts/ReferenceChart'
 import { formatDate, formatValue } from '../charts/chartFormatters'
+import { GOAL_AREAS } from './goalConfig'
 import './monthlyPaceChart.css'
 
 const percent = value => value === null ? '—' : `${value.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`
@@ -32,7 +33,7 @@ function useChartHeight(expanded) {
   return height
 }
 
-function PaceStage({ pace, ready, loading, targetUnavailable, scopeName, periodLabel, today, selectionKey, mode, onMode, expanded, onExpand, onClose }) {
+function PaceStage({ pace, ready, loading, targetUnavailable, breakdown, scopeName, periodLabel, today, selectionKey, mode, onMode, expanded, onExpand, onClose }) {
   const height = useChartHeight(expanded)
   const status = paceStatus(pace, ready, targetUnavailable)
   const value = number => formatValue(number, pace.metric.unit)
@@ -57,6 +58,8 @@ function PaceStage({ pace, ready, loading, targetUnavailable, scopeName, periodL
       <div className="pace-stage-target"><span>Meta do mês</span><strong className="pace-target">{!ready ? '—' : targetUnavailable ? 'Indisponível' : pace.validTarget ? value(pace.target) : 'Sem meta definida'}</strong><small>{targetUnavailable ? 'Não foi possível consultar a meta.' : pace.attainment !== null && !pace.future ? `${percent(pace.attainment)} de atingimento${pace.definitive ? '' : ' parcial'}` : pace.validTarget ? 'Definida para o escopo selecionado' : 'O comparativo depende de uma meta.'}</small></div>
       <div className={`pace-stage-gap is-${status.tone}`}><span className="pace-stage-status" role="status">{loading && ready ? 'Atualizando · ' : ''}{status.label}</span><strong><DeltaIcon size={21} aria-hidden="true" />{deltaText}</strong><small>{pace.pacePercent === null ? 'Compare o realizado com o esperado até hoje.' : `${percent(pace.pacePercent)} do esperado${pace.definitive ? '' : ' · resultado parcial'}`}</small></div>
     </div>
+
+    {Array.isArray(breakdown) && <div className="pace-stage-allocation" aria-label="Composição planejada da meta geral"><span>Meta geral =</span>{GOAL_AREAS.map(({ key, label }, index) => <div key={key}>{index > 0 && <b aria-hidden="true">+</b>}<i className={`pace-allocation-${key}`} aria-hidden="true" /><span>{label}</span><strong>{value(breakdown.find(part => part.key === key)?.target)}</strong></div>)}</div>}
 
     <div className="pace-stage-chart" aria-busy={loading}>
       <ReferenceChart key={selectionKey} title="Evolução acumulada da meta" rows={pace.rows} series={series} height={height} mode={mode}
