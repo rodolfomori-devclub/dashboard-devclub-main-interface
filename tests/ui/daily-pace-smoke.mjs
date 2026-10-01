@@ -20,6 +20,12 @@ const localChrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrom
 const executablePath = process.env.CHROME_EXECUTABLE || (existsSync(localChrome) ? localChrome : undefined)
 const browser=await chromium.launch({headless:true,executablePath})
 const context=await browser.newContext({locale:'pt-BR',timezoneId:'America/Sao_Paulo'})
+// Unexpired synthetic JWT for UI fixtures only; all API calls below are intercepted.
+await context.addInitScript(() => {
+  const encode = value => btoa(JSON.stringify(value)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+  const token = `${encode({alg:'RS256',kid:'ui-fixture-only'})}.${encode({sub:'fixture-user',iss:'fixture-vault',aud:'local-fixture-client',token_use:'access',exp:4102444800})}.fixture-signature-not-valid`
+  localStorage.setItem('vault_access_token', token)
+})
 // Isolate Vite HMR and every external websocket during deterministic fixture checks.
 if (context.routeWebSocket) await context.routeWebSocket('**/*', () => {})
 await context.route('**/*',async route=>{

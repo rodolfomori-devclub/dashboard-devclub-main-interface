@@ -56,10 +56,21 @@ function Screen({ permission, hub, children }) {
   return <ScreenBoundary key={pathname}><Suspense fallback={<PageSkeleton />}>{hub ? <HubProvider>{children}</HubProvider> : children}</Suspense></ScreenBoundary>
 }
 function SessionLayout() {
-  const { currentUser, userRoles, loading, error, login, reload } = useAuth()
+  const { currentUser, userRoles, loading, error, errorCode, errorStatus, login, reload, vault } = useAuth()
   const accessKey = JSON.stringify(userRoles)
   if (loading) return <div className="session-screen"><PageSkeleton /></div>
-  if (!currentUser) return <main className="session-screen"><section className="surface-panel session-card"><span className="eyebrow">DevClub Workspace</span><h1>Seu ponto de encontro com a operação.</h1><p>Entre com sua conta do Vault para acessar suas ferramentas.</p>{error && <p className="notice notice-error" role="alert">{error}</p>}<div className="flex flex-wrap gap-3 mt-5"><button className="button button-primary" onClick={login}>Entrar pelo Vault</button><button className="button" onClick={reload}>Tentar novamente</button></div></section></main>
+  if (!currentUser) {
+    const missingAccess = errorCode === 'DASHBOARD_ACCESS_REQUIRED'
+    const unavailable = errorStatus === 503 || errorCode === 'VAULT_UNAVAILABLE'
+    const title = missingAccess ? 'Acesso ao Dashboard não configurado' : errorStatus === 401 ? 'Sua sessão expirou' : unavailable ? 'Não foi possível verificar seu acesso' : 'Seu ponto de encontro com a operação.'
+    const description = missingAccess
+      ? 'Um administrador pode configurar o perfil e os menus desta conta no Vault, em Usuários → Acessos e Permissões → Dashboard. Depois, tente novamente aqui.'
+      : unavailable ? 'A verificação está temporariamente indisponível. Tente novamente em instantes.' : 'Entre com sua conta do Vault para acessar suas ferramentas.'
+    return <main className="session-screen"><section className="surface-panel session-card"><span className="eyebrow">DevClub Workspace</span><h1>{title}</h1><p>{description}</p>{error && <p className="notice notice-error" role="alert">{error}</p>}<div className="flex flex-wrap gap-3 mt-5">
+      {missingAccess ? <a className="button button-primary" href={import.meta.env.VITE_VAULT_HUB_URL || vault.vaultUrl} target="_blank" rel="noopener noreferrer">Abrir Vault</a> : !unavailable && <button className="button button-primary" onClick={login}>Entrar pelo Vault</button>}
+      <button className={`button${unavailable ? ' button-primary' : ''}`} onClick={reload}>Tentar novamente</button>
+    </div></section></main>
+  }
   return <WorkspaceLayout key={`${currentUser.uid}:${accessKey}`}><Outlet /></WorkspaceLayout>
 }
 function StartPage() {

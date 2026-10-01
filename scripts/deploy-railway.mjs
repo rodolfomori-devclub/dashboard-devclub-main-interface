@@ -10,7 +10,7 @@ export const target = Object.freeze({
  service: 'cd61f257-4826-4cb8-a105-51d40aa6ba7c',
 })
 const root = fileURLToPath(new URL('../', import.meta.url))
-const rootFiles = ['package.json', 'package-lock.json', 'vite.config.js', 'index.html', 'tailwind.config.js', 'postcss.config.js']
+const rootFiles = ['Caddyfile', 'package.json', 'package-lock.json', 'vite.config.js', 'index.html', 'tailwind.config.js', 'postcss.config.js']
 const excluded = new Set(['node_modules', 'dist', 'artifacts', 'fixtures', 'tests', '__tests__', 'test-results', 'playwright-report', '.git'])
 export async function createPayload(source = root) {
  const destination = await mkdtemp(join(tmpdir(), 'devclub-dashboard-front-'))

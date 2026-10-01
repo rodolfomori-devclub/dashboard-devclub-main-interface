@@ -30,6 +30,12 @@ try {
   const localChrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
   browser = await chromium.launch({ headless: true, executablePath: process.env.CHROME_EXECUTABLE || (existsSync(localChrome) ? localChrome : undefined) })
   const context = await browser.newContext({ locale: 'pt-BR', timezoneId: 'America/Sao_Paulo' })
+  // Unexpired synthetic JWT for UI fixtures only; all API calls below are intercepted.
+  await context.addInitScript(() => {
+    const encode = value => btoa(JSON.stringify(value)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+    const token = `${encode({alg:'RS256',kid:'ui-fixture-only'})}.${encode({sub:'fixture-user',iss:'fixture-vault',aud:'local-fixture-client',token_use:'access',exp:4102444800})}.fixture-signature-not-valid`
+    localStorage.setItem('vault_access_token', token)
+  })
   if (context.routeWebSocket) await context.routeWebSocket('**/*', () => {})
   const calls = []
   let failedProviders = false

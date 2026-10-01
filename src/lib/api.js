@@ -61,8 +61,15 @@ export async function requestApi(path, options = {}) {
   const response = await apiFetch(`${API_URL}${path}`, options)
   const data = await response.json().catch(() => ({}))
   if (!response.ok) {
-    const messages = { VAULT_MFA_REQUIRED: 'O acesso de administrador exige autenticação em duas etapas no Vault. Entre novamente após concluir a verificação.', DASHBOARD_ACCESS_REQUIRED: 'Seu acesso ao Dashboard precisa ser liberado no Vault.', VAULT_UNAVAILABLE: 'O Vault está indisponível no momento. Tente novamente.' }
-    throw new Error(messages[data.code] || data.error || data.message || `Não foi possível carregar os dados (${response.status}).`)
+    const messages = {
+      VAULT_MFA_REQUIRED: 'O acesso de administrador exige autenticação em duas etapas no Vault. Entre novamente após concluir a verificação.',
+      DASHBOARD_ACCESS_REQUIRED: 'O login no Vault foi reconhecido, mas esta conta ainda precisa de um perfil e menus liberados no Dashboard.',
+      VAULT_UNAVAILABLE: 'O Vault está indisponível no momento. Tente novamente.',
+      VAULT_TOKEN_REQUIRED: 'Entre novamente para iniciar uma sessão no Dashboard.',
+      VAULT_TOKEN_INVALID: 'Entre novamente pelo Vault para renovar sua sessão.',
+      VAULT_SESSION_INVALID: 'Entre novamente pelo Vault para renovar sua sessão.',
+    }
+    throw Object.assign(new Error(messages[data.code] || data.error || data.message || `Não foi possível carregar os dados (${response.status}).`), { status: response.status, code: data.code })
   }
   return data
 }
