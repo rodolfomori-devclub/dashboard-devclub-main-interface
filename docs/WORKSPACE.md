@@ -42,7 +42,7 @@ Os testes unitários e a suíte de navegação local usam dados simulados. O run
 
 ## Publicação em produção
 
-O Vault com o catálogo unificado e a infraestrutura isolada do Hub já foram publicados no Railway. O Hub usa cinco serviços: banco, Auth técnico, REST, Storage privado com volume e gateway; o login humano continua exclusivo do Vault. O avanço do frontend principal depende da API compatível saudável e da verificação das migrações e permissões. O código desta release é preservado na branch `codex/unified-dashboard-20260930`; a promoção para `master` deve ser fast-forward, sem reescrever histórico.
+O Vault com o catálogo unificado e a infraestrutura isolada do Hub já foram publicados no Railway. O Hub usa cinco serviços: banco, Auth técnico, REST, Storage privado com volume e gateway; o login humano continua exclusivo do Vault. O frontend principal foi publicado e verificado em 1 de outubro de 2026, com a API compatível saudável e as migrações/permissões aplicadas. Versões e limitações estão em [PRODUCTION-VERIFICATION.md](./PRODUCTION-VERIFICATION.md). O código desta release é preservado na branch `codex/unified-dashboard-20260930`; a promoção para `master` deve ser fast-forward, sem reescrever histórico.
 
 O frontend é servido pelo Railway em `https://dashboard.launchcontrol.com.br`. O destino fixo é o projeto `dashboard-launch-control` (`9c3066f8-120f-4a25-9756-10d0e934703a`), ambiente production (`3bb4746f-e0ae-4972-a9d1-7ff947d99792`), serviço frontend (`cd61f257-4826-4cb8-a105-51d40aa6ba7c`). O procedimento anterior de S3/CloudFront foi substituído.
 

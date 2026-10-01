@@ -34,12 +34,13 @@ await context.route('**/*',async route=>{
  else if(url.pathname==='/api/hotmart/vendas')body={success:true,data:{count:1,totalGross:300,totalNet:250,totalFees:50,transactions:[{transaction:'h1',product:'Seu segundo salário com IA',grossValue:300,netValue:250,fee:50,paymentMethod:'PIX',orderDate:`${date}T16:10:00-03:00`}]}}
  else if(url.pathname==='/api/hotmart/reembolsos')body={success:true,data:{count:0,totalRefundAmount:0,transactions:[]}}
  else if(url.pathname.startsWith('/api/boleto/vendas/'))body={success:true,data:[{id:'tmb-1-0',raw:{pedido_id:1},product:'DevClub Vitalício',value:800,timestamp:`${date}T10:00:00-03:00`,utm_source:'comercial'}]}
- else if(url.pathname==='/api/boleto/asaas/vendas')body={success:true,data:{sales:{count:1,totalValue:1000,entryValue:200,entries:[{id:'a1',productDescription:'MBA em IA',totalValue:1000,entryValue:200,createdAt:`${date}T09:20:00-03:00`}]}}}
+ else if(url.pathname==='/api/boleto/asaas/vendas')body={success:true,data:{cashReceipts:[{date,received:900,count:1}],sales:{count:1,totalValue:1000,entryValue:200,entries:[{id:'a1',productDescription:'MBA em IA',totalValue:1000,entryValue:200,createdAt:`${date}T09:20:00-03:00`}]}}}
  else if(url.pathname==='/api/boleto/boletex/vendas'){
   if(failedBoletex){await route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({success:false})});return}
   body={success:true,data:{sales:{count:1,totalValue:2000,confirmedValue:400,pendingValue:1600,listPriceValue:1800,entries:[{id:'b1',productDescription:'IAClub',totalValue:2000,listPrice:1800,entryValue:400,pendingValue:1600,createdAt:`${date}T14:10:00-03:00`}]},emitted:{count:3,expectedEntryValue:600}}}
  }
- else if(url.pathname==='/api/sales-ops/ledger')body={data:{attributions:[],manualSales:[{id:1,date,product:'DevClub - renovação',family:'DevClub',gross:650,net:600,cashCollected:600,buyerName:'QA manual',buyerEmail:'qa-manual@example.test',sellerName:'Consultor QA',platform:'Guru',status:'pending',utm:{source:'comercial'},syncPending:false}]}}
+ else if(url.pathname==='/api/sales-ops/ledger')body={data:{attributions:[{source:'guru',externalId:'g1',sellerId:'ana',sellerName:'Ana'}],manualSales:[{id:1,date,product:'DevClub - renovação',family:'DevClub',gross:650,net:600,cashCollected:600,buyerName:'QA manual',buyerEmail:'qa-manual@example.test',sellerId:'ana',sellerName:'Ana',platform:'Guru',status:'pending',utm:{source:'comercial'},syncPending:false}]}}
+ else if(url.pathname==='/api/goal-plans/options')body={teams:[{id:'commercial',name:'Comercial',active:true}],individuals:[{id:'ana',name:'Ana',teamId:'commercial',active:true}]}
  else if(url.pathname.startsWith('/api/goal-plans/'))body={plans:[{id:1,product:'all',metric:'operational',target:30000,superTarget:35000,ultraTarget:40000,paceBasis:'calendar'},{id:2,updatedAt:date+'T12:00:00Z',notes:'',product:'DevClub',metric:'operational',target:10000,superTarget:12000,ultraTarget:15000,paceBasis:'business'}]}
  else body={data:[],plans:[]}
  await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(body)})
@@ -66,6 +67,7 @@ for(const width of [1440,360]){
     assert.equal(apiCalls.length,before,'Local filter unexpectedly refetched APIs')
     await page.getByRole('button',{name:/Limpar filtros/}).click()
    } else {
+    await page.getByLabel('Base financeira',{exact:true}).selectOption('operational')
     assert.match(await page.locator('.pace-stat').first().innerText(),/8.150,00/)
     await page.getByLabel('Base financeira',{exact:true}).selectOption('net')
     assert.match(await page.locator('.pace-target').innerText(),/Sem meta/)
@@ -73,6 +75,22 @@ for(const width of [1440,360]){
   }
  }
 }
+await page.goto(`${base}/pace`,{waitUntil:'networkidle'})
+await page.getByRole('heading',{name:'Metas e ritmo de vendas',exact:true}).waitFor()
+await page.waitForFunction(()=>!document.querySelector('button.button-primary:disabled'))
+assert.match(await page.locator('.pace-stat').first().innerText(),/8.400,00/)
+await page.getByLabel('Base financeira',{exact:true}).selectOption('cash')
+assert.match(await page.locator('.pace-stat').first().innerText(),/1.500,00/)
+await page.getByRole('group',{name:'Escopo da meta'}).getByRole('button',{name:'Time',exact:true}).click()
+assert.match(await page.locator('.pace-stat').first().innerText(),/600,00/)
+assert.match(await page.locator('.daily-feedback').innerText(),/900,00.*sem time/)
+await page.getByLabel('Base financeira',{exact:true}).selectOption('gross')
+assert.match(await page.locator('.pace-stat').first().innerText(),/1.700,00/)
+await page.getByRole('group',{name:'Escopo da meta'}).getByRole('button',{name:'Indivíduo',exact:true}).click()
+assert.match(await page.locator('.pace-stat').first().innerText(),/1.700,00/)
+await page.getByRole('group',{name:'Escopo da meta'}).getByRole('button',{name:'Produto',exact:true}).click()
+await page.getByLabel('Família de produto',{exact:true}).selectOption('MBA')
+assert.match(await page.locator('.pace-stat').first().innerText(),/3.050,00/)
 failedBoletex=true
 await page.goto(`${base}/diario`,{waitUntil:'networkidle'})
 await page.getByRole('heading',{name:'Diário de vendas',exact:true}).waitFor()

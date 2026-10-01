@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import fs from 'node:fs/promises'
 import assert from 'node:assert/strict'
 import {checkComparison} from './comparison-checks.mjs'
+import { checkGoalConfiguration } from './goal-config-checks.mjs'
 const out = process.env.DASHBOARD_SMOKE_OUTPUT || fileURLToPath(new URL('./artifacts/integration', import.meta.url))
 await fs.mkdir(out, { recursive: true })
 const base = process.env.DASHBOARD_SMOKE_URL || 'http://localhost:4317'
@@ -17,11 +18,15 @@ const guruRows = [
 const apiCalls=[]
 let failedBoletex=false
 let admin=true
+let goalReader=false
 let comparisonFixture=false
 const writes=[]
 const materials=[{id:'material-1',title:'Playbook comercial',description:'Documento de treinamento',category:'Treinamentos',url:'storage://materials/playbook.pdf',created_at:'2026-09-10T12:00:00Z'}]
 const profile={id:'seller-1',name:'Consultor QA',email:'qa@example.test',role:'gestor',active:true,individual_goal:10000,is_editor:true,created_at:'2026-01-01T12:00:00Z'}
 const ledger={attributions:[],manualSales:[]}
+const goalTeamId='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', goalIndividualId='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+const goalOptions={teams:[{id:goalTeamId,name:'Time comercial QA',active:true,archived:false},{id:'cccccccc-cccc-4ccc-8ccc-cccccccccccc',name:'Time anterior',active:false,archived:true}],individuals:[{id:goalIndividualId,name:'Pessoa QA',teamId:goalTeamId,active:true},{id:'dddddddd-dddd-4ddd-8ddd-dddddddddddd',name:'Pessoa anterior',teamId:goalTeamId,active:false}]}
+const goalPlans=[{id:1,updatedAt:date+'T12:00:00Z',notes:'',product:'all',metric:'operational',target:30000,superTarget:35000,ultraTarget:40000,paceBasis:'calendar'},{id:2,updatedAt:date+'T12:00:00Z',notes:'',product:'DevClub',metric:'operational',target:10000,superTarget:12000,ultraTarget:15000,paceBasis:'business'}]
 const checks=[]
 const errors=[]
 const localChrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
@@ -38,7 +43,7 @@ await context.route('**/*',async route=>{
  const method=route.request().method(); const request=route.request();
  if(!['GET','HEAD'].includes(method))writes.push({path:url.pathname,method,body:request.headers()['content-type']?.includes('json')?request.postDataJSON():request.postData()})
  let body
- if(url.pathname==='/api/access')body={user:{sub:'fixture-user',email:'qa@example.test',name:'QA local',permissions:admin?['admin']:['materials'],isAdmin:admin}}
+ if(url.pathname==='/api/access')body={user:{sub:'fixture-user',email:'qa@example.test',name:'QA local',permissions:admin?['admin']:goalReader?['goals']:['materials'],isAdmin:admin}}
 
  else if(url.pathname==='/api/hub/session')body={user:{...profile,role:admin?'gestor':'vendedor'}}
  else if(url.pathname==='/api/hub/materials/upload')body={url:'storage://materials/fixture-upload.pdf'}
@@ -67,7 +72,14 @@ await context.route('**/*',async route=>{
  else if(url.pathname==='/api/refunds/overview')body={data:[{id:'refund-1',name:'Cliente Reembolso QA',email:'refund@example.test',product:'DevClub',sources:['guru'],platform:'guru',kind:'confirmed',status:'refunded',referenceDate:date,dateBasis:'refund',saleAmount:1000,refundAmount:1000,currency:'BRL',transactionId:'refund-source-1',refundedAt:date,purchasedAt:date,note:'Fixture local'}],sources:[{id:'guru',status:'available',recordCount:1,message:'Consulta concluída'}],incomplete:false,deduplication:{removed:0},excludedUndated:0,generatedAt:date+'T12:00:00Z'}
  else if(url.pathname.startsWith('/api/goals/revenue/'))body={data:{faturamentoCartao:{base:1000,super:2000,ultra:3000},faturamentoBoleto:{base:1000,super:2000,ultra:3000},investimentoTrafego:{base:100,super:200,ultra:300}}}
  else if(url.pathname.startsWith('/api/goals/'))body={success:true,data:{meta:30000,superMeta:35000,ultraMeta:40000}}
- else if(url.pathname.startsWith('/api/goal-plans/')&&method==='PUT')body={plan:{...request.postDataJSON(),id:'plan-1',updatedAt:date+'T18:00:00Z'}}
+ else if(url.pathname==='/api/goal-plans/options')body=goalOptions
+ else if(url.pathname.startsWith('/api/goal-plans/')&&method==='PUT'){
+  const input=request.postDataJSON()
+  const previous=goalPlans.findIndex(plan=>(plan.scope||(plan.product==='all'?'overall':'product'))===input.scope&&(plan.scopeId||(plan.product==='all'?'':plan.product))===input.scopeId&&plan.metric===input.metric)
+  const plan={...input,id:previous>=0?goalPlans[previous].id:`plan-${goalPlans.length+1}`,updatedAt:date+'T18:00:00Z',scopeName:input.scope==='overall'?'Meta geral':input.scope==='product'?input.scopeId:input.scope==='team'?'Time comercial QA':'Pessoa QA'}
+  if(previous>=0)goalPlans[previous]=plan;else goalPlans.push(plan)
+  body={plan}
+ }
  else if(url.pathname==='/api/transactions')body={data:guruRows}
  else if(url.pathname==='/api/refunds')body={data:[]}
  else if(url.pathname==='/api/hotmart/vendas')body={success:true,data:{count:1,totalGross:300,totalNet:250,totalFees:50,transactions:[{transaction:'h1',product:'Seu segundo salário com IA',grossValue:300,netValue:250,fee:50,paymentMethod:'PIX',orderDate:`${date}T16:10:00-03:00`}]}}
@@ -79,7 +91,7 @@ await context.route('**/*',async route=>{
   body={success:true,data:{sales:{count:1,totalValue:2000,confirmedValue:400,pendingValue:1600,listPriceValue:1800,entries:[{id:'b1',productDescription:'IAClub',totalValue:2000,listPrice:1800,entryValue:400,pendingValue:1600,createdAt:`${date}T14:10:00-03:00`}]},emitted:{count:3,expectedEntryValue:600}}}
  }
  else if(url.pathname==='/api/sales-ops/ledger')body={data:comparisonFixture?{...ledger,manualSales:ledger.manualSales.filter(sale=>sale.date>=url.searchParams.get('from')&&sale.date<=url.searchParams.get('to'))}:ledger}
- else if(url.pathname.startsWith('/api/goal-plans/'))body={plans:[{id:1,updatedAt:date+'T12:00:00Z',notes:'',product:'all',metric:'operational',target:30000,superTarget:35000,ultraTarget:40000,paceBasis:'calendar'},{id:2,updatedAt:date+'T12:00:00Z',notes:'',product:'DevClub',metric:'operational',target:10000,superTarget:12000,ultraTarget:15000,paceBasis:'business'}]}
+ else if(url.pathname.startsWith('/api/goal-plans/'))body={plans:goalPlans}
  else body={data:[],plans:[]}
  if(comparisonFixture&&!url.pathname.includes('/sales-ops/')){
   const requested=method==='POST'?request.postDataJSON()?.ordered_at_ini:url.searchParams.get('date')||url.searchParams.get('data_inicio')
@@ -102,6 +114,7 @@ async function visit(path,heading){
  assert.deepEqual(errors,[],`${path} page errors`)
 }
 async function shot(name){
+ await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}))
  await page.screenshot({path:`${out}/${name}.png`,fullPage:true,animations:'disabled'})
  const fits=await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)
  if(!fits) console.log('OVERFLOW',name,JSON.stringify(await page.evaluate(()=>[...document.querySelectorAll('body *')].filter(n=>n.getBoundingClientRect().right>window.innerWidth+1).map(n=>({tag:n.tagName,class:n.className,right:n.getBoundingClientRect().right,position:getComputedStyle(n).position,overflow:getComputedStyle(n).overflow})).slice(0,18))))
@@ -132,22 +145,12 @@ assert.equal(writes.find(w=>w.path==='/api/hub/rest/v1/materials'&&w.method==='P
 checked('Materials upload and category update exact REST bodies')
 await shot('materials-desktop')
 await visit('/metas','Metas da operação')
-let general=page.locator('section').filter({has:page.getByRole('heading',{name:'Meta geral',exact:true})})
-await general.getByLabel('Meta base (R$)',{exact:true}).fill('32000')
-await general.getByLabel('Supermeta (R$)',{exact:true}).fill('37000')
-await general.getByLabel('Ultrameta (R$)',{exact:true}).fill('42000')
-await general.getByLabel('Distribuição do ritmo').selectOption('business')
-await general.getByLabel('Observações').fill('Planejamento QA')
-await general.getByRole('button',{name:'Salvar',exact:true}).click()
-await page.getByText('Meta de todos os produtos salva.',{exact:true}).waitFor()
-assert.deepEqual(writes.find(w=>w.path==='/api/goal-plans/2026/9'&&w.method==='PUT').body,{id:1,updatedAt:date+'T12:00:00Z',notes:'Planejamento QA',product:'all',metric:'operational',target:32000,superTarget:37000,ultraTarget:42000,paceBasis:'business'})
-checked('Goal editing exact PUT request')
-await shot('goals-desktop')
+await checkGoalConfiguration({page,writes,checked,shot,teamId:goalTeamId,individualId:goalIndividualId})
 await page.getByRole('tab',{name:'Receita por pagamento'}).click()
 await page.getByRole('button',{name:'Salvar metas financeiras'}).click()
 await page.getByText('Metas financeiras salvas.').waitFor()
 checked('Financial goals POST action')
-await page.getByRole('tab',{name:'Time comercial'}).click()
+await page.getByRole('tab',{name:'Metas comerciais anteriores'}).click()
 await page.getByText(/Metas comerciais do Hub/).waitFor()
 assert.deepEqual(errors,[])
 checked('Commercial goals Hub provider mounts')
@@ -225,6 +228,13 @@ ledger.manualSales=[
 await checkComparison({page,visit,shot,checked,apiCalls})
 await page.setViewportSize({width:1440,height:1000})
 admin=false
+goalReader=true
+await visit('/metas','Metas da operação')
+const readonlyGross=page.getByRole('form',{name:'Meta de Bruto',exact:true})
+assert.equal(await readonlyGross.getByLabel(/Meta base/).isDisabled(),true)
+assert.equal(await page.getByRole('button',{name:/^Salvar/}).count(),0)
+checked('Goals reader sees saved targets without write controls')
+goalReader=false
 await visit('/materials','Biblioteca de materiais')
 assert.equal(await page.getByRole('button',{name:'Adicionar material'}).count(),0)
 assert.equal(await page.getByRole('link',{name:'Visão global',exact:true}).count(),0)

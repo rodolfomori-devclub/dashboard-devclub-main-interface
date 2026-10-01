@@ -1,29 +1,90 @@
 /* eslint-disable react/prop-types -- Internal React 19 components with explicit props. */
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowUpRight, Target, Save } from 'lucide-react'
+import { ArrowUpRight, Building2, Package, UserRound, Users } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { requestApi } from '../lib/api'
 import { PageSkeleton } from '../components/WorkspaceLayout'
-const HubGoals=lazy(()=>import('./HubGoals'))
-const MONTHS=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
-const PRODUCTS=['all','MBA','DevClub','IAClub','Seu segundo salário com IA','Outros']
-const METRICS={operational:'Valor operacional',gross:'Valor bruto',net:'Valor líquido',cash:'Caixa recebido',count:'Quantidade de vendas'}
-const empty=product=>({product,metric:'operational',target:0,superTarget:0,ultraTarget:0,paceBasis:'calendar',notes:''})
-export default function GoalsPage(){
- const {userRoles,hasPermission}=useAuth();const admin=userRoles?.isAdmin
- const [year,setYear]=useState(new Date().getFullYear()),[month,setMonth]=useState(new Date().getMonth()+1),[tab,setTab]=useState('products'),[metric,setMetric]=useState('operational'),[plans,setPlans]=useState([]),[drafts,setDrafts]=useState({}),[error,setError]=useState(''),[loading,setLoading]=useState(true),[saving,setSaving]=useState(null),[message,setMessage]=useState(''),[revision,setRevision]=useState(0)
- useEffect(()=>{if(tab!=='products')return;const controller=new AbortController();setLoading(true);setDrafts({});setError('');setMessage('');requestApi(`/goal-plans/${year}/${month}`,{signal:controller.signal}).then(({plans})=>{if(controller.signal.aborted)return;setPlans(plans);setDrafts(Object.fromEntries(PRODUCTS.map(product=>[product,plans.find(p=>p.product===product&&p.metric===metric)||{...empty(product),metric}])))}).catch(e=>{if(e.name!=='AbortError')setError(e.message)}).finally(()=>{if(!controller.signal.aborted)setLoading(false)});return()=>controller.abort()},[year,month,metric,revision,tab])
- const change=(product,key,value)=>setDrafts(current=>{const next={...current[product],[key]:value};if(key==='target'){next.superTarget=Math.max(value,next.superTarget);next.ultraTarget=Math.max(next.superTarget,next.ultraTarget)}if(key==='superTarget')next.ultraTarget=Math.max(value,next.ultraTarget);return {...current,[product]:next}})
- const save=async product=>{setSaving(product);setError('');setMessage('');try{const result=await requestApi(`/goal-plans/${year}/${month}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(drafts[product])});setPlans(prev=>[...prev.filter(p=>!(p.product===product&&p.metric===metric)),result.plan]);setMessage(`Meta de ${product==='all'?'todos os produtos':product} salva.`)}catch(e){setError(e.message)}finally{setSaving(null)}}
- return <div className="hub-page"><header className="page-heading"><div><h1>Metas da operação</h1><p>Defina o resultado esperado do negócio, de cada produto e da equipe.</p></div>{hasPermission('goal-pace')&&<Link className="button button-primary" to={`/pace?year=${year}&month=${month}`}><ArrowUpRight size={17}/>Acompanhar o ritmo</Link>}</header><div className="tab-strip" role="tablist" aria-label="Grupo de metas">{[['products','Negócio e produtos'],['team','Time comercial'],['finance','Receita por pagamento']].map(([key,label])=><button key={key} role="tab" aria-selected={tab===key} onClick={()=>setTab(key)}>{label}</button>)}</div>
- {tab==='team'?<Suspense fallback={<PageSkeleton/>}><HubGoals/></Suspense>:<><div className="filter-bar"><label>Mês<select value={month} onChange={e=>setMonth(+e.target.value)}>{MONTHS.map((name,index)=><option key={name} value={index+1}>{name}</option>)}</select></label><label>Ano<input type="number" min="2000" max="2100" value={year} onChange={e=>{const value=+e.target.value;if(value>=2000&&value<=2100)setYear(value)}}/></label>{tab==='products'&&<label>Indicador<select value={metric} onChange={e=>setMetric(e.target.value)}>{Object.entries(METRICS).map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label>}</div>
- {tab==='finance'?<RevenueGoals year={year} month={month} admin={admin}/>:<>
- <div className="notice">{metric==='operational'?'O valor operacional preserva o critério atual de cada plataforma. Para comparações estritas, escolha bruto, líquido ou caixa; essas métricas podem não estar disponíveis em todas as fontes.':'A comparação considera apenas valores que a fonte informa para este indicador.'} A meta geral é independente da soma das metas por produto. Ritmo por dias úteis considera segunda a sexta, sem feriados.</div>
- {error&&<div className="notice notice-error" role="alert">{error}<button className="underline ml-3" onClick={()=>setRevision(v=>v+1)}>Tentar novamente</button></div>}{message&&<div className="notice" role="status">{message}</div>}
- {loading?<PageSkeleton/>:!error||Object.keys(drafts).length?<div className="space-y-4">{PRODUCTS.map(product=>{const draft=drafts[product];if(!draft)return null;const saved=plans.find(p=>p.product===product&&p.metric===metric);return <section key={product} className="surface-panel"><header className="flex items-center justify-between gap-3 mb-5"><div className="flex items-center gap-3"><Target size={21} className="text-primary"/><div><h2 className="text-lg">{product==='all'?'Meta geral':product}</h2><p className="text-xs text-muted-foreground">{saved?`Atualizada em ${new Date(saved.updatedAt).toLocaleString('pt-BR')}`:'Ainda não configurada'}</p></div></div>{admin&&<button className="button" disabled={saving!==null} onClick={()=>save(product)}><Save size={15}/>{saving===product?'Salvando…':'Salvar'}</button>}</header><fieldset disabled={!admin||saving!==null}><div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">{[['target','Meta base'],['superTarget','Supermeta'],['ultraTarget','Ultrameta']].map(([key,label])=><label key={key} className="ds-label">{label} {metric!=='count'&&'(R$)'}<input className="ds-input mt-2" type="number" min="0" max="999999999999" step={metric==='count'?'1':'.01'} value={draft[key]} onChange={e=>change(product,key,e.target.value===''?'':Number(e.target.value))}/></label>)}<label className="ds-label">Distribuição do ritmo<select className="ds-input mt-2" value={draft.paceBasis} onChange={e=>change(product,'paceBasis',e.target.value)}><option value="calendar">Dias corridos</option><option value="business">Dias úteis</option></select></label></div><label className="ds-label mt-4">Observações<input className="ds-input mt-2" maxLength={2000} value={draft.notes} onChange={e=>change(product,'notes',e.target.value)} placeholder="Premissas, campanha ou objetivo deste mês"/></label></fieldset></section>})}</div>:null}</>}
- </>}
- </div>
+import GoalMetricEditor from '../components/goals/GoalMetricEditor'
+import { GOAL_METRICS, GOAL_SCOPES, goalPlanKey, goalScopeTargets, normalizeGoalPlan } from '../components/goals/goalConfig'
+import '../components/goals/goalsConfig.css'
+
+const HubGoals = lazy(() => import('./HubGoals'))
+const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+const SCOPE_ICONS = { overall: Building2, product: Package, team: Users, individual: UserRound }
+const SELECT_LABELS = { product: 'Família de produtos', team: 'Time', individual: 'Indivíduo' }
+const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 2 })
+const quantity = new Intl.NumberFormat('pt-BR')
+
+export default function GoalsPage() {
+  const { userRoles, hasPermission } = useAuth()
+  const admin = Boolean(userRoles?.isAdmin)
+  const [year, setYear] = useState(new Date().getFullYear()), [month, setMonth] = useState(new Date().getMonth() + 1)
+  const [tab, setTab] = useState('plans'), [scope, setScope] = useState('overall')
+  const [selection, setSelection] = useState({ product: 'MBA', team: '', individual: '' })
+  const [metric, setMetric] = useState('operational'), [plans, setPlans] = useState([])
+  const [options, setOptions] = useState({ teams: [], individuals: [] })
+  const [loading, setLoading] = useState(true), [error, setError] = useState(''), [revision, setRevision] = useState(0)
+  const [optionsLoading, setOptionsLoading] = useState(true), [optionsError, setOptionsError] = useState(''), [optionsRevision, setOptionsRevision] = useState(0)
+  const period = `${year}/${month}`, periodRef = useRef(period)
+  periodRef.current = period
+
+  useEffect(() => {
+    if (tab !== 'plans') return
+    const controller = new AbortController()
+    setLoading(true); setPlans([]); setError('')
+    requestApi(`/goal-plans/${year}/${month}`, { signal: controller.signal })
+      .then(result => { if (!Array.isArray(result.plans)) throw new Error('A consulta não retornou as metas do período. Tente novamente.'); if (!controller.signal.aborted) setPlans(result.plans.map(normalizeGoalPlan)) })
+      .catch(failure => { if (!controller.signal.aborted) setError(failure.message) })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false) })
+    return () => controller.abort()
+  }, [year, month, revision, tab])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    setOptionsLoading(true); setOptionsError('')
+    requestApi('/goal-plans/options', { signal: controller.signal })
+      .then(result => { if (!Array.isArray(result.teams) || !Array.isArray(result.individuals)) throw new Error('A consulta não retornou os cadastros disponíveis.'); if (!controller.signal.aborted) setOptions({ teams: result.teams, individuals: result.individuals }) })
+      .catch(failure => { if (!controller.signal.aborted) setOptionsError(failure.message || 'Não foi possível consultar os times e indivíduos.') })
+      .finally(() => { if (!controller.signal.aborted) setOptionsLoading(false) })
+    return () => controller.abort()
+  }, [optionsRevision])
+
+  const targets = goalScopeTargets(scope, options, plans)
+  const scopeId = scope === 'overall' ? '' : selection[scope]
+  const target = targets.find(item => item.id === scopeId)
+  const needsOptions = scope === 'team' || scope === 'individual'
+  const editable = admin && target?.active && (!needsOptions || (!optionsLoading && !optionsError))
+  const selectedPlan = indicator => plans.find(plan => plan.scope === scope && plan.scopeId === scopeId && plan.metric === indicator)
+  const scopePlans = plans.filter(plan => plan.scope === scope)
+  async function save(payload) {
+    const savedPeriod = period
+    const result = await requestApi(`/goal-plans/${savedPeriod}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+    if (!result.plan) throw new Error('O servidor não confirmou a gravação da meta. Tente novamente.')
+    const saved = normalizeGoalPlan(result.plan)
+    if (periodRef.current === savedPeriod) setPlans(previous => [...previous.filter(plan => goalPlanKey(plan) !== goalPlanKey(saved)), saved])
+  }
+  const editor = indicator => <GoalMetricEditor key={`${period}:${scope}:${scopeId}:${indicator}`} plan={selectedPlan(indicator)} scope={scope} scopeId={scopeId} scopeName={target.name} metric={indicator} editable={editable} onSave={save} />
+
+  return <div className="hub-page goals-config-page">
+    <header className="page-heading"><div><h1>Metas da operação</h1><p>Planeje o resultado geral, por produto, time e indivíduo.</p></div>{hasPermission('goal-pace') && <Link className="button button-primary" to={`/pace?year=${year}&month=${month}`}><ArrowUpRight size={17} />Acompanhar o ritmo</Link>}</header>
+    <div className="tab-strip" role="tablist" aria-label="Grupo de metas">{[['plans', 'Planejamento mensal'], ['finance', 'Receita por pagamento'], ['legacy', 'Metas comerciais anteriores']].map(([key, label]) => <button key={key} role="tab" aria-selected={tab === key} onClick={() => setTab(key)}>{label}</button>)}</div>
+    {tab === 'legacy' ? <><p className="goal-plan-help">Configurações anteriores do módulo comercial. Elas mantêm seus próprios critérios e não alteram o planejamento mensal por escopo.</p><Suspense fallback={<PageSkeleton />}><HubGoals /></Suspense></> : <>
+      <div className="filter-bar"><label>Mês<select value={month} onChange={event => setMonth(Number(event.target.value))}>{MONTHS.map((name, index) => <option key={name} value={index + 1}>{name}</option>)}</select></label><label>Ano<input type="number" min="2000" max="2100" value={year} onChange={event => { const next = Number(event.target.value); if (next >= 2000 && next <= 2100) setYear(next) }} /></label></div>
+      {tab === 'finance' ? <RevenueGoals year={year} month={month} admin={admin} /> : <>
+        <nav className="goal-scope-nav" aria-label="Escopo da meta">{GOAL_SCOPES.map(item => { const Icon = SCOPE_ICONS[item.id]; return <button key={item.id} type="button" aria-pressed={scope === item.id} aria-label={item.label} onClick={() => setScope(item.id)}><Icon size={20} /><span><strong>{item.label}</strong><small>{item.description}</small></span></button> })}</nav>
+        <p className="goal-plan-help">Os quatro escopos são independentes. A meta geral não é a soma das metas de produtos, times ou indivíduos.</p>
+        <section className="goal-scope-context" aria-label="Destino do planejamento"><div><h2>{target?.name || `Selecione um ${scope === 'individual' ? 'indivíduo' : 'time'}`}</h2><p>{MONTHS[month - 1]} de {year} · Bruto e cash collected têm metas e acompanhamento próprios.</p></div>{scope !== 'overall' && <label className="goal-selection">{SELECT_LABELS[scope]}<select className="ds-input" aria-label={SELECT_LABELS[scope]} value={scopeId} disabled={needsOptions && (optionsLoading || Boolean(optionsError))} onChange={event => setSelection(previous => ({ ...previous, [scope]: event.target.value }))}>{needsOptions && <option value="">Selecione {scope === 'team' ? 'um time' : 'um indivíduo'}</option>}{targets.map(item => <option key={item.id} value={item.id} disabled={!item.active}>{item.name}{!item.active ? ' · Inativo' : ''}</option>)}</select></label>}</section>
+        {needsOptions && optionsLoading && <p className="notice" role="status">Carregando times e indivíduos…</p>}
+        {needsOptions && optionsError && <div className="notice notice-error" role="alert">Times e indivíduos indisponíveis: {optionsError}<button className="underline ml-3" onClick={() => setOptionsRevision(value => value + 1)}>Consultar cadastros novamente</button></div>}
+        {error && <div className="notice notice-error" role="alert">{error}<button className="underline ml-3" onClick={() => setRevision(value => value + 1)}>Tentar novamente</button></div>}
+        {loading ? <PageSkeleton /> : !error && <>
+          {target ? <><div className="surface-panel goal-financial-grid">{editor('gross')}{editor('cash')}</div><details className="surface-panel goal-extras"><summary>Outros indicadores</summary><p>As metas de valor operacional, líquido e quantidade continuam disponíveis separadamente.</p><label className="goal-selection">Indicador adicional<select className="ds-input" aria-label="Indicador adicional" value={metric} onChange={event => setMetric(event.target.value)}>{['operational', 'net', 'count'].map(indicator => <option key={indicator} value={indicator}>{GOAL_METRICS[indicator].label}</option>)}</select></label>{editor(metric)}</details></> : !optionsLoading && !optionsError && <div className="surface-panel goal-scope-empty">{targets.some(item => item.active) ? `Selecione ${scope === 'team' ? 'um time' : 'um indivíduo'} para configurar suas metas.` : scope === 'individual' ? 'Ainda não há indivíduos ativos disponíveis. As pessoas aparecem após o primeiro acesso ao módulo comercial.' : 'Ainda não há times ativos disponíveis no módulo comercial.'}</div>}
+          {scopePlans.length > 0 && <section className="surface-panel"><div className="goal-history-heading"><h2>Metas configuradas · {GOAL_SCOPES.find(item => item.id === scope).label}</h2><span>{scopePlans.length} {scopePlans.length === 1 ? 'indicador configurado' : 'indicadores configurados'}</span></div><div className="goal-history"><table><thead><tr><th>Destino / indicador</th><th>Meta base</th><th>Supermeta</th><th>Ultrameta</th><th>Ritmo</th></tr></thead><tbody>{scopePlans.map(plan => { const destination = targets.find(item => item.id === plan.scopeId); const format = value => (plan.metric === 'count' ? quantity : currency).format(value); return <tr key={goalPlanKey(plan)}><td>{destination?.name || plan.scopeName || plan.scopeId}<small>{GOAL_METRICS[plan.metric]?.label || plan.metric}{destination?.active === false ? ' · Cadastro inativo' : ''}</small></td><td>{format(plan.target)}</td><td>{format(plan.superTarget)}</td><td>{format(plan.ultraTarget)}</td><td>{plan.paceBasis === 'business' ? 'Dias úteis' : 'Dias corridos'}</td></tr> })}</tbody></table></div></section>}
+        </>}
+      </>}
+    </>}
+  </div>
 }
 function RevenueGoals({year,month,admin}){
  const [data,setData]=useState(null),[error,setError]=useState(''),[saving,setSaving]=useState(false),[message,setMessage]=useState('')

@@ -8,14 +8,19 @@ export function asaasCashOnly(data) {
 }
 
 export function sourceFinancialMetadata(sourceId, data) {
-  if (sourceId !== 'asaas' || !asaasCashOnly(data)) return { status: 'ready' }
+  if (sourceId !== 'asaas') return { status: 'ready' }
+  const receipts = Array.isArray(data?.cashReceipts) ? { cashReceipts: [
+    ...data.cashReceipts,
+    ...(data.cashReceiptsUndated?.count > 0 ? [{ date: null, received: data.cashReceiptsUndated.received, count: data.cashReceiptsUndated.count }] : []),
+  ] } : {}
+  if (!asaasCashOnly(data)) return { status: 'ready', ...receipts }
   const read = key => {
     const value = data[key]
     if (value === null || value === undefined || value === '' || !Number.isFinite(Number(value))) throw new Error('Caixa Asaas indisponível')
     return Number(value)
   }
   return {
-    status: 'partial', salesAvailable: false, reason: 'checkout_disabled',
+    ...receipts, status: 'partial', salesAvailable: false, reason: 'checkout_disabled',
     cash: { gross: read('totalGross'), net: read('totalNet'), fees: read('totalFees'), count: read('count'), availablePeriods: 1, periods: 1 },
   }
 }

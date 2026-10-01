@@ -1,0 +1,197 @@
+{
+  "baseline": "14ce72f42f00486c13ce027ddb0c163df44831ca",
+  "errors": 235,
+  "warnings": 3,
+  "files": [
+    {
+      "path": "src/components/CompareButton.jsx",
+      "errors": 4,
+      "warnings": 0,
+      "unchangedFromBaseline": true,
+      "sha256": "05fba822c928f45348ba434ebb366789fe588f019a3f6d2a6686cc52f843311b"
+    },
+    {
+      "path": "src/components/ConfettiEffect.jsx",
+      "errors": 1,
+      "warnings": 1,
+      "unchangedFromBaseline": true,
+      "sha256": "0b5dfd5352282fab8c2015d2071e852c29fc0a4fcbdc633035f08650f2d5959e"
+    },
+    {
+      "path": "src/components/DashboardCharts.jsx",
+      "errors": 10,
+      "warnings": 0,
+      "unchangedFromBaseline": true,
+      "sha256": "626192436c29371dfb1c98fa6594add8ff6b76fb7b323425315c0f8c384d3ad9"
+    },
+    {
+      "path": "src/components/DateRangePicker.jsx",
+      "errors": 5,
+      "warnings": 0,
+      "unchangedFromBaseline": true,
+      "sha256": "4f9232db5fca44b3120f1ba99128f279ad825931077f5cd1128d47f5db6e459f"
+    },
+    {
+      "path": "src/components/HubArea.jsx",
+      "errors": 1,
+      "warnings": 0,
+      "unchangedFromBaseline": true,
+      "sha256": "16cef83898258e429df86aa459d158ffa3267f2811a5aee72cfc5e16fcedcd12"
+    },
+    {
+      "path": "src/components/LastUpdateWidget.jsx",
+      "errors": 5,
+      "warnings": 0,
+      "unchangedFromBaseline": true,
+      "sha256": "ebd5c0db4d25623085cc35ed8978b43e41f4b0d98f7cc83982fa22c0cf869ec1"
+    },
+    {
+      "path": "src/components/LaunchComparisonModal.jsx",
+      "errors": 16,
+      "warnings": 0,
+      "unchangedFromBaseline": true,
+      "sha256": "de4f8eba60ae3d8fe6e06da39fa55be00b88bea6ded054075811a73edcbb0b87"
+    },
+    {
+      "path": "src/components/LaunchDetailModal.jsx",
+      "errors": 65,
+      "warnings": 0,
+      "unchangedFromBaseline": true,
+      "sha256": "12e487272dc46885dd9ff91e6b96005d68fa0a25dba9f43f9b98fd49e93c0577"
+    },
+    {
+      "path": "src/components/MetricCard.jsx",
+      "errors": 22,
+      "warnings": 0,
+      "unchangedFromBaseline": true,
+      "sha256": "93f836595c52e72679020dd44e1dc2a9e6ec3c38169323e2b7626c0fc30bf6a8"
+    },
+    {
+      "path": "src/components/MonthDetailsModal.jsx",
+      "errors": 9,
+      "warnings": 0,
+      "unchangedFromBaseline": true,
+      "sha256": "9bfc4cacdd21d5ccfde331da1734dd40577e665e20740d59c95fef0f7ad98987"
+    },
+    {
+      "path": "src/components/PaymentMethodAnalysis.jsx",
+      "errors": 11,
+      "warnings": 0,
+      "unchangedFromBaseline": true,
+      "sha256": "134cf335013461844bc881386d9b5e66bcef9f1578bc2322d780d17cf2c3a6ab"
+    },
+    {
+      "path": "src/components/PaymentMethodCards.jsx",
+      "errors": 4,
+      "warnings": 0,
+      "unchangedFromBaseline": true,
+      "sha256": "4b9ffaaf71f5befcbb8e305b03e4b73724a3c20bae4263c71c9ec82159bf7646"
+    },
+    {
+      "path": "src/components/PaymentMethodComparison.jsx",
+      "errors": 4,
+      "warnings": 0,
+      "unchangedFromBaseline": true,
+      "sha256": "6d630a52efe3a7a74b29375468dc9eae497a3be0ddf1a83343ebb92bf3923fe2"
+    },
+    {
+      "path": "src/components/PlatformBreakdown.jsx",
+      "errors": 2,
+      "warnings": 0,
+      "unchangedFromBaseline": true,
+      "sha256": "8c9453b52e6c8cd6b122f9ef9d183caa34b216566e8c5a72d6bf6544e47d6601"
+    },
+    {
+      "path": "src/components/PodiumTopSellers.jsx",
+      "errors": 4,
+      "warnings": 0,
+      "unchangedFromBaseline": true,
+      "sha256": "d560cdee01c1cd8141bd016f26844fca71a5d4139d66f834050ffbc42da3406e"
+    },
+    {
+      "path": "src/components/RefundDetailsButton.jsx",
+      "errors": 2,
+      "warnings": 0,
+      "unchangedFromBaseline": true,
+      "sha256": "641414228d2a058f3fe9ed41b033e0aa9e61d8e65810f98c6340c7f4d3717b96"
+    },
+    {
+      "path": "src/components/RefundDetailsModal.jsx",
+      "errors": 5,
+      "warnings": 0,
+      "unchangedFromBaseline": true,
+      "sha256": "890ac23111ea7df34c14669673154702117432c53ddb6910a45bf2806b459695"
+    },
+    {
+      "path": "src/components/ResponsiveTable.jsx",
+      "errors": 15,
+      "warnings": 0,
+      "unchangedFromBaseline": true,
+      "sha256": "fc27ffcfd8ff612e3abee1cd3e8ef4c14dd9849b9cc42721a956c7187f8ef0b9"
+    },
+    {
+      "path": "src/components/SellerDetailsModal.jsx",
+      "errors": 12,
+      "warnings": 0,
+      "unchangedFromBaseline": true,
+      "sha256": "dcb241f415815f11131f50228b3a06b67b43f70df5375f546600de4c59e23aec"
+    },
+    {
+      "path": "src/components/ThemeToggle.jsx",
+      "errors": 1,
+      "warnings": 0,
+      "unchangedFromBaseline": true,
+      "sha256": "63658c81debdfcde97de74d67f01e7b34a0ff1e27c06d6058f4832bef0f71092"
+    },
+    {
+      "path": "src/components/WeekSelector.jsx",
+      "errors": 7,
+      "warnings": 1,
+      "unchangedFromBaseline": true,
+      "sha256": "423444cc6aaf60368f0a21051f65f7b09c0da215e29956716fa9039ec4e593d4"
+    },
+    {
+      "path": "src/components/YearMonthSelector.jsx",
+      "errors": 5,
+      "warnings": 0,
+      "unchangedFromBaseline": true,
+      "sha256": "24e3c3a771911afcb5332ef72a28c71cb5aa3f8e94e976ff7f9ac4625b6fc373"
+    },
+    {
+      "path": "src/pages/CommercialDashboardPage.jsx",
+      "errors": 1,
+      "warnings": 0,
+      "unchangedFromBaseline": true,
+      "sha256": "f2c7157262b17736fde26c4a44b43ab960e140eb16c0295690a8d0d22ed129b7"
+    },
+    {
+      "path": "src/pages/CommercialSalesListPage.jsx",
+      "errors": 1,
+      "warnings": 1,
+      "unchangedFromBaseline": true,
+      "sha256": "32305003f86ffd9403f436cac613cfb043b2abb11409d0028e13858caa9a6053"
+    },
+    {
+      "path": "src/pages/CommercialSellersPage.jsx",
+      "errors": 17,
+      "warnings": 0,
+      "unchangedFromBaseline": true,
+      "sha256": "d21c9ab6ac67d56626d2ee1f0dabe8d7ade7df6d5ad00290460b664020546eeb"
+    },
+    {
+      "path": "src/services/goalsService.js",
+      "errors": 2,
+      "warnings": 0,
+      "unchangedFromBaseline": true,
+      "sha256": "c154b81ec4b6a18efc898eb37b054fca2c5af42f039386c6148c1658356d9d74"
+    },
+    {
+      "path": "src/services/revenueService.js",
+      "errors": 4,
+      "warnings": 0,
+      "unchangedFromBaseline": true,
+      "sha256": "9d9db827a8b8ca4ad858fc3083d799581a47edd49589b4523c9a3ba8a969239f"
+    }
+  ],
+  "allFindingFilesUnchanged": true
+}

@@ -1,10 +1,11 @@
 import { amount, parseSaleDate } from './salesData.js'
+import { goalScope, recordMatchesGoal, recordUnallocatedForGoal } from './goalScopes.js'
 
 export const PACE_METRICS = {
-  operational: { label: 'Valor operacional', field: 'revenue', unit: 'currency' },
   gross: { label: 'Bruto', field: 'gross', unit: 'currency' },
   net: { label: 'Líquido', field: 'net', unit: 'currency' },
-  cash: { label: 'Caixa recebido', field: 'received', unit: 'currency' },
+  cash: { label: 'Cash collected · caixa recebido', field: 'received', unit: 'currency' },
+  operational: { label: 'Valor operacional', field: 'revenue', unit: 'currency' },
   count: { label: 'Quantidade de vendas', field: 'quantity', unit: 'count' },
 }
 
@@ -20,6 +21,7 @@ export function monthBounds(year, month) {
 }
 
 export function dateForRecord(row) {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(row.date || '')) return row.date
   const value = parseSaleDate(row.date)
   return value ? brazilDate(new Date(value)) : null
 }
@@ -28,7 +30,7 @@ export function dateForRecord(row) {
  * Linear pace using the API's own monetary fields. Business days mean Monday–
  * Friday; no holiday calendar is assumed. Current day counts as elapsed.
  */
-export function calculateGoalPace({ year, month, plan, records = [], sources = [], today = brazilDate() }) {
+export function calculateGoalPace({ year, month, plan, records = [], sources = [], cashRecords, cashSources, directoryAvailable = true, today = brazilDate() }) {
   const bounds = monthBounds(year, month)
   const metric = PACE_METRICS[plan?.metric] || PACE_METRICS.operational
   const basis = plan?.paceBasis === 'business' ? 'business' : 'calendar'
@@ -37,24 +39,34 @@ export function calculateGoalPace({ year, month, plan, records = [], sources = [
   const future = today < bounds.start
   const ended = today > bounds.end
   const lastObservedDate = future ? null : today > bounds.end ? bounds.end : today
-  const periodRows = records.filter((row) => row.kind === 'sale' && (!plan?.product || plan.product === 'all' || row.family === plan.product))
+  const isCash = plan?.metric === 'cash'
+  const selectedRecords = isCash && cashRecords ? cashRecords : records
+  const selectedSources = isCash && cashSources ? cashSources : sources
+  const metricDate = row => dateForRecord(isCash ? { date: row.cashDate || null } : row)
+  const inWindow = row => { const date = metricDate(row); return !future && (!date || (date >= bounds.start && date <= lastObservedDate)) }
+  const periodRows = selectedRecords.filter((row) => row.kind === 'sale' && recordMatchesGoal(row, plan))
+  const unassigned = selectedRecords.filter(row => row.kind === 'sale' && inWindow(row) && recordUnallocatedForGoal(row, plan))
+  const unassignedValue = unassigned.reduce((sum, row) => sum + (amount(row[metric.field]) ?? 0), 0)
+  const targetScope = goalScope(plan)
+  const selectionMissing = targetScope.scope !== 'overall' && !targetScope.scopeId
+  const membershipUnavailable = targetScope.scope === 'team' && !directoryAvailable
   const observedRows = periodRows.filter((row) => {
-    const date = dateForRecord(row)
+    const date = metricDate(row)
     // Preserve the requested source totals for undated records, but never
     // count a transaction dated after the current observation window.
-    return !future && (!date || date <= lastObservedDate)
+    return !future && (!date || (date >= bounds.start && date <= lastObservedDate))
   })
-  const saleSources = sources.filter((source) => source.kind === 'sale')
+  const saleSources = selectedSources.filter((source) => source.kind === 'sale')
   const available = saleSources.some((source) => source.status === 'ready' && (source.id !== 'manual' || observedRows.some((row) => row.sourceId === 'manual')))
-  const sourceIncomplete = saleSources.some((source) => source.status !== 'ready') || !available
+  const sourceIncomplete = saleSources.some((source) => source.status !== 'ready' || source.excludedReceipts > 0) || !available || membershipUnavailable || selectionMissing
   const missing = observedRows.filter((row) => amount(row[metric.field]) === null)
   const known = observedRows.filter((row) => amount(row[metric.field]) !== null)
-  const actual = !available || (observedRows.length > 0 && !known.length) ? null : known.reduce((sum, row) => sum + amount(row[metric.field]), 0)
+  const actual = !available || membershipUnavailable || selectionMissing || (observedRows.length > 0 && !known.length) ? null : known.reduce((sum, row) => sum + amount(row[metric.field]), 0)
   const dailyValues = new Map()
   let unallocated = 0
   let unallocatedRecords = 0
   for (const row of known) {
-    const date = dateForRecord(row)
+    const date = metricDate(row)
     if (!date || date < bounds.start || date > bounds.end) { unallocated += amount(row[metric.field]); unallocatedRecords++; continue }
     dailyValues.set(date, (dailyValues.get(date) || 0) + amount(row[metric.field]))
   }
@@ -85,8 +97,8 @@ export function calculateGoalPace({ year, month, plan, records = [], sources = [
   const projection = actual !== null && elapsedDays > 0 ? ended ? actual : actual / elapsedDays * totalDays : null
   const remaining = actual !== null && validTarget ? Math.max(0, target - actual) : null
   const requiredPerDay = remaining !== null && remainingDays > 0 ? remaining / remainingDays : null
-  const definitive = !sourceIncomplete && missing.length === 0 && actual !== null
-  return { ...bounds, metric, basis, target, validTarget, future, ended, lastObservedDate, totalDays, elapsedDays, remainingDays, available, sourceIncomplete, missingRecords: missing.length, actual, expected, delta, pacePercent, projection, remaining, requiredPerDay, definitive, unallocated, unallocatedRecords, rows,
+  const definitive = !sourceIncomplete && missing.length === 0 && actual !== null && unassigned.length === 0 && unallocatedRecords === 0
+  return { ...bounds, metric, basis, target, validTarget, future, ended, lastObservedDate, totalDays, elapsedDays, remainingDays, available, sourceIncomplete, missingRecords: missing.length, unassignedRecords: unassigned.length, unassignedValue, membershipUnavailable, actual, expected, delta, pacePercent, projection, remaining, requiredPerDay, definitive, unallocated, unallocatedRecords, rows,
     attainment: validTarget && actual !== null ? actual / target * 100 : null,
     superTarget: amount(plan?.superTarget), ultraTarget: amount(plan?.ultraTarget),
   }
