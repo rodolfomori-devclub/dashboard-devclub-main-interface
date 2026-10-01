@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
 import { expect } from '@playwright/test'
 import { periodCacheFixture, emptyProviderPayload } from './period-cache-fixture.mjs'
+import { readPublishedVault } from './published-vault.mjs'
 
 const root = fileURLToPath(new URL('../../', import.meta.url))
 const published = process.env.DASHBOARD_SMOKE_PRODUCTION === '1'
@@ -21,6 +22,8 @@ let admin = true, permissions = ['ranking', 'monthly', 'goals'], scenario = 'nor
 const panelIds = ['monthly-goal', 'pace', 'team-goals', 'product-goals', 'sellers', 'products', 'daily', 'payment-mix']
 let savedSettings = { version: 1, mode: 'rotate', fixedPanel: 'monthly-goal', metric: 'cash', monthMode: 'current', month: '', theme: 'system', paceScope: 'overall', paceScopeId: '', panels: panelIds.map(id => ({ id, enabled: !['daily', 'payment-mix'].includes(id), durationSeconds: 20 })) }
 let settingsWrites = 0, revision = 0, completed = false
+let share = { enabled: false, token: null, path: null, revision: 0, updatedAt: null }
+const shareWrites = []
 let controlledClock = false
 const calls = [], checks = [], errors = [], unexpected = [], blocked = [], layoutIssues = []
 const applicationAssets = new Map()
@@ -70,6 +73,21 @@ async function fixture(route) {
   let body, status = 200
   if (path === '/api/access') body = { user: { sub: profile.id, email: profile.email, name: profile.name, permissions, isAdmin: admin } }
   else if (path === '/api/hub/session') body = { user: { ...profile, role: admin ? 'gestor' : 'vendedor' } }
+  else if (path === '/api/tv/share') {
+    assert.equal(admin, true, 'Only administrators may read or manage the public TV capability')
+    if (method === 'POST') {
+      const input = req.postDataJSON()
+      assert.ok(['create', 'rotate', 'disable'].includes(input.action))
+      if (input.expectedRevision !== share.revision) { status = 409; body = { code: 'TV_SHARE_CONFLICT', error: 'O link foi alterado por outro administrador. Atualize antes de continuar.' } }
+      else {
+        shareWrites.push(input)
+        const nextRevision = share.revision + 1
+        const token = input.action === 'disable' ? null : `fixtureTv${String(nextRevision).padStart(7, '0')}`
+        share = { enabled: Boolean(token), token, path: token ? `/tv/${token}` : null, revision: nextRevision, updatedAt: now.toISOString() }
+        body = share
+      }
+    } else body = share
+  }
   else if (path === '/api/tv/settings') {
     if (scenario === 'settings-error') { status = 503; body = { error: 'Configuração temporariamente indisponível' } }
     else if (method === 'PUT') {
@@ -103,7 +121,7 @@ async function fixture(route) {
     const date = (url.searchParams.get('date') || today).slice(0, 10)
     body = provider(source, { startDate: url.searchParams.get('data_inicio') || date, endDate: url.searchParams.get('data_final') || date })
   }
-  if (method !== (path === '/api/tv/settings' && method === 'PUT' ? 'PUT' : ['/api/transactions', '/api/refunds'].includes(path) ? 'POST' : 'GET')) { unexpected.push(`${method} ${path}`); await route.abort(); return }
+  if (method !== (path === '/api/tv/settings' && method === 'PUT' ? 'PUT' : (path === '/api/tv/share' && method === 'POST') || ['/api/transactions', '/api/refunds'].includes(path) ? 'POST' : 'GET')) { unexpected.push(`${method} ${path}`); await route.abort(); return }
   await route.fulfill({ status, contentType: 'application/json', headers: { 'access-control-allow-origin': base }, body: JSON.stringify(body) })
 }
 
@@ -134,11 +152,8 @@ try {
     const main = html.match(/src="([^" ]*\/assets\/index-[^" ]+\.js)"/)?.[1]
     assert.ok(main, 'Published entry asset exists')
     if (process.env.DASHBOARD_EXPECTED_ASSET) assert.equal(main, process.env.DASHBOARD_EXPECTED_ASSET)
-    const bundle = await (await fetch(new URL(main, base))).text()
-    const config = bundle.match(/vaultUrl:"([^"]+)",clientId:"([^"]+)",redirectUri:"([^"]+)"/)
-    assert.ok(config, 'Published Vault public configuration exists')
-    assert.equal(new URL(config[3]).origin, base)
-    vault = { vaultUrl: config[1], clientId: config[2] }
+    const config = await readPublishedVault({ base, main })
+    vault = { vaultUrl: config.vaultUrl, clientId: config.clientId }
     assets = { main, publicVaultConfigured: true }
   }
   const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
@@ -149,6 +164,10 @@ try {
     localStorage.setItem('vault_access_token', `${encode({ alg: 'RS256', kid: 'fixture' })}.${encode({ sub: 'fixture-admin', iss: vaultUrl, aud: clientId, token_use: 'access', exp: 4102444800 })}.fixture-not-valid`)
     // Rejection models browsers / embedded displays that disallow Fullscreen API.
     Element.prototype.requestFullscreen = async () => { throw new DOMException('Fixture fullscreen refusal', 'NotAllowedError') }
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => {
+      if (window.fixtureClipboardDenied) throw new DOMException('Fixture clipboard refusal', 'NotAllowedError')
+      window.fixtureClipboard = text
+    } } })
   }, vault)
   if (context.routeWebSocket) await context.routeWebSocket('**/*', () => {})
   await context.route('**/*', fixture)
@@ -181,6 +200,51 @@ try {
   await expectMain(preview(), '1.233,64')
   assert.doesNotMatch(await preview().innerText(), /1\.255,36|2\.489,00/, 'Invoice cash cannot appear in the new-sales TV')
   record('Initial monthly preview uses shared financial rules: Hotmart net833.64 + TMB40%400, with Asaas invoices excluded')
+
+  const sharing = () => page.getByTestId('tv-sharing')
+  const publicAddress = () => sharing().getByRole('textbox', { name: 'Endereço público da TV', exact: true })
+  await sharing().getByRole('heading', { name: 'Link público da TV', exact: true }).waitFor()
+  await sharing().getByRole('button', { name: 'Criar link público', exact: true }).click()
+  await expect(publicAddress()).toHaveValue(`${base}/tv/fixtureTv0000001`)
+  assert.equal(shareWrites.length, 1)
+  assert.deepEqual(shareWrites[0], { action: 'create', expectedRevision: 0 })
+  assert.equal(await publicAddress().getAttribute('readonly'), '')
+  await expect(sharing().getByRole('link', { name: 'Abrir TV pública', exact: true })).toHaveAttribute('href', `${base}/tv/fixtureTv0000001`)
+  await screenshot('sharing-1440-admin')
+  await page.setViewportSize({ width: 360, height: 900 })
+  await visit()
+  await expect(publicAddress()).toHaveValue(`${base}/tv/fixtureTv0000001`)
+  await screenshot('sharing-360-admin')
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await visit()
+  await expect(publicAddress()).toHaveValue(`${base}/tv/fixtureTv0000001`)
+  await sharing().getByRole('button', { name: 'Copiar link', exact: true }).click()
+  assert.equal(await page.evaluate(() => window.fixtureClipboard), `${base}/tv/fixtureTv0000001`)
+  await page.evaluate(() => { window.fixtureClipboardDenied = true })
+  await sharing().getByRole('button', { name: 'Copiar link', exact: true }).click()
+  await expect(sharing()).toContainText(/copi|selecion/i)
+  await expect(publicAddress()).toHaveValue(`${base}/tv/fixtureTv0000001`)
+  assert.equal(await publicAddress().evaluate(element => element.selectionEnd - element.selectionStart), `${base}/tv/fixtureTv0000001`.length, 'A failed clipboard write selects the full URL for manual copying')
+  record('Administrator creates a short public URL, can open/copy it and retains a manual copy fallback when the clipboard is denied')
+
+  await sharing().getByRole('button', { name: 'Trocar link', exact: true }).click()
+  await expect(publicAddress()).toHaveValue(`${base}/tv/fixtureTv0000002`)
+  assert.deepEqual(shareWrites[1], { action: 'rotate', expectedRevision: 1 })
+  await sharing().getByRole('button', { name: 'Desativar link', exact: true }).click()
+  await expect(sharing().getByRole('button', { name: 'Criar link público', exact: true })).toBeVisible()
+  await expect(publicAddress()).toHaveCount(0)
+  assert.deepEqual(shareWrites[2], { action: 'disable', expectedRevision: 2 })
+  assert.equal(share.enabled, false)
+  record('Administrator rotates the capability and disables public sharing; the UI removes the revoked URL')
+
+  share = { ...share, revision: share.revision + 1 } // A second administrator changed the capability.
+  await sharing().getByRole('button', { name: 'Criar link público', exact: true }).click()
+  await expect(sharing().getByRole('alert')).toContainText(/Outro administrador/)
+  assert.equal(shareWrites.length, 3, 'A stale sharing revision must never overwrite another administrator')
+  await sharing().getByRole('button', { name: 'Criar link público', exact: true }).click()
+  await expect(publicAddress()).toHaveValue(`${base}/tv/fixtureTv0000005`)
+  assert.deepEqual(shareWrites[3], { action: 'create', expectedRevision: 4 })
+  record('Concurrent link modification reloads the current revision and requires a fresh deliberate action')
 
   await configure()
   assert.equal(await editor().getByTestId('tv-config-monthly-goal').count(), 1)
@@ -300,9 +364,14 @@ try {
   admin = false
   await page.setViewportSize({ width: 360, height: 900 })
   const writesBeforeReader = settingsWrites
+  const shareReadsBeforeReader = calls.filter(call => call.path === '/api/tv/share').length
+  const shareWritesBeforeReader = shareWrites.length
   await visit()
   await expectMain(preview(), '1.900,00')
   assert.equal(await page.getByRole('button', { name: 'Configurar TV', exact: true }).count(), 0)
+  assert.equal(await sharing().count(), 0)
+  assert.equal(calls.filter(call => call.path === '/api/tv/share').length, shareReadsBeforeReader, 'Readers cannot request the secret public capability')
+  assert.equal(shareWrites.length, shareWritesBeforeReader)
   await start()
   await expectMain(player(), '1.900,00')
   await screenshot('monthly-360-dark-reader')
@@ -364,7 +433,7 @@ try {
   assert.ok([...applicationAssets.values()].every(asset => asset.status === 200), 'All requested application assets succeeded')
   assert.deepEqual(layoutIssues, [], 'The 1080p TV must fit its monthly and pace panels without scrolling')
   completed = true
-  console.log(JSON.stringify({ passed: true, published, assets, checks: checks.length, apiCalls: calls.length, settingsWrites, errors, unexpected, blocked }))
+  console.log(JSON.stringify({ passed: true, published, assets, checks: checks.length, apiCalls: calls.length, settingsWrites, shareWrites: shareWrites.length, errors, unexpected, blocked }))
 } catch (error) {
   if (page) {
     await page.screenshot({ path: `${out}/failure.png`, fullPage: true }).catch(() => {})
@@ -372,7 +441,7 @@ try {
   }
   throw error
 } finally {
-  await fs.writeFile(`${out}/results.json`, JSON.stringify({ passed: completed, published, assets, checks, apiCalls: calls.length, calls, settingsWrites, realApiRequests: 0, realWrites: 0, errors, unexpected, blocked, layoutIssues, applicationAssets: [...applicationAssets.values()] }, null, 2))
+  await fs.writeFile(`${out}/results.json`, JSON.stringify({ passed: completed, published, assets, checks, apiCalls: calls.length, calls, settingsWrites, shareWrites, realApiRequests: 0, realWrites: 0, errors, unexpected, blocked, layoutIssues, applicationAssets: [...applicationAssets.values()] }, null, 2))
   if (browser) await browser.close()
   if (server) server.kill('SIGTERM')
 }

@@ -19,6 +19,8 @@
 	root * /app/dist
 	encode gzip zstd
 	respond /health 200
+	# Public TV addresses grant read access; keep them out of access logs.
+	log_skip /tv/*
 
 	header {
 		X-Content-Type-Options "nosniff"
@@ -41,6 +43,14 @@
 	}
 
 	# Keep ETag revalidation for HTML, including direct routes and OAuth callback.
+	handle /tv/* {
+		header Cache-Control "no-store"
+		header Referrer-Policy "no-referrer"
+		header X-Robots-Tag "noindex, nofollow, noarchive"
+		rewrite * /index.html
+		file_server
+	}
+
 	handle {
 		header Cache-Control "no-cache, max-age=0, must-revalidate"
 		try_files {path} {path}.html {path}/index.html /index.html

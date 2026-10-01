@@ -6,6 +6,7 @@ import { useTvData } from './useTvData.js'
 import { TvPanel } from './TvPanels.jsx'
 import { TvPlayer } from './TvPlayer.jsx'
 import { TvSettingsEditor } from './TvSettingsEditor.jsx'
+import TvSharing from './TvSharing.jsx'
 import { defaultTvSettings, TV_METRICS, TV_PANELS, tvMonthLabel } from './tvConfig.js'
 import './tv.css'
 
@@ -81,6 +82,7 @@ export default function TVWorkspace() {
     <header className="tv-workspace-heading"><div><span className="tv-eyebrow"><Monitor size={15}/>Operação em tempo real</span><h1>TV Mode</h1><p>Os números que movem o time, sempre à vista.</p></div><div className="tv-actions">{userRoles?.isAdmin && <button disabled={!saved || saving} onClick={() => { setEditor(saved); setSaveError(''); setConflict(false); setNotice('') }}><Settings2 size={17}/>Configurar TV</button>}<button className="tv-primary" onClick={startTv} disabled={!saved || !allowed || Boolean(editor)}><Play size={17}/>Iniciar TV</button></div></header>
     {settingsError && <div className="tv-notice" role="alert">{settingsError} <button onClick={readSettings}>Tentar novamente</button></div>}
     {notice && <p className="tv-save-notice" role="status">{notice}</p>}
+    {userRoles?.isAdmin && <TvSharing/>}
     {editor && <TvSettingsEditor key={editor.revision} initial={editor.settings} directory={data.model?.directory} saving={saving} error={saveError} conflict={conflict} onSave={save} onCancel={() => setEditor(null)} onReload={reloadDraft}/>}
     {!allowed ? <div className="tv-empty"><Monitor size={36}/><h2>Acesso aos indicadores da TV</h2><p>Para exibir os painéis financeiros, libere Mensal ou Ritmo das metas no Vault. O ranking comercial continua disponível na outra aba.</p></div> : <>
       <div className="tv-program-summary"><div><span className="tv-live-dot"/><strong>{settings.mode === 'fixed' ? 'Painel fixo' : `${enabledPanels.length} painéis em sequência`}</strong><span>{tvMonthLabel(data.model?.month || settings.month)}</span><span>{TV_METRICS[settings.metric]}</span></div><button onClick={() => data.refresh()} disabled={data.loading || data.refreshing || !saved} aria-label="Atualizar indicadores"><RefreshCw size={16} className={data.refreshing ? 'tv-spin' : ''}/>{data.refreshing ? 'Atualizando…' : 'Atualizar'}</button></div>

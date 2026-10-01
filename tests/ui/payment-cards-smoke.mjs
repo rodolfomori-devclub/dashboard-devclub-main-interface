@@ -6,6 +6,7 @@ import fs from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import assert from 'node:assert/strict'
 import { periodCacheFixture, emptyProviderPayload } from './period-cache-fixture.mjs'
+import { readPublishedVault } from './published-vault.mjs'
 
 const base = process.env.DASHBOARD_SMOKE_URL || 'http://127.0.0.1:4317'
 const published = process.env.DASHBOARD_SMOKE_PRODUCTION === '1'
@@ -38,11 +39,8 @@ if (published) {
  const main = html.match(/src="([^" ]*\/assets\/index-[^" ]+\.js)"/)?.[1]
  assert.ok(main, 'Published main asset exists')
  if (process.env.DASHBOARD_EXPECTED_ASSET) assert.equal(main, process.env.DASHBOARD_EXPECTED_ASSET)
- const bundle = await (await fetch(new URL(main, base))).text()
- const config = bundle.match(/vaultUrl:"([^"]+)",clientId:"([^"]+)",redirectUri:"([^"]+)"/)
- assert.ok(config, 'Published Vault configuration exists')
- assert.equal(new URL(config[3]).origin, base)
- vault = { vaultUrl: config[1], clientId: config[2] }
+ const config = await readPublishedVault({ base, main })
+ vault = { vaultUrl: config.vaultUrl, clientId: config.clientId }
  assets = { main, publicVaultConfigured: true }
 }
 const localChrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'

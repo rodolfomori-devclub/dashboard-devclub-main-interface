@@ -123,6 +123,23 @@
 .tv-notice { font-size:12px; line-height:1.7; padding:13px 17px; border:1px solid var(--border); border-left:3px solid var(--chart-4); background:var(--surface); border-radius:8px; margin:14px 0; }
 .tv-notice button { margin:7px 0 0 10px; }
 .tv-save-notice { font-size:12px; color:var(--accent); margin:12px 0!important; }
+.tv-sharing { padding:22px 24px; margin-bottom:24px; border:1px solid var(--border); border-left:3px solid var(--accent); border-radius:12px; background:var(--surface); }
+.tv-sharing-heading { display:flex; align-items:center; gap:12px; margin-bottom:17px; }
+.tv-sharing-heading>svg { color:var(--accent); flex-shrink:0; }
+.tv-sharing-heading h2 { font-size:23px; font-weight:500; }
+.tv-sharing-heading p,.tv-share-management p { font-size:11px; color:var(--muted); line-height:1.7; }
+.tv-sharing-state { color:var(--muted); font-size:10px; font-weight:600; margin-left:auto; }
+.tv-sharing-state[data-enabled="true"] { color:var(--accent); }
+.tv-share-url { display:flex; gap:9px; align-items:stretch; }
+.tv-share-url input { flex:1; min-width:0; font-family:ui-monospace,monospace; font-size:12px; color:var(--text); padding:12px; background:var(--surface-subtle); border:1px solid var(--border); border-radius:8px; }
+.tv-share-open { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:10px 13px; border:1px solid var(--border); border-radius:10px; font-size:12px; font-weight:600; text-decoration:none; color:var(--accent); }
+.tv-share-open:focus-visible { outline:3px solid var(--accent); outline-offset:3px; }
+.tv-share-management { display:flex; align-items:center; gap:12px; margin-top:13px; }
+.tv-share-management p { margin-right:auto; }
+.tv-share-management button { font-size:11px; padding:7px 10px; flex-shrink:0; }
+.tv-sharing-message { font-size:11px; line-height:1.7; color:var(--accent); margin-top:12px!important; }
+.tv-public-state { min-height:100dvh; display:grid; place-items:center; background:var(--canvas); padding:24px; }
+.tv-public-state h1 { font-size:clamp(26px,3vw,40px); }
 .tv-player { position:fixed; inset:0; z-index:10000; background:var(--canvas); display:flex; flex-direction:column; padding:0 clamp(20px,3vw,64px); outline:none; overflow:hidden; }
 .tv-broadcast-header { display:flex; align-items:center; gap:24px; flex-shrink:0; min-height:80px; border-bottom:1px solid var(--border); }
 .tv-broadcast-brand { display:flex; align-items:center; gap:14px; font-family:'Outfit Variable',sans-serif; font-size:24px; font-weight:500; letter-spacing:-.025em; }
@@ -176,6 +193,13 @@
   .tv-editor-actions p { flex-basis:100%; max-width:none; }
 }
 @media(max-width:600px) {
+  .tv-sharing { padding:18px 14px; }
+  .tv-sharing-heading h2 { font-size:21px; }
+  .tv-share-url { flex-wrap:wrap; }
+  .tv-share-url input { flex-basis:100%; }
+  .tv-share-url button,.tv-share-open { flex:1; font-size:11px; }
+  .tv-share-management { flex-wrap:wrap; gap:8px; }
+  .tv-share-management p { flex-basis:100%; }
   .tv-actions { width:100%; }
   .tv-actions button { flex:1; padding:10px; font-size:12px; }
   .tv-workspace { padding:20px 14px; }
@@ -197,6 +221,7 @@
   .tv-stat-row { gap:14px; }
   .tv-stat { padding-right:10px; }
   .tv-stat>strong,.tv-player .tv-stat>strong { font-size:22px; }
+  .tv-preview .tv-stat>strong { font-size:clamp(16px,4.5vw,22px); }
   .tv-player .tv-stat>span { font-size:11px; }
   .tv-row-name h3,.tv-player .tv-row-name h3 { font-size:23px; }
   .tv-row-name>span { font-size:12px; }
