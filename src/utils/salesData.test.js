@@ -35,7 +35,7 @@ test('total operacional conserva fórmula dos cinco provedores e ignora Boletex 
   assert.equal(summary.revenue.value, 890 + 355 + 2000 + 3000 + 700)
   assert.equal(summary.net.value, 1245)
   assert.equal(summary.net.missing, 3)
-  assert.equal(summary.received.value, 700 + 280)
+  assert.equal(summary.received.value, 700 + 280 + 890 + 355)
 })
 
 test('filtros família, original, plataforma, pagamento e UTMs operam sobre a mesma lista', () => {

@@ -30,5 +30,6 @@ try {
  await run('./goal-pace-hero-smoke.mjs')
  await run('./integration-smoke.mjs')
  await run('./analytics-smoke.mjs')
+ await run('./refund-summary-smoke.mjs')
  await run('./chart-primitives-smoke.mjs')
 } finally { server.kill('SIGTERM') }

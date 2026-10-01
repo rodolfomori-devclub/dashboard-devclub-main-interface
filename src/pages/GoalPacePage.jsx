@@ -86,7 +86,7 @@ export default function GoalPacePage() {
   const deviationRows = pace.rows.map(row => ({ ...row, deviation: row.observed && row.actual !== null && row.planned !== null ? row.actual - row.planned : null }))
   const attainmentItems = overview.filter(({ pace: item }) => !item.future && item.attainment !== null).map(({ plan, pace: item }) => ({
     key: plan.id || `${goalScopeKey(plan)}:${plan.metric}`, label: `${GOAL_SCOPES[goalScope(plan).scope]} · ${goalScopeName(plan)}`,
-    value: item.attainment, partial: !item.definitive, color: goalScopeKey(plan) === goalScopeKey(selection) ? 'var(--chart-1, #e64b63)' : 'var(--chart-4, #2589b8)',
+    value: item.attainment, partial: !item.definitive, color: goalScopeKey(plan) === goalScopeKey(selection) ? 'var(--chart-1, #3c5bdc)' : 'var(--chart-4, #2589b8)',
   })).sort((a, b) => b.value - a.value)
   const selectOverviewPlan = key => {
     const selected = overview.find(({ plan }) => (plan.id || `${goalScopeKey(plan)}:${plan.metric}`) === (typeof key === 'object' ? key.key : key))
@@ -124,12 +124,12 @@ export default function GoalPacePage() {
       {current && !pace.future && pace.unassignedRecords > 0 && <p className="daily-notice is-warning">Há {value(pace.unassignedValue)} em {pace.unassignedRecords} registros sem {scope === 'team' ? 'time' : scope === 'individual' ? 'vendedor' : 'produto'} identificado na operação. Eles não foram atribuídos a esta meta. {hasPermission('attribution') && <Link to="/atribuicao">Revisar atribuições</Link>}</p>}
       {scope === 'team' && <p className="daily-footnote">O time reúne vendas atribuídas às pessoas que pertencem a ele atualmente. Alterar a composição do time também altera esta leitura histórica.</p>}
       {metric === 'cash' && goalData.excludedCashManuals.length > 0 && <p className="daily-notice is-warning">Há {goalData.excludedCashManuals.length} lançamentos manuais Asaas na operação sem vínculo com um recebimento do extrato. O caixa desses lançamentos não foi somado, para evitar possível duplicidade; seus valores brutos continuam nas vendas.</p>}
-      {metric === 'cash' && <p className="daily-notice">Cash collected considera 40% do bruto vendido na TMB, na data da venda. Asaas mantém os recebimentos confirmados na data de entrada, antes das taxas, inclusive parcelas anteriores. Demais lançamentos manuais usam o caixa e a data informados. {goalData.cashUnavailableSources.length > 0 && `Sem extrato de recebimentos no período: ${goalData.cashUnavailableSources.join(', ')}.`} Valores do Asaas sem vínculo com produto ou vendedor entram apenas no geral.</p>}
+      {metric === 'cash' && <p className="daily-notice">Cash collected considera 100% do líquido de Guru e Hotmart e 40% do bruto vendido na TMB, na data da venda. Asaas mantém os recebimentos confirmados na data de entrada, antes das taxas, inclusive parcelas anteriores. Demais lançamentos manuais usam o caixa e a data informados. {goalData.cashUnavailableSources.length > 0 && `Fontes sem caixa disponível no período: ${goalData.cashUnavailableSources.join(', ')}.`} Valores do Asaas sem vínculo com produto ou vendedor entram apenas no geral.</p>}
     </div>
 
     <section className="pace-financial-grid" aria-label="Bruto e cash collected">
       {financialSummary.map(({ metric: key, pace: item }) => <button key={key} className={`surface-panel pace-financial-card${metric === key ? ' is-selected' : ''}`} onClick={() => setSelectedMetric(key)} aria-pressed={metric === key}>
-        <span className="pace-financial-label">{key === 'gross' ? 'Valor bruto' : 'Cash collected'}</span><p>{key === 'gross' ? 'Valor total das vendas, antes das taxas.' : 'TMB: 40% do bruto; Asaas e demais recebimentos.'}</p>
+        <span className="pace-financial-label">{key === 'gross' ? 'Valor bruto' : 'Cash collected'}</span><p>{key === 'gross' ? 'Valor total das vendas, antes das taxas.' : 'Guru e Hotmart: líquido integral; TMB: 40%; Asaas: recebimentos.'}</p>
         <strong>{item.future ? 'Não iniciado' : formatValue(item.actual, 'currency')}</strong><span>{!item.definitive && !item.future ? 'Realizado parcial' : 'Realizado no mês'}</span>
         <div><span>Meta <b>{current?.plansError ? 'Indisponível' : item.validTarget ? formatValue(item.target, 'currency') : 'Não definida'}</b></span><span>Pace <b>{percent(item.pacePercent)}</b></span></div>
       </button>)}

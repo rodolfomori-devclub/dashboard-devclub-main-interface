@@ -17,7 +17,7 @@
 .pace-stage-gap > strong { display: flex; align-items: center; gap: 5px; color: var(--text); font-size: clamp(16px, 1.6vw, 22px); line-height: 1.35; font-weight: 600; letter-spacing: -.025em; margin-top: 10px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .pace-stage-gap > strong svg { flex-shrink: 0; }
 .pace-stage-gap.is-ahead .pace-stage-status { color: var(--chart-5); background: color-mix(in srgb, var(--chart-5) 10%, transparent); }
-.pace-stage-gap.is-behind .pace-stage-status { color: var(--chart-1); background: color-mix(in srgb, var(--chart-1) 10%, transparent); }
+.pace-stage-gap.is-behind .pace-stage-status { color: var(--error-text); background: color-mix(in srgb, var(--error-text) 10%, transparent); }
 .pace-stage-gap.is-partial .pace-stage-status { color: var(--chart-4); background: color-mix(in srgb, var(--chart-4) 10%, transparent); }
 .pace-stage-chart { width: 100%; min-width: 0; }
 .pace-stage-allocation { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px 16px; margin: -2px 0 23px; font-size: 12px; color: var(--muted); }

@@ -37,20 +37,20 @@ test('unassigned amounts are excluded from each individual/team and prevent defi
  assert.equal(result.definitive, false)
  assert.equal(run('overall', '', { records: [...data.records, extra] }).actual, 4200)
 })
-test('cash uses receipt dates of old sales, never net or lifetime Boletex cash', () => {
+test('cash includes full Guru net plus dated Asaas receipts, never lifetime Boletex cash', () => {
  const sales = { records: [...records, { kind: 'sale', sourceId: 'boletex', date: '2026-06-05', family: 'MBA', received: 9999 }], sources: [
   ...sources, { id: 'boletex', label: 'Boletex', kind: 'sale', status: 'ready' },
   { id: 'asaas', kind: 'sale', status: 'partial', cashReceipts: [{ date: '2026-06-01', received: 300 }] },
  ] }
  const prepared = prepareGoalData(sales, directory)
  const result = run('overall', '', { ...prepared, plan: { scope: 'overall', metric: 'cash', target: 600 } })
- assert.equal(result.actual, 300)
- assert.equal(result.rows[0].dailyActual, 300)
- assert.equal(result.rows[1].actual, 300)
+ assert.equal(result.actual, 3550)
+ assert.equal(result.rows[0].dailyActual, 2200)
+ assert.equal(result.rows[1].actual, 3100)
  assert.equal(result.definitive, false)
- assert.deepEqual(prepared.cashUnavailableSources, ['Guru', 'Boletex'])
+ assert.deepEqual(prepared.cashUnavailableSources, ['Boletex'])
  const individual = run('individual', 'ana', { ...prepared, plan: { scope: 'individual', scopeId: 'ana', metric: 'cash', target: 600 } })
- assert.equal(individual.actual, 0)
+ assert.equal(individual.actual, 1900)
  assert.equal(individual.unassignedValue, 300)
  assert.equal(individual.definitive, false)
 })

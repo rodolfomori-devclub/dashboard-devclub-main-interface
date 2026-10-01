@@ -1,14 +1,14 @@
-/* Financial hierarchy: coral revenue, teal cash, cyan card, amber boleto. */
+/* Financial hierarchy: indigo revenue, teal cash, cyan card, amber boleto. */
 .revenue-highlights { display: grid; gap: 16px; min-width: 0; color: var(--text); }
 .revenue-highlights *, .revenue-notifications * { box-sizing: border-box; }
 .revenue-lead-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 16px; }
 .revenue-payment-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
 .revenue-card { min-width: 0; padding: 26px 28px; border: 1px solid var(--rev-border); border-radius: 16px; color: var(--rev-ink); background: var(--rev-surface); }
-.revenue-card--total { --rev-surface: #ff647b; --rev-ink: #35121d; --rev-border: #fb526e; --rev-muted: #602035; --rev-divider: rgb(70 10 32 / .2); }
+.revenue-card--total { --rev-surface: #3c5bdc; --rev-ink: #fff; --rev-border: #314bc1; --rev-muted: #e1e8ff; --rev-divider: rgb(230 237 255 / .28); }
 .revenue-card--cash { --rev-surface: #086b63; --rev-ink: #fff; --rev-border: #075c54; --rev-muted: #d1efea; --rev-divider: rgb(230 255 251 / .24); }
 .revenue-card--card { --rev-surface: #e5f6fc; --rev-ink: #084c66; --rev-border: #a8d8e9; --rev-muted: #36687d; --rev-divider: #bdddea; }
 .revenue-card--boleto { --rev-surface: #fff0d2; --rev-ink: #694205; --rev-border: #ecd29d; --rev-muted: #79612f; --rev-divider: #ead5ae; }
-.dark .revenue-card--total { --rev-surface: #ed5870; --rev-ink: #300b17; --rev-border: #fa788b; --rev-muted: #4a1322; }
+.dark .revenue-card--total { --rev-surface: #879cff; --rev-ink: #162142; --rev-border: #a4b3ff; --rev-muted: #253662; --rev-divider: rgb(22 33 66 / .22); }
 .dark .revenue-card--cash { --rev-surface: #125f59; --rev-ink: #dffdf5; --rev-border: #27877c; --rev-muted: #bce7db; }
 .dark .revenue-card--card { --rev-surface: #112f40; --rev-ink: #7de0ff; --rev-border: #25576c; --rev-muted: #b0cdda; --rev-divider: #29536a; }
 .dark .revenue-card--boleto { --rev-surface: #382c19; --rev-ink: #ffd580; --rev-border: #705737; --rev-muted: #decda8; --rev-divider: #685039; }

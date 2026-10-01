@@ -1,5 +1,6 @@
 import { asaasCashOnly } from './sourceAvailability.js'
 import { applyTmbCashRule } from './tmbCash.js'
+import { applyPlatformCashRule } from './platformCash.js'
 // Pure adapters. Monetary amounts come from the API; fee rules stay on the server.
 export const SOURCE_DEFINITIONS = [
   { id: 'guru', label: 'Guru', platform: 'Guru', kind: 'sale' },
@@ -38,7 +39,7 @@ export function productFamily(name) {
 
 export function paymentLabel(value) {
   const key = fold(value).replace(/[ -]/g, '_')
-  if (['credit_card', 'cartao', 'cartao_de_credito', 'creditcard'].includes(key)) return 'Cartão'
+  if (['credit_card', 'cartao', 'cartao_de_credito', 'creditcard'].includes(key) || /^(credit|debit)_card_/.test(key)) return 'Cartão'
   if (['pix', 'instant_payment'].includes(key)) return 'Pix'
   if (['boleto', 'bank_slip', 'billet'].includes(key)) return 'Boleto'
   if (['boleto_parcelado', 'installment_billet'].includes(key)) return 'Boleto parcelado'
@@ -112,13 +113,14 @@ export function normalizeSource(sourceId, payload) {
       const calculation = raw.calculation_details || {}
       const discounts = calculation.discounts
       const feeValues = discounts ? Object.values(discounts).map(amount) : []
-      return record(source, raw, i, {
+      return applyPlatformCashRule(record(source, raw, i, {
         product: raw.product?.name, payment: raw.payment?.method || calculation.payment_method,
-        date: raw.dates?.created_at, revenue: amount(calculation.net_amount),
+        date: source.kind === 'refund' ? raw.dates?.canceled_at ?? raw.dates?.cancelled_at ?? raw.dates?.created_at : raw.dates?.created_at,
+        revenue: amount(calculation.net_amount),
         gross: amount(calculation.total_amount ?? raw.payment?.total), net: amount(calculation.net_amount),
         fees: feeValues.length && feeValues.every((value) => value !== null) ? feeValues.reduce((sum, value) => sum + value, 0) : null,
         affiliate: amount(calculation.net_affiliate_value),
-      })
+      }))
     })
   }
   if (sourceId === 'tmb') {
@@ -136,17 +138,27 @@ export function normalizeSource(sourceId, payload) {
   if (source.platform === 'Hotmart') {
     if (!Array.isArray(data.transactions) && amount(data.count) === null) throw new Error('Transações indisponíveis')
     const isRefund = source.kind === 'refund'
+    const currency = (raw, field) => raw[field] ?? (data.financialSchemaVersion === 2 ? null : raw.currency || 'BRL')
+    const brl = (value, unit) => unit === 'BRL' ? amount(value) : null
     const rows = (data.transactions || []).map((raw, i) => record(source, raw, i, {
       product: raw.product, payment: raw.paymentMethod, date: raw.orderDate,
-      revenue: amount(isRefund ? raw.value : raw.netValue),
-      gross: amount(isRefund ? raw.value : raw.grossValue),
-      net: isRefund ? null : amount(raw.netValue), fees: isRefund ? null : amount(raw.fee),
+      revenue: isRefund ? brl(raw.value, raw.currency || 'BRL') : brl(raw.netValue, currency(raw, 'netCurrency')),
+      gross: brl(isRefund ? raw.value : raw.grossValue, raw.currency || (data.financialSchemaVersion === 2 ? null : 'BRL')),
+      net: isRefund ? null : brl(raw.netValue, currency(raw, 'netCurrency')),
+      fees: isRefund ? null : brl(raw.fee, currency(raw, 'feeCurrency')),
+      currency: raw.currency || (data.financialSchemaVersion === 2 ? null : 'BRL'),
+      netCurrency: isRefund ? null : currency(raw, 'netCurrency'),
+      feeCurrency: isRefund ? null : currency(raw, 'feeCurrency'),
+      excludedCurrencies: [...new Set([raw.currency, ...(!isRefund ? [currency(raw, 'netCurrency'), currency(raw, 'feeCurrency')] : [])].filter(unit => unit && unit !== 'BRL'))],
     }))
+    // Older cached totals combine currencies. Reconstruct only supported BRL
+    // amounts from their detailed rows until the versioned snapshot refreshes.
+    const mixedLegacy = data.financialSchemaVersion !== 2 && rows.some(row => row.excludedCurrencies.length)
     return reconcile(rows, source, {
-      quantity: data.count, revenue: isRefund ? data.totalRefundAmount : data.totalNet,
-      gross: isRefund ? data.totalRefundAmount : data.totalGross,
-      net: isRefund ? null : data.totalNet, fees: isRefund ? null : data.totalFees,
-    })
+      quantity: data.count, revenue: mixedLegacy ? null : isRefund ? data.totalRefundAmount : data.totalNet,
+      gross: mixedLegacy ? null : isRefund ? data.totalRefundAmount : data.totalGross,
+      net: isRefund || mixedLegacy ? null : data.totalNet, fees: isRefund || mixedLegacy ? null : data.totalFees,
+    }).map(applyPlatformCashRule)
   }
   if (sourceId === 'asaas' && asaasCashOnly(data)) return []
   const sales = data.sales

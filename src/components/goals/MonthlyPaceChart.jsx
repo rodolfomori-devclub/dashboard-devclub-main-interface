@@ -41,7 +41,7 @@ function PaceStage({ pace, ready, loading, targetUnavailable, breakdown, scopeNa
   const deltaText = pace.delta === null || !ready ? 'Comparação indisponível'
     : pace.delta === 0 ? 'No valor esperado' : `${value(Math.abs(pace.delta))} ${pace.delta > 0 ? 'à frente' : 'atrás'}`
   const series = [
-    { key: 'actual', label: pace.definitive ? 'Realizado' : 'Realizado parcial', unit: pace.metric.unit, color: 'var(--chart-1, #d14963)' },
+    { key: 'actual', label: pace.definitive ? 'Realizado' : 'Realizado parcial', unit: pace.metric.unit, color: 'var(--chart-1, #3c5bdc)' },
     { key: 'planned', label: 'Meta acumulada', unit: pace.metric.unit, color: 'var(--chart-2, #1684b1)', dash: '6 5', fill: false },
   ]
   return <>

@@ -7,7 +7,7 @@ export const GOAL_SCOPES = [
 ]
 export const GOAL_METRICS = {
   gross: { label: 'Bruto', description: 'Valor total da venda antes de taxas.', unit: 'currency' },
-  cash: { label: 'Cash collected', description: 'TMB: 40% do bruto vendido. Asaas: recebimentos antes das taxas, incluindo parcelas anteriores. Demais lançamentos: caixa declarado.', unit: 'currency' },
+  cash: { label: 'Cash collected', description: 'Guru e Hotmart: 100% do líquido. TMB: 40% do bruto vendido. Asaas: recebimentos antes das taxas, incluindo parcelas anteriores. Demais lançamentos: caixa declarado.', unit: 'currency' },
   operational: { label: 'Valor operacional', description: 'Preserva o critério atual de cálculo de cada plataforma.', unit: 'currency' },
   net: { label: 'Valor líquido', description: 'Valor líquido informado pela fonte, separado do caixa já recebido.', unit: 'currency' },
   count: { label: 'Quantidade de vendas', description: 'Número de vendas registradas no período.', unit: 'count' },

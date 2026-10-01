@@ -1,14 +1,15 @@
 import { amount } from './salesData.js'
 import { applyTmbCashRule, TMB_CASH_METADATA } from './tmbCash.js'
+import { applyPlatformCashRule, PLATFORM_NET_CASH_METADATA } from './platformCash.js'
 
-/** Cash follows receipts except the explicit TMB rule: 40% of sold value,
- * allocated on the sale date. This rule is not a bank statement receipt.
+/** Cash follows the agreed platform rules: Guru/Hotmart = full net and
+ * TMB = 40% of sold value, on the sale date. Asaas follows actual receipts.
  * Boletex's confirmedValue is lifetime cash of contracts CREATED in the range;
  * it cannot establish receipts in this month. Keep that distinction explicit.
  */
 export function prepareGoalData(sales = {}, directory = {}, directoryAvailable = true) {
   const people = new Map((directory.individuals || []).map(person => [person.id, person]))
-  const records = (sales.records || []).map(row => ({ ...applyTmbCashRule(row), teamId: people.get(row.sellerId)?.teamId || null }))
+  const records = (sales.records || []).map(row => ({ ...applyPlatformCashRule(applyTmbCashRule(row)), teamId: people.get(row.sellerId)?.teamId || null }))
   const sources = sales.sources || []
   const cashRecords = []
   // A manual Asaas contract may describe the same cash already in the account
@@ -23,6 +24,10 @@ export function prepareGoalData(sales = {}, directory = {}, directoryAvailable =
     if (source.id === 'tmb') {
       if (['ready', 'partial', 'stale'].includes(source.status)) cashRecords.push(...records.filter(row => row.sourceId === 'tmb' && row.kind === 'sale'))
       return { ...source, rows: undefined, ...TMB_CASH_METADATA, status: source.status === 'stale' ? 'partial' : source.status }
+    }
+    if (['guru', 'hotmart'].includes(source.id)) {
+      if (['ready', 'partial', 'stale'].includes(source.status)) cashRecords.push(...records.filter(row => row.sourceId === source.id && row.kind === 'sale' && !row.isManual))
+      return { ...source, rows: undefined, ...PLATFORM_NET_CASH_METADATA, status: source.status === 'stale' ? 'partial' : source.status }
     }
     if (source.id === 'asaas' && Array.isArray(source.cashReceipts)) {
       cashRecords.push(...source.cashReceipts.map((receipt, index) => ({

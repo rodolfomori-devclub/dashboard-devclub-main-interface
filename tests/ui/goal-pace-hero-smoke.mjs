@@ -141,11 +141,11 @@ try {
   await openMonth()
   const beforeFilters = calls.length
   await page.getByLabel('Base financeira', { exact: true }).selectOption('cash')
-  assert.match(await selectedTotal(), /1\.820,00/, 'Cash preserves TMB 40%, confirmed Asaas and manual cash')
+  assert.match(await selectedTotal(), /5\.320,00/, 'Cash includes full Guru net, TMB 40%, confirmed Asaas and manual cash')
   for (const scope of ['Time', 'Indivíduo', 'Produto']) {
     await page.getByRole('group', { name: 'Escopo da meta' }).getByRole('button', { name: scope, exact: true }).click()
     if (scope === 'Produto') await page.getByLabel('Família de produto', { exact: true }).selectOption('DevClub')
-    assert.match(await selectedTotal(), /920,00/, `${scope} cash uses attributed TMB plus manual`)
+    assert.match(await selectedTotal(), /1\.920,00/, `${scope} cash uses attributed Guru net 1,000, TMB 320 and manual 600`)
     await page.getByLabel('Base financeira', { exact: true }).selectOption('gross')
     assert.match(await selectedTotal(), /2\.400,00/, `${scope} gross is independent of cash`)
     await page.getByLabel('Base financeira', { exact: true }).selectOption('cash')

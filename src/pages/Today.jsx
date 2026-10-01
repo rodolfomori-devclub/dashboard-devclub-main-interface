@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ReferenceChart } from '../components/charts/ReferenceChart'
 import { ChartPanel, RankedBars, MixChart } from '../components/charts/AnalyticsVisuals'
 import RevenueHighlights from '../components/charts/RevenueHighlights'
+import RefundSummary from '../components/charts/RefundSummary'
 import RevenueNotifications from '../components/charts/RevenueNotifications'
 import { buildRevenueNotices } from '../utils/revenueBreakdown'
 import { ArrowLeft, ArrowRight, ChevronDown, RefreshCw, SlidersHorizontal } from 'lucide-react'
@@ -68,9 +69,7 @@ export default function Today() {
   const records = current?.records || NO_RECORDS
   const filtered = useMemo(() => filterSales(records, filters), [records, filters])
   const sales = useMemo(() => filtered.filter((row) => row.kind === 'sale'), [filtered])
-  const refunds = useMemo(() => filtered.filter((row) => row.kind === 'refund'), [filtered])
   const summary = useMemo(() => summarizeSales(sales), [sales])
-  const refundSummary = useMemo(() => summarizeSales(refunds), [refunds])
   const products = useMemo(() => groupSales(sales, 'product'), [sales])
   const platforms = useMemo(() => groupSales(sales, 'sourceId'), [sales])
   const payments = useMemo(() => groupSales(sales, 'payment'), [sales])
@@ -82,7 +81,6 @@ export default function Today() {
   const salesAvailable = saleSources.some((source) => sourceHasSales(source) && (source.id !== 'manual' || sales.some((row) => row.sourceId === 'manual')))
   const refundsAvailable = refundSources.some((source) => source.status === 'ready')
   const partial = saleSources.some((source) => source.status !== 'ready') || summary.revenue.missing > 0
-  const refundPartial = refundSources.some((source) => source.status !== 'ready')
   const activeFilters = Object.values(filters).filter(Boolean).length
   const list = useMemo(() => filtered.filter((row) => row.kind === listKind).sort((a, b) => (Date.parse(b.date) || 0) - (Date.parse(a.date) || 0)), [filtered, listKind])
   const pages = Math.max(1, Math.ceil(list.length / PAGE_SIZE))
@@ -117,6 +115,8 @@ export default function Today() {
     <header className="page-heading daily-heading"><div><h1>Diário de vendas</h1><p>Acompanhe o dia, os produtos e a origem de cada venda.</p></div><div className="daily-heading-actions"><RevenueNotifications items={notifications} /><div className="daily-refresh"><button className="button button-primary" onClick={() => refresh(true)} disabled={loading}><RefreshCw size={16} className={loading ? 'daily-spin' : ''} />{loading ? 'Atualizando' : 'Atualizar dados'}</button><span>{current ? `Atualizado às ${clock(current.fetchedAt)}` : 'Aguardando dados'}</span></div></div></header>
 
     <RevenueHighlights records={filtered} sources={relevantSources} filters={filters} title="Valor das vendas" loading={loading} ready={Boolean(current)} />
+
+    <RefundSummary records={filtered} sources={relevantSources} platform={filters.platform} ready={Boolean(current)} loading={loading} startDate={date} endDate={date} />
 
     <section className="surface-panel daily-filters" aria-label="Filtros do diário">
       <div className="daily-filter-heading"><span><SlidersHorizontal size={17} />Visualização do dia</span><button className="button daily-clear" onClick={resetFilters} disabled={!activeFilters}>Limpar filtros{activeFilters ? ` (${activeFilters})` : ''}</button></div>
@@ -165,7 +165,7 @@ export default function Today() {
 
     <section className="surface-panel daily-panel daily-financial">
       <SectionHeading title="Composição financeira" description="Valores retornados pelas plataformas, sem recalcular as taxas." />
-      <div className="daily-financial-grid">{[['Bruto informado', 'gross'], ['Líquido informado', 'net'], ['Taxas e descontos', 'fees'], ['Afiliados (líquido)', 'affiliate']].map(([label, key]) => <div key={key}><span>{label}</span><strong>{displayMetric(summary[key])}</strong><small>{summary[key].missing ? `${summary[key].missing} registros sem esse valor` : salesAvailable ? 'Dados disponíveis no recorte' : 'Fonte indisponível'}</small></div>)}<div className="daily-refund-summary"><h2>Reembolsos</h2><strong>{displayMetric(refundSummary.revenue, refundsAvailable)}</strong><small>{refundsAvailable ? `${refundSummary.count} registros${refundPartial ? ' · parcial' : ''}. Exibidos separadamente.` : 'Consulta disponível para Guru e Hotmart.'}</small></div></div>
+      <div className="daily-financial-grid">{[['Bruto informado', 'gross'], ['Líquido informado', 'net'], ['Taxas e descontos', 'fees'], ['Afiliados (líquido)', 'affiliate']].map(([label, key]) => <div key={key}><span>{label}</span><strong>{displayMetric(summary[key])}</strong><small>{summary[key].missing ? `${summary[key].missing} registros sem esse valor` : salesAvailable ? 'Dados disponíveis no recorte' : 'Fonte indisponível'}</small></div>)}</div>
       <details className="daily-calculation"><summary>Como ler estes valores<ChevronDown size={15} /></summary><p>O total mantém a regra do diário: líquido calculado pela API Guru, líquido do produtor na Hotmart e valor contratual das vendas TMB, Asaas e Boletex, mais lançamentos manuais ainda não conciliados. Os reembolsos ficam separados. Taxas e afiliação já descontadas do líquido não são subtraídas novamente. Valores de boleto não representam saldo já recebido.</p><p>Campos ausentes permanecem “Não informado”. Um consolidado sem detalhes aparece na lista como “Saldo sem detalhamento”, sem produto, horário ou UTM presumidos.</p></details>
     </section>
 

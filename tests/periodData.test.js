@@ -24,7 +24,7 @@ test('unfiltered operational total preserves per-platform financial contracts wi
   assert.equal(actual.digital.revenue.value, 90 + 180)
   assert.equal(actual.boleto.revenue.value, 200 + 1000 + 600)
   assert.equal(actual.total.count, 5)
-  assert.equal(actual.total.received.value, 100 + 200 + 80)
+  assert.equal(actual.total.received.value, 100 + 200 + 80 + 90 + 180)
   assert.equal(actual.total.pending.value, 400)
   assert.equal(actual.total.listPrice.value, 500)
   assert.equal(actual.total.affiliate.value, 20)

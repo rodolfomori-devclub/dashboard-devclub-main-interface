@@ -11,6 +11,11 @@ export function asaasCashOnly(data) {
 
 export function sourceFinancialMetadata(sourceId, data) {
   if (sourceId === 'tmb') return { status: 'ready', ...TMB_CASH_METADATA }
+  if (sourceId === 'hotmart') {
+    const incomplete = Object.values(data?.financialCoverage || {}).some(coverage => coverage?.complete === false)
+      || (data?.financialSchemaVersion !== 2 && data?.transactions?.some(row => row.currency && row.currency !== 'BRL'))
+    return { status: incomplete ? 'partial' : 'ready', ...(data?.financialCoverage ? { financialCoverage: data.financialCoverage } : {}) }
+  }
   if (sourceId !== 'asaas') return { status: 'ready' }
   const receipts = Array.isArray(data?.cashReceipts) ? { cashReceipts: [
     ...data.cashReceipts,

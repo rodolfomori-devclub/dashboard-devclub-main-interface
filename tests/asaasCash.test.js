@@ -25,7 +25,8 @@ test('cash-only Asaas creates no synthetic sales and preserves its real cash ind
   assert.equal(actual.metrics.ticket.value, 100)
   assert.equal(actual.metrics.revenue.partial, true)
   assert.equal(actual.sources.find(row => row.id === 'asaas').revenue.value, null)
-  assert.equal(summarizePeriod(result.records).total.received.known, 0)
+  assert.equal(summarizePeriod(result.records).total.received.known, 1)
+  assert.equal(summarizePeriod(result.records).total.received.value, 100) // Guru net only; Asaas still has no synthetic sales.
   assert.equal(summarizePeriod(result.records).total.revenue.value, 100)
 })
 

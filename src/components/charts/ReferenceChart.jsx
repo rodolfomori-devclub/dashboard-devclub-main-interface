@@ -5,7 +5,7 @@ import { formatDate, formatValue } from './chartFormatters.js';
 import './referenceChart.css';
 import { finiteNumber, niceScale, segmentedPaths, positionEndLabels, chooseTickIndices } from './chartMath.js';
 
-const REFERENCE_COLORS = ['var(--chart-1, #e64b63)', 'var(--chart-2, #8064d8)', 'var(--chart-3, #cd7a27)', 'var(--chart-4, #2589b8)', 'var(--chart-5, #159b82)', 'var(--chart-6, #b89a22)'];
+const REFERENCE_COLORS = ['var(--chart-1, #3c5bdc)', 'var(--chart-2, #8064d8)', 'var(--chart-3, #cd7a27)', 'var(--chart-4, #2589b8)', 'var(--chart-5, #159b82)', 'var(--chart-6, #b89a22)'];
 export function ReferenceChart({ rows = [], series = [], title, height = 380, mode = 'line', rotateDates = false, showLegend = true, pointLabels = false, daily = true, maxEndLabels = 4, referenceDate, referenceLabel = 'Hoje', shadeAfterReference = false, tickSpacing, tooltipTitle, tooltipRows, tooltipNote }) {
   const ref = useRef(null), id = useId();
   const [width, setWidth] = useState(800), [hidden, setHidden] = useState([]), [active, setActive] = useState(null);

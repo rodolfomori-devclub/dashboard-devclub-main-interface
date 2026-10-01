@@ -37,7 +37,7 @@ export default function RevenueHighlights({ records = [], sources = [], filters 
       <article className="revenue-card revenue-card--cash">
         <div className="revenue-card-heading"><h2><Wallet size={21} aria-hidden="true" />Cash collected</h2><Coverage partial={ready && model.cash.partial} /></div>
         <p className="revenue-card-value">{ready ? money(model.cash.value) : '—'}</p>
-        <p className="revenue-card-subtitle">TMB: 40% do bruto · Asaas: recebimentos</p>
+        <p className="revenue-card-subtitle">Guru e Hotmart: líquido integral · TMB: 40% · Asaas: recebimentos</p>
         <dl className="revenue-cash-details">{model.cash.providers.map(provider => <div key={provider.id}><dt>{provider.label}</dt><dd>{ready ? money(provider.value) : '—'}</dd></div>)}</dl>
       </article>
     </div>

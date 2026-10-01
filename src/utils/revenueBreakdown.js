@@ -69,14 +69,21 @@ export function buildRevenueBreakdown(records = [], sources = [], filters = {}) 
   const asaasKnown = asaas && !asaas.allocationMissing && amount(asaas.gross) !== null
   const manuals = prepared.cashRecords.filter(row => row.isManual && fold(row.platform) !== 'tmb')
   const manualKnown = manuals.some(row => amount(row.received) !== null)
+  const platformCash = ['guru', 'hotmart'].map(id => {
+    const rows = prepared.cashRecords.filter(row => row.sourceId === id && !row.isManual)
+    const source = prepared.cashSources.find(source => source.id === id)
+    const known = rows.some(row => amount(row.received) !== null) || (rows.length === 0 && source && sourceHasSales(source))
+    return { id, label: `${LABELS[id]} · líquido integral`, value: known ? sum(rows) : null }
+  })
   const cashProviders = [
+    ...platformCash,
     { id: 'tmb', label: 'TMB · 40% das vendas', value: tmbKnown ? sum(tmbRows) : null },
     { id: 'asaas', label: 'Asaas · recebimentos', value: asaasKnown ? asaas.gross : null },
     ...(manuals.length ? [{ id: 'manual', label: 'Caixa manual declarado', value: manualKnown ? sum(manuals) : null }] : []),
   ]
   const cashKnown = cashProviders.some(provider => provider.value !== null)
   const cashPartial = prepared.cashSources.some(source => source.status !== 'ready') || Boolean(asaas?.allocationMissing || asaas?.partial)
-    || [...tmbRows, ...manuals].some(row => amount(row.received) === null || !row.cashDate)
+    || prepared.cashRecords.some(row => amount(row.received) === null || !row.cashDate)
     || prepared.excludedCashManuals.length > 0
   return { revenue: { value: numeric(summary.revenue, available), count: available ? summary.count : null, partial,
     ticket: available && summary.count > 0 && summary.revenue.known ? summary.revenue.value / summary.count : null },
@@ -96,7 +103,10 @@ export function buildRevenueNotices(sources = [], filters = {}, { partial = fals
   if (asaas?.partial) notices.push({ id: 'asaas-partial-cash', title: 'Caixa Asaas parcial', tone: 'warning', message: 'Há recebimentos sem data ou consultas incompletas/em atualização. O subtotal conhecido foi preservado.' })
   if (prepareGoalData({ records, sources: relevant }).excludedCashManuals.length) notices.push({ id: 'asaas-manual-cash', title: 'Lançamentos manuais Asaas', tone: 'info', message: 'O caixa manual Asaas não foi somado ao extrato sem um vínculo de recebimento, para evitar contagem duplicada.' })
   if (relevant.some(source => source.id === 'tmb')) notices.push({ id: 'tmb-cash-rule', title: 'Regra de cash collected da TMB', tone: 'info', message: 'O cash collected da TMB considera 40% do valor bruto de cada venda, na data da venda. O bruto e a receita contratada permanecem integrais. Asaas mantém os recebimentos do extrato.' })
-  if (relevant.some(source => ['guru', 'hotmart', 'boletex'].includes(source.id))) notices.push({ id: 'cash-coverage', title: 'Cobertura do cash collected', tone: 'info', message: 'Este indicador inclui a regra de 40% da TMB, o caixa Asaas disponível e lançamentos manuais não conciliados. Líquidos Guru/Hotmart e recebimentos acumulados de contratos Boletex não substituem um extrato de caixa do período.' })
+  if (relevant.some(source => ['guru', 'hotmart'].includes(source.id))) notices.push({ id: 'platform-net-cash', title: 'Cash collected Guru e Hotmart', tone: 'info', message: 'Guru e Hotmart entram com 100% do líquido de cada venda, na data da venda. As taxas e comissões já consideradas pela fonte não são descontadas novamente. O indicador não representa a data de saque ou de repasse bancário.' })
+  const foreign = records.filter(row => row.excludedCurrencies?.length)
+  if (foreign.length) notices.push({ id: 'foreign-currency', title: 'Vendas em outras moedas', tone: 'warning', message: `${foreign.length} registros têm valores em ${[...new Set(foreign.flatMap(row => row.excludedCurrencies))].join(', ')}. Somente os campos informados em BRL entram nos totais em reais; valores em outras moedas ficam fora, sem conversão estimada.` })
+  if (relevant.some(source => source.id === 'boletex')) notices.push({ id: 'cash-coverage', title: 'Cobertura do cash collected', tone: 'info', message: 'Recebimentos acumulados de contratos Boletex não identificam o caixa deste período e não são somados ao cash collected. Lançamentos manuais não conciliados usam o caixa declarado.' })
   if (cache?.staleSources) notices.push({ id: 'stale-cache', title: 'Histórico em atualização', tone: 'info', message: 'Algumas fontes usam a última versão disponível. Consulte os horários de coleta; os valores serão atualizados quando a nova consulta terminar.' })
   if (cache?.pollTimedOut) notices.push({ id: 'cache-in-progress', title: 'A atualização continua no servidor', tone: 'info', message: 'O acompanhamento automático deste carregamento terminou. Os dados recebidos foram mantidos. Use Atualizar para acompanhar novamente.' })
   return notices

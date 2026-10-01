@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, Fragment } from 'react'
 import { ArrowDownLeft, ArrowUpRight, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, RefreshCw, Search, CircleAlert } from 'lucide-react'
 import { refundsService } from '../services/refundsService'
+import RefundSummary from '../components/charts/RefundSummary'
 
 const SOURCES = { guru: 'Guru', hotmart: 'Hotmart', tmb: 'TMB', typeform: 'Typeform', spreadsheet: 'Planilha' }
 const STATUSES = { refunded: 'Reembolso confirmado', partially_refunded: 'Reembolso parcial', requested: 'Solicitado', retained: 'Retido no atendimento', reported_refunded: 'Informado na planilha', chargeback: 'Chargeback', dispute: 'Em contestação', rejected: 'Venda rejeitada', cancelled: 'Pedido cancelado' }
@@ -8,6 +9,10 @@ const COVERAGE = { available: 'Disponível', limited: 'Cobertura limitada', part
 const BASIS = { refund: 'Cancelamento / estorno', purchase: 'Compra / efetivação', request: 'Solicitação', unknown: 'Não informada' }
 const PAGE_SIZE = 20
 const initialPeriod = () => {
+  const query = new URLSearchParams(window.location.search)
+  const startDate = query.get('startDate'), endDate = query.get('endDate')
+  const validDate = value => /^\d{4}-\d{2}-\d{2}$/.test(value || '') && Number.isFinite(Date.parse(value)) && new Date(`${value}T12:00:00Z`).toISOString().slice(0, 10) === value
+  if (validDate(startDate) && validDate(endDate) && startDate <= endDate && Date.parse(endDate) - Date.parse(startDate) <= 365 * 86400000) return { startDate, endDate }
   const now = new Date()
   const fmt = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
   return { startDate: fmt(new Date(now.getFullYear(), now.getMonth(), 1)), endDate: fmt(now) }
@@ -114,6 +119,7 @@ export default function RefundsPage() {
       })}
     </section>
     {result?.incomplete && <div role="status" className="flex gap-3 rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950 dark:border-amber-900 p-4 text-amber-900 dark:text-amber-100 text-sm"><CircleAlert size={18} className="shrink-0 mt-0.5" /><p>Algumas fontes estão indisponíveis ou incompletas. Os números abaixo representam somente os registros recebidos; ausência de dados não significa ausência de reembolsos.</p></div>}
+    <RefundSummary records={filtered} sources={result?.sources || []} platform={Object.keys(SOURCES).includes(source) && !['typeform', 'spreadsheet'].includes(source) ? source : ''} overview ready={Boolean(result)} loading={loading} showLink={false} />
     <section className="grid grid-cols-2 xl:grid-cols-4 gap-4" aria-label="Resumo dos registros filtrados">
       {[
         ['Confirmados nas plataformas', counts.confirmed, 'Totais e parciais, por status'], ['Solicitações de atendimento', counts.requests, 'Inclui pedidos retidos'],

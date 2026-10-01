@@ -1,10 +1,10 @@
-.pace-page { --pace-actual: var(--chart-1, #e64b63); }
+.pace-page { --pace-actual: var(--chart-1, #3c5bdc); }
 .pace-configure { font-size: 12px; color: var(--accent, #335cff); text-decoration: none; }
 .pace-filter-grid { grid-template-columns: .7fr 1fr 1.6fr 1.5fr 1.2fr; }
 .pace-basis { font-size: 12px; font-weight: 550; display: flex; align-items: center; min-height: 42px; padding: 9px 0; }
 .pace-stat.pace-actual > strong { color: var(--pace-actual); }
 .pace-stat.pace-ahead > strong { color: var(--chart-5, #159b82); }
-.pace-stat.pace-behind > strong { color: var(--pace-actual); }
+.pace-stat.pace-behind > strong { color: var(--error-text); }
 .pace-hero { display: grid; grid-template-columns: minmax(250px, .9fr) minmax(0, 1.6fr); gap: 36px; padding: 30px; align-items: start; }
 .pace-summary { min-width: 0; }
 .pace-summary-title { display: flex; align-items: center; gap: 9px; }
