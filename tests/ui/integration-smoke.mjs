@@ -7,6 +7,7 @@ import {checkComparison} from './comparison-checks.mjs'
 import { checkGoalConfiguration, checkGoalConfigurationReader } from './goal-config-checks.mjs'
 import { periodCacheFixture, emptyProviderPayload } from './period-cache-fixture.mjs'
 import { adminUsersCatalogFixture, emptyAdminUsersFixture } from './admin-users-read-fixture.mjs'
+import { emptyCommissionFixture, emptyUtmMappingFixture } from './commission-read-fixture.mjs'
 const out = process.env.DASHBOARD_SMOKE_OUTPUT || fileURLToPath(new URL('./artifacts/integration', import.meta.url))
 await fs.mkdir(out, { recursive: true })
 const base = process.env.DASHBOARD_SMOKE_URL || 'http://localhost:4317'
@@ -73,6 +74,8 @@ await context.route('**/*',async route=>{
   else body=[]
  }
  else if(url.pathname==='/api/sales-ops/sellers')body={data:[profile]}
+ else if(url.pathname==='/api/sales-ops/utm-mappings')body=emptyUtmMappingFixture
+ else if(url.pathname==='/api/commissions'||url.pathname==='/api/commissions/me')body=emptyCommissionFixture(url.searchParams.get('month'))
  else if(url.pathname==='/api/sales-ops/attributions'){
   const input=request.postDataJSON();const saved={...input,id:'assignment-1',sellerName:profile.name,syncPending:false};ledger.attributions.push(saved);body={data:saved}
  }

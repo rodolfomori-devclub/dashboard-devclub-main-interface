@@ -1,0 +1,92 @@
+.commission-workspace { --commission-blue:var(--chart-1); --commission-teal:var(--chart-5); display:grid; grid-template-columns:minmax(0,1fr); gap:24px; min-width:0; }
+.commission-header { display:flex; gap:20px; align-items:flex-start; justify-content:space-between; }
+.commission-header h2 { font-size:clamp(24px,3vw,34px); font-weight:700; letter-spacing:-.035em; line-height:1.2; }
+.commission-header p { max-width:70ch; color:var(--muted); margin-top:8px; font-size:14px; line-height:1.6; }
+.commission-toolbar { display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; padding:18px 20px; }
+.commission-toolbar label { display:grid; gap:6px; color:var(--muted); font-size:12px; font-weight:600; }
+.commission-toolbar input,.commission-toolbar select { background:var(--surface); border:1px solid var(--border); border-radius:8px; min-height:42px; padding:9px 12px; color:var(--text); min-width:155px; }
+.commission-toolbar .commission-seller-select { min-width:220px; max-width:330px; }
+.commission-toolbar .commission-updated { margin-left:auto; color:var(--muted); font-size:12px; display:flex; align-items:center; gap:7px; padding-bottom:10px; }
+.commission-summary { display:grid; grid-template-columns:1.18fr 1fr 1fr; gap:16px; }
+.commission-stat { position:relative; overflow:hidden; display:flex; flex-direction:column; align-items:flex-start; gap:12px; padding:25px; border-radius:16px; border:1px solid var(--border); background:var(--surface); min-width:0; }
+.commission-stat.is-primary { border-color:color-mix(in srgb,var(--commission-blue) 42%,var(--border)); background:color-mix(in srgb,var(--commission-blue) 9%,var(--surface)); }
+.commission-stat.is-cash { border-color:color-mix(in srgb,var(--commission-teal) 28%,var(--border)); }
+.commission-stat .commission-stat-label { color:var(--muted); display:flex; gap:8px; align-items:center; font-size:13px; }
+.commission-stat strong { color:var(--text); font-family:'Outfit Variable',sans-serif; font-size:clamp(27px,3vw,43px); font-weight:650; line-height:1.1; letter-spacing:-.035em; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+.commission-stat.is-primary strong { color:var(--commission-blue); }
+.commission-stat.is-cash strong { color:var(--commission-teal); }
+.commission-stat small { color:var(--muted); font-size:12px; line-height:1.55; }
+.commission-stat .commission-pending { font-size:24px; letter-spacing:-.02em; }
+.commission-badge { display:inline-flex; gap:5px; align-items:center; border-radius:999px; border:1px solid var(--border); padding:4px 9px; font-size:11px; font-weight:600; line-height:1.25; max-width:100%; }
+.commission-badge.is-utm { color:var(--chart-1); background:color-mix(in srgb,var(--chart-1) 8%,var(--surface)); border-color:color-mix(in srgb,var(--chart-1) 24%,var(--border)); }
+.commission-badge.is-manual { color:var(--chart-3); background:color-mix(in srgb,var(--chart-3) 8%,var(--surface)); border-color:color-mix(in srgb,var(--chart-3) 24%,var(--border)); }
+.commission-badge.is-ready { color:var(--success); background:color-mix(in srgb,var(--success) 7%,var(--surface)); }
+.commission-badge.is-pending { color:var(--warning); background:color-mix(in srgb,var(--warning) 7%,var(--surface)); border-color:color-mix(in srgb,var(--warning) 25%,var(--border)); }
+.commission-panel-head { display:flex; justify-content:space-between; gap:16px; align-items:center; padding:21px 23px; border-bottom:1px solid var(--border); }
+.commission-panel-head h3 { font-size:16px; font-weight:650; letter-spacing:-.015em; }
+.commission-panel-head p { margin-top:5px; font-size:12px; line-height:1.5; color:var(--muted); }
+.commission-attribution { display:grid; grid-template-columns:1fr auto; gap:22px; padding:23px; align-items:center; }
+.commission-attribution h3 { font-size:15px; font-weight:650; }
+.commission-attribution p { margin-top:6px; font-size:13px; color:var(--muted); line-height:1.55; }
+.commission-attribution-counts { display:flex; gap:18px; align-items:center; }
+.commission-attribution-counts span { display:grid; gap:5px; color:var(--muted); font-size:11px; min-width:74px; }
+.commission-attribution-counts strong { font-family:'Outfit Variable',sans-serif; font-size:29px; line-height:1; color:var(--text); font-weight:600; }
+.commission-attribution-bar { display:flex; overflow:hidden; gap:3px; height:7px; border-radius:7px; background:var(--surface-subtle); margin-top:15px; }
+.commission-attribution-bar span { min-width:0; border-radius:3px; }
+.commission-chart { padding:24px 15px 12px 8px; height:300px; min-width:0; }
+.commission-sales-table { overflow-x:auto; }
+.commission-sales-table table { width:100%; border-collapse:collapse; font-size:12px; }
+.commission-sales-table th { padding:13px 18px; text-align:left; color:var(--muted); background:var(--surface-subtle); white-space:nowrap; font-weight:600; }
+.commission-sales-table td { padding:16px 18px; border-top:1px solid var(--border); vertical-align:middle; }
+.commission-sales-table .money { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.commission-sales-table td strong { font-weight:600; }
+.commission-sales-table td small { display:block; margin-top:5px; color:var(--muted); font-size:11px; }
+.commission-sales-table tbody tr:hover { background:var(--surface-subtle); }
+.commission-sales-table .commission-product { min-width:190px; max-width:280px; overflow-wrap:anywhere; }
+.commission-empty { padding:38px 24px; text-align:center; color:var(--muted); }
+.commission-empty strong { display:block; color:var(--text); font-size:16px; margin-bottom:8px; }
+.commission-empty p { font-size:13px; line-height:1.6; max-width:64ch; margin:0 auto; }
+.commission-note { display:flex; gap:10px; padding:15px 18px; border:1px solid color-mix(in srgb,var(--warning) 25%,var(--border)); border-radius:10px; background:color-mix(in srgb,var(--warning) 5%,var(--surface)); color:var(--text); font-size:13px; line-height:1.6; }
+.commission-note svg { flex-shrink:0; margin-top:2px; color:var(--warning); }
+.commission-note button { text-decoration:underline; font-weight:600; }
+.commission-extras { display:grid; gap:16px; }
+.commission-extras-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:1px; background:var(--border); border-bottom:1px solid var(--border); }
+.commission-extras-grid>div { background:var(--surface); padding:19px 22px; display:grid; gap:9px; }
+.commission-extras-grid p { color:var(--muted); font-size:12px; }
+.commission-extras-grid strong { font-size:20px; font-weight:600; font-variant-numeric:tabular-nums; }
+.commission-ledger { padding:4px 22px; }
+.commission-ledger-row { display:flex; justify-content:space-between; align-items:center; gap:16px; padding:16px 0; border-bottom:1px solid var(--border); }
+.commission-ledger-row:last-child { border-bottom:0; }
+.commission-ledger-row p { font-size:13px; font-weight:500; }
+.commission-ledger-row small { color:var(--muted); font-size:11px; display:block; margin-top:5px; }
+.commission-ledger-row strong { font-size:14px; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.commission-history { overflow:hidden; }
+.commission-history>summary { cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:14px; padding:21px 23px; font-size:14px; font-weight:600; }
+.commission-history>summary small { color:var(--muted); font-size:12px; font-weight:400; }
+.commission-history .commission-ledger-row { align-items:flex-start; }
+.commission-history .commission-history-notes { margin-top:9px; white-space:pre-wrap; color:var(--muted); max-width:70ch; font-size:12px; line-height:1.6; }
+.commission-loading-label { display:flex; align-items:center; gap:8px; color:var(--muted); font-size:13px; min-height:47px; }
+.commission-loading-label svg,.commission-refresh-icon { animation:commission-spin 1s linear infinite; }
+.commission-error { display:flex; align-items:center; gap:12px; padding:22px; flex-wrap:wrap; }
+.commission-error p { flex:1; min-width:170px; font-size:14px; line-height:1.6; }
+.commission-error button { flex-shrink:0; }
+.commission-tabs { display:flex; gap:7px; flex-wrap:wrap; }
+.commission-tabs button { padding:8px 12px; border:1px solid var(--border); border-radius:8px; font-size:12px; color:var(--muted); background:var(--surface); }
+.commission-tabs button[aria-pressed=true] { color:var(--accent); border-color:var(--accent); background:var(--accent-soft); }
+@keyframes commission-spin { to { transform:rotate(360deg); } }
+@media(max-width:1000px) { .commission-summary { grid-template-columns:repeat(3,minmax(0,1fr)); } .commission-stat { padding:21px; } }
+@media(max-width:760px) { .commission-header { flex-direction:column; gap:14px; } .commission-header p { font-size:13px; } .commission-summary { grid-template-columns:1fr; gap:12px; } .commission-stat { gap:10px; padding:22px; } .commission-stat strong { font-size:36px; } .commission-attribution { grid-template-columns:1fr; gap:19px; padding:20px; } .commission-attribution-counts { justify-content:space-between; } .commission-panel-head { flex-wrap:wrap; padding:18px; } .commission-toolbar { padding:17px; } .commission-toolbar label { flex:1; min-width:0; } .commission-toolbar input,.commission-toolbar select,.commission-toolbar .commission-seller-select { min-width:0; width:100%; max-width:none; } .commission-toolbar .commission-updated { width:100%; margin:0; padding:0; } .commission-extras-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .commission-chart { height:250px; padding-left:0; padding-right:8px; } .commission-history>summary { align-items:flex-start; flex-direction:column; gap:6px; padding:18px; } }
+@media(prefers-reduced-motion:reduce) { .commission-loading-label svg,.commission-refresh-icon { animation:none; } }
+.commission-header-actions { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.commission-rule-dialog { max-height:calc(100dvh - 32px); overflow-y:auto; }
+.commission-rate-field { position:relative; margin-top:6px; }
+.commission-rate-field input { padding-right:32px; }
+.commission-rate-field>span { position:absolute; right:12px; top:10px; color:var(--muted); }
+
+.commission-workspace > * { min-width:0; }
+.commission-workspace .surface-panel { min-width:0; }
+.commission-rule-dialog { width:min(512px,calc(100vw - 24px)); }
+.dark .commission-badge.is-pending,.dark .commission-note svg { color:#ffd18c; }
+
+.commission-table-hint { display:none; }
+@media(max-width:760px) { .commission-table-hint { display:block; color:var(--muted); font-size:11px; padding:12px 18px; } }

@@ -39,5 +39,6 @@ try {
  await run('./tv-public-smoke.mjs')
  await run('./ranking-participation-smoke.mjs')
  await run('./admin-users-smoke.mjs')
+ await run('./commissions-attribution-smoke.mjs')
  await run('./chart-primitives-smoke.mjs')
 } finally { server.kill('SIGTERM') }
