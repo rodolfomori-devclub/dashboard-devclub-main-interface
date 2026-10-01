@@ -2,12 +2,13 @@ import axios from 'axios'
 import { sourceFinancialMetadata } from '../../utils/sourceAvailability'
 import { normalizeSource, SOURCE_DEFINITIONS } from '../../utils/salesData'
 import { getSalesLedger, mergeSalesOperations } from '../../services/salesOpsService'
+import { invalidateAsaasCashCache } from '../../services/asaasCashService'
 
 const cache = new Map()
 const inflight = new Map()
 const TTL = 60_000
 let generation = 0
-export function invalidateSalesCache() { generation++; cache.clear(); inflight.clear() }
+export function invalidateSalesCache() { generation++; cache.clear(); inflight.clear(); invalidateAsaasCashCache() }
 const summaryFields = ['count', 'totalValue', 'entryValue', 'confirmedCount', 'listPriceValue', 'confirmedValue', 'pendingValue', 'expectedEntryValue', 'totalGross', 'totalNet', 'totalFees', 'totalRefundAmount']
 const curatedSummary = (data) => {
   const pick = (value) => Object.fromEntries(summaryFields.filter((field) => value?.[field] !== undefined).map((field) => [field, value[field]]))
@@ -22,10 +23,10 @@ export function loadDailySales(date, options) {
   return loadSalesRange(date, date, options)
 }
 
-export async function loadSalesRange(startDate, endDate, { force = false } = {}) {
+export async function loadSalesRange(startDate, endDate, { force = false, includeAsaas = true } = {}) {
   const validDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(value) && new Date(`${value}T12:00:00Z`).toISOString().slice(0, 10) === value
   if (!validDate(startDate) || !validDate(endDate) || startDate > endDate) throw new Error('Período inválido')
-  const key = `${startDate}:${endDate}`
+  const key = `${startDate}:${endDate}:asaas=${includeAsaas}`
   if (inflight.has(key)) return inflight.get(key)
   const previous = cache.get(key)
   if (!force && previous && Date.now() - previous.fetchedAt < TTL) return previous
@@ -48,6 +49,7 @@ export async function loadSalesRange(startDate, endDate, { force = false } = {})
     // data is represented explicitly in the source status, never as zero sales.
     const ledgerRequest = getSalesLedger(startDate, endDate).then((data) => ({ data, status: 'ready' }), (error) => ({ data: null, status: 'unavailable', error: error.message }));
     const settled = await Promise.allSettled(SOURCE_DEFINITIONS.map(async (source) => {
+      if (source.id === 'asaas' && !includeAsaas) return { ...source, status: 'not_requested', salesAvailable: false, reason: 'annual_cash_on_demand', rows: [], cash: null }
       const response = await loaders[source.id]()
       return { ...source, ...sourceFinancialMetadata(source.id, response.data.data), rows: normalizeSource(source.id, response.data), summary: curatedSummary(response.data.data), origin: response.data.source || source.label }
     }))

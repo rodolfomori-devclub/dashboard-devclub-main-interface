@@ -33,6 +33,8 @@ try {
   if (context.routeWebSocket) await context.routeWebSocket('**/*', () => {})
   const calls = []
   let failedProviders = false
+  let cashPause = false, activeCash = 0, peakCash = 0, failCashDate = null
+  const cashIntervals = []
   await context.route('**/*', async route => {
     const req = route.request()
     const url = new URL(req.url())
@@ -45,7 +47,16 @@ try {
     if (url.pathname === '/api/access') body = { user: { sub: 'fixture-user', email: 'qa@example.test', name: 'QA', permissions: ['admin'], isAdmin: true } }
     else if (url.pathname.startsWith('/api/goals/')) body = { success: true, data: { meta: 30000, superMeta: 35000, ultraMeta: 40000 } }
     else if (url.pathname === '/api/sales-ops/ledger') body = { data: { attributions: [], manualSales: [] } }
-    else if (url.pathname === '/api/boleto/asaas/vendas') body = { success: true, data: { totalGross: 500, totalNet: 495, totalFees: 5, count: 2, sales: null, totalPurchaseValue: null, availability: { cash: 'ready', sales: 'unavailable', reason: 'checkout_disabled' } } }
+    else if (url.pathname === '/api/boleto/asaas/vendas') {
+      if (cashPause) {
+        const start = url.searchParams.get('data_inicio'), end = url.searchParams.get('data_final')
+        assert.ok((Date.parse(end) - Date.parse(start)) / 86400000 <= 6, 'cash query exceeds seven inclusive days')
+        cashIntervals.push({ start, end }); activeCash++; peakCash = Math.max(peakCash, activeCash)
+        await new Promise(resolve => setTimeout(resolve, 60)); activeCash--
+        if (start === failCashDate) { failCashDate = null; return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ success: false }) }) }
+      }
+      body = { success: true, data: { totalGross: 500, totalNet: 495, totalFees: 5, count: 2, sales: null, totalPurchaseValue: null, availability: { cash: 'ready', sales: 'unavailable', reason: 'checkout_disabled' } } }
+    }
     else if (failedProviders) return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ success: false }) })
     else if (url.pathname === '/api/transactions') body = { data: [{ id: `g-${date}`, product: { name: 'DevClub' }, calculation_details: { net_amount: 100, total_amount: 120 }, dates: { created_at: timestamp } }] }
     else if (url.pathname === '/api/refunds') body = { data: [] }
@@ -70,9 +81,22 @@ try {
   }
   for (const [path, title, annual] of [['/diario', 'Valor das vendas', false], ['/global', 'Receita operacional', false], ['/mensal', 'Receita operacional', false], ['/anual', 'Receita operacional', true]]) {
     await page.setViewportSize({ width: 1440, height: 1000 })
+    const beforeAsaas = calls.filter(path => path === '/api/boleto/asaas/vendas').length
+    cashPause = annual
     await visit(path)
+    if (annual) {
+      assert.equal(calls.filter(path => path === '/api/boleto/asaas/vendas').length, beforeAsaas, 'annual operations must not request Asaas')
+      assert.match(await card(title).innerText(), /5\.400,00/)
+      assert.match(await cash().innerText(), /ainda não consultado/)
+      await page.getByRole('button', { name: 'Consultar caixa Asaas', exact: true }).click()
+      await page.getByRole('progressbar', { name: 'Progresso da consulta Asaas' }).waitFor()
+      assert.doesNotMatch(await cash().innerText(), /R\$/)
+      await cash().getByText('Todos os intervalos foram consultados.', { exact: true }).waitFor()
+      assert.equal(cashIntervals.length, 37)
+      assert.equal(peakCash, 2)
+    }
     assert.match(await card(title).innerText(), annual ? /5\.400,00/ : /600,00/)
-    assert.match(await cash().innerText(), annual ? /4\.455,00/ : /495,00/)
+    assert.match(await cash().innerText(), annual ? /18\.315,00/ : /495,00/)
     assert.match(await card(title).innerText(), /parcial/i)
     const platform = path === '/diario' ? page.getByLabel('Plataforma', { exact: true }) : page.locator('#period-platform')
     const before = calls.length
@@ -88,7 +112,7 @@ try {
     const product = path === '/diario' ? page.getByLabel('Produto original', { exact: true }) : page.locator('#period-product')
     await product.selectOption('DevClub')
     assert.match(await cash().innerText(), /Caixa sem distribuição/)
-    assert.doesNotMatch(await cash().innerText(), /495,00|4\.455,00/)
+    assert.doesNotMatch(await cash().innerText(), /495,00|18\.315,00/)
     await product.selectOption('')
     assert.equal(calls.length, before, `${path}: filters must be local`)
     for (const dark of [false, true]) {
@@ -96,8 +120,28 @@ try {
       if (await page.evaluate(() => document.documentElement.classList.contains('dark')) !== dark) await page.getByRole('button', { name: dark ? 'Usar tema escuro' : 'Usar tema claro' }).click()
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, `${path}: mobile overflow`)
     }
+    if (annual) {
+      failCashDate = '2026-01-01'
+      await page.getByRole('button', { name: 'Atualizar caixa Asaas', exact: true }).click()
+      await cash().getByText(/Subtotal parcial:/).waitFor()
+      assert.match(await cash().innerText(), /36 de 37/)
+      const beforeRetry = cashIntervals.length
+      await page.getByRole('button', { name: 'Consultar intervalos pendentes', exact: true }).click()
+      await cash().getByText('Todos os intervalos foram consultados.', { exact: true }).waitFor()
+      assert.equal(cashIntervals.length, beforeRetry + 1, 'retry must query only the failed interval')
+    }
     console.log(`PASS ${path}: cash preserved, sales partial, Asaas unknown, Guru unaffected, filters no allocation, mobile themes`)
   }
+  cashPause = false
+  const beforeOptionCache = calls.filter(path => path === '/api/boleto/asaas/vendas').length
+  const optionCache = await page.evaluate(async () => {
+    const { loadSalesRange } = await import('/src/components/daily/dailyData.js')
+    const omitted = await loadSalesRange('2026-08-20', '2026-08-20', { includeAsaas: false })
+    const included = await loadSalesRange('2026-08-20', '2026-08-20')
+    return [omitted.sources.find(source => source.id === 'asaas').status, included.sources.find(source => source.id === 'asaas').status]
+  })
+  assert.deepEqual(optionCache, ['not_requested', 'partial'])
+  assert.equal(calls.filter(path => path === '/api/boleto/asaas/vendas').length, beforeOptionCache + 1, 'includeAsaas must be part of the cache key')
   failedProviders = true
   await visit('/diario')
   assert.match(await card('Valor das vendas').innerText(), /Indisponível/)

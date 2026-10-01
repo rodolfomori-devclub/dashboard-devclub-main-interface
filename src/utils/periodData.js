@@ -82,8 +82,9 @@ export function mergePeriodSources(results, annual = false) {
   const bySource = new Map()
   for (const batch of results) {
     for (const source of batch.result.sources) {
-      const group = bySource.get(source.id) || { ...source, rows: [], failures: 0, incomplete: 0, periods: 0, salesAvailable: false, cash: null }
+      const group = bySource.get(source.id) || { ...source, rows: [], failures: 0, incomplete: 0, notRequested: 0, periods: 0, salesAvailable: false, cash: null }
       group.periods++
+      if (source.status === 'not_requested') group.notRequested++
       if (source.status === 'unavailable') group.failures++
       if (source.status !== 'ready') group.incomplete++
       if (sourceHasSales(source)) group.salesAvailable = true
@@ -101,6 +102,6 @@ export function mergePeriodSources(results, annual = false) {
   return [...bySource.values()].map(source => ({
     ...source,
     cash: source.cash ? { ...source.cash, periods: source.periods } : null,
-    status: source.failures === source.periods ? 'unavailable' : source.incomplete ? 'partial' : 'ready',
+    status: source.notRequested === source.periods ? 'not_requested' : source.failures === source.periods ? 'unavailable' : source.incomplete ? 'partial' : 'ready',
   }))
 }

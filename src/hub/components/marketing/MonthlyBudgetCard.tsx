@@ -102,9 +102,13 @@ export default function MonthlyBudgetCard() {
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from('webinar_global_metrics')
-        .select('day, investment');
+        .select('day, metric_value')
+        .eq('metric_key', 'investment');
       if (error) throw new Error(error.message);
-      return (data || []) as { day: string; investment: number }[];
+      return (data || []).map((row: { day: string; metric_value: number | string }) => ({
+        day: row.day,
+        investment: Number(row.metric_value),
+      })) as { day: string; investment: number }[];
     },
     staleTime: 60_000,
   });

@@ -8,7 +8,7 @@ export async function loadPeriodSales(startDate, endDate, { annual = false, forc
   for (let i = 0; i < ranges.length; i += 2) {
     if (isCancelled()) throw new Error('Consulta cancelada')
     const batch = await Promise.all(ranges.slice(i, i + 2).map(async range => ({
-      ...range, result: await loadSalesRange(range.startDate, range.endDate, { force }),
+      ...range, result: await loadSalesRange(range.startDate, range.endDate, { force, includeAsaas: !annual }),
     })))
     results.push(...batch)
     onProgress({ current: results.length, total: ranges.length })
