@@ -51,13 +51,30 @@ export class VaultAuth {
 
   // ---- Public API ----
 
+  /** Keep PKCE state and its callback on the same configured browser origin. */
+  redirectToCanonicalOrigin() {
+    const current = new URL(window.location.href);
+    const callback = new URL(this.redirectUri, current.origin);
+    if (current.origin === callback.origin) return false;
+    const destination = new URL(callback.origin);
+    // Set URL components separately: a pathname beginning // must stay a path.
+    destination.pathname = current.pathname;
+    destination.search = current.search;
+    destination.hash = current.hash;
+    window.location.replace(destination.href);
+    return true;
+  }
+
   /** Redirect user to Vault login */
   async login() {
+    if (this.redirectToCanonicalOrigin()) return;
     const codeVerifier = generateCodeVerifier();
     const codeChallenge = await generateCodeChallenge(codeVerifier);
 
-    localStorage.setItem('vault_code_verifier', codeVerifier);
-    localStorage.setItem('vault_redirect_after', window.location.pathname);
+    const state = crypto.randomUUID();
+    sessionStorage.setItem('vault_oauth_state', state);
+    sessionStorage.setItem('vault_code_verifier', codeVerifier);
+    localStorage.setItem('vault_redirect_after', window.location.pathname + window.location.search);
 
     const params = new URLSearchParams({
       response_type: 'code',
@@ -66,20 +83,26 @@ export class VaultAuth {
       scope: this.scope,
       code_challenge: codeChallenge,
       code_challenge_method: 'S256',
-      state: crypto.randomUUID(),
+      state,
     });
 
     window.location.href = `${this.vaultUrl}/oauth/authorize?${params}`;
   }
 
   /** Handle callback after Vault login — exchange code for tokens */
-  async handleCallback() {
+  handleCallback() {
+    if (!this._callbackPromise) this._callbackPromise = this._handleCallback();
+    return this._callbackPromise;
+  }
+
+  async _handleCallback() {
     const url = new URL(window.location.href);
     const code = url.searchParams.get('code');
     if (!code) return false;
 
-    const codeVerifier = localStorage.getItem('vault_code_verifier');
-    if (!codeVerifier) return false;
+    const codeVerifier = sessionStorage.getItem('vault_code_verifier');
+    const expectedState = sessionStorage.getItem('vault_oauth_state');
+    if (!codeVerifier || !expectedState || url.searchParams.get('state') !== expectedState) return false;
 
     try {
       const res = await fetch(`${this.vaultUrl}/oauth/token`, {
@@ -103,7 +126,8 @@ export class VaultAuth {
       const tokens = await res.json();
       this._setTokens(tokens);
 
-      localStorage.removeItem('vault_code_verifier');
+      sessionStorage.removeItem('vault_code_verifier');
+      sessionStorage.removeItem('vault_oauth_state');
 
       return true;
     } catch (err) {
@@ -121,7 +145,8 @@ export class VaultAuth {
 
     // Check expiry
     if (payload.exp && payload.exp * 1000 < Date.now()) {
-      this._clearTokens();
+      this._accessToken = null;
+      localStorage.removeItem('vault_access_token');
       return null;
     }
 
@@ -226,7 +251,7 @@ export class VaultAuth {
 
   _setTokens(tokens) {
     this._accessToken = tokens.access_token;
-    this._refreshToken = tokens.refresh_token;
+    this._refreshToken = tokens.refresh_token || this._refreshToken;
     this._user = this.getUser();
 
     localStorage.setItem('vault_access_token', tokens.access_token);
@@ -258,10 +283,7 @@ export class VaultAuth {
 
     if (this._accessToken) {
       this._user = this.getUser();
-      // If token expired, try refresh
-      if (!this._user && this._refreshToken) {
-        this.refresh();
-      }
+      // The API wrapper coordinates refresh so concurrent screens share one request.
     }
   }
 }

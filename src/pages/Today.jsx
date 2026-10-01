@@ -1,1232 +1,166 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react'
-import axios from 'axios'
-import toast from 'react-hot-toast'
-import boletoService from '../services/boletoService'
-import {
-  Cell,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-} from 'recharts'
+/* eslint-disable react/prop-types -- Internal UI props; React 19 does not use runtime propTypes. */
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { ReferenceChart } from '../components/charts/ReferenceChart'
+import { ArrowLeft, ArrowRight, ChevronDown, RefreshCw, SlidersHorizontal } from 'lucide-react'
 import { formatCurrency } from '../utils/currencyUtils'
-import { CHART_COLORS } from '../styles/designTokens'
-
-function Today() {
-  const initialDate = new Date()
-  initialDate.setHours(12, 0, 0, 0)
-
-  const [selectedDate, setSelectedDate] = useState(initialDate)
-  const [displayDate, setDisplayDate] = useState(() => {
-    const d = initialDate
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-  })
-
-  const [todayData, setTodayData] = useState(null)
-  const [refundsData, setRefundsData] = useState(null)
-  const [commercialData, setCommercialData] = useState(null)
-  const [boletoData, setBoletoData] = useState(null)
-  const [asaasData, setAsaasData] = useState(null)
-  const [boletexData, setBoletexData] = useState(null)
-  const [hotmartData, setHotmartData] = useState(null)
-  const [hotmartRefundsData, setHotmartRefundsData] = useState(null)
-  const [showRefundsModal, setShowRefundsModal] = useState(false)
-  const [showAsaasEntries, setShowAsaasEntries] = useState(false)
-  const [showBoletexEntries, setShowBoletexEntries] = useState(false)
-  const [categoryData, setCategoryData] = useState({ ia: {}, programacao: {} })
-  const [loading, setLoading] = useState(true)
-  const [loadingStates, setLoadingStates] = useState({
-    transactions: true,
-    refunds: true,
-    boleto: true
-  })
-
-  // AbortController ref para cancelar requisições pendentes
-  const abortControllerRef = useRef(null)
-
-  // Function to categorize products by type
-  const categorizeProduct = (productName) => {
-    if (!productName) return 'programacao'
-    
-    const lowerName = productName.toLowerCase()
-    
-    // IA Club products - be very specific
-    if (lowerName.includes('ia club') || 
-        lowerName.includes('gestor de ia') ||
-        lowerName.includes('formação gestor de ia')) {
-      return 'ia'
-    }
-    
-    // DevClub products (programming) - check these first to avoid conflicts
-    if (lowerName.includes('devclub') || 
-        lowerName.includes('full stack') ||
-        lowerName.includes('vitalício') ||
-        lowerName.includes('vitalicio')) {
-      return 'programacao'
-    }
-    
-    // Default to programming if not clearly IA
-    return 'programacao'
-  }
-
-  const fetchDayData = useCallback(async (date) => {
-    try {
-      // Cancelar requisições anteriores se existirem
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort()
-      }
-
-      // Criar novo AbortController para esta requisição
-      abortControllerRef.current = new AbortController()
-      const signal = abortControllerRef.current.signal
-
-      setLoading(true)
-      setLoadingStates({
-        transactions: true,
-        refunds: true,
-        boleto: true
-      })
-
-      // Executar todas as chamadas em paralelo usando Promise.allSettled
-      const [transactionsResult, refundsResult, boletoResult, asaasResult, hotmartResult, hotmartRefundsResult, boletexResult] = await Promise.allSettled([
-        // Buscar transações aprovadas (Guru)
-        axios.post(
-          `${import.meta.env.VITE_API_URL}/transactions`,
-          {
-            ordered_at_ini: date,
-            ordered_at_end: date,
-          },
-          {
-            timeout: 60000,
-            signal,
-          },
-        ),
-        // Buscar transações reembolsadas (Guru)
-        axios.post(
-          `${import.meta.env.VITE_API_URL}/refunds`,
-          {
-            ordered_at_ini: date,
-            ordered_at_end: date,
-          },
-          {
-            timeout: 60000,
-            signal,
-          },
-        ),
-        // Buscar vendas de boleto (TMB)
-        (async () => {
-          const selectedDate = new Date(date)
-          return await boletoService.getSalesByDate(selectedDate)
-        })(),
-        // Buscar vendas Asaas (boleto parcelado) com retry para 429
-        (async () => {
-          for (let attempt = 1; attempt <= 3; attempt++) {
-            try {
-              return await axios.get(
-                `${import.meta.env.VITE_API_URL}/boleto/asaas/vendas`,
-                {
-                  params: { date },
-                  timeout: 60000,
-                  signal,
-                },
-              )
-            } catch (err) {
-              if (err?.response?.status === 429 && attempt < 3) {
-                console.log(`Asaas 429 - retry ${attempt}/3 em ${attempt * 10}s...`)
-                await new Promise(r => setTimeout(r, attempt * 10000))
-                continue
-              }
-              throw err
-            }
-          }
-        })(),
-        // Buscar vendas Hotmart
-        axios.get(
-          `${import.meta.env.VITE_API_URL}/hotmart/vendas`,
-          {
-            params: { date },
-            timeout: 30000,
-            signal,
-          },
-        ),
-        // Buscar reembolsos Hotmart
-        axios.get(
-          `${import.meta.env.VITE_API_URL}/hotmart/reembolsos`,
-          {
-            params: { date },
-            timeout: 30000,
-            signal,
-          },
-        ),
-        // Buscar vendas Boletex (3ª fonte de boletos parcelados) com retry para 429
-        (async () => {
-          for (let attempt = 1; attempt <= 3; attempt++) {
-            try {
-              return await axios.get(
-                `${import.meta.env.VITE_API_URL}/boleto/boletex/vendas`,
-                {
-                  params: { date },
-                  timeout: 60000,
-                  signal,
-                },
-              )
-            } catch (err) {
-              if (err?.response?.status === 429 && attempt < 3) {
-                console.log(`Boletex 429 - retry ${attempt}/3 em ${attempt * 10}s...`)
-                await new Promise(r => setTimeout(r, attempt * 10000))
-                continue
-              }
-              throw err
-            }
-          }
-        })()
-      ])
-
-      // Processar resultado de transações
-      let transactionsResponse = { data: { data: [] } }
-      if (transactionsResult.status === 'fulfilled') {
-        transactionsResponse = transactionsResult.value
-        setLoadingStates(prev => ({ ...prev, transactions: false }))
-      } else {
-        const errorDetails = transactionsResult.reason
-
-        // Ignorar erros de cancelamento (AbortController)
-        if (errorDetails?.code === 'ERR_CANCELED' || errorDetails?.message === 'canceled') {
-          setLoadingStates(prev => ({ ...prev, transactions: false }))
-          return
-        }
-
-        // Mostrar mensagem mais específica baseada no erro
-        if (errorDetails?.code === 'ECONNABORTED') {
-          toast.error('Timeout ao carregar transações. A API está demorando muito.')
-        } else if (errorDetails?.code === 'ERR_NETWORK' || errorDetails?.message?.includes('Network Error')) {
-          toast.error('Erro de rede. Verifique se a API está rodando.')
-        } else if (errorDetails?.response?.status === 404) {
-          toast.error('Endpoint de transações não encontrado.')
-        } else if (errorDetails?.response?.status >= 500) {
-          toast.error('Erro no servidor da API ao carregar transações.')
-        } else {
-          toast.error('Erro ao carregar transações de cartão. Dados podem estar incompletos.')
-        }
-
-        setLoadingStates(prev => ({ ...prev, transactions: false }))
-      }
-
-      // Processar resultado de reembolsos
-      let refundsResponse = { data: { data: [] } }
-      if (refundsResult.status === 'fulfilled') {
-        refundsResponse = refundsResult.value
-        setLoadingStates(prev => ({ ...prev, refunds: false }))
-      } else {
-        const errorDetails = refundsResult.reason
-
-        // Ignorar erros de cancelamento (AbortController)
-        if (errorDetails?.code === 'ERR_CANCELED' || errorDetails?.message === 'canceled') {
-          setLoadingStates(prev => ({ ...prev, refunds: false }))
-        } else {
-          toast.error('Erro ao carregar dados de reembolsos.')
-          setLoadingStates(prev => ({ ...prev, refunds: false }))
-        }
-      }
-
-      // Processar resultado de boleto
-      let boletoSales = []
-      if (boletoResult.status === 'fulfilled') {
-        boletoSales = boletoResult.value
-        setLoadingStates(prev => ({ ...prev, boleto: false }))
-      } else {
-        const errorDetails = boletoResult.reason
-
-        // Ignorar erros de cancelamento (AbortController)
-        if (errorDetails?.code === 'ERR_CANCELED' || errorDetails?.message === 'canceled') {
-          setLoadingStates(prev => ({ ...prev, boleto: false }))
-        } else {
-          toast.error('Erro ao carregar vendas de boleto.')
-          setLoadingStates(prev => ({ ...prev, boleto: false }))
-        }
-      }
-
-      // Processar dados de transações
-      const hourlyData = Array(24)
-        .fill()
-        .map((_, index) => ({
-          hour: index,
-          sales: 0,
-          value: 0,
-          affiliateValue: 0,
-          refundCount: 0,
-          refundValue: 0,
-          commercialSales: 0,
-          commercialValue: 0,
-          boletoSales: 0,
-          boletoValue: 0,
-          productSales: {},
-        }))
-
-      let totalSales = 0
-      let totalValue = 0
-      let totalAffiliateValue = 0
-      let totalCommercialValue = 0
-      let totalCommercialSales = 0
-      let totalBoletoSales = 0
-      let totalBoletoValue = 0
-      const productSales = {}
-
-      // Category tracking
-      const categoryTotals = {
-        ia: {
-          totalValue: 0,
-          totalQuantity: 0,
-          cardValue: 0,
-          cardQuantity: 0,
-          boletoValue: 0,
-          boletoQuantity: 0,
-          commercialValue: 0,
-          commercialQuantity: 0,
-          affiliateValue: 0,
-          sales: []
-        },
-        programacao: {
-          totalValue: 0,
-          totalQuantity: 0,
-          cardValue: 0,
-          cardQuantity: 0,
-          boletoValue: 0,
-          boletoQuantity: 0,
-          commercialValue: 0,
-          commercialQuantity: 0,
-          affiliateValue: 0,
-          sales: []
-        }
-      }
-
-      transactionsResponse.data.data.forEach((transaction) => {
-        const timestamp = transaction.dates.created_at * 1000
-        const date = new Date(timestamp)
-        const hour = date.getHours()
-
-        const netAmount = Number(
-          transaction?.calculation_details?.net_amount || 0,
-        )
-        const affiliateValue = Number(
-          transaction?.calculation_details?.net_affiliate_value || 0,
-        )
-
-        const isCommercial = transaction.trackings?.utm_source === 'comercial'
-
-        hourlyData[hour].sales += 1
-        hourlyData[hour].value += netAmount
-        hourlyData[hour].affiliateValue += affiliateValue
-
-        const productName = transaction.product.name
-        const productCategory = categorizeProduct(productName)
-        
-        if (!hourlyData[hour].productSales[productName]) {
-          hourlyData[hour].productSales[productName] = 0
-        }
-        hourlyData[hour].productSales[productName] += 1
-
-        if (isCommercial) {
-          hourlyData[hour].commercialSales += 1
-          hourlyData[hour].commercialValue += netAmount
-          totalCommercialSales += 1
-          totalCommercialValue += netAmount
-        }
-
-        totalSales += 1
-        totalValue += netAmount
-        totalAffiliateValue += affiliateValue
-
-        // Update category totals
-        categoryTotals[productCategory].totalValue += netAmount
-        categoryTotals[productCategory].totalQuantity += 1
-        categoryTotals[productCategory].cardValue += netAmount
-        categoryTotals[productCategory].cardQuantity += 1
-        categoryTotals[productCategory].affiliateValue += affiliateValue
-
-        // Add individual sale to category
-        categoryTotals[productCategory].sales.push({
-          id: transaction.hash || `card-${Date.now()}-${Math.random()}`,
-          productName: productName,
-          value: netAmount,
-          method: 'Cartão',
-          timestamp: transaction.dates.created_at,
-          isCommercial: isCommercial,
-          affiliateValue: affiliateValue
-        })
-
-        if (isCommercial) {
-          categoryTotals[productCategory].commercialValue += netAmount
-          categoryTotals[productCategory].commercialQuantity += 1
-        }
-
-        if (!productSales[productName]) {
-          productSales[productName] = {
-            name: productName,
-            category: productCategory,
-            quantity: 0,
-            value: 0,
-            commercialQuantity: 0,
-            commercialValue: 0,
-            boletoQuantity: 0,
-            boletoValue: 0,
-          }
-        }
-        productSales[productName].quantity += 1
-        productSales[productName].value += netAmount
-
-        if (isCommercial) {
-          productSales[productName].commercialQuantity += 1
-          productSales[productName].commercialValue += netAmount
-        }
-      })
-
-      // Processar vendas de boleto
-      boletoSales.forEach((boletoSale) => {
-        const date = new Date(boletoSale.timestamp)
-        const hour = date.getHours()
-
-        const saleValue = boletoSale.value || 0
-
-        hourlyData[hour].boletoSales += 1
-        hourlyData[hour].boletoValue += saleValue
-
-        totalBoletoSales += 1
-        totalBoletoValue += saleValue
-
-        const productName = boletoSale.product
-        const productCategory = categorizeProduct(productName)
-        
-        if (!productSales[productName]) {
-          productSales[productName] = {
-            name: productName,
-            category: productCategory,
-            quantity: 0,
-            value: 0,
-            commercialQuantity: 0,
-            commercialValue: 0,
-            boletoQuantity: 0,
-            boletoValue: 0,
-          }
-        }
-
-        productSales[productName].boletoQuantity =
-          (productSales[productName].boletoQuantity || 0) + 1
-        productSales[productName].boletoValue =
-          (productSales[productName].boletoValue || 0) + saleValue
-        productSales[productName].quantity += 1
-        productSales[productName].value += saleValue
-
-        // Update category totals for boleto
-        categoryTotals[productCategory].totalValue += saleValue
-        categoryTotals[productCategory].totalQuantity += 1
-        categoryTotals[productCategory].boletoValue += saleValue
-        categoryTotals[productCategory].boletoQuantity += 1
-        
-        // Add individual boleto sale to category
-        categoryTotals[productCategory].sales.push({
-          id: `boleto-${Date.now()}-${Math.random()}`,
-          productName: productName,
-          value: saleValue,
-          method: 'Boleto',
-          timestamp: Math.floor(date.getTime() / 1000),
-          isCommercial: false,
-          affiliateValue: 0
-        })
-      })
-
-      // Processar dados de reembolsos (Guru)
-      let totalRefunds = 0
-      let totalRefundAmount = 0
-      const refundsByProduct = {}
-      const refundDetails = []
-
-      refundsResponse.data.data.forEach((refund) => {
-        const productName = refund.product?.name || 'Produto não especificado'
-        const refundAmount = Number(refund.calculation_details?.net_amount || 0)
-
-        if (!refundsByProduct[productName]) {
-          refundsByProduct[productName] = { count: 0, amount: 0 }
-        }
-
-        refundsByProduct[productName].count += 1
-        refundsByProduct[productName].amount += refundAmount
-
-        totalRefunds += 1
-        totalRefundAmount += refundAmount
-
-        refundDetails.push({
-          id: refund.hash || `guru-refund-${Date.now()}-${Math.random()}`,
-          product: productName,
-          value: refundAmount,
-          platform: 'Guru',
-          buyer: refund.contact?.name || '',
-          date: refund.dates?.created_at ? new Date(refund.dates.created_at * 1000) : null,
-          paymentMethod: refund.payment?.method || '',
-        })
-      })
-
-      // Processar reembolsos Hotmart
-      const hotmartRefunds =
-        hotmartRefundsResult.status === 'fulfilled' && hotmartRefundsResult.value?.data?.success
-          ? hotmartRefundsResult.value.data.data || {}
-          : {}
-      const hotmartRefundsList = hotmartRefunds.transactions || []
-
-      hotmartRefundsList.forEach((refund) => {
-        const productName = refund.product || 'Produto Hotmart'
-        const refundAmount = refund.value || 0
-
-        if (!refundsByProduct[productName]) {
-          refundsByProduct[productName] = { count: 0, amount: 0 }
-        }
-
-        refundsByProduct[productName].count += 1
-        refundsByProduct[productName].amount += refundAmount
-
-        totalRefunds += 1
-        totalRefundAmount += refundAmount
-
-        refundDetails.push({
-          id: refund.transaction || `hotmart-refund-${Date.now()}-${Math.random()}`,
-          product: productName,
-          value: refundAmount,
-          platform: 'Hotmart',
-          buyer: refund.buyer || '',
-          date: refund.orderDate ? new Date(refund.orderDate) : null,
-          paymentMethod: refund.paymentMethod || '',
-        })
-      })
-
-      const refundProductData = Object.entries(refundsByProduct).map(
-        ([name, data]) => ({
-          name,
-          refundCount: data.count,
-          refundValue: data.amount,
-        }),
-      )
-
-      hourlyData.forEach((hour, index) => {
-        hourlyData[index].refundCount = 0
-        hourlyData[index].refundValue = 0
-      })
-
-      const hoursWithSales =
-        hourlyData.filter((hour) => hour.sales > 0 || hour.boletoSales > 0)
-          .length || 1
-      // Extrair vendas novas do dia do Asaas (checkouts criados hoje)
-      const asaasSales =
-        asaasResult.status === 'fulfilled' && asaasResult.value?.data?.success
-          ? asaasResult.value.data.data?.sales || {}
-          : {}
-      const asaasPurchaseValue = asaasSales.totalValue || 0
-      const asaasCount = asaasSales.count || 0
-
-      // Extrair vendas Boletex (3ª fonte de boletos parcelados)
-      const boletexSales =
-        boletexResult.status === 'fulfilled' && boletexResult.value?.data?.success
-          ? boletexResult.value.data.data?.sales || {}
-          : {}
-      const boletexPurchaseValue = boletexSales.totalValue || 0
-      const boletexCount = boletexSales.count || 0
-
-      // Extrair vendas Hotmart
-      const hotmartSales =
-        hotmartResult.status === 'fulfilled' && hotmartResult.value?.data?.success
-          ? hotmartResult.value.data.data || {}
-          : {}
-      const hotmartNetValue = hotmartSales.totalNet || 0
-      const hotmartGrossValue = hotmartSales.totalGross || 0
-      const hotmartCount = hotmartSales.count || 0
-
-      // Adicionar vendas Hotmart ao hourlyData (têm timestamp por transação)
-      const hotmartTransactions = hotmartSales.transactions || []
-      let hotmartHourlySales = 0
-      let hotmartHourlyValue = 0
-      hotmartTransactions.forEach((tx) => {
-        const orderDate = tx.orderDate ? new Date(tx.orderDate) : null
-        if (!orderDate) return
-        const hour = orderDate.getHours()
-        const netValue = tx.netValue || 0
-        hourlyData[hour].sales += 1
-        hourlyData[hour].value += netValue
-        hourlyData[hour].hotmartSales = (hourlyData[hour].hotmartSales || 0) + 1
-        hourlyData[hour].hotmartValue = (hourlyData[hour].hotmartValue || 0) + netValue
-        const productName = tx.product || 'Produto Hotmart'
-        if (!hourlyData[hour].productSales[productName]) {
-          hourlyData[hour].productSales[productName] = 0
-        }
-        hourlyData[hour].productSales[productName] += 1
-        hotmartHourlySales += 1
-        hotmartHourlyValue += netValue
-
-        // Adicionar ao productSales geral e categorias
-        const productCategory = categorizeProduct(productName)
-        if (!productSales[productName]) {
-          productSales[productName] = { name: productName, category: productCategory, quantity: 0, value: 0, commercialQuantity: 0, commercialValue: 0, boletoQuantity: 0, boletoValue: 0 }
-        }
-        productSales[productName].quantity += 1
-        productSales[productName].value += netValue
-        totalSales += 1
-        totalValue += netValue
-        categoryTotals[productCategory].totalValue += netValue
-        categoryTotals[productCategory].totalQuantity += 1
-        categoryTotals[productCategory].cardValue += netValue
-        categoryTotals[productCategory].cardQuantity += 1
-      })
-
-      // Recalcular hoursWithSales após incluir Hotmart
-      const hoursWithSalesUpdated =
-        hourlyData.filter((hour) => hour.sales > 0 || hour.boletoSales > 0).length || 1
-
-      const totalCardSales = totalSales + (hotmartCount - hotmartHourlySales)
-      totalSales += totalBoletoSales + asaasCount + boletexCount + (hotmartCount - hotmartHourlySales)
-      const totalCombinedValue = totalValue + totalBoletoValue + asaasPurchaseValue + boletexPurchaseValue + (hotmartNetValue - hotmartHourlyValue)
-      const averageSalesPerHour = totalSales / hoursWithSalesUpdated
-
-      const processedHourlyData = hourlyData.map((hour) => ({
-        ...hour,
-        hotmartSales: hour.hotmartSales || 0,
-        hotmartValue: hour.hotmartValue || 0,
-        totalSales: (hour.sales || 0) + (hour.boletoSales || 0),
-        totalValue: (hour.value || 0) + (hour.boletoValue || 0),
-        averageSales: averageSalesPerHour,
-      }))
-
-      // Gerar productData após incluir Hotmart no productSales
-      const productData = Object.entries(productSales).map(([name, data]) => ({
-        name,
-        category: data.category,
-        quantity: data.quantity,
-        value: data.value,
-        commercialQuantity: data.commercialQuantity || 0,
-        commercialValue: data.commercialValue || 0,
-        boletoQuantity: data.boletoQuantity || 0,
-        boletoValue: data.boletoValue || 0,
-      }))
-
-      setTodayData({
-        hourlyData: processedHourlyData,
-        totalSales,
-        totalCardSales,
-        totalValue: totalCombinedValue,
-        totalAffiliateValue,
-        productData,
-        refundProductData,
-        averageSalesPerHour,
-      })
-
-      setRefundsData({
-        totalRefunds,
-        totalRefundAmount,
-        details: refundDetails,
-      })
-
-      setCommercialData({
-        totalCommercialSales,
-        totalCommercialValue,
-      })
-
-      setBoletoData({
-        totalBoletoSales,
-        totalBoletoValue,
-      })
-
-      // Processar dados do Asaas
-      if (asaasResult.status === 'fulfilled' && asaasResult.value?.data?.success) {
-        const asaas = asaasResult.value.data.data
-        const sales = asaas.sales || {}
-        setAsaasData({
-          count: sales.count || 0,
-          totalPurchaseValue: sales.totalValue || 0,
-          entryValue: sales.entryValue || 0,
-          entries: sales.entries || [],
-        })
-      } else {
-        setAsaasData({ count: 0, totalPurchaseValue: 0, entryValue: 0, entries: [] })
-      }
-
-      // Processar dados do Boletex (3ª fonte — boleto parcelado)
-      // Importante: "venda" só conta quem PAGOU a entrada (sales.count).
-      // Boletos emitidos sem entrada paga ficam em `emitted` (lista separada).
-      if (boletexResult.status === 'fulfilled' && boletexResult.value?.data?.success) {
-        const boletex = boletexResult.value.data.data
-        const sales = boletex.sales || {}
-        const emitted = boletex.emitted || {}
-        setBoletexData({
-          count: sales.count || 0,                       // apenas vendas com entrada paga
-          totalPurchaseValue: sales.totalValue || 0,     // total com juros
-          listPriceValue: sales.listPriceValue || 0,     // preço de tabela (sem juros)
-          confirmedValue: sales.confirmedValue || 0,     // já recebido (entrada + parcelas)
-          pendingValue: sales.pendingValue || 0,         // parcelas pendentes
-          confirmedCount: sales.confirmedCount || 0,     // 100% pagas
-          partialCount: sales.partialCount || 0,         // entrada paga, faltam parcelas
-          entries: sales.entries || [],                  // lista detalhada das vendas
-          // Boletos emitidos aguardando pagamento da entrada
-          emittedCount: emitted.count || 0,
-          emittedValue: emitted.expectedEntryValue || 0,
-          emittedDetails: emitted.details || [],
-        })
-      } else {
-        setBoletexData({
-          count: 0, totalPurchaseValue: 0, listPriceValue: 0,
-          confirmedValue: 0, pendingValue: 0,
-          confirmedCount: 0, partialCount: 0, entries: [],
-          emittedCount: 0, emittedValue: 0, emittedDetails: [],
-        })
-      }
-
-      // Processar dados da Hotmart
-      setHotmartData({
-        count: hotmartCount,
-        totalGross: hotmartGrossValue,
-        totalNet: hotmartNetValue,
-        totalFees: hotmartSales.totalFees || 0,
-      })
-
-      setHotmartRefundsData({
-        count: hotmartRefunds.count || 0,
-        totalRefundAmount: hotmartRefunds.totalRefundAmount || 0,
-      })
-
-      setCategoryData(categoryTotals)
-
-      setLoading(false)
-    } catch (error) {
-      // Não mostrar erro se foi cancelamento intencional
-      if (error.name === 'AbortError' || error.name === 'CanceledError') {
-        return
-      }
-
-      toast.error('Erro ao carregar dados do dia. Tente novamente.')
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    fetchDayData(selectedDate)
-
-    let interval
-    const now = new Date()
-    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-    if (selectedDate === todayStr) {
-      interval = setInterval(() => fetchDayData(selectedDate), 5 * 60 * 1000)
-    }
-
-    return () => {
-      if (interval) clearInterval(interval)
-    }
-  }, [fetchDayData, selectedDate])
-
-  const handleDateChange = (e) => {
-    const newDisplayDate = e.target.value
-    setDisplayDate(newDisplayDate)
-
-    const [year, month, day] = newDisplayDate
-      .split('-')
-      .map((num) => parseInt(num, 10))
-    const correctedDate = new Date(year, month - 1, day, 12, 0, 0)
-
-    setSelectedDate(correctedDate)
-  }
-
-  const formattedDate = selectedDate.toLocaleDateString('pt-BR', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  })
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-background-light via-slate-50 to-blue-50 dark:from-background-dark dark:via-gray-900 dark:to-slate-900 p-6">
-      <div className="max-w-7xl mx-auto relative">
-        {/* Loading Overlay */}
-        {loading && (
-          <div className="absolute inset-0 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-sm flex items-start justify-center pt-32 z-50">
-            <div className="flex flex-col items-center animate-fade-in">
-              <div className="relative">
-                <div className="animate-spin rounded-full h-32 w-32 border-4 border-primary/20"></div>
-                <div className="animate-spin rounded-full h-32 w-32 border-4 border-primary border-t-transparent absolute top-0 left-0"></div>
-                <div className="absolute inset-0 rounded-full bg-primary/10 animate-pulse"></div>
-              </div>
-              <p className="mt-6 text-xl text-text-light dark:text-text-dark font-medium animate-pulse">
-                Carregando dados do dia...
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Header with gradient and glass effect */}
-        <div className="mb-12 relative">
-          <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-blue-500/5 to-purple-500/10 dark:from-primary/20 dark:via-blue-500/10 dark:to-purple-500/20 rounded-3xl blur-xl"></div>
-          <div className="relative bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
-              <div>
-                <h1 className="text-4xl font-bold bg-gradient-to-r from-text-light to-primary dark:from-text-dark dark:to-primary bg-clip-text text-transparent mb-2">
-                  Controle de Vendas Diário
-                </h1>
-                <p className="text-text-muted-light dark:text-text-muted-dark text-lg capitalize">
-                  {formattedDate}
-                </p>
-              </div>
-              
-              <div className="flex flex-col sm:flex-row gap-3 mt-4 sm:mt-0">
-                <div className="relative">
-                  <input
-                    type="date"
-                    value={displayDate}
-                    onChange={handleDateChange}
-                    className="px-4 py-3 border border-primary/20 rounded-xl text-text-light dark:text-text-dark bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg focus:ring-4 focus:ring-primary/20 focus:border-primary transition-all duration-200"
-                  />
-                </div>
-                <button
-                  onClick={() => fetchDayData(selectedDate)}
-                  className="p-3 flex justify-center items-center rounded-xl bg-gradient-to-r from-primary to-primary-dark text-white hover:from-primary-dark hover:to-primary shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
-                  aria-label="Refresh data"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    className="w-5 h-5"
-                  >
-                    <path
-                      d="M17.65 6.35A7.958 7.958 0 0012 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0112 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"
-                      fill="currentColor"
-                    />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Cards principais */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
-          {/* Card Total de Vendas */}
-          <div className="group relative animate-slide-up">
-            <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-blue-500/20 rounded-2xl blur-lg group-hover:blur-xl transition-all duration-300"></div>
-            <div className="relative bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
-              <div className="flex items-start justify-between mb-6">
-                <div className="w-14 h-14 bg-gradient-to-br from-primary to-primary-dark rounded-xl flex items-center justify-center shadow-lg">
-                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                  </svg>
-                </div>
-                <div className="text-right">
-                  <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
-                </div>
-              </div>
-              <h3 className="text-lg font-semibold text-text-light dark:text-text-dark mb-3">
-                Valor Total de Vendas
-              </h3>
-              <p className="text-4xl font-bold bg-gradient-to-r from-primary to-primary-dark bg-clip-text text-transparent mb-2">
-                {formatCurrency(todayData?.totalValue || 0)}
-              </p>
-              <p className="text-sm text-text-muted-light dark:text-text-muted-dark flex items-center">
-                <span className="w-2 h-2 bg-primary rounded-full mr-2"></span>
-                {todayData?.totalSales || 0} vendas realizadas
-              </p>
-            </div>
-          </div>
-
-          {/* Card Vendas Cartão */}
-          <div className="group relative animate-slide-up" style={{animationDelay: '0.1s'}}>
-            <div className="absolute inset-0 bg-gradient-to-r from-green-500/20 to-emerald-500/20 rounded-2xl blur-lg group-hover:blur-xl transition-all duration-300"></div>
-            <div className="relative bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
-              <div className="flex items-start justify-between mb-6">
-                <div className="w-14 h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
-                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                  </svg>
-                </div>
-                <div className="text-right">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                </div>
-              </div>
-              <h3 className="text-lg font-semibold text-text-light dark:text-text-dark mb-3">
-                Vendas Cartão
-              </h3>
-              <p className="text-4xl font-bold text-green-500 mb-2">
-                {formatCurrency((todayData?.totalValue || 0) - (boletoData?.totalBoletoValue || 0) - (asaasData?.totalPurchaseValue || 0) - (boletexData?.totalPurchaseValue || 0))}
-              </p>
-              <p className="text-sm text-text-muted-light dark:text-text-muted-dark flex items-center">
-                <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
-                {todayData?.totalCardSales || 0} transações
-              </p>
-              <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 space-y-1">
-                <div className="flex justify-between text-xs">
-                  <span className="text-text-muted-light dark:text-text-muted-dark">Guru</span>
-                  <span className="font-medium text-text-light dark:text-text-dark">{(todayData?.totalCardSales || 0) - (hotmartData?.count || 0)} ({formatCurrency((todayData?.totalValue || 0) - (boletoData?.totalBoletoValue || 0) - (asaasData?.totalPurchaseValue || 0) - (boletexData?.totalPurchaseValue || 0) - (hotmartData?.totalNet || 0))})</span>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-text-muted-light dark:text-text-muted-dark">Hotmart</span>
-                  <span className="font-medium text-text-light dark:text-text-dark">{hotmartData?.count || 0} ({formatCurrency(hotmartData?.totalNet || 0)})</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Card Vendas Boleto */}
-          <div className="group relative animate-slide-up" style={{animationDelay: '0.2s'}}>
-            <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 rounded-2xl blur-lg group-hover:blur-xl transition-all duration-300"></div>
-            <div className="relative bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
-              <div className="flex items-start justify-between mb-6">
-                <div className="w-14 h-14 bg-gradient-to-br from-yellow-500 to-orange-600 rounded-xl flex items-center justify-center shadow-lg">
-                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                </div>
-                <div className="text-right">
-                  <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
-                </div>
-              </div>
-              <h3 className="text-lg font-semibold text-text-light dark:text-text-dark mb-3">
-                Vendas Boleto
-              </h3>
-              <p className="text-4xl font-bold text-yellow-500 mb-2">
-                {formatCurrency((boletoData?.totalBoletoValue || 0) + (asaasData?.totalPurchaseValue || 0) + (boletexData?.totalPurchaseValue || 0))}
-              </p>
-              <p className="text-sm text-text-muted-light dark:text-text-muted-dark flex items-center">
-                <span className="w-2 h-2 bg-yellow-500 rounded-full mr-2"></span>
-                {(boletoData?.totalBoletoSales || 0) + (asaasData?.count || 0) + (boletexData?.count || 0)} vendas hoje
-              </p>
-              <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 space-y-1">
-                <div className="flex justify-between text-xs">
-                  <span className="text-text-muted-light dark:text-text-muted-dark">TMB</span>
-                  <span className="font-medium text-text-light dark:text-text-dark">{formatCurrency(boletoData?.totalBoletoValue || 0)}</span>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-text-muted-light dark:text-text-muted-dark">Asaas (vendas)</span>
-                  <span className="font-medium text-text-light dark:text-text-dark">{asaasData?.count || 0} ({formatCurrency(asaasData?.totalPurchaseValue || 0)})</span>
-                </div>
-                {/* === BOLETEX === */}
-                {/* Linha simples: total de vendas com entrada paga */}
-                <div className="flex justify-between text-xs">
-                  <span className="text-text-muted-light dark:text-text-muted-dark">Boletex (vendas)</span>
-                  <span className="font-medium text-text-light dark:text-text-dark">{boletexData?.count || 0} ({formatCurrency(boletexData?.totalPurchaseValue || 0)})</span>
-                </div>
-                {/* Linha expansível: entradas pagas com detalhamento por cliente (igual Asaas) */}
-                <div
-                  className={`flex justify-between text-xs ${boletexData?.entries?.length > 0 ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 -mx-1 px-1 rounded transition-colors' : ''}`}
-                  onClick={() => boletexData?.entries?.length > 0 && setShowBoletexEntries(!showBoletexEntries)}
-                >
-                  <span className="text-text-muted-light dark:text-text-muted-dark flex items-center gap-1">
-                    Boletex (entradas pagas)
-                    {boletexData?.entries?.length > 0 && (
-                      <svg className={`w-3 h-3 transition-transform ${showBoletexEntries ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    )}
-                  </span>
-                  <span className="font-medium text-green-500">{formatCurrency(boletexData?.confirmedValue || 0)}</span>
-                </div>
-                {showBoletexEntries && boletexData?.entries?.length > 0 && (
-                  <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 space-y-1.5">
-                    {boletexData.entries.map((entry, idx) => (
-                      <div key={entry.id || idx} className="flex justify-between items-start text-xs bg-gray-50 dark:bg-gray-800/50 rounded px-2 py-1.5">
-                        <div className="flex flex-col min-w-0 mr-2">
-                          <span className="text-text-light dark:text-text-dark font-medium truncate">{entry.customerName || 'Cliente'}</span>
-                          <span className="text-[10px] text-text-muted-light dark:text-text-muted-dark truncate">{entry.productDescription || 'Boleto Parcelado'}</span>
-                        </div>
-                        <span className="font-medium text-green-500 whitespace-nowrap">{formatCurrency(entry.entryValue || 0)}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                <div
-                  className={`flex justify-between text-xs ${asaasData?.entries?.length > 0 ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 -mx-1 px-1 rounded transition-colors' : ''}`}
-                  onClick={() => asaasData?.entries?.length > 0 && setShowAsaasEntries(!showAsaasEntries)}
-                >
-                  <span className="text-text-muted-light dark:text-text-muted-dark flex items-center gap-1">
-                    Entradas recebidas
-                    {asaasData?.entries?.length > 0 && (
-                      <svg className={`w-3 h-3 transition-transform ${showAsaasEntries ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                      </svg>
-                    )}
-                  </span>
-                  <span className="font-medium text-green-500">{formatCurrency(asaasData?.entryValue || 0)}</span>
-                </div>
-                {showAsaasEntries && asaasData?.entries?.length > 0 && (
-                  <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 space-y-1.5">
-                    {asaasData.entries.map((entry, idx) => (
-                      <div key={idx} className="flex justify-between items-start text-xs bg-gray-50 dark:bg-gray-800/50 rounded px-2 py-1.5">
-                        <div className="flex flex-col min-w-0 mr-2">
-                          <span className="text-text-light dark:text-text-dark font-medium truncate">{entry.customerName || 'Cliente'}</span>
-                          <span className="text-[10px] text-text-muted-light dark:text-text-muted-dark truncate">{entry.productDescription || 'Boleto Parcelado'} ({entry.installmentCount}x)</span>
-                        </div>
-                        <span className="font-medium text-green-500 whitespace-nowrap">{formatCurrency(entry.entryValue || 0)}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Cards secundários */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
-          {/* Card Reembolsos */}
-          <div className="group relative animate-slide-up" style={{animationDelay: '0.6s'}}>
-            <div className="absolute inset-0 bg-gradient-to-r from-red-500/20 to-rose-500/20 rounded-2xl blur-lg group-hover:blur-xl transition-all duration-300"></div>
-            <div className="relative bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-2">
-              <div className="flex items-start justify-between mb-6">
-                <div className="w-14 h-14 bg-gradient-to-br from-red-500 to-rose-600 rounded-xl flex items-center justify-center shadow-lg">
-                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 15v-1a4 4 0 00-4-4H8m0 0l3 3m-3-3l3-3m9 14V5a2 2 0 00-2-2H6a2 2 0 00-2 2v16l4-2 4 2 4-2 4 2z" />
-                  </svg>
-                </div>
-                <div className="text-right">
-                  <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                </div>
-              </div>
-              <h3 className="text-lg font-semibold text-text-light dark:text-text-dark mb-3">
-                Reembolsos
-              </h3>
-              <p className="text-4xl font-bold text-red-500 mb-2">
-                {formatCurrency(refundsData?.totalRefundAmount || 0)}
-              </p>
-              <p className="text-sm text-text-muted-light dark:text-text-muted-dark flex items-center">
-                <span className="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
-                {refundsData?.totalRefunds || 0} solicitações
-              </p>
-              <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 space-y-1">
-                <div className="flex justify-between text-xs">
-                  <span className="text-text-muted-light dark:text-text-muted-dark">Guru</span>
-                  <span className="font-medium text-text-light dark:text-text-dark">{(refundsData?.totalRefunds || 0) - (hotmartRefundsData?.count || 0)} ({formatCurrency((refundsData?.totalRefundAmount || 0) - (hotmartRefundsData?.totalRefundAmount || 0))})</span>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-text-muted-light dark:text-text-muted-dark">Hotmart</span>
-                  <span className="font-medium text-text-light dark:text-text-dark">{hotmartRefundsData?.count || 0} ({formatCurrency(hotmartRefundsData?.totalRefundAmount || 0)})</span>
-                </div>
-              </div>
-              {(refundsData?.totalRefunds || 0) > 0 && (
-                <button
-                  onClick={() => setShowRefundsModal(true)}
-                  className="mt-3 w-full text-center text-xs font-medium text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 transition-colors cursor-pointer"
-                >
-                  Ver detalhes
-                </button>
-              )}
-            </div>
-          </div>
-
-        </div>
-
-
-        {/* Gráficos */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-          {/* Vendas por Hora */}
-          <div className="group relative animate-slide-up" style={{animationDelay: '0.4s'}}>
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-purple-500/5 to-primary/10 rounded-3xl blur-xl"></div>
-            <div className="relative bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 hover:shadow-2xl transition-all duration-300">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-text-light dark:text-text-dark">
-                      Vendas por Hora
-                    </h3>
-                    <p className="text-xs text-text-muted-light dark:text-text-muted-dark">
-                      Média: {todayData?.averageSalesPerHour?.toFixed(1) || 0} vendas/hora
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 text-xs">
-                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span>Cartão</span>
-                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>Boleto</span>
-                </div>
-              </div>
-              {(() => {
-                const activeHours = todayData?.hourlyData?.filter(h => h.totalSales > 0) || []
-                const maxValue = Math.max(...activeHours.map(h => h.totalValue || 0), 1)
-                if (activeHours.length === 0) {
-                  return (
-                    <div className="flex items-center justify-center h-48 text-text-muted-light dark:text-text-muted-dark text-sm">
-                      Nenhuma venda registrada
-                    </div>
-                  )
-                }
-                return (
-                  <div className="space-y-1 max-h-[480px] overflow-y-auto pr-1">
-                    {activeHours.map((h) => {
-                      const cardPct = maxValue > 0 ? ((h.value || 0) / maxValue) * 100 : 0
-                      const boletoPct = maxValue > 0 ? ((h.boletoValue || 0) / maxValue) * 100 : 0
-                      return (
-                        <div key={h.hour} className="group/row flex items-center gap-3 py-1.5 px-2 rounded-lg hover:bg-slate-50/80 dark:hover:bg-gray-800/50 transition-colors">
-                          <span className="text-xs font-bold text-text-muted-light dark:text-text-muted-dark w-8 text-right tabular-nums">
-                            {String(h.hour).padStart(2, '0')}h
-                          </span>
-                          <div className="flex-1 flex items-center h-7 bg-slate-100/60 dark:bg-gray-800/40 rounded-lg overflow-hidden relative">
-                            {h.value > 0 && (
-                              <div
-                                className="h-full bg-gradient-to-r from-blue-500 to-blue-400 rounded-l-lg transition-all duration-500"
-                                style={{ width: `${Math.max(cardPct, 2)}%` }}
-                              />
-                            )}
-                            {h.boletoValue > 0 && (
-                              <div
-                                className="h-full bg-gradient-to-r from-amber-500 to-amber-400 transition-all duration-500"
-                                style={{ width: `${Math.max(boletoPct, 2)}%`, borderRadius: h.value > 0 ? '0 8px 8px 0' : '8px' }}
-                              />
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 min-w-[140px] justify-end">
-                            <span className="text-xs font-semibold text-text-light dark:text-text-dark tabular-nums">
-                              {formatCurrency(h.totalValue)}
-                            </span>
-                            <span className="text-[10px] font-medium text-text-muted-light dark:text-text-muted-dark bg-slate-100 dark:bg-gray-700 px-1.5 py-0.5 rounded-md tabular-nums">
-                              {h.totalSales} {h.totalSales === 1 ? 'venda' : 'vendas'}
-                            </span>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )
-              })()}
-            </div>
-          </div>
-
-          {/* Gráfico de Vendas por Produto */}
-          <div className="group relative animate-slide-up" style={{animationDelay: '1.3s'}}>
-            <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 via-green-500/5 to-teal-500/10 rounded-3xl blur-xl"></div>
-            <div className="relative bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm p-4 sm:p-6 hover:shadow-2xl transition-all duration-300">
-              <div className="flex items-center justify-between mb-8">
-                <div className="flex items-center space-x-4">
-                  <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl flex items-center justify-center shadow-lg">
-                    <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 className="text-2xl font-bold text-text-light dark:text-text-dark">
-                      Vendas por Produto
-                    </h3>
-                    <p className="text-text-muted-light dark:text-text-muted-dark">
-                      Distribuição por valor
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-gradient-to-br from-background-light/50 to-slate-50/50 dark:from-background-dark/50 dark:to-gray-800/50 rounded-2xl p-6 h-96">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={todayData?.productData}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="45%"
-                      outerRadius={100}
-                      fill="#8884d8"
-                    >
-                      {todayData?.productData?.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={CHART_COLORS[index % CHART_COLORS.length]}
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(value) => formatCurrency(value)} />
-                    <Legend 
-                      verticalAlign="bottom" 
-                      height={36}
-                      wrapperStyle={{
-                        paddingTop: '20px',
-                        fontSize: '14px'
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Modal de detalhes de reembolsos */}
-        {showRefundsModal && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setShowRefundsModal(false)}>
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
-              <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-                <div>
-                  <h3 className="text-xl font-bold text-text-light dark:text-text-dark">Detalhes dos Reembolsos</h3>
-                  <p className="text-sm text-text-muted-light dark:text-text-muted-dark mt-1">
-                    {refundsData?.totalRefunds || 0} reembolsos - {formatCurrency(refundsData?.totalRefundAmount || 0)}
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowRefundsModal(false)}
-                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                >
-                  <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              <div className="p-6 overflow-y-auto max-h-[60vh]">
-                {refundsData?.details?.length > 0 ? (
-                  <div className="space-y-3">
-                    {refundsData.details
-                      .sort((a, b) => (b.value || 0) - (a.value || 0))
-                      .map((refund) => (
-                      <div key={refund.id} className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 border border-gray-200 dark:border-gray-600">
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <h4 className="font-semibold text-gray-900 dark:text-white text-sm mb-2">
-                              {refund.product}
-                            </h4>
-                            <div className="flex flex-wrap items-center gap-2 text-xs">
-                              <span className={`inline-flex px-2 py-0.5 font-semibold rounded-full ${
-                                refund.platform === 'Guru'
-                                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                                  : 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
-                              }`}>
-                                {refund.platform}
-                              </span>
-                              {refund.paymentMethod && (
-                                <span className="text-gray-500 dark:text-gray-400">
-                                  {refund.paymentMethod}
-                                </span>
-                              )}
-                              {refund.buyer && (
-                                <span className="text-gray-500 dark:text-gray-400">
-                                  {refund.buyer}
-                                </span>
-                              )}
-                              {refund.date && (
-                                <span className="text-gray-500 dark:text-gray-400">
-                                  {new Date(refund.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="text-right ml-4">
-                            <div className="font-bold text-lg text-red-500">
-                              {formatCurrency(refund.value)}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-center text-gray-500 dark:text-gray-400 py-8">Nenhum detalhe disponível</p>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  )
+import { EMPTY_FILTERS, filterOptions, filterSales, groupSales, hourlySales, PRODUCT_FAMILIES, summarizeSales, UNKNOWN, UTM_FIELDS } from '../utils/salesData'
+import { loadDailySales, localDateKey } from '../components/daily/dailyData'
+import '../components/daily/daily.css'
+import AsaasCashPanel from '../components/daily/AsaasCashPanel'
+import { sourceHasSales } from '../utils/sourceAvailability'
+
+const PAGE_SIZE = 20
+const NO_RECORDS = []
+const money = (value) => value === null || value === undefined ? 'Não informado' : formatCurrency(value)
+const clock = (value) => value ? new Date(value).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit' }) : 'Sem horário'
+
+function FilterSelect({ label, value, onChange, options, unknown = false }) {
+  return <label className="daily-field"><span>{label}</span><select aria-label={label} className="ds-input" value={value} onChange={(event) => onChange(event.target.value)}>
+    <option value="">Todos</option>{options.filter((item) => item !== 'Não informado').map((item) => <option key={item} value={item}>{item}</option>)}
+    {(unknown || options.includes('Não informado')) && <option value={UNKNOWN}>Não informado</option>}
+  </select></label>
 }
 
-export default Today
+function Metric({ title, value, note, accent = false }) {
+  return <article className={`stat-card daily-stat${accent ? ' daily-stat-accent' : ''}`}><h2>{title}</h2><strong>{value}</strong><p>{note}</p></article>
+}
+
+function SectionHeading({ title, description, children }) {
+  return <div className="daily-section-heading"><div><h2>{title}</h2>{description && <p>{description}</p>}</div>{children}</div>
+}
+
+export default function Today() {
+  const [date, setDate] = useState(localDateKey)
+  const [filters, setFilters] = useState({ ...EMPTY_FILTERS })
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
+  const [autoRefresh, setAutoRefresh] = useState(true)
+  const [utmDimension, setUtmDimension] = useState('source')
+  const [listKind, setListKind] = useState('sale')
+  const [chartMode, setChartMode] = useState('line')
+  const [page, setPage] = useState(1)
+  const requestId = useRef(0)
+
+  const refresh = useCallback(async (force = false) => {
+    const id = ++requestId.current
+    setLoading(true)
+    setLoadError(false)
+    try {
+      const result = await loadDailySales(date, { force })
+      if (requestId.current === id) setData(result)
+    } catch {
+      if (requestId.current === id) setLoadError(true)
+    } finally {
+      if (requestId.current === id) setLoading(false)
+    }
+  }, [date])
+
+  useEffect(() => { refresh(); return () => { requestId.current += 1 } }, [refresh])
+  useEffect(() => {
+    if (!autoRefresh || date !== localDateKey()) return undefined
+    const timer = setInterval(() => { if (!document.hidden) refresh(true) }, 5 * 60_000)
+    return () => clearInterval(timer)
+  }, [autoRefresh, date, refresh])
+
+  const current = data?.date === date ? data : null
+  const records = current?.records || NO_RECORDS
+  const filtered = useMemo(() => filterSales(records, filters), [records, filters])
+  const sales = useMemo(() => filtered.filter((row) => row.kind === 'sale'), [filtered])
+  const refunds = useMemo(() => filtered.filter((row) => row.kind === 'refund'), [filtered])
+  const summary = useMemo(() => summarizeSales(sales), [sales])
+  const refundSummary = useMemo(() => summarizeSales(refunds), [refunds])
+  const products = useMemo(() => groupSales(sales, 'product'), [sales])
+  const platforms = useMemo(() => groupSales(sales, 'sourceId'), [sales])
+  const attribution = useMemo(() => groupSales(sales, utmDimension), [sales, utmDimension])
+  const hourly = useMemo(() => hourlySales(sales), [sales])
+  const relevantSources = (current?.sources || []).filter((source) => !filters.platform || source.platform === filters.platform || source.id === 'manual')
+  const saleSources = relevantSources.filter((source) => source.kind === 'sale')
+  const refundSources = relevantSources.filter((source) => source.kind === 'refund')
+  const salesAvailable = saleSources.some((source) => sourceHasSales(source) && (source.id !== 'manual' || sales.some((row) => row.sourceId === 'manual')))
+  const refundsAvailable = refundSources.some((source) => source.status === 'ready')
+  const partial = saleSources.some((source) => source.status !== 'ready') || summary.revenue.missing > 0
+  const refundPartial = refundSources.some((source) => source.status !== 'ready')
+  const activeFilters = Object.values(filters).filter(Boolean).length
+  const list = useMemo(() => filtered.filter((row) => row.kind === listKind).sort((a, b) => (Date.parse(b.date) || 0) - (Date.parse(a.date) || 0)), [filtered, listKind])
+  const pages = Math.max(1, Math.ceil(list.length / PAGE_SIZE))
+  const visiblePage = Math.min(page, pages)
+  const visibleRows = list.slice((visiblePage - 1) * PAGE_SIZE, visiblePage * PAGE_SIZE)
+  const listAvailable = listKind === 'sale' ? salesAvailable : refundsAvailable
+  const updateFilter = (key, value) => { setFilters((previous) => ({ ...previous, [key]: value })); setPage(1) }
+  const resetFilters = () => { setFilters({ ...EMPTY_FILTERS }); setPage(1) }
+  const displayMetric = (metric, available = salesAvailable) => !available ? 'Indisponível' : metric.known || !metric.missing ? money(metric.value) : 'Não informado'
+  const maximumProductValue = Math.max(...products.map((item) => item.revenue.value), 1)
+  const knownUtmCount = sales.filter((row) => row.utm[utmDimension]).reduce((sum, row) => sum + row.quantity, 0)
+
+  return <div className="hub-page daily-page">
+    <header className="page-heading daily-heading"><div><h1>Diário de vendas</h1><p>Acompanhe o dia, os produtos e a origem de cada venda.</p></div><div className="daily-refresh"><button className="button button-primary" onClick={() => refresh(true)} disabled={loading}><RefreshCw size={16} className={loading ? 'daily-spin' : ''} />{loading ? 'Atualizando' : 'Atualizar dados'}</button><span>{current ? `Atualizado às ${clock(current.fetchedAt)}` : 'Aguardando dados'}</span></div></header>
+
+    <section className="surface-panel daily-filters" aria-label="Filtros do diário">
+      <div className="daily-filter-heading"><span><SlidersHorizontal size={17} />Visualização do dia</span><button className="button daily-clear" onClick={resetFilters} disabled={!activeFilters}>Limpar filtros{activeFilters ? ` (${activeFilters})` : ''}</button></div>
+      <div className="filter-bar daily-filter-grid">
+        <label className="daily-field"><span>Data</span><input className="ds-input" type="date" value={date} max={localDateKey()} onChange={(event) => { if (event.target.value) { setDate(event.target.value); setPage(1) } }} /></label>
+        <FilterSelect label="Família de produto" value={filters.family} onChange={(value) => updateFilter('family', value)} options={PRODUCT_FAMILIES} />
+        <FilterSelect label="Produto original" value={filters.product} onChange={(value) => updateFilter('product', value)} options={filterOptions(records, 'product')} unknown />
+        <FilterSelect label="Plataforma" value={filters.platform} onChange={(value) => updateFilter('platform', value)} options={[...new Set(['Guru', 'Hotmart', 'TMB', 'Asaas', 'Boletex', ...filterOptions(records, 'platform')])]} />
+        <FilterSelect label="Pagamento" value={filters.payment} onChange={(value) => updateFilter('payment', value)} options={filterOptions(records, 'payment')} unknown />
+      </div>
+      <details className="daily-utm-filters"><summary>Filtrar por UTMs<ChevronDown size={15} /></summary><div className="daily-filter-grid">{UTM_FIELDS.map((field) => <FilterSelect key={field} label={`UTM ${field}`} value={filters[field]} onChange={(value) => updateFilter(field, value)} options={filterOptions(records, field)} unknown />)}</div></details>
+      <div className="daily-filter-foot"><p>Os filtros se aplicam a todos os indicadores, gráficos e registros abaixo.</p><label><input type="checkbox" checked={autoRefresh} onChange={(event) => setAutoRefresh(event.target.checked)} />Atualizar hoje a cada 5 min</label></div>
+    </section>
+
+    <div aria-live="polite" className="daily-feedback">
+      {loading && !current && <p className="daily-notice">Carregando as fontes do dia. Os valores aparecerão quando a consulta terminar.</p>}
+      {loadError && <p className="daily-notice is-warning" role="alert">Não foi possível atualizar os dados. Use “Atualizar dados” para tentar novamente.</p>}
+      {current && relevantSources.some((source) => source.status === 'unavailable') && <p className="daily-notice is-warning">Dados parciais. {relevantSources.filter((source) => source.status === 'unavailable').map((source) => source.label).join(', ')} indisponível. Os valores abaixo incluem apenas as fontes que responderam.</p>}
+    </div>
+
+    {current && relevantSources.some(source => source.salesAvailable === false && source.reason === 'checkout_disabled') && <p className="daily-notice is-warning">Asaas: caixa disponível; vendas e valores contratados não informados. A receita operacional e a contagem incluem somente as demais fontes disponíveis.</p>}
+
+    <section className="stat-grid daily-stats" aria-label="Resumo do dia" aria-busy={loading}>
+      <Metric title="Valor das vendas" value={displayMetric(summary.revenue)} accent note={salesAvailable ? `${partial ? 'Valor parcial. ' : ''}Líquidos Guru/Hotmart + contratos de boleto + manuais.` : 'Aguardando uma fonte de vendas.'} />
+      <Metric title="Vendas realizadas" value={salesAvailable ? summary.count.toLocaleString('pt-BR') : 'Indisponível'} note={salesAvailable ? `${partial ? 'Contagem parcial. ' : ''}Boletex inclui somente entrada paga.` : 'A contagem depende das fontes do dia.'} />
+      <Metric title="Ticket médio" value={salesAvailable && summary.count > 0 && summary.revenue.known ? money(summary.revenue.value / summary.count) : salesAvailable && summary.count === 0 ? '—' : 'Indisponível'} note={`${partial ? 'Ticket parcial. ' : ''}Valor das vendas dividido pela quantidade filtrada.`} />
+      <Metric title="Reembolsos" value={displayMetric(refundSummary.revenue, refundsAvailable)} note={refundsAvailable ? `${refundSummary.count} registros${refundPartial ? ' · consulta parcial' : ''}. Exibidos separadamente das vendas.` : 'Consulta disponível para Guru e Hotmart.'} />
+    </section>
+
+    <section className="surface-panel daily-panel daily-financial">
+      <SectionHeading title="Composição financeira" description="Valores retornados pelas plataformas, sem recalcular as taxas." />
+      <div className="daily-financial-grid">{[['Bruto informado', 'gross'], ['Líquido informado', 'net'], ['Taxas e descontos', 'fees'], ['Afiliados (líquido)', 'affiliate']].map(([label, key]) => <div key={key}><span>{label}</span><strong>{displayMetric(summary[key])}</strong><small>{summary[key].missing ? `${summary[key].missing} registros sem esse valor` : salesAvailable ? 'Dados disponíveis no recorte' : 'Fonte indisponível'}</small></div>)}</div>
+      <details className="daily-calculation"><summary>Como ler estes valores<ChevronDown size={15} /></summary><p>O total mantém a regra do diário: líquido calculado pela API Guru, líquido do produtor na Hotmart e valor contratual das vendas TMB, Asaas e Boletex, mais lançamentos manuais ainda não conciliados. Os reembolsos ficam separados. Taxas e afiliação já descontadas do líquido não são subtraídas novamente. Valores de boleto não representam saldo já recebido.</p><p>Campos ausentes permanecem “Não informado”. Um consolidado sem detalhes aparece na lista como “Saldo sem detalhamento”, sem produto, horário ou UTM presumidos.</p></details>
+    </section>
+
+    {current && <AsaasCashPanel sources={current.sources} filters={filters} />}
+
+    <div className="daily-analysis-grid">
+      <section className="surface-panel daily-panel daily-hourly">
+        <SectionHeading title="Vendas por hora" description="Quantidade e valor no horário de Brasília."><div className="daily-segment" role="group" aria-label="Formato do gráfico"><button className="button" aria-pressed={chartMode === 'line'} onClick={() => setChartMode('line')}>Linhas</button><button className="button" aria-pressed={chartMode === 'bar'} onClick={() => setChartMode('bar')}>Barras</button></div></SectionHeading>
+        {salesAvailable ? <><ReferenceChart title="Vendas por hora" rows={hourly.hours.map((hour) => ({ ...hour, label: hour.hour }))} series={[{ key: 'count', label: 'Vendas', unit: 'count' }, { key: 'value', label: 'Valor', unit: 'currency' }]} daily={false} mode={chartMode} height={285} />
+          <p className="daily-footnote">{hourly.unknownRecords > 0 ? `${hourly.unknownRecords} registros sem horário (${hourly.unknown} vendas) não entram no gráfico.` : 'Todos os registros com horário informado estão no gráfico.'} {partial && 'Fontes indisponíveis não estão incluídas.'}</p>
+          <details className="daily-hour-table"><summary>Ver tabela por hora</summary><div className="daily-table-scroll"><table className="data-table"><thead><tr><th>Hora</th><th>Vendas</th><th>Valor contabilizado</th></tr></thead><tbody>{hourly.hours.map((hour) => <tr key={hour.hour}><td>{hour.hour}</td><td>{hour.count}</td><td>{money(hour.value)}</td></tr>)}</tbody></table></div></details></> : <p className="daily-empty">Vendas por hora indisponíveis até uma fonte responder.</p>}
+      </section>
+      <section className="surface-panel daily-panel daily-products"><SectionHeading title="Produtos do dia" description="Nome original preservado. Ordenados pelo valor das vendas." />
+        {!salesAvailable ? <p className="daily-empty">Produtos indisponíveis até uma fonte responder.</p> : !products.length ? <p className="daily-empty">Nenhuma venda encontrada com estes filtros.</p> : <div className="daily-product-list">{products.map((product) => <div className="daily-product" key={product.name}><div><strong>{product.name}</strong><span>{product.count} {product.count === 1 ? 'venda' : 'vendas'}</span></div><div className="daily-product-amount"><div className="daily-bar-track"><i style={{ width: `${Math.max(0, product.revenue.value / maximumProductValue * 100)}%` }} /></div><b>{product.revenue.known ? money(product.revenue.value) : 'Não informado'}</b></div></div>)}</div>}
+      </section>
+    </div>
+
+    <section className="surface-panel daily-panel"><SectionHeading title="Origem das vendas" description="UTMs recebidas nas transações. Ausência de UTM não é classificada como orgânico."><label className="daily-field daily-dimension"><span>Agrupar por</span><select className="ds-input" value={utmDimension} onChange={(event) => setUtmDimension(event.target.value)}>{UTM_FIELDS.map((field) => <option value={field} key={field}>UTM {field}</option>)}</select></label></SectionHeading>
+      {salesAvailable && <p className="daily-footnote">{knownUtmCount} de {summary.count} vendas com UTM {utmDimension} informada.</p>}
+      <div className="daily-table-scroll"><table className="data-table daily-attribution-table"><thead><tr><th>UTM {utmDimension}</th><th>Vendas</th><th>Valor das vendas</th><th>Participação em vendas</th></tr></thead><tbody>{attribution.map((group) => <tr key={group.name}><td>{group.name}</td><td>{group.count}</td><td>{group.revenue.known ? money(group.revenue.value) : 'Não informado'}</td><td>{summary.count ? `${(group.count / summary.count * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%` : '—'}</td></tr>)}{!attribution.length && <tr><td colSpan={4} className="daily-empty">{salesAvailable ? 'Nenhuma venda neste recorte.' : 'Origem indisponível até as fontes responderem.'}</td></tr>}</tbody></table></div>
+    </section>
+
+    <section className="surface-panel daily-panel"><SectionHeading title="Plataformas e recebimentos" description={salesAvailable ? partial ? 'Parcial: há fontes sem dados de vendas.' : 'Todas as fontes de vendas disponíveis.' : 'Dados ainda indisponíveis.'} />
+      <div className="daily-table-scroll"><table className="data-table"><thead><tr><th>Plataforma</th><th>Vendas</th><th>Valor das vendas</th><th>Recebido em boleto</th><th>Pendente</th></tr></thead><tbody>{saleSources.map((source) => { const platform = platforms.find((item) => item.name === source.id); return <tr key={source.id}><td><strong>{source.platform}</strong>{source.origin && source.origin !== source.label && <small className="daily-cell-note">Fonte: {source.origin}</small>}</td>{!sourceHasSales(source) ? <td colSpan={4} className="daily-unavailable">{source.reason === 'checkout_disabled' ? 'Vendas e contratos não informados · caixa exibido separadamente' : 'Dado indisponível'}</td> : <><td>{platform?.count || 0}</td><td>{platform ? platform.revenue.known ? money(platform.revenue.value) : 'Não informado' : money(0)}</td><td>{platform?.received.known ? money(platform.received.value) : 'Não informado'}</td><td>{platform?.pending.known ? money(platform.pending.value) : 'Não informado'}</td></>}</tr> })}</tbody></table></div>
+      <p className="daily-footnote">Asaas: entrada recebida. Boletex: entrada e parcelas recebidas; boletos apenas emitidos não entram nas vendas.</p>
+      {current && <div className="daily-sources" aria-label="Situação das fontes">{relevantSources.map((source) => <span key={source.id} className={`daily-source ${source.status !== 'ready' ? 'is-unavailable' : ''}`}><i aria-hidden="true" />{source.label}<span>{loading ? 'Atualizando' : source.status === 'ready' ? 'Disponível' : source.status === 'partial' ? 'Caixa disponível · vendas indisponíveis' : 'Indisponível'}</span></span>)}</div>}
+    </section>
+
+    <section className="surface-panel daily-panel"><SectionHeading title="Registros do dia" description="Os mesmos registros usados nos indicadores acima."><div className="daily-segment" role="group" aria-label="Tipo de registro"><button className="button" aria-pressed={listKind === 'sale'} onClick={() => { setListKind('sale'); setPage(1) }}>Vendas</button><button className="button" aria-pressed={listKind === 'refund'} onClick={() => { setListKind('refund'); setPage(1) }}>Reembolsos</button></div></SectionHeading>
+      <div className="daily-table-scroll" tabIndex={0} role="region" aria-label="Lista de vendas; role horizontalmente para ver todas as colunas"><table className="data-table daily-sales-table"><thead><tr><th>Hora</th><th>Produto original / família</th><th>Plataforma</th><th>Pagamento</th><th>Qtd.</th><th>Bruto</th><th>Taxas</th><th>Líquido</th><th>Valor contabilizado</th><th>UTMs e detalhes</th></tr></thead><tbody>
+        {visibleRows.map((row) => <tr key={row.id}><td>{row.isManual ? 'Sem horário' : clock(row.date)}</td><td><strong>{row.product || 'Saldo sem detalhamento'}</strong><small className="daily-cell-note">{row.family}</small></td><td>{row.platform}{row.isManual && <small className="daily-cell-note">Lançamento manual</small>}</td><td>{row.payment}</td><td>{row.quantity}</td><td>{money(row.gross)}</td><td>{money(row.fees)}</td><td>{money(row.net)}</td><td><strong>{money(row.revenue)}</strong></td><td><details className="daily-row-detail"><summary>Ver dados</summary><dl><div><dt>Cliente</dt><dd>{row.buyerName || 'Não informado'}</dd></div><div><dt>Vendedor atribuído</dt><dd>{row.sellerName || 'Não atribuído'}</dd></div>{UTM_FIELDS.map((field) => <div key={field}><dt>UTM {field}</dt><dd>{row.utm[field] || 'Não informado'}</dd></div>)}{[['Afiliado líquido', 'affiliate'], ['Recebido', 'received'], ['Preço de tabela', 'listPrice'], ['Pendente', 'pending']].map(([label, key]) => <div key={key}><dt>{label}</dt><dd>{money(row[key])}</dd></div>)}</dl></details></td></tr>)}
+        {!visibleRows.length && <tr><td colSpan={10} className="daily-empty">{listAvailable ? 'Nenhum registro encontrado. Ajuste os filtros para ampliar a consulta.' : 'Registros indisponíveis para este recorte.'}</td></tr>}
+      </tbody></table></div>
+      <footer className="daily-pagination"><span>{list.length ? `${(visiblePage - 1) * PAGE_SIZE + 1}–${Math.min(visiblePage * PAGE_SIZE, list.length)} de ${list.length} registros` : 'Sem registros disponíveis'}</span><div><button className="button" aria-label="Página anterior" disabled={visiblePage <= 1} onClick={() => setPage(visiblePage - 1)}><ArrowLeft size={16} /></button><span>{visiblePage} / {pages}</span><button className="button" aria-label="Próxima página" disabled={visiblePage >= pages} onClick={() => setPage(visiblePage + 1)}><ArrowRight size={16} /></button></div></footer>
+    </section>
+  </div>
+}

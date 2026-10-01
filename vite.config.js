@@ -1,21 +1,17 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-
+import { fileURLToPath, URL } from 'node:url'
 export default defineConfig({
-  plugins: [react()],
-  server: {
-    port: 3001,
-    proxy: {
-      '/leads-proxy': {
-        target: 'https://api-production-328ad.up.railway.app',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/leads-proxy/, '/api'),
-      },
-      '/monitoring-proxy': {
-        target: 'https://smart-ads-api-gazrm25mda-uc.a.run.app',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/monitoring-proxy/, '/monitoring'),
-      },
-    },
-  },
+ plugins:[react()],
+ resolve:{alias:{'@':fileURLToPath(new URL('./src/hub',import.meta.url))}},
+ server:{host:'127.0.0.1',port:3001},
+ build:{chunkSizeWarningLimit:1000,rollupOptions:{output:{onlyExplicitManualChunks:true,manualChunks(id){
+   if(id.includes('node_modules')) {
+     if(id.includes('recharts')||id.includes('d3-')) return 'charts'
+     if(id.includes('@tiptap')||id.includes('prosemirror')) return 'editor'
+     if(id.includes('jspdf')) return 'pdf'
+     if(id.includes('html2canvas')||id.includes('html2pdf')) return 'pdf-renderer'
+     if(id.includes('/xlsx/')) return 'spreadsheets'
+   }
+ }}}},
 })

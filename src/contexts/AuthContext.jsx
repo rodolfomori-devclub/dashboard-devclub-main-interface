@@ -1,133 +1,63 @@
-// src/contexts/AuthContext.jsx
-// Vault SDK integration — replaces Firebase Auth
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { VaultAuth } from '../lib/vault-sdk.js';
-
-const AuthContext = createContext();
-
-// Vault configuration
-const vault = new VaultAuth({
-  vaultUrl: import.meta.env.VITE_VAULT_URL || 'http://localhost:4000',
-  clientId: import.meta.env.VITE_VAULT_CLIENT_ID || '',
-  redirectUri: import.meta.env.VITE_VAULT_REDIRECT_URI || `${window.location.origin}/callback`,
-});
-
-export const AuthProvider = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState(null);
-  const [userRoles, setUserRoles] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  // Sync vault user to state
-  const syncUser = useCallback((vaultUser) => {
-    if (vaultUser) {
-      setCurrentUser({
-        uid: vaultUser.id,
-        email: vaultUser.email,
-        displayName: vaultUser.name,
-      });
-
-      // Map Vault roles to the format Dashboard expects
-      // Vault stores: { "dashboard": ["today", "daily", "monthly"] }
-      // Dashboard expects: { today: true, daily: true, isAdmin: false }
-      const dashboardRoles = vaultUser.roles?.dashboard || {};
-      const rolesObj = {};
-
-      if (Array.isArray(dashboardRoles)) {
-        dashboardRoles.forEach((r) => { rolesObj[r] = true; });
-      } else {
-        Object.assign(rolesObj, dashboardRoles);
-      }
-
-      rolesObj.isAdmin = vaultUser.role === 'SUPER_ADMIN' || vaultUser.role === 'ADMIN';
-
-      setUserRoles(rolesObj);
-    } else {
-      setCurrentUser(null);
-      setUserRoles(null);
-    }
-  }, []);
-
-  // Initialize
+/* eslint-disable react/prop-types, react-refresh/only-export-components -- Shared authentication provider and hook. */
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
+import { vault, requestApi, refreshSession } from '../lib/api'
+import { queryClient } from '../lib/queryClient'
+const AuthContext = createContext(null)
+export function AuthProvider({ children }) {
+  const [currentUser, setCurrentUser] = useState(null)
+  const [userRoles, setUserRoles] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const identityKey = useRef('')
+  const clearPrivateData = useCallback(async () => {
+    queryClient.clear()
+    const { invalidateSalesCache } = await import('../components/daily/dailyData')
+    invalidateSalesCache()
+  }, [])
+  const reload = useCallback(async () => {
+    setError('')
+    try {
+      const { user } = await requestApi('/access')
+      const nextKey = JSON.stringify([user.sub, user.isAdmin, [...user.permissions].sort()])
+      if (identityKey.current !== nextKey) { await clearPrivateData(); identityKey.current = nextKey }
+      setCurrentUser({ uid: user.sub, email: user.email, displayName: user.name })
+      setUserRoles(Object.assign(Object.fromEntries([...user.permissions].sort().map(permission => [permission, true])), { isAdmin: user.isAdmin }))
+    } catch (err) {
+      identityKey.current = ''; await clearPrivateData()
+      setCurrentUser(null); setUserRoles(null); setError(err.message)
+    } finally { setLoading(false) }
+  }, [clearPrivateData])
   useEffect(() => {
-    // ⚠️ BYPASS DEV: pula Vault inteiro quando VITE_BYPASS_AUTH=true (somente em dev)
-    if (import.meta.env.DEV && import.meta.env.VITE_BYPASS_AUTH === 'true') {
-      console.warn('[Auth] BYPASS ativo — usuário fake (admin) injetado. Não usar em produção.');
-      setCurrentUser({ uid: 'dev-bypass', email: 'dev@local', displayName: 'Dev (bypass)' });
-      setUserRoles({ isAdmin: true });
-      setLoading(false);
-      return;
-    }
-
-    vault.onAuthChange(syncUser);
-
+    let active = true
     async function init() {
-      // Handle OAuth callback
-      const params = new URLSearchParams(window.location.search);
-      if (params.has('code')) {
-        try {
-          await vault.handleCallback();
-        } catch (err) {
-          console.error('[Vault] Callback failed:', err);
+      try {
+        if (vault.redirectToCanonicalOrigin()) return
+        if (window.location.pathname === '/callback' && new URLSearchParams(location.search).has('code')) {
+          if (!await vault.handleCallback()) throw new Error('Não foi possível concluir o login no Vault.')
+          const destination = localStorage.getItem('vault_redirect_after') || '/'
+          localStorage.removeItem('vault_redirect_after')
+          const target = new URL(destination, window.location.origin)
+          window.location.replace(target.origin === window.location.origin && target.pathname !== '/callback' ? `${target.pathname}${target.search}${target.hash}` : '/')
+          return
         }
-        // Always redirect to root after callback (tokens are in localStorage)
-        window.location.href = '/';
-        return;
-      }
-
-      // Load existing user
-      const user = vault.getUser();
-      if (user) {
-        syncUser(user);
-      } else if (localStorage.getItem('vault_refresh_token')) {
-        const refreshed = await vault.refresh();
-        if (refreshed) {
-          syncUser(vault.getUser());
-        }
-      }
-
-      setLoading(false);
+        if (!vault.getAccessToken() && localStorage.getItem('vault_refresh_token')) await refreshSession()
+        if (active) await reload()
+      } catch (err) { if (active) { setError(err.message); setLoading(false) } }
     }
-
-    init();
-  }, [syncUser]);
-
-  // Login — redirects to Vault
-  const login = useCallback(async () => {
-    await vault.login();
-  }, []);
-
-  // Logout — clear tokens and redirect to Vault hub
+    void init()
+    const refreshAccess = () => { if (document.visibilityState === 'visible') void reload() }
+    const timer = setInterval(refreshAccess, 120000)
+    window.addEventListener('focus', refreshAccess)
+    return () => { active = false; clearInterval(timer); window.removeEventListener('focus', refreshAccess) }
+  }, [reload])
+  const login = useCallback(() => vault.login(), [])
   const logout = useCallback(async () => {
-    await vault.logout(false);
-    setCurrentUser(null);
-    setUserRoles(null);
-    window.location.href = import.meta.env.VITE_VAULT_HUB_URL || 'https://vault-frontend-production.up.railway.app';
-  }, []);
-
-  // Check if user has permission to access a specific route
-  const hasPermission = useCallback((route) => {
-    if (!userRoles) return false;
-    if (userRoles.isAdmin) return true;
-    return userRoles[route] === true;
-  }, [userRoles]);
-
-  const value = {
-    currentUser,
-    userRoles,
-    login,
-    logout,
-    hasPermission,
-    loading,
-    vault,
-  };
-
-  return (
-    <AuthContext.Provider value={value}>
-      {!loading && children}
-    </AuthContext.Provider>
-  );
-};
-
-export const useAuth = () => {
-  return useContext(AuthContext);
-};
+    await vault.logout(false)
+    identityKey.current = ''; await clearPrivateData()
+    setCurrentUser(null); setUserRoles(null)
+    window.location.assign(import.meta.env.VITE_VAULT_HUB_URL || vault.vaultUrl)
+  }, [clearPrivateData])
+  const hasPermission = useCallback(permission => !!userRoles && (userRoles.isAdmin || userRoles[permission] === true), [userRoles])
+  return <AuthContext.Provider value={{ currentUser, userRoles, loading, error, login, logout, hasPermission, vault, reload }}>{children}</AuthContext.Provider>
+}
+export const useAuth = () => useContext(AuthContext)

@@ -1,228 +1,88 @@
-import { useEffect, useRef } from 'react'
-import {
-  BrowserRouter as Router,
-  Route,
-  Routes,
-  Navigate,
-} from 'react-router-dom'
+/* eslint-disable react/prop-types -- Internal React 19 components with explicit props. */
+import { Component, lazy, Suspense } from 'react'
+import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
+import { QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'react-hot-toast'
-import Header from './components/Header'
-import DailyDashboard from './pages/DailyDashboard'
-import MonthlyDashboard from './pages/MonthlyDashboard'
-import YearlyDashboard from './pages/YearlyDashboard'
-import DataSourcesPage from './pages/DataSourcesPage'
-import Today from './pages/Today'
+import { Toaster as CommercialToaster } from './hub/components/ui/toaster'
+import { Toaster as Sonner } from './hub/components/ui/sonner'
+import { TooltipProvider } from './hub/components/ui/tooltip'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
-import ComparativoPage from './pages/ComparativoPage'
-import GoalsPage from './pages/GoalsPage'
-import TSDashboard from './pages/TSDashboard'
-import TrafficDashboard from './pages/TrafficDashboard'
-import TrafficMonitor from './pages/TrafficMonitor'
-import LeadsPage from './pages/LeadsPage'
-import DataExplorer from './pages/DataExplorer'
-import VidometroPage from './pages/VidometroPage'
-import RefundsPage from './pages/RefundsPage'
+import WorkspaceLayout, { PageSkeleton } from './components/WorkspaceLayout'
+import { SCREENS } from './lib/navigation'
+import { queryClient } from './lib/queryClient'
 
-// Protected route — redirects to Vault login if not authenticated
-const ProtectedRoute = ({ children, requiredPermission }) => {
-  const { currentUser, userRoles, hasPermission, login } = useAuth()
-  const loginTriggered = useRef(false)
+const Today = lazy(() => import('./pages/Today'))
+const Global = lazy(() => import('./pages/DailyDashboard'))
+const Monthly = lazy(() => import('./pages/MonthlyDashboard'))
+const Yearly = lazy(() => import('./pages/YearlyDashboard'))
+const Comparativo = lazy(() => import('./pages/ComparativoPage'))
+const Refunds = lazy(() => import('./pages/RefundsPage'))
+const Goals = lazy(() => import('./pages/GoalsPage'))
+const Pace = lazy(() => import('./pages/GoalPacePage'))
+const Attribution = lazy(() => import('./pages/AttributionPage'))
+const Sources = lazy(() => import('./pages/DataSourcesPage'))
+const HubHome = lazy(() => import('./pages/HubHome'))
+const Admin = lazy(() => import('./pages/AdminPage'))
+const HubProvider = lazy(() => import('./hub/contexts/AuthContext').then(module => ({ default: module.HubProvider })))
+const Settings = lazy(() => import('./pages/HubSettings'))
+const Materials = lazy(() => import('./pages/MaterialsPage'))
+const DailyKpis = lazy(() => import('./hub/pages/DailyKpis'))
+const KpiReport = lazy(() => import('./hub/pages/KpiReport'))
+const KpiDetail = lazy(() => import('./hub/pages/KpiReportSellerDetail'))
+const DailyChecklist = lazy(() => import('./hub/pages/DailyChecklist'))
+const Results = lazy(() => import('./hub/pages/Results'))
+const Ranking = lazy(() => import('./hub/pages/Ranking'))
+const SalesLinks = lazy(() => import('./hub/pages/SalesLinks'))
+const ManagerNotes = lazy(() => import('./hub/pages/ManagerNotes'))
+const Commissions = lazy(() => import('./hub/pages/Commissions'))
+const Financial = lazy(() => import('./hub/pages/FinancialCommissions'))
+const Dre = lazy(() => import('./hub/pages/DreGlobal'))
+const Marketing = lazy(() => import('./hub/pages/Marketing'))
+const Activities = lazy(() => import('./hub/pages/ActivityLog'))
 
-  useEffect(() => {
-    if (!currentUser && !loginTriggered.current) {
-      loginTriggered.current = true
-      login()
-    }
-  }, [currentUser, login])
 
-  if (!currentUser || !userRoles) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950">
-        <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    )
+class ScreenBoundary extends Component {
+  state = { failed: false }
+  static getDerivedStateFromError() { return { failed: true } }
+  render() {
+    if (this.state.failed) return <section className="surface-panel empty-state" role="alert"><h1>Esta tela não pôde ser aberta</h1><p>Recarregue para tentar novamente.</p><button className="button mt-5" onClick={() => window.location.reload()}>Recarregar</button></section>
+    return this.props.children
   }
-
-  if (requiredPermission && !hasPermission(requiredPermission)) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950">
-        <div className="text-center">
-          <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Acesso negado</p>
-          <p className="text-sm text-zinc-500 mt-1">Voce nao tem permissao para acessar esta pagina.</p>
-        </div>
-      </div>
-    )
-  }
-
-  return children
 }
-
-// Admin route
-const AdminRoute = ({ children }) => {
-  const { userRoles, currentUser, login } = useAuth()
-  const loginTriggered = useRef(false)
-
-  useEffect(() => {
-    if (!currentUser && !loginTriggered.current) {
-      loginTriggered.current = true
-      login()
-    }
-  }, [currentUser, login])
-
-  if (!currentUser) return null
-
-  if (!userRoles?.isAdmin) {
-    return <Navigate to="/diario" replace />
-  }
-
-  return children
+function Screen({ permission, hub, children }) {
+  const { hasPermission } = useAuth()
+  const { pathname } = useLocation()
+  if (!hasPermission(permission)) return <section className="surface-panel empty-state"><h1>Acesso não liberado</h1><p>O administrador pode liberar esta tela no Vault.</p></section>
+  return <ScreenBoundary key={pathname}><Suspense fallback={<PageSkeleton />}>{hub ? <HubProvider>{children}</HubProvider> : children}</Suspense></ScreenBoundary>
 }
-
-// Layout component for authenticated pages
-const AuthenticatedLayout = ({ children }) => {
-  return (
-    <div className="flex flex-col min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 transition-colors">
-      <Header />
-      <main className="flex-grow pt-4 px-4 md:px-6">{children}</main>
-      <footer className="mt-auto py-3 px-6 text-center text-sm text-zinc-400 dark:text-zinc-600">
-        <div className="container mx-auto flex flex-col md:flex-row justify-between items-center">
-          <div>
-            &copy; {new Date().getFullYear()} DevClub Dashboard. Todos os
-            direitos reservados.
-          </div>
-          <div className="mt-2 md:mt-0">
-            <img
-              src="/devclub-logo.png"
-              alt="DevClub Logo"
-              className="inline w-6 h-6 opacity-50 dark:hidden"
-            />
-            <img
-              src="/devclub-logo-w.png"
-              alt="DevClub Logo"
-              className="inline w-6 h-6 opacity-50 hidden dark:inline"
-            />
-          </div>
-        </div>
-      </footer>
-    </div>
-  )
+function SessionLayout() {
+  const { currentUser, userRoles, loading, error, login, reload } = useAuth()
+  const accessKey = JSON.stringify(userRoles)
+  if (loading) return <div className="session-screen"><PageSkeleton /></div>
+  if (!currentUser) return <main className="session-screen"><section className="surface-panel session-card"><span className="eyebrow">DevClub Workspace</span><h1>Seu ponto de encontro com a operação.</h1><p>Entre com sua conta do Vault para acessar suas ferramentas.</p>{error && <p className="notice notice-error" role="alert">{error}</p>}<div className="flex flex-wrap gap-3 mt-5"><button className="button button-primary" onClick={login}>Entrar pelo Vault</button><button className="button" onClick={reload}>Tentar novamente</button></div></section></main>
+  return <WorkspaceLayout key={`${currentUser.uid}:${accessKey}`}><Outlet /></WorkspaceLayout>
 }
-
-// OAuth callback handler
-const CallbackPage = () => {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-zinc-950">
-      <div className="text-center">
-        <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-sm text-zinc-500">Autenticando...</p>
-      </div>
-    </div>
-  )
+function StartPage() {
+  const { hasPermission } = useAuth()
+  const first = SCREENS.find(screen => hasPermission(screen.permission))
+  return first ? <Navigate to={first.path} replace /> : <section className="surface-panel empty-state"><h1>Seu acesso está pronto</h1><p>Peça ao administrador a liberação dos menus no Vault.</p></section>
 }
-
 function AppRouter() {
-  return (
-    <Routes>
-      {/* OAuth callback */}
-      <Route path="/callback" element={<CallbackPage />} />
-
-      <Route path="/" element={<Navigate to="/diario" />} />
-
-      <Route path="/diario" element={
-        <ProtectedRoute requiredPermission="today">
-          <AuthenticatedLayout><Today /></AuthenticatedLayout>
-        </ProtectedRoute>
-      } />
-
-      <Route path="/global" element={
-        <ProtectedRoute requiredPermission="daily">
-          <AuthenticatedLayout><DailyDashboard /></AuthenticatedLayout>
-        </ProtectedRoute>
-      } />
-
-      <Route path="/mensal" element={
-        <ProtectedRoute requiredPermission="monthly">
-          <AuthenticatedLayout><MonthlyDashboard /></AuthenticatedLayout>
-        </ProtectedRoute>
-      } />
-
-      <Route path="/anual" element={
-        <ProtectedRoute requiredPermission="yearly">
-          <AuthenticatedLayout><YearlyDashboard /></AuthenticatedLayout>
-        </ProtectedRoute>
-      } />
-
-      <Route path="/comparativo" element={
-        <ProtectedRoute requiredPermission="comparativo">
-          <AuthenticatedLayout><ComparativoPage /></AuthenticatedLayout>
-        </ProtectedRoute>
-      } />
-
-      <Route path="/ts" element={
-        <ProtectedRoute requiredPermission="ts">
-          <AuthenticatedLayout><TSDashboard /></AuthenticatedLayout>
-        </ProtectedRoute>
-      } />
-
-      <Route path="/trafego" element={
-        <ProtectedRoute requiredPermission="traffic">
-          <AuthenticatedLayout><TrafficDashboard /></AuthenticatedLayout>
-        </ProtectedRoute>
-      } />
-
-      <Route path="/monitor" element={
-        <ProtectedRoute>
-          <AuthenticatedLayout><TrafficMonitor /></AuthenticatedLayout>
-        </ProtectedRoute>
-      } />
-
-      <Route path="/dados" element={
-        <ProtectedRoute>
-          <AuthenticatedLayout><DataExplorer /></AuthenticatedLayout>
-        </ProtectedRoute>
-      } />
-
-      <Route path="/metas" element={
-        <ProtectedRoute requiredPermission="goals">
-          <AuthenticatedLayout><GoalsPage /></AuthenticatedLayout>
-        </ProtectedRoute>
-      } />
-
-      <Route path="/data-sources" element={
-        <ProtectedRoute requiredPermission="data-sources">
-          <AuthenticatedLayout><DataSourcesPage /></AuthenticatedLayout>
-        </ProtectedRoute>
-      } />
-
-      <Route path="/leads" element={
-        <ProtectedRoute requiredPermission="leads">
-          <AuthenticatedLayout><LeadsPage /></AuthenticatedLayout>
-        </ProtectedRoute>
-      } />
-
-      <Route path="/vidometro" element={<VidometroPage />} />
-
-      <Route path="/reembolsos" element={
-        <ProtectedRoute requiredPermission="refunds">
-          <AuthenticatedLayout><RefundsPage /></AuthenticatedLayout>
-        </ProtectedRoute>
-      } />
-
-      {/* Catch all */}
-      <Route path="*" element={<Navigate to="/diario" />} />
-    </Routes>
-  )
+  const routes = [
+    ['/diario', 'today', Today], ['/global', 'daily', Global], ['/mensal', 'monthly', Monthly], ['/anual', 'yearly', Yearly],
+    ['/comparativo', 'comparativo', Comparativo], ['/reembolsos', 'refunds', Refunds], ['/metas', 'goals', Goals],
+    ['/pace', 'goal-pace', Pace], ['/atribuicao', 'attribution', Attribution], ['/data-sources', 'data-sources', Sources],
+    ['/hub', 'hub-home', HubHome], ['/admin', 'admin', Admin],
+    ['/materials', 'materials', Materials, true], ['/settings', 'settings', Settings, true],
+    ['/daily-kpis', 'daily-kpis', DailyKpis, true], ['/kpi-report', 'kpi-report', KpiReport, true],
+    ['/kpi-report/:sellerId', 'kpi-report', KpiDetail, true], ['/daily-checklist', 'daily-checklist', DailyChecklist, true],
+    ['/results', 'results', Results, true], ['/ranking', 'ranking', Ranking, true], ['/sales-links', 'sales-links', SalesLinks, true],
+    ['/manager-notes', 'manager-notes', ManagerNotes, true], ['/commissions', 'commissions', Commissions, true],
+    ['/financial', 'financial', Financial, true], ['/dre-global', 'dre-global', Dre, true], ['/marketing', 'marketing', Marketing, true],
+    ['/activity-log', 'activity-log', Activities, true],
+  ]
+  return <Routes><Route element={<SessionLayout />}><Route index element={<StartPage />} />{routes.map(([path, permission, Page, hub]) => <Route key={path} path={path} element={<Screen permission={permission} hub={hub}><Page /></Screen>} />)}<Route path="*" element={<StartPage />} /></Route></Routes>
 }
-
-function App() {
-  return (
-    <Router>
-      <AuthProvider>
-        <Toaster position="top-center" />
-        <AppRouter />
-      </AuthProvider>
-    </Router>
-  )
+export default function App() {
+  return <BrowserRouter><AuthProvider><QueryClientProvider client={queryClient}><TooltipProvider><Toaster position="top-center" /><CommercialToaster /><Sonner /><AppRouter /></TooltipProvider></QueryClientProvider></AuthProvider></BrowserRouter>
 }
-
-export default App

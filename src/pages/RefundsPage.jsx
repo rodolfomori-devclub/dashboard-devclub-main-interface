@@ -1,929 +1,158 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
-import toast from 'react-hot-toast'
-import {
-  BarChart, Bar, PieChart, Pie, Cell, LineChart, Line, ComposedChart,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-} from 'recharts'
-import {
-  FaUndo, FaChartPie, FaTable, FaFilter, FaSync, FaChartLine,
-  FaCalendarAlt, FaSearch, FaChevronDown, FaChevronUp, FaSortUp, FaSortDown,
-  FaChevronLeft, FaChevronRight, FaExchangeAlt, FaTimes,
-} from 'react-icons/fa'
-import DateRangePicker from '../components/DateRangePicker'
+import { useState, useEffect, useMemo, Fragment } from 'react'
+import { ArrowDownLeft, ArrowUpRight, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, RefreshCw, Search, CircleAlert } from 'lucide-react'
 import { refundsService } from '../services/refundsService'
 
-const CHART_COLORS = ['#22c55e', '#7c3aed', '#3b82f6', '#a855f7', '#f59e0b', '#ef4444', '#14b8a6', '#f97316']
-
-const STATUS_STYLES = {
-  'Reembolso realizado': 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-  'Revertido': 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-  'dar prosseguimento Reembolso': 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
-  'Sem retorno do lead': 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
-  'Reembolso solicitado': 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
-  'Em contato com lead': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+const SOURCES = { guru: 'Guru', hotmart: 'Hotmart', tmb: 'TMB', typeform: 'Typeform', spreadsheet: 'Planilha' }
+const STATUSES = { refunded: 'Reembolso confirmado', partially_refunded: 'Reembolso parcial', requested: 'Solicitado', retained: 'Retido no atendimento', reported_refunded: 'Informado na planilha', chargeback: 'Chargeback', dispute: 'Em contestação', rejected: 'Venda rejeitada', cancelled: 'Pedido cancelado' }
+const COVERAGE = { available: 'Disponível', limited: 'Cobertura limitada', partial: 'Dados parciais', unavailable: 'Indisponível' }
+const BASIS = { refund: 'Cancelamento / estorno', purchase: 'Compra / efetivação', request: 'Solicitação', unknown: 'Não informada' }
+const PAGE_SIZE = 20
+const initialPeriod = () => {
+  const now = new Date()
+  const fmt = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  return { startDate: fmt(new Date(now.getFullYear(), now.getMonth(), 1)), endDate: fmt(now) }
 }
-
-function parseDateBR(str) {
-  if (!str) return null
-  if (str.includes('T')) return new Date(str)
-  const parts = str.split('/')
-  if (parts.length === 3) {
-    const [d, m, y] = parts.map(Number)
-    if (d && m && y) return new Date(y, m - 1, d)
-  }
-  return null
+const dateLabel = value => value ? value.split('-').reverse().join('/') : 'Não informada'
+const money = (value, currency) => {
+  if (value === null || value === undefined) return 'Não informado'
+  if (!currency) return `${Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} · moeda não informada`
+  try { return new Intl.NumberFormat('pt-BR', { style: 'currency', currency }).format(value) }
+  catch { return `${value} ${currency}` }
 }
-
-function formatDateBR(date) {
-  if (!date) return '-'
-  if (typeof date === 'string') date = parseDateBR(date)
-  if (!date || isNaN(date)) return '-'
-  return date.toLocaleDateString('pt-BR')
-}
-
-function daysBetween(d1, d2) {
-  if (!d1 || !d2) return null
-  const a = parseDateBR(d1)
-  const b = parseDateBR(d2)
-  if (!a || !b) return null
-  return Math.round((b - a) / (1000 * 60 * 60 * 24))
-}
-
-const tooltipStyle = { backgroundColor: '#141419', border: '1px solid #27272a', borderRadius: '12px', color: '#fafafa', fontSize: '12px' }
+const badgeClass = kind => kind === 'confirmed' ? 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-200' : kind === 'request' ? 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200' : 'bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-200'
 
 export default function RefundsPage() {
-  const [allData, setAllData] = useState([])
-  const [deduplication, setDeduplication] = useState(null)
-  const [rawCounts, setRawCounts] = useState(null)
+  const [period, setPeriod] = useState(initialPeriod)
+  const [draft, setDraft] = useState(initialPeriod)
+  const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState('overview')
+  const [error, setError] = useState('')
+  const [dateError, setDateError] = useState('')
+  const [refresh, setRefresh] = useState(0)
+  const [source, setSource] = useState('all')
+  const [status, setStatus] = useState('all')
+  const [product, setProduct] = useState('all')
+  const [search, setSearch] = useState('')
+  const [view, setView] = useState('all')
+  const [page, setPage] = useState(1)
+  const [expanded, setExpanded] = useState(null)
 
-  // Filters
-  const [filterProduto, setFilterProduto] = useState('all')
-  const [filterStatus, setFilterStatus] = useState('all')
-  const [filterSource, setFilterSource] = useState('all')
-  const [filterClassificacao, setFilterClassificacao] = useState('all')
-  const [searchTerm, setSearchTerm] = useState('')
-  const [dateFilterType, setDateFilterType] = useState('solicitacao')
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
+  useEffect(() => {
+    const controller = new AbortController()
+    setLoading(true); setError(''); setResult(null)
+    refundsService.getOverview({ ...period, signal: controller.signal })
+      .then(data => { if (!controller.signal.aborted) { setResult(data); setPage(1) } })
+      .catch(err => { if (!controller.signal.aborted) setError(err.response?.data?.error || 'Não foi possível carregar os dados. Tente novamente.') })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false) })
+    return () => controller.abort()
+  }, [period, refresh])
 
-  // Sales crossref
-  const [salesData, setSalesData] = useState(null)
-  const [loadingSales, setLoadingSales] = useState(false)
+  const records = useMemo(() => result?.data || [], [result])
+  const products = useMemo(() => [...new Set(records.map(r => r.product).filter(Boolean))].sort((a, b) => a.localeCompare(b)), [records])
+  const filtered = useMemo(() => {
+    const term = search.trim().toLocaleLowerCase('pt-BR')
+    return records.filter(row => {
+      if (source !== 'all' && !row.sources.includes(source) && row.platform !== source) return false
+      if (status !== 'all' && row.status !== status) return false
+      if (product !== 'all' && row.product !== product) return false
+      if (view === 'confirmed' && row.kind !== 'confirmed') return false
+      if (view === 'requests' && !['request', 'reported'].includes(row.kind)) return false
+      if (view === 'exceptions' && !['dispute', 'cancelled'].includes(row.kind)) return false
+      return !term || [row.name, row.email, row.contact, row.product, row.transactionId, row.reason].some(value => String(value || '').toLocaleLowerCase('pt-BR').includes(term))
+    })
+  }, [records, source, status, product, search, view])
+  const counts = useMemo(() => ({ confirmed: filtered.filter(r => r.kind === 'confirmed').length, requests: filtered.filter(r => r.kind === 'request').length, reported: filtered.filter(r => r.kind === 'reported').length, exceptions: filtered.filter(r => ['dispute', 'cancelled'].includes(r.kind)).length }), [filtered])
+  const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const visiblePage = Math.min(page, pages)
+  const visibleRows = filtered.slice((visiblePage - 1) * PAGE_SIZE, visiblePage * PAGE_SIZE)
+  const hasFilters = source !== 'all' || status !== 'all' || product !== 'all' || search || view !== 'all'
+  const anySourceAvailable = result?.sources?.some(s => ['available', 'limited', 'partial'].includes(s.status))
 
-  // Table
-  const [sortConfig, setSortConfig] = useState({ key: null, dir: 'desc' })
-  const [expandedRow, setExpandedRow] = useState(null)
-  const [currentPage, setCurrentPage] = useState(1)
-  const PAGE_SIZE = 20
+  function applyPeriod(event) {
+    event.preventDefault()
+    if (!draft.startDate || !draft.endDate || draft.startDate > draft.endDate) { setDateError('Escolha um período válido, com início anterior ou igual ao fim.'); return }
+    if ((Date.parse(draft.endDate) - Date.parse(draft.startDate)) / 86400000 > 365) { setDateError('Selecione até 366 dias. Períodos menores agilizam a consulta TMB.'); return }
+    setDateError(''); setPeriod({ ...draft }); setExpanded(null)
+  }
+  function setFilter(setter, value) { setter(value); setPage(1); setExpanded(null) }
+  function clearFilters() { setSource('all'); setStatus('all'); setProduct('all'); setSearch(''); setView('all'); setPage(1); setExpanded(null) }
+  function toggle(row) { setExpanded(expanded === row.id ? null : row.id) }
 
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true)
-      const result = await refundsService.getAll()
-      if (result.success) {
-        setAllData(result.data || [])
-        setDeduplication(result.deduplication || null)
-        setRawCounts(result.raw || null)
-      }
-    } catch (error) {
-      toast.error('Erro ao carregar dados de reembolsos.')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => { fetchData() }, [fetchData])
-
-  const fetchSalesData = useCallback(async () => {
-    if (salesData || loadingSales) return
-    setLoadingSales(true)
-    try {
-      const meses = ['2026-01', '2026-02', '2026-03']
-      const result = await refundsService.getVendasMensais(meses)
-      if (result.success) setSalesData(result.data)
-    } catch (error) {
-      toast.error('Erro ao carregar dados de vendas.')
-    } finally {
-      setLoadingSales(false)
-    }
-  }, [salesData, loadingSales])
-
-  const hasActiveFilters = filterProduto !== 'all' || filterStatus !== 'all' || filterSource !== 'all' || filterClassificacao !== 'all' || searchTerm || startDate
-
-  const clearFilters = () => {
-    setFilterProduto('all'); setFilterStatus('all'); setFilterSource('all')
-    setFilterClassificacao('all'); setSearchTerm(''); setStartDate(''); setEndDate(''); setCurrentPage(1)
+  function renderDetails(row, prefix) {
+    return <div id={`${prefix}-${row.id}`} className="p-5 bg-slate-50 dark:bg-slate-900">
+      <dl className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-x-8 gap-y-4 text-sm">
+        {[
+          ['Identificador da compra', row.transactionId || 'Não vinculado'], ['Status na origem', row.originalStatus || 'Não informado'],
+          ['Data da compra', dateLabel(row.purchasedAt)], ['Data da solicitação', dateLabel(row.requestedAt)],
+          [row.kind === 'reported' ? 'Estorno informado no atendimento' : 'Data de cancelamento / estorno', dateLabel(row.refundedAt)],
+          ['Valor efetivamente devolvido', money(row.refundAmount, row.currency)], ['Forma de pagamento', row.paymentMethod || 'Não informada'], ['Contato', row.contact || 'Não informado'],
+        ].map(([label, value]) => <div key={label}><dt className="text-xs text-slate-500 dark:text-slate-400 mb-1">{label}</dt><dd className="font-medium break-words">{value}</dd></div>)}
+      </dl>
+      {(row.reason || row.classification) && <p className="mt-5 text-sm"><span className="font-semibold">Motivo: </span>{[row.classification, row.reason].filter(Boolean).join(' · ')}</p>}
+      <p className="mt-4 text-xs leading-relaxed text-slate-500 dark:text-slate-400">{row.note}</p>
+      {row.sources.length > 1 && <p className="mt-2 text-xs text-blue-700 dark:text-blue-300">Solicitação conciliada entre planilha e Typeform por e-mail, produto e data.</p>}
+    </div>
   }
 
-  // Filter logic
-  const filteredData = useMemo(() => {
-    return allData.filter(r => {
-      if (filterProduto !== 'all' && r.produto !== filterProduto) return false
-      if (filterStatus !== 'all' && r.status !== filterStatus) return false
-      if (filterSource !== 'all' && r.source !== filterSource) return false
-      if (filterClassificacao !== 'all' && r.classificacaoMotivo !== filterClassificacao) return false
-      if (searchTerm) {
-        const term = searchTerm.toLowerCase()
-        const match = (r.nome || '').toLowerCase().includes(term) ||
-          (r.email || '').toLowerCase().includes(term) ||
-          (r.contato || '').toLowerCase().includes(term) ||
-          (r.whatsapp || '').toLowerCase().includes(term)
-        if (!match) return false
-      }
-      if (startDate && endDate) {
-        let dateField
-        if (dateFilterType === 'solicitacao') dateField = r.dataSolicitacao || r.submittedAt
-        else if (dateFilterType === 'compra') dateField = r.dataCompra
-        else if (dateFilterType === 'reembolso') dateField = r.dataReembolso
-        const d = parseDateBR(dateField)
-        if (d) {
-          const s = new Date(startDate + 'T00:00:00')
-          const e = new Date(endDate + 'T23:59:59')
-          if (d < s || d > e) return false
-        } else {
-          return false
-        }
-      }
-      return true
-    })
-  }, [allData, filterProduto, filterStatus, filterSource, filterClassificacao, searchTerm, startDate, endDate, dateFilterType])
-
-  const uniqueValues = useMemo(() => ({
-    produtos: [...new Set(allData.map(r => r.produto).filter(Boolean))].sort(),
-    statuses: [...new Set(allData.map(r => r.status).filter(Boolean))].sort(),
-    classificacoes: [...new Set(allData.map(r => r.classificacaoMotivo).filter(Boolean))].sort(),
-  }), [allData])
-
-  // Stats
-  const stats = useMemo(() => {
-    const total = filteredData.length
-    const realizados = filteredData.filter(r => r.status === 'Reembolso realizado').length
-    const revertidos = filteredData.filter(r => r.status === 'Revertido').length
-    const pendentes = filteredData.filter(r => !r.status || ['dar prosseguimento Reembolso', 'Reembolso solicitado', 'Em contato com lead'].includes(r.status)).length
-    const semRetorno = filteredData.filter(r => r.status === 'Sem retorno do lead').length
-    const resolutionDays = filteredData.map(r => daysBetween(r.dataSolicitacao, r.dataReembolso)).filter(d => d !== null && d >= 0)
-    const avgResolution = resolutionDays.length > 0 ? Math.round(resolutionDays.reduce((a, b) => a + b, 0) / resolutionDays.length) : null
-    const taxaRetencao = total > 0 ? ((revertidos / total) * 100).toFixed(1) : '0'
-    return { total, realizados, revertidos, pendentes, semRetorno, avgResolution, taxaRetencao }
-  }, [filteredData])
-
-  // Chart data
-  const produtoData = useMemo(() => {
-    const map = {}
-    filteredData.forEach(r => { const k = r.produto || 'Nao informado'; map[k] = (map[k] || 0) + 1 })
-    return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value)
-  }, [filteredData])
-
-  const statusData = useMemo(() => {
-    const map = {}
-    filteredData.forEach(r => { const k = r.status || 'Sem status'; map[k] = (map[k] || 0) + 1 })
-    return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value)
-  }, [filteredData])
-
-  const pagamentoData = useMemo(() => {
-    const map = {}
-    filteredData.forEach(r => { const k = r.formaPagamento || 'Nao informado'; map[k] = (map[k] || 0) + 1 })
-    return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value)
-  }, [filteredData])
-
-  const classificacaoData = useMemo(() => {
-    const map = {}
-    filteredData.forEach(r => { if (r.classificacaoMotivo) map[r.classificacaoMotivo] = (map[r.classificacaoMotivo] || 0) + 1 })
-    return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value)
-  }, [filteredData])
-
-  const motivoData = useMemo(() => {
-    const map = {}
-    filteredData.forEach(r => { if (!r.motivo) return; const short = r.motivo.length > 50 ? r.motivo.substring(0, 47) + '...' : r.motivo; map[short] = (map[short] || 0) + 1 })
-    return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 10)
-  }, [filteredData])
-
-  const timelineData = useMemo(() => {
-    const map = {}
-    filteredData.forEach(r => { const d = parseDateBR(r.dataSolicitacao || r.submittedAt); if (!d) return; const key = `${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`; map[key] = (map[key] || 0) + 1 })
-    return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => { const [ma, ya] = a.name.split('/'); const [mb, yb] = b.name.split('/'); return (ya + ma).localeCompare(yb + mb) })
-  }, [filteredData])
-
-  const monthlyComparisonData = useMemo(() => {
-    const map = {}
-    filteredData.forEach(r => {
-      const mes = r.mesReferencia || 'Typeform'
-      if (!map[mes]) map[mes] = { mes, total: 0, realizados: 0, revertidos: 0, pendentes: 0 }
-      map[mes].total++
-      if (r.status === 'Reembolso realizado') map[mes].realizados++
-      if (r.status === 'Revertido') map[mes].revertidos++
-      if (!r.status || ['dar prosseguimento Reembolso', 'Reembolso solicitado', 'Em contato com lead'].includes(r.status)) map[mes].pendentes++
-    })
-    return Object.values(map)
-  }, [filteredData])
-
-  const produtoStatusData = useMemo(() => {
-    const map = {}
-    filteredData.forEach(r => {
-      const prod = r.produto || 'Nao informado'
-      if (!map[prod]) map[prod] = { name: prod, realizados: 0, revertidos: 0, outros: 0 }
-      if (r.status === 'Reembolso realizado') map[prod].realizados++
-      else if (r.status === 'Revertido') map[prod].revertidos++
-      else map[prod].outros++
-    })
-    return Object.values(map).sort((a, b) => (b.realizados + b.revertidos + b.outros) - (a.realizados + a.revertidos + a.outros))
-  }, [filteredData])
-
-  // Table sorting
-  const sortedData = useMemo(() => {
-    if (!sortConfig.key) return filteredData
-    return [...filteredData].sort((a, b) => {
-      const va = (a[sortConfig.key] || '').toString().toLowerCase()
-      const vb = (b[sortConfig.key] || '').toString().toLowerCase()
-      return sortConfig.dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va)
-    })
-  }, [filteredData, sortConfig])
-
-  const paginatedData = useMemo(() => sortedData.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE), [sortedData, currentPage])
-  const totalPages = Math.ceil(sortedData.length / PAGE_SIZE)
-
-  const handleSort = (key) => setSortConfig(prev => ({ key, dir: prev.key === key && prev.dir === 'asc' ? 'desc' : 'asc' }))
-  const handleDateChange = (s, e) => { setStartDate(s); setEndDate(e); setCurrentPage(1) }
-
-  const setQuickDate = (type) => {
-    const now = new Date()
-    const fmt = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-    if (type === 'all') { setStartDate(''); setEndDate(''); setCurrentPage(1); return }
-    let s, e
-    if (type === 'month') { s = new Date(now.getFullYear(), now.getMonth(), 1); e = now }
-    else if (type === 'lastMonth') { s = new Date(now.getFullYear(), now.getMonth() - 1, 1); e = new Date(now.getFullYear(), now.getMonth(), 0) }
-    else { s = new Date(now.getFullYear(), now.getMonth() - 2, 1); e = now }
-    setStartDate(fmt(s)); setEndDate(fmt(e)); setCurrentPage(1)
-  }
-
-  const tabs = [
-    { id: 'overview', label: 'Visao Geral', icon: FaChartPie },
-    { id: 'analytics', label: 'Analises', icon: FaChartLine },
-    { id: 'crossref', label: 'Vendas x Reembolsos', icon: FaExchangeAlt },
-    { id: 'table', label: 'Detalhes', icon: FaTable },
-    { id: 'monthly', label: 'Por Mes', icon: FaCalendarAlt },
-  ]
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-gray-500 dark:text-gray-400">Carregando dados de reembolsos...</p>
-        </div>
+  return <div className="hub-page space-y-6">
+    <header className="page-heading flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+      <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 mb-2">Financeiro / Atendimento</p><h1 className="text-3xl font-semibold">Reembolsos</h1><p className="text-sm text-slate-500 dark:text-slate-400 mt-2 max-w-2xl">Acompanhe devoluções confirmadas, solicitações e cancelamentos em um só lugar.</p></div>
+      <button type="button" className="btn btn-ghost disabled:opacity-50" onClick={() => setRefresh(r => r + 1)} disabled={loading}><RefreshCw size={16} className={loading ? 'animate-spin' : ''} aria-hidden="true" />{loading ? 'Consultando fontes' : 'Atualizar'}</button>
+    </header>
+    <form onSubmit={applyPeriod} className="filter-bar ds-card p-4 flex flex-wrap items-end gap-3">
+      <div><label htmlFor="refund-start" className="ds-label">De</label><input id="refund-start" className="ds-input" type="date" required value={draft.startDate} onChange={e => setDraft(d => ({ ...d, startDate: e.target.value }))} /></div>
+      <div><label htmlFor="refund-end" className="ds-label">Até</label><input id="refund-end" className="ds-input" type="date" required min={draft.startDate} value={draft.endDate} onChange={e => setDraft(d => ({ ...d, endDate: e.target.value }))} /></div>
+      <button type="submit" className="btn btn-primary">Aplicar período <ArrowUpRight size={15} aria-hidden="true" /></button><p className="text-xs text-slate-500 dark:text-slate-400 sm:ml-auto py-2">{dateLabel(period.startDate)} — {dateLabel(period.endDate)}</p>
+      {dateError && <p className="basis-full text-sm text-red-600" role="alert">{dateError}</p>}
+    </form>
+    {error && <div role="alert" className="ds-card p-5 border-red-200 flex flex-wrap items-center gap-3"><CircleAlert size={18} className="text-red-500 shrink-0" /><p className="text-sm">{error}</p><button className="btn btn-ghost ml-auto" type="button" onClick={() => setRefresh(r => r + 1)}>Tentar novamente</button></div>}
+    <section aria-label="Disponibilidade das fontes" className="grid sm:grid-cols-2 xl:grid-cols-5 gap-3">
+      {Object.entries(SOURCES).map(([id, label]) => {
+        const state = result?.sources?.find(s => s.id === id)
+        const available = state && state.status !== 'unavailable'
+        return <article key={id} className="ds-card p-4"><div className="flex justify-between gap-3 items-center"><h2 className="text-sm font-semibold">{label}</h2><span className={`h-2 w-2 rounded-full ${loading ? 'bg-slate-300 animate-pulse' : state?.status === 'available' ? 'bg-blue-500' : 'bg-amber-500'}`} aria-hidden="true" /></div><p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-2">{loading ? 'Consultando…' : COVERAGE[state?.status] || 'Não consultada'}{available && !loading ? ` · ${state.recordCount} registros` : ''}</p><p className="mt-3 text-xs leading-relaxed text-slate-500 dark:text-slate-400">{state?.message || (loading ? 'Aguardando resposta da fonte.' : 'Sem dados disponíveis nesta consulta.')}</p></article>
+      })}
+    </section>
+    {result?.incomplete && <div role="status" className="flex gap-3 rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950 dark:border-amber-900 p-4 text-amber-900 dark:text-amber-100 text-sm"><CircleAlert size={18} className="shrink-0 mt-0.5" /><p>Algumas fontes estão indisponíveis ou incompletas. Os números abaixo representam somente os registros recebidos; ausência de dados não significa ausência de reembolsos.</p></div>}
+    <section className="grid grid-cols-2 xl:grid-cols-4 gap-4" aria-label="Resumo dos registros filtrados">
+      {[
+        ['Confirmados nas plataformas', counts.confirmed, 'Totais e parciais, por status'], ['Solicitações de atendimento', counts.requests, 'Inclui pedidos retidos'],
+        ['Informados na planilha', counts.reported, 'Sem confirmação financeira vinculada'], ['Contestações e cancelamentos', counts.exceptions, 'Não somam aos reembolsos confirmados'],
+      ].map(([label, value, detail]) => <article className="ds-card p-5" key={label}><h2 className="text-xs font-medium text-slate-500 dark:text-slate-400">{label}</h2><p className="text-3xl font-semibold tracking-tight mt-4 tabular-nums">{loading || !anySourceAvailable ? '—' : value.toLocaleString('pt-BR')}</p><p className="text-xs text-slate-500 dark:text-slate-400 mt-2">{detail}</p></article>)}
+    </section>
+    <section className="surface-panel ds-card overflow-hidden" aria-labelledby="refund-list-title">
+      <div className="p-5 border-b border-slate-200 dark:border-slate-800">
+        <div className="flex items-center justify-between flex-wrap gap-2"><h2 id="refund-list-title" className="text-base font-semibold">Histórico de registros</h2><span className="text-xs text-slate-500">{loading ? 'Carregando…' : `${filtered.length} registros encontrados`}</span></div>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">O período considera cancelamento na Guru, compra/efetivação na Hotmart e TMB, e abertura nas solicitações. Valores de compra não representam o total devolvido.</p>
+        <div className="flex flex-wrap gap-2 mt-5" role="group" aria-label="Tipo de registro">{[['all', 'Todos'], ['confirmed', 'Confirmados'], ['requests', 'Atendimento'], ['exceptions', 'Contestações e cancelamentos']].map(([key, label]) => <button key={key} type="button" aria-pressed={view === key} onClick={() => setFilter(setView, key)} className={`btn btn-sm ${view === key ? 'btn-primary' : 'btn-ghost'}`}>{label}</button>)}</div>
+        <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-3 mt-4">
+          <div><label htmlFor="refund-search" className="ds-label">Buscar</label><div className="relative"><Search size={16} aria-hidden="true" className="absolute left-3 top-3 text-slate-400" /><input id="refund-search" type="search" className="ds-input pl-9" placeholder="Nome, e-mail, compra ou motivo" value={search} onChange={e => setFilter(setSearch, e.target.value)} /></div></div>
+          <div><label htmlFor="refund-source" className="ds-label">Fonte / plataforma</label><select id="refund-source" className="ds-input" value={source} onChange={e => setFilter(setSource, e.target.value)}><option value="all">Todas as fontes</option>{Object.entries(SOURCES).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></div>
+          <div><label htmlFor="refund-status" className="ds-label">Status</label><select id="refund-status" className="ds-input" value={status} onChange={e => setFilter(setStatus, e.target.value)}><option value="all">Todos os status</option>{Object.entries(STATUSES).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></div>
+          <div><label htmlFor="refund-product" className="ds-label">Produto</label><select id="refund-product" className="ds-input" value={product} onChange={e => setFilter(setProduct, e.target.value)}><option value="all">Todos os produtos</option>{products.map(name => <option key={name} value={name}>{name}</option>)}</select></div>
+        </div>{hasFilters && <button type="button" className="text-xs text-blue-600 dark:text-blue-300 mt-3 underline underline-offset-4" onClick={clearFilters}>Limpar filtros</button>}
       </div>
-    )
-  }
-
-  return (
-    <div className="space-y-6 pb-8">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-red-500 to-orange-500 bg-clip-text text-transparent flex items-center gap-3">
-            <FaUndo className="text-red-500" />
-            Reembolsos
-          </h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1 text-xs sm:text-sm">
-            {rawCounts && `Typeform: ${rawCounts.typeform} | Planilha: ${rawCounts.planilha}`}
-            {deduplication && ` | Mesclados: ${deduplication.merged}`}
-            {` | Total: ${allData.length}`}
-          </p>
-        </div>
-        <button onClick={fetchData} className="px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg flex items-center gap-2 text-sm font-medium transition-colors self-start sm:self-auto">
-          <FaSync className="w-3.5 h-3.5" /> Atualizar
-        </button>
-      </div>
-
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
-        <KPICard label="Total" value={stats.total} color="text-blue-500" icon="📋" />
-        <KPICard label="Reembolsados" value={stats.realizados} sub={stats.total > 0 ? `${((stats.realizados / stats.total) * 100).toFixed(0)}%` : ''} color="text-red-500" icon="↩️" />
-        <KPICard label="Revertidos" value={stats.revertidos} sub={`${stats.taxaRetencao}% retencao`} color="text-green-500" icon="✅" />
-        <KPICard label="Pendentes" value={stats.pendentes} color="text-yellow-500" icon="⏳" />
-        <KPICard label="Sem Retorno" value={stats.semRetorno} color="text-gray-500" icon="📵" />
-        <KPICard label="Tempo Medio" value={stats.avgResolution !== null ? `${stats.avgResolution}d` : '-'} sub="dias p/ resolver" color="text-purple-500" icon="⏱️" />
-      </div>
-
-      {/* Filters */}
-      <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] p-4 shadow-sm space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <FaFilter className="text-gray-400 w-3.5 h-3.5" />
-            <span className="text-sm font-medium text-gray-600 dark:text-gray-300">Filtros</span>
-          </div>
-          {hasActiveFilters && (
-            <button onClick={clearFilters} className="flex items-center gap-1 px-2 py-1 text-xs rounded-lg bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors">
-              <FaTimes className="w-2.5 h-2.5" /> Limpar
-            </button>
-          )}
-        </div>
-
-        {/* Row 1: Date + Search */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="flex flex-col xs:flex-row gap-2 flex-1">
-            <select value={dateFilterType} onChange={e => setDateFilterType(e.target.value)}
-              className="px-3 py-2 rounded-lg bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-sm text-gray-900 dark:text-white w-full xs:w-32">
-              <option value="solicitacao">Solicitacao</option>
-              <option value="compra">Compra</option>
-              <option value="reembolso">Reembolso</option>
-            </select>
-            <div className="flex-1 min-w-0">
-              <DateRangePicker startDate={startDate} endDate={endDate} onDateChange={handleDateChange} />
-            </div>
-          </div>
-          <div className="relative flex-1 sm:max-w-xs">
-            <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
-            <input type="text" value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1) }}
-              placeholder="Buscar nome ou email..."
-              className="w-full pl-9 pr-3 py-2 rounded-lg bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary" />
-          </div>
-        </div>
-
-        {/* Row 2: Quick dates */}
-        <div className="flex flex-wrap gap-1.5">
-          {[['month', 'Este mes'], ['lastMonth', 'Mes anterior'], ['3months', '3 meses'], ['all', 'Tudo']].map(([k, l]) => (
-            <button key={k} onClick={() => setQuickDate(k)}
-              className="px-3 py-1.5 text-xs font-medium rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 transition-colors">
-              {l}
-            </button>
-          ))}
-        </div>
-
-        {/* Row 3: Dropdown filters */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          <select value={filterProduto} onChange={e => { setFilterProduto(e.target.value); setCurrentPage(1) }}
-            className="w-full px-3 py-2 rounded-lg bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-sm text-gray-900 dark:text-white">
-            <option value="all">Todos Produtos</option>
-            {uniqueValues.produtos.map(p => <option key={p} value={p}>{p}</option>)}
-          </select>
-          <select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setCurrentPage(1) }}
-            className="w-full px-3 py-2 rounded-lg bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-sm text-gray-900 dark:text-white">
-            <option value="all">Todos Status</option>
-            {uniqueValues.statuses.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-          <select value={filterClassificacao} onChange={e => { setFilterClassificacao(e.target.value); setCurrentPage(1) }}
-            className="w-full px-3 py-2 rounded-lg bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-sm text-gray-900 dark:text-white">
-            <option value="all">Classificacao</option>
-            {uniqueValues.classificacoes.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-          <select value={filterSource} onChange={e => { setFilterSource(e.target.value); setCurrentPage(1) }}
-            className="w-full px-3 py-2 rounded-lg bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-sm text-gray-900 dark:text-white">
-            <option value="all">Todas Fontes</option>
-            <option value="typeform">Typeform</option>
-            <option value="planilha">Planilha</option>
-            <option value="merged">Mesclado</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0">
-        {tabs.map(tab => {
-          const Icon = tab.icon
-          return (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl font-medium text-xs sm:text-sm transition-all whitespace-nowrap shrink-0 ${
-                activeTab === tab.id
-                  ? 'bg-gradient-to-r from-primary to-primary-dark text-white shadow-lg shadow-primary/25'
-                  : 'bg-white dark:bg-[#141419] text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 border border-gray-200 dark:border-[#27272a]'
-              }`}>
-              <Icon className="w-3.5 h-3.5" />
-              <span className="hidden xs:inline sm:inline">{tab.label}</span>
-            </button>
-          )
-        })}
-        <span className="ml-auto text-xs text-gray-400 self-center shrink-0 pl-2">{filteredData.length} registros</span>
-      </div>
-
-      {/* Tab Content */}
-      {activeTab === 'overview' && <OverviewTab data={{ produtoData, statusData, pagamentoData, timelineData }} />}
-      {activeTab === 'analytics' && <AnalyticsTab data={{ classificacaoData, motivoData, produtoStatusData, monthlyComparisonData }} />}
-      {activeTab === 'crossref' && <CrossRefTab refunds={filteredData} salesData={salesData} loadingSales={loadingSales} onLoad={fetchSalesData} />}
-      {activeTab === 'table' && (
-        <TableTab data={paginatedData} sortConfig={sortConfig} onSort={handleSort}
-          expandedRow={expandedRow} onExpand={setExpandedRow}
-          currentPage={currentPage} totalPages={totalPages}
-          onPageChange={setCurrentPage} totalRecords={sortedData.length} />
-      )}
-      {activeTab === 'monthly' && <MonthlyTab data={monthlyComparisonData} />}
-    </div>
-  )
-}
-
-// ========== Shared Components ==========
-
-function KPICard({ label, value, sub, color }) {
-  return (
-    <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] p-3 sm:p-4 shadow-sm">
-      <p className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 mb-1 truncate">{label}</p>
-      <p className={`text-xl sm:text-2xl font-bold ${color}`}>{value}</p>
-      {sub && <p className="text-[10px] sm:text-xs text-gray-400 mt-0.5 truncate">{sub}</p>}
-    </div>
-  )
-}
-
-function ChartCard({ title, children, className = '' }) {
-  return (
-    <div className={`bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] p-4 sm:p-6 shadow-sm ${className}`}>
-      <h3 className="text-base sm:text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">{title}</h3>
-      {children}
-    </div>
-  )
-}
-
-function StatusBadge({ status }) {
-  if (!status) return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400">-</span>
-  const style = STATUS_STYLES[status] || 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
-  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${style}`}>{status}</span>
-}
-
-function SourceBadge({ source }) {
-  const styles = {
-    typeform: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
-    planilha: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-    merged: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-  }
-  return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${styles[source] || styles.typeform}`}>{source}</span>
-}
-
-// ========== Tab: Overview ==========
-function OverviewTab({ data }) {
-  const { produtoData, statusData, pagamentoData, timelineData } = data
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-      <ChartCard title="Por Produto">
-        <ResponsiveContainer width="100%" height={280}>
-          <BarChart data={produtoData} layout="vertical">
-            <CartesianGrid strokeDasharray="3 3" stroke="#27272a" opacity={0.3} />
-            <XAxis type="number" />
-            <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 11 }} />
-            <Tooltip contentStyle={tooltipStyle} />
-            <Bar dataKey="value" name="Solicitacoes" radius={[0, 8, 8, 0]}>
-              {produtoData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </ChartCard>
-
-      <ChartCard title="Por Status">
-        <ResponsiveContainer width="100%" height={280}>
-          <PieChart>
-            <Pie data={statusData} cx="50%" cy="50%" outerRadius={90} innerRadius={45} dataKey="value"
-              label={({ name, percent }) => `${name.length > 15 ? name.substring(0, 12) + '...' : name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
-              {statusData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-            </Pie>
-            <Tooltip contentStyle={tooltipStyle} />
-          </PieChart>
-        </ResponsiveContainer>
-      </ChartCard>
-
-      <ChartCard title="Forma de Pagamento">
-        <ResponsiveContainer width="100%" height={280}>
-          <PieChart>
-            <Pie data={pagamentoData} cx="50%" cy="50%" outerRadius={90} innerRadius={45} dataKey="value"
-              label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
-              {pagamentoData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-            </Pie>
-            <Tooltip contentStyle={tooltipStyle} />
-          </PieChart>
-        </ResponsiveContainer>
-      </ChartCard>
-
-      {timelineData.length > 0 && (
-        <ChartCard title="Timeline de Solicitacoes">
-          <ResponsiveContainer width="100%" height={280}>
-            <LineChart data={timelineData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#27272a" opacity={0.3} />
-              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-              <YAxis />
-              <Tooltip contentStyle={tooltipStyle} />
-              <Line type="monotone" dataKey="value" name="Solicitacoes" stroke="#ef4444" strokeWidth={3} dot={{ fill: '#ef4444', r: 5 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </ChartCard>
-      )}
-    </div>
-  )
-}
-
-// ========== Tab: Analytics ==========
-function AnalyticsTab({ data }) {
-  const { classificacaoData, motivoData, produtoStatusData, monthlyComparisonData } = data
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-      {classificacaoData.length > 0 && (
-        <ChartCard title="Classificacao do Motivo">
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={classificacaoData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#27272a" opacity={0.3} />
-              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-              <YAxis />
-              <Tooltip contentStyle={tooltipStyle} />
-              <Bar dataKey="value" name="Quantidade" radius={[8, 8, 0, 0]}>
-                {classificacaoData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-      )}
-
-      <ChartCard title="Produto x Status">
-        <ResponsiveContainer width="100%" height={280}>
-          <BarChart data={produtoStatusData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#27272a" opacity={0.3} />
-            <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-            <YAxis />
-            <Tooltip contentStyle={tooltipStyle} />
-            <Legend />
-            <Bar dataKey="realizados" name="Reembolsados" fill="#ef4444" stackId="a" />
-            <Bar dataKey="revertidos" name="Revertidos" fill="#22c55e" stackId="a" />
-            <Bar dataKey="outros" name="Outros" fill="#f59e0b" stackId="a" radius={[8, 8, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </ChartCard>
-
-      <ChartCard title="Trend Mensal" className="lg:col-span-2">
-        <ResponsiveContainer width="100%" height={280}>
-          <BarChart data={monthlyComparisonData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#27272a" opacity={0.3} />
-            <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
-            <YAxis />
-            <Tooltip contentStyle={tooltipStyle} />
-            <Legend />
-            <Bar dataKey="total" name="Total" fill="#3b82f6" radius={[8, 8, 0, 0]} />
-            <Bar dataKey="realizados" name="Reembolsados" fill="#ef4444" radius={[8, 8, 0, 0]} />
-            <Bar dataKey="revertidos" name="Revertidos" fill="#22c55e" radius={[8, 8, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </ChartCard>
-
-      {motivoData.length > 0 && (
-        <ChartCard title="Top 10 Motivos (Typeform)" className="lg:col-span-2">
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={motivoData} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" stroke="#27272a" opacity={0.3} />
-              <XAxis type="number" />
-              <YAxis dataKey="name" type="category" width={200} tick={{ fontSize: 10 }} />
-              <Tooltip contentStyle={tooltipStyle} />
-              <Bar dataKey="value" name="Quantidade" fill="#7c3aed" radius={[0, 8, 8, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-      )}
-    </div>
-  )
-}
-
-// ========== Tab: Table ==========
-function TableTab({ data, sortConfig, onSort, expandedRow, onExpand, currentPage, totalPages, onPageChange, totalRecords }) {
-  const columns = [
-    { key: 'nome', label: 'Nome' },
-    { key: 'email', label: 'Email', hideMobile: true },
-    { key: 'produto', label: 'Produto' },
-    { key: 'formaPagamento', label: 'Pagamento', hideMobile: true },
-    { key: 'dataSolicitacao', label: 'Solicitacao', hideMobile: true },
-    { key: 'status', label: 'Status' },
-    { key: 'classificacaoMotivo', label: 'Classif.', hideTablet: true },
-    { key: 'source', label: 'Fonte', hideTablet: true },
-  ]
-
-  return (
-    <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="min-w-full">
-          <thead>
-            <tr className="bg-gray-50/80 dark:bg-gray-800/50 border-b border-gray-200/50 dark:border-gray-700/50">
-              <th className="px-2 py-3 w-8"></th>
-              {columns.map(col => (
-                <th key={col.key} onClick={() => onSort(col.key)}
-                  className={`px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-primary transition-colors ${col.hideMobile ? 'hidden md:table-cell' : ''} ${col.hideTablet ? 'hidden lg:table-cell' : ''}`}>
-                  <span className="flex items-center gap-1">
-                    {col.label}
-                    {sortConfig.key === col.key && (sortConfig.dir === 'asc' ? <FaSortUp className="w-3 h-3" /> : <FaSortDown className="w-3 h-3" />)}
-                  </span>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100 dark:divide-gray-800/50">
-            {data.map((r, i) => (
-              <React.Fragment key={r.id || i}>
-                <tr className="hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors cursor-pointer"
-                  onClick={() => onExpand(expandedRow === r.id ? null : r.id)}>
-                  <td className="px-2 py-3 text-gray-400">
-                    {expandedRow === r.id ? <FaChevronUp className="w-3 h-3" /> : <FaChevronDown className="w-3 h-3" />}
-                  </td>
-                  <td className="px-3 py-3 font-medium text-gray-800 dark:text-gray-200 max-w-[150px] sm:max-w-[180px] truncate">{r.nome || '-'}</td>
-                  <td className="px-3 py-3 text-gray-500 dark:text-gray-400 max-w-[180px] truncate hidden md:table-cell">{r.email || '-'}</td>
-                  <td className="px-3 py-3">
-                    {r.produto ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">{r.produto}</span> : '-'}
-                  </td>
-                  <td className="px-3 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap hidden md:table-cell">{r.formaPagamento || '-'}</td>
-                  <td className="px-3 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap hidden md:table-cell">{r.dataSolicitacao ? formatDateBR(r.dataSolicitacao) : r.submittedAt ? formatDateBR(r.submittedAt) : '-'}</td>
-                  <td className="px-3 py-3"><StatusBadge status={r.status} /></td>
-                  <td className="px-3 py-3 text-gray-500 dark:text-gray-400 text-xs hidden lg:table-cell">{r.classificacaoMotivo || '-'}</td>
-                  <td className="px-3 py-3 hidden lg:table-cell"><SourceBadge source={r.source} /></td>
-                </tr>
-                {expandedRow === r.id && (
-                  <tr className="bg-gray-50 dark:bg-[#1e1e24]">
-                    <td colSpan={9} className="px-4 sm:px-6 py-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 text-sm">
-                        <DetailField label="Contato/WhatsApp" value={r.contato || r.whatsapp} />
-                        <DetailField label="Email" value={r.email} />
-                        <DetailField label="Data de Compra" value={r.dataCompra} />
-                        <DetailField label="Data de Reembolso" value={r.dataReembolso} />
-                        <DetailField label="Primeiro Contato" value={r.primeiroContato} />
-                        <DetailField label="Colaborador" value={r.colaborador} />
-                        <DetailField label="Mes Referencia" value={r.mesReferencia} />
-                        <DetailField label="Fonte" value={r.source} />
-                        {r.motivo && <div className="sm:col-span-2 lg:col-span-3"><DetailField label="Motivo" value={r.motivo} /></div>}
-                        {r.contatoCliente && <div className="sm:col-span-2 lg:col-span-3"><DetailField label="Historico de Contato" value={r.contatoCliente} /></div>}
-                        {r.observacao && <div className="sm:col-span-2 lg:col-span-3"><DetailField label="Observacao" value={r.observacao} /></div>}
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </React.Fragment>
-            ))}
-            {data.length === 0 && (
-              <tr><td colSpan={9} className="px-4 py-12 text-center text-gray-500 dark:text-gray-400">Nenhum registro encontrado.</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-      <div className="flex items-center justify-between px-4 py-3 bg-gray-50/80 dark:bg-gray-800/50 border-t border-gray-200/50 dark:border-gray-700/50">
-        <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{totalRecords} registros</span>
-        <div className="flex items-center gap-2">
-          <button onClick={() => onPageChange(Math.max(1, currentPage - 1))} disabled={currentPage === 1}
-            className="px-2 py-1.5 rounded-lg text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-            <FaChevronLeft className="w-3 h-3" />
-          </button>
-          <span className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">{currentPage}/{totalPages || 1}</span>
-          <button onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))} disabled={currentPage >= totalPages}
-            className="px-2 py-1.5 rounded-lg text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-            <FaChevronRight className="w-3 h-3" />
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function DetailField({ label, value }) {
-  if (!value) return null
-  return (
-    <div>
-      <span className="text-[11px] text-gray-400 dark:text-gray-500 uppercase tracking-wider block mb-0.5">{label}</span>
-      <span className="text-gray-700 dark:text-gray-300 text-sm">{value}</span>
-    </div>
-  )
-}
-
-// ========== Tab: Monthly ==========
-function MonthlyTab({ data }) {
-  return (
-    <div className="space-y-6">
-      <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full">
-            <thead>
-              <tr className="bg-gray-50/80 dark:bg-gray-800/50 border-b border-gray-200/50 dark:border-gray-700/50">
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Mes</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Reembolsados</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden sm:table-cell">Revertidos</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden sm:table-cell">Pendentes</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Retencao</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-800/50">
-              {data.map((row, i) => (
-                <tr key={i} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors">
-                  <td className="px-4 py-3 font-medium text-gray-800 dark:text-gray-200">{row.mes}</td>
-                  <td className="px-4 py-3 text-center text-blue-600 font-bold">{row.total}</td>
-                  <td className="px-4 py-3 text-center text-red-500">{row.realizados}</td>
-                  <td className="px-4 py-3 text-center text-green-500 hidden sm:table-cell">{row.revertidos}</td>
-                  <td className="px-4 py-3 text-center text-yellow-500 hidden sm:table-cell">{row.pendentes}</td>
-                  <td className="px-4 py-3 text-center">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      row.total > 0 && (row.revertidos / row.total) > 0.1 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
-                    }`}>
-                      {row.total > 0 ? `${((row.revertidos / row.total) * 100).toFixed(1)}%` : '-'}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <ChartCard title="Comparativo Mensal">
-        <ResponsiveContainer width="100%" height={350}>
-          <BarChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#27272a" opacity={0.3} />
-            <XAxis dataKey="mes" tick={{ fontSize: 12 }} />
-            <YAxis />
-            <Tooltip contentStyle={tooltipStyle} />
-            <Legend />
-            <Bar dataKey="total" name="Total" fill="#3b82f6" radius={[8, 8, 0, 0]} />
-            <Bar dataKey="realizados" name="Reembolsados" fill="#ef4444" radius={[8, 8, 0, 0]} />
-            <Bar dataKey="revertidos" name="Revertidos" fill="#22c55e" radius={[8, 8, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </ChartCard>
-    </div>
-  )
-}
-
-// ========== Tab: Vendas x Reembolsos ==========
-const MONTH_NAMES = { '2026-01': 'Janeiro', '2026-02': 'Fevereiro', '2026-03': 'Março' }
-
-function CrossRefTab({ refunds, salesData, loadingSales, onLoad }) {
-  useEffect(() => { onLoad() }, [onLoad])
-
-  if (loadingSales) {
-    return (
-      <div className="flex items-center justify-center py-16">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary mx-auto mb-3"></div>
-          <p className="text-gray-500 dark:text-gray-400 text-sm">Buscando dados de vendas (Guru + Hotmart)...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (!salesData) return null
-
-  const refundsByMonth = {}
-  const refundsByMonthProduct = {}
-  refunds.forEach(r => {
-    const d = parseDateBR(r.dataSolicitacao || r.submittedAt)
-    if (!d) return
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-    refundsByMonth[key] = (refundsByMonth[key] || 0) + 1
-    const prod = r.produto || 'Nao informado'
-    if (!refundsByMonthProduct[key]) refundsByMonthProduct[key] = {}
-    refundsByMonthProduct[key][prod] = (refundsByMonthProduct[key][prod] || 0) + 1
-  })
-
-  const months = Object.keys(salesData).sort()
-  const tableData = months.map(m => {
-    const sales = salesData[m]
-    const refCount = refundsByMonth[m] || 0
-    return { mes: MONTH_NAMES[m] || m, key: m, vendas: sales.totalVendas, valorVendas: sales.totalValor, reembolsos: refCount, taxa: sales.totalVendas > 0 ? ((refCount / sales.totalVendas) * 100).toFixed(1) : '0' }
-  })
-
-  const normalizeProduct = (name) => {
-    const n = name.toLowerCase().trim()
-    if (n.includes('full stack') || n.includes('fullstack') || n.includes('devclub')) return 'Full Stack'
-    if (n.includes('vitalício') || n.includes('vitalicio')) return 'Vitalício'
-    if (n.includes('mba') || n.includes('pós')) return 'MBA'
-    if (n.includes('front end') || n.includes('frontend')) return 'Front End'
-    if (n.includes('ia club') || n.includes('gestor de ia')) return 'IA Club'
-    return name
-  }
-
-  const productData = {}
-  months.forEach(m => {
-    Object.entries(salesData[m].byProduct || {}).forEach(([prod, data]) => {
-      const norm = normalizeProduct(prod)
-      if (!productData[norm]) productData[norm] = {}
-      if (!productData[norm][m]) productData[norm][m] = { vendas: 0, valor: 0, reembolsos: 0 }
-      productData[norm][m].vendas += data.vendas; productData[norm][m].valor += data.valor
-    })
-    Object.entries(refundsByMonthProduct[m] || {}).forEach(([prod, count]) => {
-      const norm = normalizeProduct(prod)
-      if (!productData[norm]) productData[norm] = {}
-      if (!productData[norm][m]) productData[norm][m] = { vendas: 0, valor: 0, reembolsos: 0 }
-      productData[norm][m].reembolsos += count
-    })
-  })
-
-  const productChartData = Object.entries(productData).map(([prod, md]) => {
-    let tv = 0, tr = 0
-    Object.values(md).forEach(d => { tv += d.vendas; tr += d.reembolsos })
-    return { name: prod, vendas: tv, reembolsos: tr, taxa: tv > 0 ? ((tr / tv) * 100).toFixed(1) : '0' }
-  }).filter(d => d.vendas > 0 || d.reembolsos > 0).sort((a, b) => b.vendas - a.vendas)
-
-  const chartData = tableData.map(r => ({ name: r.mes, Vendas: r.vendas, Reembolsos: r.reembolsos, Taxa: parseFloat(r.taxa) }))
-  const formatMoney = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v)
-
-  return (
-    <div className="space-y-4 sm:space-y-6">
-      {/* Total por mes */}
-      <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm overflow-hidden">
-        <div className="px-4 sm:px-6 py-4 border-b border-gray-200/50 dark:border-gray-700/50">
-          <h3 className="text-base sm:text-lg font-semibold text-gray-800 dark:text-gray-200">Vendas x Reembolsos por Mes</h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full">
-            <thead>
-              <tr className="bg-gray-50/80 dark:bg-gray-800/50 border-b border-gray-200/50 dark:border-gray-700/50">
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Mes</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Vendas</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden sm:table-cell">Valor</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Reemb.</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Taxa</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-800/50">
-              {tableData.map((row, i) => (
-                <tr key={i} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors">
-                  <td className="px-4 py-3 font-medium text-gray-800 dark:text-gray-200">{row.mes}</td>
-                  <td className="px-4 py-3 text-center text-green-600 font-bold">{row.vendas}</td>
-                  <td className="px-4 py-3 text-center text-green-600 text-sm hidden sm:table-cell">{formatMoney(row.valorVendas)}</td>
-                  <td className="px-4 py-3 text-center text-red-500 font-bold">{row.reembolsos}</td>
-                  <td className="px-4 py-3 text-center">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${parseFloat(row.taxa) > 5 ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
-                      {row.taxa}%
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <ChartCard title="Vendas vs Reembolsos por Mes">
-        <ResponsiveContainer width="100%" height={340}>
-          <ComposedChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#27272a" opacity={0.3} />
-            <XAxis dataKey="name" />
-            <YAxis yAxisId="left" />
-            <YAxis yAxisId="right" orientation="right" unit="%" domain={[0, 'auto']} />
-            <Tooltip contentStyle={tooltipStyle} formatter={(value, name) => name === 'Taxa %' ? `${value}%` : value} />
-            <Legend />
-            <Bar yAxisId="left" dataKey="Vendas" fill="#22c55e" radius={[8, 8, 0, 0]}
-              label={{ position: 'top', fontSize: 11, fill: '#a1a1aa' }} />
-            <Bar yAxisId="left" dataKey="Reembolsos" fill="#ef4444" radius={[8, 8, 0, 0]}
-              label={{ position: 'top', fontSize: 11, fill: '#a1a1aa' }} />
-            <Line yAxisId="right" type="monotone" dataKey="Taxa" stroke="#f59e0b" strokeWidth={2} dot={{ fill: '#f59e0b', r: 5 }} name="Taxa %" />
-          </ComposedChart>
-        </ResponsiveContainer>
-      </ChartCard>
-
-      {/* Por Produto */}
-      <div className="bg-white dark:bg-[#141419] rounded-xl border border-gray-200 dark:border-[#27272a] shadow-sm overflow-hidden">
-        <div className="px-4 sm:px-6 py-4 border-b border-gray-200/50 dark:border-gray-700/50">
-          <h3 className="text-base sm:text-lg font-semibold text-gray-800 dark:text-gray-200">Vendas x Reembolsos por Produto</h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="min-w-full">
-            <thead>
-              <tr className="bg-gray-50/80 dark:bg-gray-800/50 border-b border-gray-200/50 dark:border-gray-700/50">
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Produto</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Vendas</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Reemb.</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Taxa</th>
-                {months.map(m => (
-                  <th key={m} className="px-3 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden md:table-cell">{MONTH_NAMES[m] || m}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-800/50">
-              {productChartData.map((row, i) => (
-                <tr key={i} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/30 transition-colors">
-                  <td className="px-4 py-3 font-medium text-gray-800 dark:text-gray-200 whitespace-nowrap">{row.name}</td>
-                  <td className="px-4 py-3 text-center text-green-600 font-bold">{row.vendas}</td>
-                  <td className="px-4 py-3 text-center text-red-500 font-bold">{row.reembolsos}</td>
-                  <td className="px-4 py-3 text-center">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${parseFloat(row.taxa) > 5 ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
-                      {row.taxa}%
-                    </span>
-                  </td>
-                  {months.map(m => {
-                    const d = productData[row.name]?.[m]
-                    return <td key={m} className="px-3 py-3 text-center text-xs text-gray-500 dark:text-gray-400 hidden md:table-cell">{d ? `${d.vendas}v / ${d.reembolsos}r` : '-'}</td>
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <ChartCard title="Taxa de Reembolso por Produto">
-        <ResponsiveContainer width="100%" height={340}>
-          <ComposedChart data={productChartData.map(d => ({ ...d, taxaNum: parseFloat(d.taxa) }))}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#27272a" opacity={0.3} />
-            <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-            <YAxis yAxisId="left" />
-            <YAxis yAxisId="right" orientation="right" unit="%" domain={[0, 'auto']} />
-            <Tooltip contentStyle={tooltipStyle} formatter={(value, name) => name === 'Taxa %' ? `${value}%` : value} />
-            <Legend />
-            <Bar yAxisId="left" dataKey="vendas" name="Vendas" fill="#22c55e" radius={[8, 8, 0, 0]}
-              label={{ position: 'top', fontSize: 11, fill: '#a1a1aa' }} />
-            <Bar yAxisId="left" dataKey="reembolsos" name="Reembolsos" fill="#ef4444" radius={[8, 8, 0, 0]}
-              label={{ position: 'top', fontSize: 11, fill: '#a1a1aa' }} />
-            <Line yAxisId="right" type="monotone" dataKey="taxaNum" stroke="#f59e0b" strokeWidth={2} dot={{ fill: '#f59e0b', r: 5 }} name="Taxa %" />
-          </ComposedChart>
-        </ResponsiveContainer>
-      </ChartCard>
-    </div>
-  )
+      {loading ? <div role="status" className="p-12 text-center text-sm text-slate-500"><RefreshCw size={24} className="animate-spin mx-auto mb-4 text-blue-500" aria-hidden="true" />Consultando fontes e conciliando registros. A TMB pode levar mais tempo.</div>
+        : !visibleRows.length ? <div className="py-16 px-6 text-center"><ArrowDownLeft size={28} className="mx-auto text-slate-400 mb-4" aria-hidden="true" /><h3 className="font-semibold">{error || !anySourceAvailable ? 'Dados indisponíveis' : 'Nenhum registro neste recorte'}</h3><p className="text-sm text-slate-500 mt-2">{error || !anySourceAvailable ? 'Verifique o estado das fontes e tente atualizar.' : 'Ajuste o período ou os filtros para consultar outros registros.'}</p>{hasFilters && <button type="button" className="btn btn-ghost mt-5" onClick={clearFilters}>Limpar filtros</button>}</div>
+          : <>
+            <div className="hidden md:block overflow-x-auto"><table className="data-table w-full text-sm min-w-[880px]"><thead className="bg-slate-50 dark:bg-slate-900 text-slate-500 text-xs"><tr>{['Data de referência', 'Cliente / produto', 'Fonte', 'Status', 'Valor da compra', 'Detalhes'].map(label => <th key={label} scope="col" className="text-left px-5 py-3 font-medium">{label}</th>)}</tr></thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">{visibleRows.map(row => <Fragment key={row.id}>
+                <tr className="align-top hover:bg-slate-50 dark:hover:bg-slate-900">
+                  <td className="px-5 py-4 whitespace-nowrap"><p className="font-medium">{dateLabel(row.referenceDate)}</p><p className="text-xs text-slate-500 mt-1">{BASIS[row.dateBasis]}</p></td>
+                  <td className="px-5 py-4 max-w-xs"><p className="font-medium">{row.name || 'Cliente não informado'}</p><p className="text-xs text-slate-500 mt-1 break-all">{row.email || 'E-mail não informado'}</p><p className="text-xs mt-2">{row.product || 'Produto não informado'}</p></td>
+                  <td className="px-5 py-4 text-xs">{row.sources.map(s => SOURCES[s]).join(' + ')}{row.platform && !row.sources.includes(row.platform) && <p className="text-slate-500 mt-1">{SOURCES[row.platform]}</p>}</td>
+                  <td className="px-5 py-4"><span className={`inline-flex px-2.5 py-1 rounded-md text-xs font-medium ${badgeClass(row.kind)}`}>{STATUSES[row.status] || row.originalStatus}</span></td>
+                  <td className="px-5 py-4 tabular-nums text-xs">{money(row.saleAmount, row.currency)}</td>
+                  <td className="px-5 py-4"><button type="button" aria-label={`Detalhes de ${row.name || row.product || 'registro'}`} aria-expanded={expanded === row.id} aria-controls={`desktop-${row.id}`} className="btn btn-ghost btn-sm" onClick={() => toggle(row)}>{expanded === row.id ? <ChevronUp size={15} /> : <ChevronDown size={15} />}</button></td>
+                </tr>{expanded === row.id && <tr><td colSpan={6} className="p-0">{renderDetails(row, 'desktop')}</td></tr>}
+              </Fragment>)}</tbody></table></div>
+            <ul className="md:hidden divide-y divide-slate-100 dark:divide-slate-800">{visibleRows.map(row => <li key={row.id}><div className="p-5 space-y-3">
+              <div className="flex justify-between items-start gap-3"><div><p className="font-semibold text-sm">{row.name || 'Cliente não informado'}</p><p className="text-xs text-slate-500 mt-1 break-all">{row.email || row.product || 'Não informado'}</p></div><button type="button" className="btn btn-ghost btn-sm" aria-label={`Detalhes de ${row.name || 'registro'}`} aria-expanded={expanded === row.id} aria-controls={`mobile-${row.id}`} onClick={() => toggle(row)}>{expanded === row.id ? <ChevronUp size={15} /> : <ChevronDown size={15} />}</button></div>
+              <p className="text-xs">{row.product || 'Produto não informado'}</p><span className={`inline-flex px-2.5 py-1 rounded-md text-xs ${badgeClass(row.kind)}`}>{STATUSES[row.status]}</span><div className="flex justify-between gap-3 text-xs text-slate-500"><span>{row.sources.map(s => SOURCES[s]).join(' + ')}</span><span>{dateLabel(row.referenceDate)} · {BASIS[row.dateBasis]}</span></div><p className="text-xs">Valor da compra: {money(row.saleAmount, row.currency)}</p>
+            </div>{expanded === row.id && renderDetails(row, 'mobile')}</li>)}</ul>
+            <div className="px-5 py-4 border-t border-slate-200 dark:border-slate-800 flex justify-between items-center gap-3 text-xs text-slate-500"><span>{(visiblePage - 1) * PAGE_SIZE + 1}–{Math.min(visiblePage * PAGE_SIZE, filtered.length)} de {filtered.length}</span><div className="flex items-center gap-3"><button type="button" className="btn btn-ghost btn-sm disabled:opacity-40" aria-label="Página anterior" disabled={visiblePage === 1} onClick={() => { setPage(visiblePage - 1); setExpanded(null) }}><ChevronLeft size={16} /></button><span>{visiblePage} / {pages}</span><button type="button" className="btn btn-ghost btn-sm disabled:opacity-40" aria-label="Próxima página" disabled={visiblePage === pages} onClick={() => { setPage(visiblePage + 1); setExpanded(null) }}><ChevronRight size={16} /></button></div></div>
+          </>}
+    </section>
+    {result && <footer className="text-xs text-slate-500 dark:text-slate-400 flex flex-col sm:flex-row justify-between gap-2 pb-4"><p>{result.deduplication.removed} registros conciliados · {result.excludedUndated} sem data para o período</p><p>Consulta às {new Date(result.generatedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}{result.fromCache ? ' · cache de até 1 min' : ''}</p></footer>}
+  </div>
 }

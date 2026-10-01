@@ -1,2 +1,11 @@
-aws s3 sync ./dist s3://dash-front-v1 --delete
-aws cloudfront create-invalidation --distribution-id E1O677RGSOPKTA --paths "/*"
+Frontend de produção: Railway, projeto dashboard-launch-control.
+
+Validar payload local sem publicar:
+  npm run deploy:check
+
+Publicar após a API estar disponível:
+  npm run deploy
+
+O script fixa project, environment e service por ID, cria um payload sem env, testes, fixtures, artefatos ou dependências locais e acompanha o build do Railway.
+As variáveis VITE_* são as configuradas no serviço de produção. Não executar o procedimento AWS antigo.
+Detalhes: docs/WORKSPACE.md, seção Publicação em produção.
