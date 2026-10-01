@@ -1,3 +1,6 @@
+// Participation is independent of account access, activity and sales attribution.
+export const isRankingParticipant = person => person?.excludedFromRanking !== true && person?.excluded_from_ranking !== true
+
 export const GOAL_SCOPES = { overall: 'Geral', team: 'Time', product: 'Produto', individual: 'Indivíduo' }
 
 // Old plans continue to address the same general/product target.
@@ -17,14 +20,14 @@ export function goalScopeName(plan = {}) {
 export function recordMatchesGoal(row, plan) {
   const { scope, scopeId } = goalScope(plan)
   if (scope === 'product') return row.family === scopeId
-  if (scope === 'team') return Boolean(scopeId) && row.teamId === scopeId
-  if (scope === 'individual') return Boolean(scopeId) && row.sellerId === scopeId
+  if (scope === 'team') return isRankingParticipant(row) && Boolean(scopeId) && row.teamId === scopeId
+  if (scope === 'individual') return isRankingParticipant(row) && Boolean(scopeId) && row.sellerId === scopeId
   return true
 }
 export function recordUnallocatedForGoal(row, plan) {
   const { scope } = goalScope(plan)
   if (scope === 'product') return !row.family || row.family === 'Não informado'
-  if (scope === 'individual') return !row.sellerId
-  if (scope === 'team') return !row.teamId
+  if (scope === 'individual') return isRankingParticipant(row) && !row.sellerId
+  if (scope === 'team') return isRankingParticipant(row) && !row.teamId
   return false
 }

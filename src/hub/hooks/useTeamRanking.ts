@@ -26,8 +26,8 @@ export interface TeamRank {
 
 export const useTeamRanking = (month?: number, year?: number) => {
   const { data: salesRaw = [] } = useSales();
-  const { data: profilesRaw = [] } = useProfiles();
-  const sales = useMemo(() => filterVisibleSales(salesRaw as any[]), [salesRaw]);
+  const { data: profilesRaw = [], isSuccess: directoryAvailable, isPending: directoryLoading } = useProfiles();
+  const sales = useMemo(() => filterVisibleSales(salesRaw as any[], profilesRaw as any[]), [salesRaw, profilesRaw]);
   const profiles = useMemo(() => filterVisibleProfiles(profilesRaw as any[]), [profilesRaw]);
   const { data: teams = [] } = useTeams(false);
   const { data: goals = [] } = useTeamGoals(month, year);
@@ -36,7 +36,8 @@ export const useTeamRanking = (month?: number, year?: number) => {
   const m = month ?? now.getMonth() + 1;
   const y = year ?? now.getFullYear();
 
-  return useMemo(() => {
+  const ranks = useMemo(() => {
+    if (!directoryAvailable) return [];
     const monthSales = sales.filter((s: any) => {
       const d = parseLocalDate(s.date);
       return d.getMonth() + 1 === m && d.getFullYear() === y;
@@ -121,5 +122,6 @@ export const useTeamRanking = (month?: number, year?: number) => {
 
     ranks.sort((a, b) => b.totalSales - a.totalSales);
     return ranks;
-  }, [sales, profiles, teams, goals, m, y]);
+  }, [sales, profiles, teams, goals, m, y, directoryAvailable]);
+  return { ranks, directoryAvailable, directoryLoading };
 };

@@ -1,3 +1,5 @@
+import { isRankingParticipant } from '../../utils/goalScopes.js'
+
 export const GOAL_PRODUCTS = ['MBA', 'DevClub', 'IAClub', 'Seu segundo salário com IA', 'Operação 50K', 'Outros']
 export const GOAL_SCOPES = [
   { id: 'overall', label: 'Geral', description: 'Resultado de toda a operação' },
@@ -73,7 +75,10 @@ export function goalScopeTargets(scope, options, plans = []) {
   if (scope === 'overall') return [{ id: '', name: 'Meta geral', active: true }]
   if (scope === 'product') return GOAL_PRODUCTS.map(name => ({ id: name, name, active: true }))
   const current = (scope === 'team' ? options.teams : options.individuals) || []
-  const byId = new Map(current.map(item => [item.id, { ...item, active: item.active !== false && !item.archived }]))
+  // Excluded people are offered only to manage an existing historical goal.
+  const historicalIds = new Set(plans.filter(plan => plan.scope === scope).map(plan => plan.scopeId))
+  const byId = new Map(current.filter(item => scope !== 'individual' || isRankingParticipant(item) || historicalIds.has(item.id))
+    .map(item => [item.id, { ...item, active: item.active !== false && !item.archived, excludedFromRanking: !isRankingParticipant(item) }]))
   for (const plan of plans.filter(item => item.scope === scope)) if (!byId.has(plan.scopeId)) byId.set(plan.scopeId, { id: plan.scopeId, name: plan.scopeName || 'Cadastro indisponível', active: false, archived: true })
   return [...byId.values()].sort((a, b) => Number(b.active) - Number(a.active) || a.name.localeCompare(b.name, 'pt-BR'))
 }

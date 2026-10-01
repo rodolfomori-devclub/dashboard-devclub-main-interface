@@ -30,7 +30,7 @@ export function dateForRecord(row) {
  * Linear pace using the API's own monetary fields. Business days mean Monday–
  * Friday; no holiday calendar is assumed. Current day counts as elapsed.
  */
-export function calculateGoalPace({ year, month, plan, records = [], sources = [], cashRecords, cashSources, directoryAvailable = true, today = brazilDate() }) {
+export function calculateGoalPace({ year, month, plan, records = [], sources = [], cashRecords, cashSources, directoryAvailable = true, excludedSellerIds = [], today = brazilDate() }) {
   const bounds = monthBounds(year, month)
   const metric = PACE_METRICS[plan?.metric] || PACE_METRICS.operational
   const basis = plan?.paceBasis === 'business' ? 'business' : 'calendar'
@@ -49,7 +49,8 @@ export function calculateGoalPace({ year, month, plan, records = [], sources = [
   const unassignedValue = unassigned.reduce((sum, row) => sum + (amount(row[metric.field]) ?? 0), 0)
   const targetScope = goalScope(plan)
   const selectionMissing = targetScope.scope !== 'overall' && !targetScope.scopeId
-  const membershipUnavailable = targetScope.scope === 'team' && !directoryAvailable
+  const scopeExcluded = targetScope.scope === 'individual' && excludedSellerIds.includes(targetScope.scopeId)
+  const membershipUnavailable = ['team', 'individual'].includes(targetScope.scope) && !directoryAvailable
   const observedRows = periodRows.filter((row) => {
     const date = metricDate(row)
     // Preserve the requested source totals for undated records, but never
@@ -58,10 +59,10 @@ export function calculateGoalPace({ year, month, plan, records = [], sources = [
   })
   const saleSources = selectedSources.filter((source) => source.kind === 'sale')
   const available = saleSources.some((source) => ['ready', 'partial'].includes(source.status) && (source.id !== 'manual' || observedRows.some((row) => row.sourceId === 'manual')))
-  const sourceIncomplete = saleSources.some((source) => source.status !== 'ready' || source.excludedReceipts > 0) || !available || membershipUnavailable || selectionMissing
+  const sourceIncomplete = saleSources.some((source) => source.status !== 'ready' || source.excludedReceipts > 0) || !available || membershipUnavailable || selectionMissing || scopeExcluded
   const missing = observedRows.filter((row) => amount(row[metric.field]) === null)
   const known = observedRows.filter((row) => amount(row[metric.field]) !== null)
-  const actual = !available || membershipUnavailable || selectionMissing || (observedRows.length > 0 && !known.length) ? null : known.reduce((sum, row) => sum + amount(row[metric.field]), 0)
+  const actual = !available || membershipUnavailable || selectionMissing || scopeExcluded || (observedRows.length > 0 && !known.length) ? null : known.reduce((sum, row) => sum + amount(row[metric.field]), 0)
   const dailyValues = new Map()
   let unallocated = 0
   let unallocatedRecords = 0
@@ -98,7 +99,7 @@ export function calculateGoalPace({ year, month, plan, records = [], sources = [
   const remaining = actual !== null && validTarget ? Math.max(0, target - actual) : null
   const requiredPerDay = remaining !== null && remainingDays > 0 ? remaining / remainingDays : null
   const definitive = !sourceIncomplete && missing.length === 0 && actual !== null && unassigned.length === 0 && unallocatedRecords === 0
-  return { ...bounds, metric, basis, target, validTarget, future, ended, lastObservedDate, totalDays, elapsedDays, remainingDays, available, sourceIncomplete, missingRecords: missing.length, unassignedRecords: unassigned.length, unassignedValue, membershipUnavailable, actual, expected, delta, pacePercent, projection, remaining, requiredPerDay, definitive, unallocated, unallocatedRecords, rows,
+  return { ...bounds, metric, basis, target, validTarget, future, ended, lastObservedDate, totalDays, elapsedDays, remainingDays, available, sourceIncomplete, missingRecords: missing.length, unassignedRecords: unassigned.length, unassignedValue, membershipUnavailable, scopeExcluded, actual, expected, delta, pacePercent, projection, remaining, requiredPerDay, definitive, unallocated, unallocatedRecords, rows,
     attainment: validTarget && actual !== null ? actual / target * 100 : null,
     superTarget: amount(plan?.superTarget), ultraTarget: amount(plan?.ultraTarget),
   }

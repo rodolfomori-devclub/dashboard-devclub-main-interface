@@ -3,7 +3,7 @@ import { useSales, useProfiles, useTeamSettings } from '@/hooks/useSupabaseData'
 import { useGoals } from '@/hooks/useGoals';
 import { audioManager } from '@/lib/audioManager';
 import { parseLocalDate, getCashCollected } from '@/lib/utils';
-import { filterVisibleProfiles, filterVisibleSales } from '@/lib/hiddenUsers';
+import { filterVisibleProfiles } from '@/lib/hiddenUsers';
 import type { CelebrationEvent } from '@/components/CelebrationOverlay';
 import type { SaleNotificationData } from '@/components/ranking/SaleNotifications';
 import { STORAGE_KEYS } from '@/lib/storage';
@@ -59,8 +59,9 @@ export function useSalesRanking() {
   const isCelebrating = useRef(false);
 
   const { data: allSalesRaw = [] } = useSales();
-  const { data: profilesRaw = [] } = useProfiles();
-  const allSales = useMemo(() => filterVisibleSales(allSalesRaw as any[]), [allSalesRaw]);
+  const { data: profilesRaw = [], isSuccess: directoryAvailable, isPending: directoryLoading } = useProfiles();
+  // The company goal still includes all genuine sales; participation only changes people rankings.
+  const allSales = allSalesRaw;
   const profiles = useMemo(() => filterVisibleProfiles(profilesRaw as any[]), [profilesRaw]);
   const { data: settingsRaw } = useTeamSettings();
   const { data: goals } = useGoals();
@@ -71,7 +72,7 @@ export function useSalesRanking() {
 
   const data = useMemo(() => {
     const settings = settingsRaw || { team_goal: 0 };
-    const users = profiles.filter((u: any) => (u.role === 'vendedor' || u.role === 'pre-vendedor') && u.active);
+    const users = directoryAvailable ? profiles.filter((u: any) => (u.role === 'vendedor' || u.role === 'pre-vendedor') && u.active) : [];
     const monthSales = allSales.filter((s: any) => {
       const d = parseLocalDate(s.date);
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
@@ -140,8 +141,8 @@ export function useSalesRanking() {
     }).sort((a, b) => b.totalSales - a.totalSales);
 
 
-    return { sellers, totalTeamSales, teamCashCollected, teamCashCollectedPct, teamGoal, monthlyHyperGoal, teamProgress, daysRemaining, weeksRemaining, extraDays, salesCount: monthSales.length, monthSales, users };
-  }, [allSales, profiles, settingsRaw, goals]);
+    return { sellers, totalTeamSales, teamCashCollected, teamCashCollectedPct, teamGoal, monthlyHyperGoal, teamProgress, daysRemaining, weeksRemaining, extraDays, salesCount: monthSales.length, monthSales, users, directoryAvailable, directoryLoading };
+  }, [allSales, profiles, settingsRaw, goals, directoryAvailable, directoryLoading]);
 
   const queueCelebration = useCallback((event: CelebrationEvent) => {
     celebrationQueue.current.push(event);
@@ -176,7 +177,7 @@ export function useSalesRanking() {
 
     if (isNewData) {
       // Detect new sales
-      const newSales = data.monthSales.filter((s: any) => !prevSaleIdsRef.current.has(s.id));
+      const newSales = data.monthSales.filter((s: any) => !prevSaleIdsRef.current.has(s.id) && data.users.some((user: any) => user.id === s.seller_id));
 
       newSales.forEach((sale: any, i: number) => {
         const seller = data.users.find((u: any) => u.id === sale.seller_id);

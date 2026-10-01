@@ -10,6 +10,8 @@ const percent = value => value === null ? '—' : `${value.toLocaleString('pt-BR
 
 function paceStatus(pace, ready, targetUnavailable) {
   if (!ready) return { label: 'Carregando o mês', tone: 'neutral' }
+  if (pace.scopeExcluded) return { label: 'Pessoa fora dos cálculos', tone: 'neutral' }
+  if (pace.membershipUnavailable) return { label: 'Participantes indisponíveis', tone: 'neutral' }
   if (targetUnavailable) return { label: 'Meta indisponível', tone: 'neutral' }
   if (pace.future) return { label: 'Mês não iniciado', tone: 'neutral' }
   if (!pace.validTarget) return { label: 'Sem meta definida', tone: 'neutral' }

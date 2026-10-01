@@ -14,6 +14,8 @@ function Stat({ label, amount, unit = 'currency', accent = false }) {
   return <div className={`tv-stat${accent ? ' tv-stat-accent' : ''}`}><span>{label}</span><strong>{value(amount, unit)}</strong></div>
 }
 function PaceStatus({ pace, plansError }) {
+  if (pace?.scopeExcluded) return <span className="tv-status">Pessoa fora dos cálculos de desempenho</span>
+  if (pace?.membershipUnavailable) return <span className="tv-status">Participantes indisponíveis</span>
   if (plansError) return <span className="tv-status">Meta não confirmada</span>
   if (!pace?.validTarget) return <span className="tv-status">Meta não cadastrada nesta base</span>
   if (pace.future) return <span className="tv-status">Mês ainda não iniciado</span>
@@ -43,11 +45,13 @@ function PacePanel({ model, chartHeight }) {
   </div>
 }
 function GoalComparison({ items, model, kind }) {
+  if (kind === 'times' && model.directoryError) return <Empty title="Metas de times indisponíveis">Não foi possível confirmar os participantes dos times. Os indicadores financeiros gerais continuam disponíveis.</Empty>
   if (!items.length) return <Empty title={model.plansError ? 'Metas indisponíveis' : `Sem metas de ${kind} nesta base`}>Cadastre as metas em Metas e planejamento, usando a mesma base selecionada para a TV.</Empty>
   return <div className="tv-comparison"><div className="tv-table-caption"><span>Realizado / meta</span><span>Atingimento</span></div>{items.slice(0, 8).map((item, index) => <div className="tv-goal-row" key={item.id} style={{ '--row-color': `var(--chart-${index % 6 + 1})` }}><div className="tv-row-name"><h3>{item.name}</h3><span>{!item.pace.definitive ? 'Parcial · ' : ''}{value(item.pace.actual, model.unit)} <small>/ {value(item.pace.target, model.unit)}</small></span></div><strong>{item.pace.validTarget ? percent(item.pace.attainment) : 'Sem meta'}</strong><div className="tv-track"><i style={{ width: fill(item.pace.attainment) }}/></div></div>)}<p className="tv-footnote">{items.length > 8 ? `Exibindo os 8 maiores atingimentos entre ${items.length} metas. ` : ''}Cada barra representa o avanço da própria meta.{model.directoryError ? ' Cadastro de times e vendedores indisponível.' : ''}</p></div>
 }
 function Ranking({ rows, model, sellers = false }) {
   const unassigned = model.unassigned[sellers ? 'seller' : 'product']
+  if (sellers && model.directoryError) return <Empty title="Ranking indisponível">Não foi possível confirmar os participantes. Os indicadores financeiros gerais continuam disponíveis.</Empty>
   if (!rows.length) return <Empty title={sellers ? 'Sem vendas atribuídas a vendedores' : 'Sem vendas por produto neste mês'}>{sellers ? 'As vendas sem atribuição ficam fora do ranking. O head pode atribuí-las na tela de Atribuição.' : 'O ranking será preenchido conforme as vendas forem identificadas.'}{unassigned?.count > 0 && ` ${unassigned.count} vendas sem identificação.`}</Empty>
   const max = Math.max(1, ...rows.map(row => row.value || 0))
   return <div className="tv-ranking">{rows[0].value > 0 && <div className="tv-ranking-leader"><Trophy size={34}/><div><span className="tv-eyebrow">{sellers ? 'Destaque do mês' : 'Produto em destaque'}</span><h3>{rows[0].name}</h3></div><strong>{value(rows[0].value, model.unit)}</strong></div>}

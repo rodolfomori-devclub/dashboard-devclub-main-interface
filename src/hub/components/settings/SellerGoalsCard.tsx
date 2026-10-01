@@ -1,3 +1,4 @@
+import { isRankingParticipant } from '@/lib/hiddenUsers';
 import { useEffect, useMemo, useState } from 'react';
 import { Users, Save, Loader2, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -19,7 +20,7 @@ export function SellerGoalsCard() {
 
   const sellers = useMemo(
     () => (profiles as any[])
-      .filter(p => p.active && p.role === 'vendedor')
+      .filter(p => p.active && p.role === 'vendedor' && (isRankingParticipant(p) || Number(p.individual_goal) > 0))
       .sort((a, b) => a.name.localeCompare(b.name)),
     [profiles]
   );
@@ -120,7 +121,7 @@ export function SellerGoalsCard() {
               >
                 <SellerAvatar name={s.name} avatarUrl={s.avatar_url} size="sm" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold truncate">{s.name}</p>
+                  <p className="text-sm font-semibold truncate">{s.name}</p>{!isRankingParticipant(s) && <p className="text-xs text-muted-foreground">Fora dos cálculos · meta histórica</p>}
                   <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
                     Vendedor
                   </p>

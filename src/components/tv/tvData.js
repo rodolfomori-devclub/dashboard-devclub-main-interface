@@ -1,6 +1,6 @@
 import { prepareGoalData } from '../../utils/goalData.js'
 import { brazilDate, calculateGoalPace, dateForRecord, monthBounds, PACE_METRICS } from '../../utils/goalPace.js'
-import { goalScope, goalScopeName } from '../../utils/goalScopes.js'
+import { goalScope, goalScopeName, isRankingParticipant } from '../../utils/goalScopes.js'
 import { buildRevenueBreakdown, revenuePaymentGroup } from '../../utils/revenueBreakdown.js'
 import { amount, hourlySales, productFamily, sumAmount } from '../../utils/salesData.js'
 import { sourceHasSales } from '../../utils/sourceAvailability.js'
@@ -68,15 +68,17 @@ export function buildTvData({ sales = {}, plans = [], directory = {}, plansError
   const paceName = selectedScope === 'overall' ? 'Meta geral'
     : (selectedScope === 'team' ? teams.get(selectedScopeId)?.name : selectedScope === 'individual' ? people.get(selectedScopeId)?.name : selectedScopeId)
       || pacePlan?.scopeName || 'Selecione um escopo'
-  const scopeGoals = scope => usablePlans.filter(plan => goalScope(plan).scope === scope).map(plan => {
+  const scopeGoals = scope => usablePlans.filter(plan => goalScope(plan).scope === scope && (scope !== 'individual' || (!directoryError && isRankingParticipant(people.get(goalScope(plan).scopeId))))).map(plan => {
     const id = goalScope(plan).scopeId
     const catalogName = scope === 'team' ? teams.get(id)?.name : scope === 'individual' ? people.get(id)?.name : id
     return { id, name: catalogName || goalScopeName(plan), plan, pace: calculate(scope, id, selectedMetric, plan) }
   }).sort((a, b) => (b.pace.attainment ?? -Infinity) - (a.pace.attainment ?? -Infinity) || a.name.localeCompare(b.name, 'pt-BR'))
   const ranking = (dimension, scope) => {
-    const ids = [...new Set(selectedRecords.map(row => row[dimension]).filter(value => hasIdentity(value) && value !== 'Não informado'))]
+    if (scope === 'individual' && directoryError) return []
+    const rankingRecords = scope === 'individual' ? selectedRecords.filter(isRankingParticipant) : selectedRecords
+    const ids = [...new Set(rankingRecords.map(row => row[dimension]).filter(value => hasIdentity(value) && value !== 'Não informado'))]
     return ids.map(id => {
-      const rows = selectedRecords.filter(row => row[dimension] === id)
+      const rows = rankingRecords.filter(row => row[dimension] === id)
       const pace = calculate(scope, id)
       const summary = subtotal(rows, info.field, available, sourcePartial)
       const name = scope === 'individual' ? people.get(id)?.name || rows.find(row => row.sellerName)?.sellerName || planFor(scope, id)?.scopeName || 'Vendedor identificado' : id
@@ -85,8 +87,8 @@ export function buildTvData({ sales = {}, plans = [], directory = {}, plansError
     }).sort((a, b) => (b.value ?? -Infinity) - (a.value ?? -Infinity) || (b.count ?? 0) - (a.count ?? 0) || a.name.localeCompare(b.name, 'pt-BR'))
   }
   const unassigned = Object.fromEntries([['seller', 'sellerId'], ['team', 'teamId'], ['product', 'family']].map(([name, dimension]) => [name,
-    subtotal(selectedRecords.filter(row => !hasIdentity(row[dimension]) || row[dimension] === 'Não informado'), info.field,
-      available && (name !== 'team' || !directoryError), sourcePartial),
+    subtotal(selectedRecords.filter(row => (name === 'product' || isRankingParticipant(row)) && (!hasIdentity(row[dimension]) || row[dimension] === 'Não informado')), info.field,
+      available && (name === 'product' || !directoryError), sourcePartial),
   ]))
   const payments = Object.entries(PAYMENT_NAMES).map(([id, name]) => ({ id, name,
     ...subtotal(selectedRecords.filter(row => revenuePaymentGroup(row.payment) === id), info.field, available, sourcePartial),
@@ -110,7 +112,7 @@ export function buildTvData({ sales = {}, plans = [], directory = {}, plansError
   return { month: key, year: Number(year), monthNumber: Number(month), today, metric: selectedMetric, metricLabel: info.label, unit: info.unit,
     overview, pace, overallPlan, pacePlan, paceName,
     directory: { teams: [...teams.values()].map(({ id, name, active }) => ({ id, name, active })),
-      individuals: [...people.values()].map(({ id, name, teamId, active }) => ({ id, name, teamId, active })) },
+      individuals: [...people.values()].filter(isRankingParticipant).map(({ id, name, teamId, active }) => ({ id, name, teamId, active })) },
     teamGoals: scopeGoals('team'), productGoals: scopeGoals('product'), individualGoals: scopeGoals('individual'),
     sellers: ranking('sellerId', 'individual'), products: ranking('family', 'product'),
     totals: { gross: gross.actual, cash: cash.actual, count: count.actual, revenue: revenue.revenue.value, partial: !gross.definitive || !cash.definitive || !count.definitive },

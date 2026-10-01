@@ -10,7 +10,7 @@ import { ChartPanel, RankedBars } from '../components/charts/AnalyticsVisuals'
 import { formatValue } from '../components/charts/chartFormatters'
 import { loadSalesRange } from '../components/daily/dailyData'
 import { PRODUCT_FAMILIES } from '../utils/salesData'
-import { GOAL_SCOPES, goalScope, goalScopeKey, goalScopeName } from '../utils/goalScopes'
+import { GOAL_SCOPES, goalScope, goalScopeKey, goalScopeName, isRankingParticipant } from '../utils/goalScopes'
 import { prepareGoalData } from '../utils/goalData'
 import { brazilDate, calculateGoalPace, monthBounds, PACE_METRICS } from '../utils/goalPace'
 import '../components/daily/daily.css'
@@ -65,16 +65,18 @@ export default function GoalPacePage() {
     const list = scope === 'overall' ? [] : scope === 'product'
       ? PRODUCT_FAMILIES.filter(family => family !== 'Não informado').map(id => ({ id, name: id, active: true }))
       : (scope === 'team' ? directory.teams : directory.individuals) || []
-    const options = new Map(list.map(item => [item.id, item]))
+    const options = new Map(list.filter(item => scope !== 'individual' || isRankingParticipant(item)).map(item => [item.id, item]))
+    const excludedIds = new Set((directory.individuals || []).filter(item => !isRankingParticipant(item)).map(item => item.id))
     for (const plan of plans) {
       const target = goalScope(plan)
-      if (target.scope === scope && !options.has(target.scopeId)) options.set(target.scopeId, { id: target.scopeId, name: goalScopeName(plan), active: false })
+      if (target.scope === scope && !(scope === 'individual' && excludedIds.has(target.scopeId)) && !options.has(target.scopeId)) options.set(target.scopeId, { id: target.scopeId, name: goalScopeName(plan), active: false })
     }
     const result = [...options.values()]
     return ['team', 'individual'].includes(scope) ? result.sort((a, b) => Number(b.active !== false) - Number(a.active !== false) || a.name.localeCompare(b.name, 'pt-BR')) : result
   }, [scope, directory.teams, directory.individuals, plans])
-  const scopeId = scope === 'overall' ? '' : targetOptions.some(item => item.id === targetId) ? targetId : targetOptions[0]?.id || ''
-  const selection = { scope, scopeId, product: scope === 'product' ? scopeId : 'all', scopeName: targetOptions.find(item => item.id === scopeId)?.name }
+  const excludedSelection = scope === 'individual' ? directory.individuals?.find(person => person.id === targetId && !isRankingParticipant(person)) : null
+  const scopeId = scope === 'overall' ? '' : excludedSelection ? targetId : targetOptions.some(item => item.id === targetId) ? targetId : targetOptions[0]?.id || ''
+  const selection = { scope, scopeId, product: scope === 'product' ? scopeId : 'all', scopeName: excludedSelection?.name || targetOptions.find(item => item.id === scopeId)?.name }
   const scopePlans = plans.filter(item => goalScopeKey(item) === goalScopeKey(selection))
   const selectedPlan = scopePlans.find(item => item.metric === selectedMetric) || null
   const metric = selectedMetric
@@ -82,7 +84,7 @@ export default function GoalPacePage() {
   const calculate = plan => calculateGoalPace({ year, month, plan, ...goalData, today })
   const pace = calculate(selectedPlan || { ...selection, metric })
   const financialSummary = ['gross', 'cash'].map(key => ({ metric: key, pace: calculate(scopePlans.find(plan => plan.metric === key) || { ...selection, metric: key }) }))
-  const overview = plans.filter(item => item.metric === metric).map(plan => ({ plan, pace: calculate(plan) }))
+  const overview = plans.filter(item => item.metric === metric && !(goalScope(item).scope === 'individual' && goalData.excludedSellerIds.includes(goalScope(item).scopeId))).map(plan => ({ plan, pace: calculate(plan) }))
   const deviationRows = pace.rows.map(row => ({ ...row, deviation: row.observed && row.actual !== null && row.planned !== null ? row.actual - row.planned : null }))
   const attainmentItems = overview.filter(({ pace: item }) => !item.future && item.attainment !== null).map(({ plan, pace: item }) => ({
     key: plan.id || `${goalScopeKey(plan)}:${plan.metric}`, label: `${GOAL_SCOPES[goalScope(plan).scope]} · ${goalScopeName(plan)}`,
@@ -106,7 +108,7 @@ export default function GoalPacePage() {
     <section className="surface-panel daily-filters" aria-label="Filtros de metas"><div className="daily-filter-grid pace-filter-grid">
       <label className="daily-field"><span>Ano</span><select aria-label="Ano" className="ds-input" value={year} onChange={(event) => setYear(Number(event.target.value))}>{[...new Set([year, ...Array.from({ length: 9 }, (_, index) => Number(today.slice(0, 4)) - 5 + index)])].sort((a,b)=>a-b).map((item) => <option key={item}>{item}</option>)}</select></label>
       <label className="daily-field"><span>Mês</span><select aria-label="Mês" className="ds-input" value={month} onChange={(event) => setMonth(Number(event.target.value))}>{MONTHS.map((name, index) => <option key={name} value={index + 1}>{name}</option>)}</select></label>
-      {scope !== 'overall' && <label className="daily-field"><span>{GOAL_SCOPES[scope]}</span><select aria-label={scope === 'product' ? 'Família de produto' : GOAL_SCOPES[scope]} className="ds-input" value={scopeId} onChange={event => setTargetId(event.target.value)}>{!targetOptions.length && <option value="">Nenhum cadastro disponível</option>}{targetOptions.map(item => <option key={item.id} value={item.id}>{item.name}{item.active === false ? ' · histórico' : ''}</option>)}</select></label>}
+      {scope !== 'overall' && <label className="daily-field"><span>{GOAL_SCOPES[scope]}</span><select aria-label={scope === 'product' ? 'Família de produto' : GOAL_SCOPES[scope]} className="ds-input" value={scopeId} onChange={event => setTargetId(event.target.value)}>{excludedSelection && <option value={targetId} disabled>{excludedSelection.name} · fora dos cálculos</option>}{!targetOptions.length && !excludedSelection && <option value="">Nenhum cadastro disponível</option>}{targetOptions.map(item => <option key={item.id} value={item.id}>{item.name}{item.active === false ? ' · histórico' : ''}</option>)}</select></label>}
       <label className="daily-field"><span>Base financeira</span><select aria-label="Base financeira" className="ds-input" value={metric} onChange={(event) => setSelectedMetric(event.target.value)}>{Object.entries(PACE_METRICS).map(([key, item]) => <option key={key} value={key}>{item.label}{!scopePlans.some((plan) => plan.metric === key) ? ' · sem meta' : ''}</option>)}</select></label>
       <div className="daily-field"><span>Distribuição da meta</span><strong className="pace-basis">{selectedPlan ? pace.basis === 'business' ? 'Dias úteis · seg–sex' : 'Dias corridos' : 'Meta não definida'}</strong></div>
     </div><p className="daily-footnote">O dia atual conta como transcorrido. Dias úteis consideram segunda a sexta, sem calendário de feriados. Horário de Brasília.</p></section>
@@ -115,6 +117,7 @@ export default function GoalPacePage() {
 
     <div className="daily-feedback" aria-live="polite">
       {loading && !current && <p className="daily-notice">Carregando metas e vendas do período.</p>}
+      {pace.scopeExcluded && <p className="daily-notice" role="status">Esta pessoa foi excluída dos cálculos de desempenho pelo administrador. Selecione outro participante. As vendas e metas históricas continuam preservadas.</p>}
       {current?.plansError && <p className="daily-notice is-warning" role="alert">Metas indisponíveis. Não foi possível consultar o plano deste mês.</p>}
       {current && !current.plansError && !selectedPlan && <p className="daily-notice">Ainda não há meta para este escopo e indicador. {hasPermission('goals') && <Link to="/metas">Configurar uma meta</Link>}</p>}
       {selectedPlan && !pace.validTarget && <p className="daily-notice is-warning">A meta está zerada ou sem valor válido. Percentual de ritmo e atingimento dependem de uma meta maior que zero.</p>}
@@ -122,7 +125,7 @@ export default function GoalPacePage() {
       {current && !pace.future && (!pace.definitive || current.salesError) && <p className="daily-notice is-warning">Leitura parcial: {pace.sourceIncomplete ? 'a cobertura deste indicador está incompleta. ' : ''}{pace.missingRecords > 0 ? `${pace.missingRecords} registros não informam ${pace.metric.label.toLowerCase()}. ` : ''}Os resultados não representam um ritmo definitivo.</p>}
       {current?.directoryError && ['team', 'individual'].includes(scope) && <p className="daily-notice is-warning" role="alert">Não foi possível consultar times e pessoas. {scope === 'team' ? 'O vínculo das vendas ao time está indisponível.' : 'Os nomes exibidos usam o histórico das metas.'}</p>}
       {current && !pace.future && pace.unassignedRecords > 0 && <p className="daily-notice is-warning">Há {value(pace.unassignedValue)} em {pace.unassignedRecords} registros sem {scope === 'team' ? 'time' : scope === 'individual' ? 'vendedor' : 'produto'} identificado na operação. Eles não foram atribuídos a esta meta. {hasPermission('attribution') && <Link to="/atribuicao">Revisar atribuições</Link>}</p>}
-      {scope === 'team' && <p className="daily-footnote">O time reúne vendas atribuídas às pessoas que pertencem a ele atualmente. Alterar a composição do time também altera esta leitura histórica.</p>}
+      {scope === 'team' && <p className="daily-footnote">O time reúne vendas atribuídas aos participantes incluídos nos cálculos que pertencem a ele atualmente. Alterar a composição do time também altera esta leitura histórica.</p>}
       {metric === 'cash' && <p className="daily-notice">Cash collected considera 100% do líquido de Guru e Hotmart e 40% do bruto vendido na TMB, na data da venda. Asaas considera somente a entrada confirmada de novos contratos. Faturas de vendas passadas e o extrato Asaas ficam fora das metas. Lançamentos manuais usam o caixa declarado da nova venda. {goalData.cashUnavailableSources.length > 0 && `Fontes sem caixa disponível no período: ${goalData.cashUnavailableSources.join(', ')}.`} Somente novas vendas contribuem para o realizado e para o ritmo.</p>}
     </div>
 

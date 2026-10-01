@@ -72,9 +72,7 @@ function LegacyRanking() {
 
         <TeamRankingList />
 
-        <RankingPodium sellers={data.sellers} />
-
-        <RankingList sellers={data.sellers} />
+        {data.directoryAvailable ? <><RankingPodium sellers={data.sellers} /><RankingList sellers={data.sellers} /></> : <div className="glass-card p-8 text-center text-muted-foreground" role="status">{data.directoryLoading ? 'Carregando vendedores do ranking…' : 'Ranking de vendedores indisponível: não foi possível confirmar os participantes.'}</div>}
       </div>
     </div>
   );

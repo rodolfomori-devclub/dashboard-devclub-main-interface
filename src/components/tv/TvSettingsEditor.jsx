@@ -1,3 +1,4 @@
+import { isRankingParticipant } from '../../utils/goalScopes.js'
 /* eslint-disable react/prop-types -- Internal TV configuration form. */
 import { useState } from 'react'
 import { ArrowDown, ArrowUp, Check, X } from 'lucide-react'
@@ -15,7 +16,7 @@ export function TvSettingsEditor({ initial, directory, saving, error, conflict, 
   const [draft, setDraft] = useState(() => structuredClone(initial))
   const change = (key, value) => setDraft(old => ({ ...old, [key]: value }))
   const selected = draft.panels.filter(panel => panel.enabled)
-  const options = draft.paceScope === 'team' ? directory?.teams || [] : draft.paceScope === 'individual' ? directory?.individuals || [] : PRODUCT_FAMILIES.filter(id => id !== 'Não informado').map(id => ({ id, name: id }))
+  const options = draft.paceScope === 'team' ? directory?.teams || [] : draft.paceScope === 'individual' ? (directory?.individuals || []).filter(isRankingParticipant) : PRODUCT_FAMILIES.filter(id => id !== 'Não informado').map(id => ({ id, name: id }))
   const currentKnown = options.some(item => item.id === draft.paceScopeId)
   const patchPanel = (id, patch) => setDraft(old => {
     const panels = old.panels.map(panel => panel.id === id ? { ...panel, ...patch } : panel)

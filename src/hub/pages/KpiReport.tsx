@@ -1,3 +1,4 @@
+import { filterVisibleProfiles } from '@/lib/hiddenUsers';
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProfiles, useAllDailyKpis, useDailyTargets, useUpdateDailyTargets } from '@/hooks/useSupabaseData';
@@ -45,7 +46,7 @@ export default function KpiReport() {
 
   const targets: DailyTargets = targetsData || { id: '', target_leads_per_day: 0, target_calls_scheduled: 0, target_calls_completed: 0, target_sales_per_day: 0 };
 
-  const users = useMemo(() => allProfiles.filter((u: any) => (u.role === 'vendedor' || u.role === 'pre-vendedor') && (includeInactive || u.active)), [allProfiles, includeInactive]);
+  const users = useMemo(() => filterVisibleProfiles(allProfiles).filter((u: any) => (u.role === 'vendedor' || u.role === 'pre-vendedor') && (includeInactive || u.active)), [allProfiles, includeInactive]);
   const daysInPeriod = getDaysInMonth(year, month);
 
   const filteredKpis = useMemo(() => {

@@ -1,0 +1,50 @@
+.ranking-participation { border-top:3px solid var(--accent); }
+.participation-heading { display:flex; align-items:center; gap:14px; }
+.participation-heading>div { flex:1; min-width:0; }
+.participation-heading h2 { font-size:23px; line-height:1.2; }
+.participation-heading p,.participation-description { color:var(--muted); font-size:13px; line-height:1.7; }
+.participation-heading p { margin-top:5px; }
+.participation-icon { display:flex; align-items:center; justify-content:center; width:46px; height:46px; flex-shrink:0; border-radius:12px; background:var(--accent-soft); color:var(--accent); }
+.participation-description { margin-top:20px; max-width:100ch; }
+.participation-summary { display:flex; flex-wrap:wrap; gap:10px; margin:20px 0; }
+.participation-summary>span { display:flex; gap:8px; align-items:baseline; padding:9px 13px; border-radius:8px; background:var(--accent-soft); color:var(--accent); font-size:12px; }
+.participation-summary>span[data-excluded="true"] { color:var(--muted); background:var(--surface-subtle); }
+.participation-summary strong { font-size:24px; font-family:'Outfit Variable',sans-serif; font-variant-numeric:tabular-nums; }
+.participation-filters { display:flex; gap:16px; margin:20px 0; }
+.participation-filters>label { display:flex; flex-direction:column; gap:7px; min-width:0; font-size:12px; color:var(--muted); }
+.participation-filters>.participation-search { flex:1; }
+.participation-search>div { position:relative; }
+.participation-search svg { position:absolute; top:13px; left:12px; pointer-events:none; }
+.participation-search input { padding-left:38px; }
+.participation-filters select { max-width:100%; }
+.participation-list { list-style:none; padding:0; margin:0; }
+.participation-list>li { display:grid; grid-template-columns:minmax(0,1fr) 94px 195px; align-items:center; gap:20px; padding:16px 0; border-top:1px solid var(--border); }
+.participation-person { display:flex; gap:12px; align-items:center; min-width:0; }
+.participation-person>div { min-width:0; }
+.participation-person strong { font-size:14px; font-weight:600; overflow-wrap:anywhere; }
+.participation-person small { display:block; font-size:12px; color:var(--muted); margin-top:4px; overflow-wrap:anywhere; }
+.participation-avatar { display:flex; align-items:center; justify-content:center; width:38px; height:38px; flex-shrink:0; border-radius:50%; color:var(--muted); background:var(--surface-subtle); font-size:12px; font-weight:650; }
+.participation-state { justify-self:start; border-radius:5px; padding:5px 9px; font-size:11px; font-weight:650; background:var(--accent-soft); color:var(--accent); }
+.participation-state[data-excluded="true"] { color:var(--muted); background:var(--surface-subtle); }
+.participation-action { font-size:12px; min-height:42px; }
+.participation-action svg { flex-shrink:0; }
+.participation-message,.participation-loading { display:flex; gap:9px; align-items:center; font-size:13px; line-height:1.6; margin:16px 0; }
+.participation-message { color:var(--accent); }
+.participation-message svg { flex-shrink:0; }
+.participation-loading { color:var(--muted); }
+.ranking-participation .notice { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:16px; }
+.participation-empty { padding:25px 0; color:var(--muted); font-size:14px; text-align:center; }
+.participation-more { margin-top:14px; }
+.participation-spin { animation:participation-spin 1s linear infinite; }
+@keyframes participation-spin { to { transform:rotate(360deg); } }
+@media(max-width:700px) {
+  .participation-heading { display:grid; grid-template-columns:46px minmax(0,1fr); align-items:start; gap:12px; }
+  .participation-heading h2 { font-size:21px; }
+  .participation-heading>.button { grid-column:2; justify-self:start; }
+  .participation-filters { flex-direction:column; gap:12px; }
+  .participation-list>li { grid-template-columns:minmax(0,1fr) auto; gap:12px; padding:18px 0; }
+  .participation-person { gap:9px; }
+  .participation-state { justify-self:end; }
+  .participation-action { grid-column:1/-1; justify-self:stretch; }
+}
+@media(prefers-reduced-motion:reduce) { .participation-spin { animation:none; } }

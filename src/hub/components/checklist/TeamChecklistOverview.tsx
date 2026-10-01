@@ -1,3 +1,4 @@
+import { filterVisibleProfiles } from '@/lib/hiddenUsers';
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -61,7 +62,7 @@ export function TeamChecklistOverview() {
     },
   });
 
-  const sellers = useMemo(() => profiles.filter(p => p.role !== 'gestor'), [profiles]);
+  const sellers = useMemo(() => filterVisibleProfiles(profiles).filter(p => p.role !== 'gestor'), [profiles]);
 
   // Today's checklists
   const { data: todayChecklists = [] } = useQuery({
@@ -117,7 +118,8 @@ export function TeamChecklistOverview() {
     const completedToday = sellers.filter(s => (todayMap[s.id] || 0) >= TOTAL_TASKS).length;
     const incompleteToday = totalSellers - completedToday;
 
-    const totalTasksMonth = monthlyChecklists.reduce((sum: number, c: any) => sum + (c.completed_tasks?.length || 0), 0);
+    const participantIds = new Set(sellers.map(seller => seller.id));
+    const totalTasksMonth = monthlyChecklists.filter((checklist: any) => participantIds.has(checklist.seller_id)).reduce((sum: number, c: any) => sum + (c.completed_tasks?.length || 0), 0);
     const maxTasks = sellers.length * workingDays * TOTAL_TASKS;
     const avgRate = maxTasks > 0 ? Math.round((totalTasksMonth / maxTasks) * 100) : 0;
 

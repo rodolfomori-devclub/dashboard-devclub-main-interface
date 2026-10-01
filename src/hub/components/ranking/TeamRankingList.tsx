@@ -6,8 +6,10 @@ import { Progress } from '@/components/ui/progress';
 const fmt = (n: number) => `R$ ${n.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`;
 
 export function TeamRankingList({ month, year, variant = 'default' }: { month?: number; year?: number; variant?: 'default' | 'tv' }) {
-  const ranks = useTeamRanking(month, year);
+  const { ranks, directoryAvailable, directoryLoading } = useTeamRanking(month, year);
   const isTv = variant === 'tv';
+
+  if (!directoryAvailable) return <div className="glass-card p-8 text-center text-muted-foreground" role="status">{directoryLoading ? 'Carregando participantes do ranking…' : 'Ranking indisponível: não foi possível confirmar os participantes.'}</div>;
 
   if (!ranks.length) {
     return (

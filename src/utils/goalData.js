@@ -1,3 +1,4 @@
+import { isRankingParticipant } from './goalScopes.js'
 import { amount } from './salesData.js'
 import { applyTmbCashRule, TMB_CASH_METADATA } from './tmbCash.js'
 import { applyPlatformCashRule, PLATFORM_NET_CASH_METADATA } from './platformCash.js'
@@ -11,7 +12,11 @@ import { applyPlatformCashRule, PLATFORM_NET_CASH_METADATA } from './platformCas
  */
 export function prepareGoalData(sales = {}, directory = {}, directoryAvailable = true) {
   const people = new Map((directory.individuals || []).map(person => [person.id, person]))
-  const records = (sales.records || []).map(row => ({ ...applyPlatformCashRule(applyTmbCashRule(row)), teamId: people.get(row.sellerId)?.teamId || null }))
+  const excludedSellerIds = [...people.values()].filter(person => !isRankingParticipant(person)).map(person => person.id)
+  // Keep every sale and its attribution for company/product financial totals.
+  // Only people-based scopes consult this marker.
+  const records = (sales.records || []).map(row => ({ ...applyPlatformCashRule(applyTmbCashRule(row)),
+    teamId: people.get(row.sellerId)?.teamId || null, excludedFromRanking: !isRankingParticipant(people.get(row.sellerId)) }))
   const sources = sales.sources || []
   const cashRecords = []
   // The shared sales ledger already removes reconciled manuals. Keep the
@@ -46,6 +51,6 @@ export function prepareGoalData(sales = {}, directory = {}, directoryAvailable =
     }
     return { id: source.id, label: source.label, kind: 'sale', status: 'unavailable', reason: 'receipt_ledger_unavailable' }
   })
-  return { records, sources, cashRecords, cashSources, directoryAvailable, excludedCashManuals,
+  return { records, sources, cashRecords, cashSources, directoryAvailable, excludedSellerIds, excludedCashManuals,
     cashUnavailableSources: cashSources.filter(source => source.status !== 'ready').map(source => source.label || source.id) }
 }

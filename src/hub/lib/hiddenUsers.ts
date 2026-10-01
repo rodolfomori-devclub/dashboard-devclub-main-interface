@@ -1,19 +1,13 @@
-// Users that must be excluded from dashboards, TV mode and any rankings.
-// They remain in the system (still appear in admin / user management screens),
-// but are filtered out of every aggregated/visualization surface.
-export const HIDDEN_DASHBOARD_USER_IDS: ReadonlySet<string> = new Set([
-  // Suelen
-  '23465326-f6b5-4baf-8778-c10df7375028',
-]);
+// Ranking participation is an administrator setting, independent of account access.
+// Keep financial ledgers intact; filter rows only when computing people rankings.
+type RankingProfile = { id?: string | null; excludedFromRanking?: boolean; excluded_from_ranking?: boolean };
+export const isRankingParticipant = (profile?: RankingProfile | null): boolean =>
+  profile?.excludedFromRanking !== true && profile?.excluded_from_ranking !== true;
 
-export const isHiddenDashboardUser = (id?: string | null): boolean =>
-  !!id && HIDDEN_DASHBOARD_USER_IDS.has(id);
+export const filterVisibleProfiles = <T extends RankingProfile>(rows: T[]): T[] =>
+  rows.filter(isRankingParticipant);
 
-export const filterVisibleProfiles = <T extends { id?: string | null }>(rows: T[]): T[] =>
-  rows.filter((r) => !isHiddenDashboardUser(r?.id ?? null));
-
-export const filterVisibleSales = <T extends { seller_id?: string | null }>(rows: T[]): T[] =>
-  rows.filter((r) => !isHiddenDashboardUser(r?.seller_id ?? null));
-
-export const filterVisibleMeetings = <T extends { scheduled_by?: string | null; assigned_closer_id?: string | null }>(rows: T[]): T[] =>
-  rows.filter((r) => !isHiddenDashboardUser(r?.scheduled_by ?? null) && !isHiddenDashboardUser(r?.assigned_closer_id ?? null));
+export const filterVisibleSales = <T extends { seller_id?: string | null }>(rows: T[], profiles: RankingProfile[]): T[] => {
+  const excluded = new Set(profiles.filter(profile => !isRankingParticipant(profile)).map(profile => profile.id));
+  return rows.filter(row => !excluded.has(row.seller_id));
+};

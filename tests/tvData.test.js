@@ -109,13 +109,14 @@ test('independent scope plans share one ledger and support selected team pace', 
   assert.equal(model.individualGoals[0].id, 'ana')
 })
 
-test('failed team directory cannot manufacture team totals; seller attribution stays intact', () => {
+test('failed participant directory cannot manufacture people totals; financial attribution stays intact', () => {
   const model = run({ directoryError: true, paceScope: 'team', paceScopeId: 'sales',
     plans: [{ scope: 'team', scopeId: 'sales', metric: 'cash', target: 4000 }] })
   assert.equal(model.pace.actual, null)
   assert.equal(model.teamGoals[0].pace.actual, null)
   assert.equal(model.unassigned.team.value, null)
-  assert.equal(model.sellers.length, 2)
+  assert.equal(model.sellers.length, 0)
+  assert.equal(model.unassigned.seller.value, null)
   almost(model.totals.cash, 833.64)
 })
 

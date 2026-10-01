@@ -1,3 +1,4 @@
+import { isRankingParticipant } from '@/lib/hiddenUsers';
 import { fetchAllRows, HISTORY_STALE_TIME } from '@/lib/fetchAllRows';
 import { useMemo, useCallback, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -127,7 +128,8 @@ export function MonthlyReport({ month, year, sales, profiles, canSeeFinancial = 
       return d.getMonth() === month && d.getFullYear() === year;
     });
 
-    const sellers = (profiles || []).filter((p: any) => p.role === 'vendedor' && p.active);
+    const allSellers = (profiles || []).filter((p: any) => p.role === 'vendedor' && p.active);
+    const sellers = allSellers.filter(isRankingParticipant);
     // Use historical monthly goal if available, fallback to current team_settings
     const teamGoal = monthlyGoalData?.team_goal ?? teamSettings?.team_goal ?? 0;
     const totalRevenue = monthSales.reduce((sum: number, s: any) => sum + Number(s.amount), 0);
@@ -146,7 +148,7 @@ export function MonthlyReport({ month, year, sales, profiles, canSeeFinancial = 
     const actualDailyPace = workingDays > 0 ? totalRevenue / workingDays : 0;
 
     // Seller performance
-    const sellerPerformance = sellers.map((p: any) => {
+    const allSellerPerformance = allSellers.map((p: any) => {
       const sellerSales = monthSales.filter((s: any) => s.seller_id === p.id);
       const revenue = sellerSales.reduce((sum: number, s: any) => sum + Number(s.amount), 0);
       const goal = p.individual_goal || 0;
@@ -199,6 +201,9 @@ export function MonthlyReport({ month, year, sales, profiles, canSeeFinancial = 
       };
     });
 
+    const participantIds = new Set(sellers.map((seller: any) => seller.id));
+    const sellerPerformance = allSellerPerformance.filter(seller => participantIds.has(seller.id));
+
     // Products breakdown
     const productMap = new Map<string, { count: number; revenue: number }>();
     monthSales.forEach((s: any) => {
@@ -233,7 +238,8 @@ export function MonthlyReport({ month, year, sales, profiles, canSeeFinancial = 
     // Aggregated KPIs
     const totalCalls = sellerPerformance.reduce((s, p) => s + p.totalCalls, 0);
     const totalLeads = sellerPerformance.reduce((s, p) => s + p.totalLeads, 0);
-    const teamConversion = totalLeads > 0 ? (salesCount / totalLeads) * 100 : 0;
+    const participantSalesCount = monthSales.filter((sale: any) => participantIds.has(sale.seller_id)).length;
+    const teamConversion = totalLeads > 0 ? (participantSalesCount / totalLeads) * 100 : 0;
     const avgTicket = salesCount > 0 ? totalRevenue / salesCount : 0;
 
     // Checklist team avg
@@ -242,9 +248,9 @@ export function MonthlyReport({ month, year, sales, profiles, canSeeFinancial = 
       : 0;
 
     // Financial
-    const totalFixed = sellerPerformance.reduce((s, p) => s + p.fixedSalary, 0);
-    const totalCommissions = sellerPerformance.reduce((s, p) => s + p.commission, 0);
-    const totalBonuses = sellerPerformance.reduce((s, p) => s + p.bonuses, 0);
+    const totalFixed = allSellerPerformance.reduce((s, p) => s + p.fixedSalary, 0);
+    const totalCommissions = allSellerPerformance.reduce((s, p) => s + p.commission, 0);
+    const totalBonuses = allSellerPerformance.reduce((s, p) => s + p.bonuses, 0);
     const totalCost = totalFixed + totalCommissions + totalBonuses;
     const costPct = totalRevenue > 0 ? (totalCost / totalRevenue) * 100 : 0;
     const margin = totalRevenue - totalCost;
