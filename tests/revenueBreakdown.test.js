@@ -41,7 +41,7 @@ test('TMB rule affects cash, not revenue, and Asaas receipts do not manufacture 
   const result = buildRevenueBreakdown([row('tmb', 'Boleto', 1000)], [source('tmb'), source('asaas', { status: 'partial', salesAvailable: false, reason: 'checkout_disabled', cash: { gross: 900, net: 850, fees: 50, count: 2, availablePeriods: 1, periods: 1 } })])
   assert.equal(result.revenue.value, 1000)
   assert.equal(result.payments.boleto.value, 1000)
-  assert.equal(result.payments.boleto.providers.find(provider => provider.id === 'asaas').value, null)
+  assert.equal(result.payments.boleto.providers.some(provider => provider.id === 'asaas'), false)
   assert.equal(result.cash.providers.find(provider => provider.id === 'tmb').value, 400)
   assert.equal(result.cash.providers.find(provider => provider.id === 'asaas').value, 900)
   assert.equal(result.cash.value, 1300)
@@ -63,7 +63,7 @@ test('manual TMB is cash by rule but remains an unknown payment until the method
   assert.equal(result.revenue.value, 100)
   assert.equal(result.payments.boleto.value, null)
   assert.equal(result.payments.card.value, null)
-  assert.equal(result.payments.unknown.providers[0].label, 'Manual')
+  assert.equal(result.payments.unknown.providers[0].label, 'TMB')
 })
 
 test('cached history and today retain every Asaas receipt without changing known cash', () => {

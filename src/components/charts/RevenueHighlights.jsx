@@ -3,48 +3,59 @@ import { useMemo } from 'react'
 import { ArrowUpRight, Banknote, ChevronDown, CreditCard, ReceiptText, Wallet } from 'lucide-react'
 import { buildRevenueBreakdown } from '../../utils/revenueBreakdown'
 import { formatCurrency } from '../../utils/currencyUtils'
+import FinancialValue from './FinancialValue'
 import './revenueHighlights.css'
 
 const money = value => value === null || value === undefined ? 'Não informado' : formatCurrency(value)
 const number = value => value === null || value === undefined ? '—' : value.toLocaleString('pt-BR')
+const salesCount = value => `${number(value)} ${value === 1 ? 'venda' : 'vendas'}`
 function Coverage({ partial }) { return partial ? <span className="revenue-coverage">Parcial</span> : null }
 
-function PaymentCard({ title, detail, data, tone, icon: Icon }) {
-  return <article className={`revenue-card revenue-card--${tone}`}>
-    <div className="revenue-card-heading"><h2><Icon size={19} aria-hidden="true" />{title}</h2><Coverage partial={data.partial} /></div>
-    <p className="revenue-card-value">{money(data.value)}</p>
-    <p className="revenue-card-subtitle">{data.count === null ? 'Contagem não informada' : `${number(data.count)} vendas identificadas`}<span>{detail}</span></p>
+function PaymentCard({ title, detail, data, tone, icon: Icon, ready, loading, error }) {
+  const amountReady = ready && (data.value !== null || !loading)
+  return <article className={`revenue-card revenue-card--${tone}`} aria-busy={loading}>
+    <div className="revenue-card-heading"><h2><Icon size={19} aria-hidden="true" />{title}</h2><Coverage partial={ready && data.partial} /></div>
+    <p className="revenue-card-value"><FinancialValue ready={amountReady} loading={loading} error={error}>{money(data.value)}</FinancialValue></p>
+    <p className="revenue-card-subtitle">{!ready ? 'Aguardando os dados do período' : data.count === null ? 'Contagem não informada' : `${salesCount(data.count)} ${data.count === 1 ? 'identificada' : 'identificadas'}`}<span>{detail}</span></p>
     <details className="revenue-breakdown">
       <summary><span>Detalhar {title.toLocaleLowerCase('pt-BR')} por plataforma</span><ChevronDown size={17} aria-hidden="true" /></summary>
       <div className="revenue-provider-list" aria-label={`Receita de ${title.toLocaleLowerCase('pt-BR')} por plataforma`}>
-        {data.providers.map(provider => <div className="revenue-provider-row" key={provider.id}><div><span>{provider.label}</span><small>{provider.count === null ? 'Vendas não informadas' : `${number(provider.count)} vendas`}{provider.partial && ' · parcial'}</small></div><strong>{money(provider.value)}</strong></div>)}
-        {!data.providers.length && <p className="revenue-provider-empty">Aguardando as fontes deste período.</p>}
+        {data.providers.map(provider => tone === 'boleto'
+          ? <div className="revenue-provider-row revenue-provider-row--financial" key={provider.id} data-provider={provider.id}>
+            <header><span>{provider.label}</span><small>{salesCount(provider.count)}{provider.partial && ' · parcial'}</small></header>
+            <dl className="revenue-provider-financials">{[['gross', 'Valor bruto'], ['cash', 'Cash collected'], ['entry', 'Entrada recebida']].map(([key, label]) => <div key={key}>
+              <dt>{label}</dt><dd><FinancialValue ready={ready} loading={loading} error={error} compact>{money(provider[key].value)}</FinancialValue>{provider[key].partial && provider[key].value !== null && <small>Parcial</small>}</dd>
+            </div>)}</dl>
+            <p className="revenue-provider-note">{provider.id === 'tmb' ? 'Cash collected: 40% do bruto. ' : ['guru', 'hotmart'].includes(provider.id) ? 'Cash collected: líquido integral. ' : ''}{provider.note}</p>
+          </div>
+          : <div className="revenue-provider-row" key={provider.id} data-provider={provider.id}><div><span>{provider.label}</span><small>{salesCount(provider.count)}{provider.partial && ' · parcial'}</small></div><strong><FinancialValue ready={ready} loading={loading} error={error} compact>{money(provider.value)}</FinancialValue></strong></div>)}
+        {!data.providers.length && <p className="revenue-provider-empty">{loading ? 'Carregando as plataformas deste período…' : !ready || data.value === null ? 'Detalhamento indisponível neste recorte.' : `Nenhuma venda por ${title.toLocaleLowerCase('pt-BR')} neste recorte.`}</p>}
       </div>
     </details>
   </article>
 }
 
-export default function RevenueHighlights({ records = [], sources = [], filters = {}, title = 'Receita operacional', loading = false, ready = false }) {
+export default function RevenueHighlights({ records = [], sources = [], filters = {}, title = 'Receita operacional', loading = false, ready = false, error = false }) {
   const model = useMemo(() => buildRevenueBreakdown(records, sources, filters), [records, sources, filters])
   return <section className="revenue-highlights" aria-label="Resumo financeiro" aria-busy={loading}>
     <div className="revenue-lead-grid">
       <article className="revenue-card revenue-card--total">
         <div className="revenue-card-heading"><h2><ArrowUpRight size={22} aria-hidden="true" />{title}</h2><Coverage partial={ready && model.revenue.partial} /></div>
-        <p className="revenue-card-value">{ready ? money(model.revenue.value) : '—'}</p>
+        <p className="revenue-card-value"><FinancialValue ready={ready && (model.revenue.value !== null || !loading)} loading={loading} error={error} announce>{money(model.revenue.value)}</FinancialValue></p>
         <p className="revenue-card-subtitle">{ready ? 'Receita das vendas no recorte selecionado' : 'Aguardando os dados do período'}</p>
-        <dl className="revenue-total-details"><div><dt>Vendas realizadas</dt><dd>{ready ? number(model.revenue.count) : '—'}</dd></div><div><dt>Ticket médio</dt><dd>{ready && model.revenue.ticket !== null ? money(model.revenue.ticket) : '—'}</dd></div></dl>
+        <dl className="revenue-total-details"><div><dt>Vendas realizadas</dt><dd><FinancialValue ready={ready} loading={loading} error={error} compact>{number(model.revenue.count)}</FinancialValue></dd></div><div><dt>Ticket médio</dt><dd><FinancialValue ready={ready} loading={loading} error={error} compact>{money(model.revenue.ticket)}</FinancialValue></dd></div></dl>
       </article>
       <article className="revenue-card revenue-card--cash">
         <div className="revenue-card-heading"><h2><Wallet size={21} aria-hidden="true" />Cash collected</h2><Coverage partial={ready && model.cash.partial} /></div>
-        <p className="revenue-card-value">{ready ? money(model.cash.value) : '—'}</p>
+        <p className="revenue-card-value"><FinancialValue ready={ready && (model.cash.value !== null || !loading)} loading={loading} error={error}>{money(model.cash.value)}</FinancialValue></p>
         <p className="revenue-card-subtitle">Guru e Hotmart: líquido integral · TMB: 40% · Asaas: recebimentos</p>
-        <dl className="revenue-cash-details">{model.cash.providers.map(provider => <div key={provider.id}><dt>{provider.label}</dt><dd>{ready ? money(provider.value) : '—'}</dd></div>)}</dl>
+        <dl className="revenue-cash-details">{model.cash.providers.map(provider => <div key={provider.id}><dt>{provider.label}</dt><dd><FinancialValue ready={ready} loading={loading} error={error} compact>{money(provider.value)}</FinancialValue></dd></div>)}</dl>
       </article>
     </div>
     <div className="revenue-payment-grid">
-      <PaymentCard title="Cartão" detail="Guru, Hotmart e demais fontes com cartão informado" data={model.payments.card} tone="card" icon={CreditCard} />
-      <PaymentCard title="Boleto" detail="Boleto à vista e parcelado, em todas as plataformas" data={model.payments.boleto} tone="boleto" icon={ReceiptText} />
+      <PaymentCard title="Cartão" detail="Somente plataformas com vendas por cartão neste recorte" data={model.payments.card} tone="card" icon={CreditCard} ready={ready} loading={loading} error={error} />
+      <PaymentCard title="Boleto" detail="Boleto à vista e parcelado · plataformas deste recorte" data={model.payments.boleto} tone="boleto" icon={ReceiptText} ready={ready} loading={loading} error={error} />
     </div>
-    <div className="revenue-other-payments" aria-label="Outros meios de pagamento"><Banknote size={17} aria-hidden="true" /><p>Também compõem a receita</p>{[['pix', 'Pix'], ['other', 'Outros meios'], ['unknown', 'Meio não informado']].map(([key, label]) => <div key={key}><span>{label}</span><strong>{money(model.payments[key].value)}</strong></div>)}</div>
+    <div className="revenue-other-payments" aria-label="Outros meios de pagamento"><Banknote size={17} aria-hidden="true" /><p>Também compõem a receita</p>{[['pix', 'Pix'], ['other', 'Outros meios'], ['unknown', 'Meio não informado']].map(([key, label]) => <div key={key}><span>{label}</span><strong><FinancialValue ready={ready} loading={loading} error={error} compact>{money(model.payments[key].value)}</FinancialValue></strong></div>)}</div>
   </section>
 }

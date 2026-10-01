@@ -36,6 +36,14 @@
 .revenue-provider-row span { font-size: 13px; font-weight: 600; }
 .revenue-provider-row small { display: block; color: var(--rev-muted); font-size: 10px; margin-top: 3px; }
 .revenue-provider-row strong { color: var(--rev-ink); font-weight: 650; font-size: 15px; font-variant-numeric: tabular-nums; text-align: right; overflow-wrap: anywhere; }
+.revenue-provider-row--financial { display: block; padding: 18px 0; }
+.revenue-provider-row--financial header { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; }
+.revenue-provider-financials { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 16px 0 0; }
+.revenue-provider-financials dt { color: var(--rev-muted); font-size: 10px; line-height: 1.5; }
+.revenue-provider-financials dd { color: var(--rev-ink); margin: 5px 0 0; font-size: clamp(12px, 1.15vw, 16px); font-weight: 650; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.revenue-provider-financials .financial-value-content { font-size: inherit; }
+.revenue-provider-note { margin: 12px 0 0; color: var(--rev-muted); font-size: 10px; line-height: 1.6; }
+.revenue-cash-details .financial-value, .revenue-provider-row > strong .financial-value { align-items: flex-end; }
 .revenue-provider-empty { color: var(--rev-muted); font-size: 12px; padding: 12px 0; }
 .revenue-other-payments { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 24px; padding: 3px 4px 0; font-size: 11px; color: var(--muted); }
 .revenue-other-payments > p { margin: 0 auto 0 -14px; }
@@ -62,3 +70,4 @@
 @media (max-width: 1100px) { .revenue-lead-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .revenue-card { padding: 23px; } .revenue-card .revenue-card-value { font-size: clamp(30px, 3.8vw, 46px); } }
 @media (max-width: 760px) { .revenue-lead-grid, .revenue-payment-grid { grid-template-columns: minmax(0, 1fr); gap: 12px; } .revenue-card { padding: 22px; } .revenue-card .revenue-card-value { font-size: clamp(30px, 8.4vw, 45px); } .revenue-other-payments { gap: 10px 18px; } .revenue-other-payments > p { flex: 1; } .revenue-other-payments > div { width: 100%; justify-content: space-between; padding-left: 1px; } .revenue-notifications-panel { right: auto; left: 0; } }
 @media (prefers-reduced-motion: reduce) { .revenue-breakdown > summary svg { transition: none; } }
+@media (max-width: 1100px) { .revenue-provider-financials { grid-template-columns: minmax(0, 1fr); gap: 9px; } .revenue-provider-financials > div { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; } .revenue-provider-financials dd { margin: 0; text-align: right; font-size: 14px; } .revenue-provider-financials .financial-value { align-items: flex-end; } }

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ReferenceChart } from '../components/charts/ReferenceChart'
 import { ChartPanel, RankedBars, MixChart } from '../components/charts/AnalyticsVisuals'
 import RevenueHighlights from '../components/charts/RevenueHighlights'
+import FinancialValue from '../components/charts/FinancialValue'
 import RefundSummary from '../components/charts/RefundSummary'
 import RevenueNotifications from '../components/charts/RevenueNotifications'
 import { buildRevenueNotices } from '../utils/revenueBreakdown'
@@ -114,9 +115,9 @@ export default function Today() {
   return <div className="hub-page daily-page">
     <header className="page-heading daily-heading"><div><h1>Diário de vendas</h1><p>Acompanhe o dia, os produtos e a origem de cada venda.</p></div><div className="daily-heading-actions"><RevenueNotifications items={notifications} /><div className="daily-refresh"><button className="button button-primary" onClick={() => refresh(true)} disabled={loading}><RefreshCw size={16} className={loading ? 'daily-spin' : ''} />{loading ? 'Atualizando' : 'Atualizar dados'}</button><span>{current ? `Atualizado às ${clock(current.fetchedAt)}` : 'Aguardando dados'}</span></div></div></header>
 
-    <RevenueHighlights records={filtered} sources={relevantSources} filters={filters} title="Valor das vendas" loading={loading} ready={Boolean(current)} />
+    <RevenueHighlights records={filtered} sources={relevantSources} filters={filters} title="Valor das vendas" loading={loading} ready={Boolean(current)} error={loadError} />
 
-    <RefundSummary records={filtered} sources={relevantSources} platform={filters.platform} ready={Boolean(current)} loading={loading} startDate={date} endDate={date} />
+    <RefundSummary records={filtered} sources={relevantSources} platform={filters.platform} ready={Boolean(current)} loading={loading} error={Boolean(loadError)} startDate={date} endDate={date} />
 
     <section className="surface-panel daily-filters" aria-label="Filtros do diário">
       <div className="daily-filter-heading"><span><SlidersHorizontal size={17} />Visualização do dia</span><button className="button daily-clear" onClick={resetFilters} disabled={!activeFilters}>Limpar filtros{activeFilters ? ` (${activeFilters})` : ''}</button></div>
@@ -165,7 +166,7 @@ export default function Today() {
 
     <section className="surface-panel daily-panel daily-financial">
       <SectionHeading title="Composição financeira" description="Valores retornados pelas plataformas, sem recalcular as taxas." />
-      <div className="daily-financial-grid">{[['Bruto informado', 'gross'], ['Líquido informado', 'net'], ['Taxas e descontos', 'fees'], ['Afiliados (líquido)', 'affiliate']].map(([label, key]) => <div key={key}><span>{label}</span><strong>{displayMetric(summary[key])}</strong><small>{summary[key].missing ? `${summary[key].missing} registros sem esse valor` : salesAvailable ? 'Dados disponíveis no recorte' : 'Fonte indisponível'}</small></div>)}</div>
+      <div className="daily-financial-grid">{[['Bruto informado', 'gross'], ['Líquido informado', 'net'], ['Taxas e descontos', 'fees'], ['Afiliados (líquido)', 'affiliate']].map(([label, key]) => <div key={key}><span>{label}</span><strong><FinancialValue ready={Boolean(current)} loading={loading} error={loadError} compact>{displayMetric(summary[key])}</FinancialValue></strong><small>{summary[key].missing ? `${summary[key].missing} registros sem esse valor` : salesAvailable ? 'Dados disponíveis no recorte' : 'Fonte indisponível'}</small></div>)}</div>
       <details className="daily-calculation"><summary>Como ler estes valores<ChevronDown size={15} /></summary><p>O total mantém a regra do diário: líquido calculado pela API Guru, líquido do produtor na Hotmart e valor contratual das vendas TMB, Asaas e Boletex, mais lançamentos manuais ainda não conciliados. Os reembolsos ficam separados. Taxas e afiliação já descontadas do líquido não são subtraídas novamente. Valores de boleto não representam saldo já recebido.</p><p>Campos ausentes permanecem “Não informado”. Um consolidado sem detalhes aparece na lista como “Saldo sem detalhamento”, sem produto, horário ou UTM presumidos.</p></details>
     </section>
 

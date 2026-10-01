@@ -84,7 +84,10 @@ for(const width of [1440,360]){
      assert.equal(await detail.getAttribute('open'),null)
      await card.locator('summary').focus();await page.keyboard.press('Enter')
      assert.notEqual(await detail.getAttribute('open'),null)
-     for(const source of ['Guru','Hotmart','TMB','Asaas'])assert.match(await card.locator('.revenue-provider-list').innerText(),new RegExp(source))
+     const expectedProviders = label === 'Cartão' ? ['Guru'] : ['TMB', 'Asaas', 'Boletex']
+     const providerRows = card.locator('.revenue-provider-row')
+     assert.equal(await providerRows.count(), expectedProviders.length, 'Only observed providers for this payment method belong in its card')
+     for (const [index, source] of expectedProviders.entries()) assert.match(await providerRows.nth(index).innerText(), new RegExp(source))
      await page.keyboard.press('Enter')
     }
     const notifications=page.getByRole('region',{name:'Notificações dos dados'})

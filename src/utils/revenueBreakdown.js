@@ -1,4 +1,4 @@
-import { amount, summarizeSales } from './salesData.js'
+import { amount, summarizeSales, sumAmount } from './salesData.js'
 import { asaasCashView, sourceHasSales } from './sourceAvailability.js'
 import { prepareGoalData } from './goalData.js'
 
@@ -16,6 +16,17 @@ export function revenuePaymentGroup(payment) {
 const numeric = (metric, available) => !available || (!metric.known && metric.missing) ? null : metric.value
 const observedSource = (source, rows) => sourceHasSales(source) && (source.id !== 'manual' || rows.length > 0)
 const sum = rows => rows.reduce((total, row) => total + (amount(row.received) ?? 0), 0)
+const boletoSources = ['tmb', 'asaas', 'boletex']
+const providerKey = row => row.sourceId !== 'manual' ? row.sourceId
+  : SOURCES.find(id => id !== 'manual' && fold(LABELS[id]) === fold(row.platform)) || `manual:${fold(row.platform) || 'unknown'}`
+const paymentMetric = (rows, field, partial) => {
+  const metric = sumAmount(rows, field)
+  return { value: rows.length && metric.known ? metric.value : null, partial: partial || !rows.length || metric.missing > 0 }
+}
+const entryNote = id => id === 'tmb' ? 'A entrada prevista pela TMB não confirma o recebimento.'
+  : id === 'boletex' ? 'A fonte informa entrada e parcelas acumuladas, sem separar a entrada recebida ou o caixa do período.'
+    : id === 'asaas' ? 'Recebimentos do extrato sem vínculo com estes contratos permanecem no resumo geral.'
+      : 'A fonte não informa uma entrada recebida separadamente.'
 
 function existingAsaasCash(sources, filters) {
   const aggregate = asaasCashView(sources, filters)
@@ -40,28 +51,40 @@ export function buildRevenueBreakdown(records = [], sources = [], filters = {}) 
   const available = saleSources.some(source => observedSource(source, sales.filter(row => row.sourceId === source.id))) || sales.some(row => amount(row.revenue) !== null)
   const summary = summarizeSales(sales)
   const partial = saleSources.some(source => source.status !== 'ready' || source.salesAvailable === false) || summary.revenue.missing > 0
+  const prepared = prepareGoalData({ records: sales, sources: saleSources })
   const paymentGroups = {}
   for (const key of ['card', 'boleto', 'pix', 'other', 'unknown']) {
     const rows = sales.filter(row => revenuePaymentGroup(row.payment) === key)
-    const sourceIds = [...new Set([...SOURCES.filter(id => saleSources.some(source => source.id === id)), ...rows.map(row => row.sourceId)])]
-    const providers = sourceIds.map(id => {
-      const source = saleSources.find(source => source.id === id)
-      const providerRows = sales.filter(row => row.sourceId === id)
-      const selected = rows.filter(row => row.sourceId === id)
+    // A platform belongs here only when a transaction identifies this method.
+    // Source availability still controls the total, independently of the list.
+    const providerIds = [...new Set(rows.map(providerKey))].sort((a, b) => {
+      const rank = id => SOURCES.includes(id) ? SOURCES.indexOf(id) : SOURCES.length
+      return rank(a) - rank(b) || a.localeCompare(b)
+    })
+    const providers = providerIds.map(id => {
+      const selected = rows.filter(row => providerKey(row) === id)
+      const providerRows = sales.filter(row => providerKey(row) === id)
+      const selectedSources = [...new Set(selected.map(row => row.sourceId))].map(id => saleSources.find(source => source.id === id))
       const result = summarizeSales(selected)
       const unknownPayment = providerRows.some(row => revenuePaymentGroup(row.payment) === 'unknown')
-      const knownEmpty = source && observedSource(source, providerRows) && !unknownPayment
-      const value = numeric(result.revenue, selected.length > 0 || knownEmpty)
-      return { id, label: source?.label || LABELS[id] || id, value, count: selected.length || knownEmpty ? result.count : null,
-        partial: source?.status !== 'ready' || source?.salesAvailable === false || unknownPayment || result.revenue.missing > 0 }
+      const incomplete = selectedSources.some(source => !source || source.status !== 'ready' || source.salesAvailable === false)
+      const cashRows = prepared.cashRecords.filter(row => providerKey(row) === id && revenuePaymentGroup(row.payment) === key)
+      const entries = selected.map(row => ({ entryReceived: row.sourceId === 'asaas' && !row.isManual && !row.isReceipt ? amount(row.received) : null }))
+      return { id, label: LABELS[id] || selected[0]?.platform || 'Plataforma não informada', value: numeric(result.revenue, true), count: result.count,
+        partial: incomplete || unknownPayment || result.revenue.missing > 0,
+        gross: paymentMetric(selected, 'gross', incomplete),
+        cash: paymentMetric(cashRows, 'received', incomplete || cashRows.length !== selected.length),
+        entry: paymentMetric(entries, 'entryReceived', incomplete), note: entryNote(id) }
     })
     const result = summarizeSales(rows)
-    paymentGroups[key] = { key, value: numeric(result.revenue, providers.some(provider => provider.value !== null)),
-      count: rows.length || providers.some(provider => provider.value !== null) ? result.count : null,
-      partial: providers.some(provider => provider.partial), providers }
+    const eligibleSources = saleSources.filter(source => !boletoSources.includes(source.id) || key === 'boleto')
+    const unknownPayment = sales.some(row => revenuePaymentGroup(row.payment) === 'unknown' && eligibleSources.some(source => source.id === row.sourceId))
+    const groupAvailable = rows.length > 0 || (!unknownPayment && eligibleSources.some(source => observedSource(source, sales.filter(row => row.sourceId === source.id))))
+    paymentGroups[key] = { key, value: numeric(result.revenue, groupAvailable),
+      count: groupAvailable ? result.count : null,
+      partial: providers.some(provider => provider.partial) || unknownPayment || eligibleSources.some(source => source.status !== 'ready' || source.salesAvailable === false), providers }
   }
 
-  const prepared = prepareGoalData({ records: sales, sources: saleSources })
   const tmbSource = saleSources.find(source => source.id === 'tmb')
   const tmbRows = prepared.cashRecords.filter(row => fold(row.platform) === 'tmb')
   const tmbKnown = tmbRows.some(row => amount(row.received) !== null) || (tmbRows.length === 0 && tmbSource && sourceHasSales(tmbSource))
