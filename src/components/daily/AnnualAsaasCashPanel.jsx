@@ -25,7 +25,7 @@ export default function AnnualAsaasCashPanel({ startDate, endDate, filters = {} 
     finally { if (!isCancelled()) setLoading(false) }
   }
   const cash = result?.cash
-  const label = loading ? 'Consultando caixa…' : result?.status === 'ready' ? 'Atualizar caixa Asaas' : result ? 'Consultar intervalos pendentes' : 'Consultar caixa Asaas'
+  const label = loading ? 'Consultando caixa…' : result?.status === 'ready' ? 'Atualizar caixa Asaas' : result ? 'Tentar novamente' : 'Consultar caixa Asaas'
   return <section className="surface-panel ds-card p-5" aria-label="Caixa Asaas do período">
     <div className="flex flex-wrap items-start justify-between gap-4"><div><h2 className="font-semibold">Caixa Asaas do período</h2><p className="text-xs text-slate-500 mt-2">Consulte os recebimentos do Asaas separadamente enquanto acompanha os resultados das demais plataformas.</p></div><button type="button" className="btn btn-ghost shrink-0 disabled:opacity-40" disabled={loading || allocationMissing || future} onClick={consult}>{label}</button></div>
     <p className="text-xs text-slate-500 mt-3">Recebimentos de {startDate.split('-').reverse().join('/')} a {endDate.split('-').reverse().join('/')}, incluindo parcelas de contratos antigos. Vendas novas e valores contratados Asaas permanecem indisponíveis sem o histórico original das vendas.</p>

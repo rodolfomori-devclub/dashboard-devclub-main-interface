@@ -126,7 +126,7 @@ try {
       await cash().getByText(/Subtotal parcial:/).waitFor()
       assert.match(await cash().innerText(), /36 de 37/)
       const beforeRetry = cashIntervals.length
-      await page.getByRole('button', { name: 'Consultar intervalos pendentes', exact: true }).click()
+      await page.getByRole('button', { name: 'Tentar novamente', exact: true }).click()
       await cash().getByText('Todos os intervalos foram consultados.', { exact: true }).waitFor()
       assert.equal(cashIntervals.length, beforeRetry + 1, 'retry must query only the failed interval')
     }
