@@ -8,7 +8,8 @@ const searchable = value => String(value || '').normalize('NFD').replace(/[\u030
 const validUser = user => user && typeof user.id === 'string' && typeof user.name === 'string'
   && typeof user.excludedFromRanking === 'boolean' && Number.isSafeInteger(user.revision) && user.revision >= 0
 
-export default function RankingParticipation() {
+// eslint-disable-next-line react/prop-types -- Parent increments after commercial profile provisioning.
+export default function RankingParticipation({ refreshKey = 0 }) {
   const queryClient = useQueryClient()
   const [users, setUsers] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -43,7 +44,7 @@ export default function RankingParticipation() {
     mounted.current = true
     load()
     return () => { mounted.current = false; currentLoad.current?.abort() }
-  }, [load])
+  }, [load, refreshKey])
 
   const change = async user => {
     if (saving.current || loading) return

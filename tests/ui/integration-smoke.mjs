@@ -6,6 +6,7 @@ import assert from 'node:assert/strict'
 import {checkComparison} from './comparison-checks.mjs'
 import { checkGoalConfiguration, checkGoalConfigurationReader } from './goal-config-checks.mjs'
 import { periodCacheFixture, emptyProviderPayload } from './period-cache-fixture.mjs'
+import { adminUsersCatalogFixture, emptyAdminUsersFixture } from './admin-users-read-fixture.mjs'
 const out = process.env.DASHBOARD_SMOKE_OUTPUT || fileURLToPath(new URL('./artifacts/integration', import.meta.url))
 await fs.mkdir(out, { recursive: true })
 const base = process.env.DASHBOARD_SMOKE_URL || 'http://localhost:4317'
@@ -51,6 +52,8 @@ await context.route('**/*',async route=>{
  if(!['GET','HEAD'].includes(method))writes.push({path:url.pathname,method,body:request.headers()['content-type']?.includes('json')?request.postDataJSON():request.postData()})
  let body
  if(url.pathname==='/api/access')body={user:{sub:'fixture-user',email:'qa@example.test',name:'QA local',permissions:admin?['admin']:goalReader?['goals']:['materials'],isAdmin:admin}}
+ else if(url.pathname==='/api/admin/users/catalog'){assert.equal(method,'GET');assert.equal(admin,true);body=adminUsersCatalogFixture}
+ else if(url.pathname==='/api/admin/users'){assert.equal(method,'GET');assert.equal(admin,true);body=emptyAdminUsersFixture}
  else if(url.pathname==='/api/ranking-participation'){assert.equal(method,'GET');assert.equal(admin,true);body={users:[{id:profile.id,name:profile.name,teamId:null,teamName:'',active:true,excludedFromRanking:false,revision:0,updatedAt:null}]}}
  else if(url.pathname==='/api/tv/settings')body={revision:0,updatedAt:null,settings:{version:1,mode:'rotate',fixedPanel:'monthly-goal',metric:'cash',monthMode:'current',month:'',theme:'system',paceScope:'overall',paceScopeId:'',panels:['monthly-goal','pace','team-goals','product-goals','sellers','products','daily','payment-mix'].map((id,index)=>({id,enabled:index<6,durationSeconds:20}))}}
  else if(url.pathname==='/api/tv/share'){assert.equal(method,'GET');assert.equal(admin,true);body={enabled:false,token:null,path:null,revision:0,updatedAt:null}}

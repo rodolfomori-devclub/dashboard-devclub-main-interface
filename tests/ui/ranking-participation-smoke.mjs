@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
 import { expect } from '@playwright/test'
 import { readPublishedVault } from './published-vault.mjs'
+import { adminUsersCatalogFixture, emptyAdminUsersFixture } from './admin-users-read-fixture.mjs'
 
 const root = fileURLToPath(new URL('../../', import.meta.url))
 const published = process.env.DASHBOARD_SMOKE_PRODUCTION === '1'
@@ -42,6 +43,8 @@ async function fixture(route) {
   calls.push({ method, path, admin, scenario })
   let body, status = 200
   if (path === '/api/access' && method === 'GET') body = { user: { sub: 'fixture-admin', name: 'Admin QA', email: 'admin@example.test', permissions: admin ? ['admin'] : ['ranking'], isAdmin: admin } }
+  else if (path === '/api/admin/users/catalog' && method === 'GET') { assert.equal(admin, true); body = adminUsersCatalogFixture }
+  else if (path === '/api/admin/users' && method === 'GET') { assert.equal(admin, true); body = emptyAdminUsersFixture }
   else if (path === '/api/ranking-participation' && method === 'GET') {
     assert.equal(admin, true, 'Only administrators load participation configuration')
     if (scenario === 'read-error') { status = 503; body = { error: 'Não foi possível carregar a participação.' } }
