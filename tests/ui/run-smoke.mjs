@@ -27,6 +27,7 @@ try {
  }
  if(!ready)throw new Error(`Vite did not start: ${output}`)
  await run('./daily-pace-smoke.mjs')
+ await run('./goal-pace-hero-smoke.mjs')
  await run('./integration-smoke.mjs')
  await run('./analytics-smoke.mjs')
  await run('./chart-primitives-smoke.mjs')

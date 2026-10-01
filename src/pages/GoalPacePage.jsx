@@ -3,8 +3,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import axios from 'axios'
 import { useAuth } from '../contexts/AuthContext'
-import { RefreshCw, ArrowDownRight, ArrowUpRight, Target } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
 import { ReferenceChart } from '../components/charts/ReferenceChart'
+import MonthlyPaceChart from '../components/goals/MonthlyPaceChart'
 import { ChartPanel, RankedBars } from '../components/charts/AnalyticsVisuals'
 import { formatValue } from '../components/charts/chartFormatters'
 import { loadSalesRange } from '../components/daily/dailyData'
@@ -34,7 +35,6 @@ export default function GoalPacePage() {
   const [selectedMetric, setSelectedMetric] = useState('gross')
   const [state, setState] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [chartMode, setChartMode] = useState('area')
   const requestId = useRef(0)
   const bounds = useMemo(() => monthBounds(year, month), [year, month])
   const periodKey = `${year}-${month}`
@@ -111,6 +111,8 @@ export default function GoalPacePage() {
       <div className="daily-field"><span>Distribuição da meta</span><strong className="pace-basis">{selectedPlan ? pace.basis === 'business' ? 'Dias úteis · seg–sex' : 'Dias corridos' : 'Meta não definida'}</strong></div>
     </div><p className="daily-footnote">O dia atual conta como transcorrido. Dias úteis consideram segunda a sexta, sem calendário de feriados. Horário de Brasília.</p></section>
 
+    <MonthlyPaceChart pace={pace} ready={Boolean(current)} loading={loading} targetUnavailable={Boolean(current?.plansError)} scopeName={goalScopeName(selection)} periodLabel={`${MONTHS[month - 1]} de ${year}`} today={today} selectionKey={`${periodKey}:${goalScopeKey(selection)}:${metric}`} />
+
     <div className="daily-feedback" aria-live="polite">
       {loading && !current && <p className="daily-notice">Carregando metas e vendas do período.</p>}
       {current?.plansError && <p className="daily-notice is-warning" role="alert">Metas indisponíveis. Não foi possível consultar o plano deste mês.</p>}
@@ -127,31 +129,21 @@ export default function GoalPacePage() {
 
     <section className="pace-financial-grid" aria-label="Bruto e cash collected">
       {financialSummary.map(({ metric: key, pace: item }) => <button key={key} className={`surface-panel pace-financial-card${metric === key ? ' is-selected' : ''}`} onClick={() => setSelectedMetric(key)} aria-pressed={metric === key}>
-        <span className="pace-financial-label">{key === 'gross' ? 'Valor bruto' : 'Cash collected'}</span><p>{key === 'gross' ? 'Valor total das vendas, antes das taxas.' : 'Caixa confirmado que entrou no período.'}</p>
+        <span className="pace-financial-label">{key === 'gross' ? 'Valor bruto' : 'Cash collected'}</span><p>{key === 'gross' ? 'Valor total das vendas, antes das taxas.' : 'TMB: 40% do bruto; Asaas e demais recebimentos.'}</p>
         <strong>{item.future ? 'Não iniciado' : formatValue(item.actual, 'currency')}</strong><span>{!item.definitive && !item.future ? 'Realizado parcial' : 'Realizado no mês'}</span>
-        <div><span>Meta <b>{item.validTarget ? formatValue(item.target, 'currency') : 'Não definida'}</b></span><span>Pace <b>{percent(item.pacePercent)}</b></span></div>
+        <div><span>Meta <b>{current?.plansError ? 'Indisponível' : item.validTarget ? formatValue(item.target, 'currency') : 'Não definida'}</b></span><span>Pace <b>{percent(item.pacePercent)}</b></span></div>
       </button>)}
     </section>
 
-    <section className="surface-panel daily-panel pace-hero">
-      <div className="pace-summary"><div className="pace-summary-title"><Target size={18} /><h2>{goalScopeName(selection)}</h2></div><span className="pace-period">{MONTHS[month - 1]} de {year} · {pace.metric.label}</span>
-        <div className="pace-hero-actual"><span>Realizado no mês{!pace.definitive && !pace.future ? ' · parcial' : ''}</span><strong>{pace.future ? 'Não iniciado' : value(pace.actual)}</strong></div>
-        <div className="pace-target-row"><span>Meta do período</span><strong className="pace-target">{pace.validTarget ? value(pace.target) : 'Sem meta definida'}</strong></div>
-        <div className="pace-progress" role="progressbar" aria-label="Atingimento da meta" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pace.attainment === null ? undefined : Math.max(0, Math.min(100, pace.attainment))}><i style={{ width: `${Math.max(0, Math.min(100, pace.attainment || 0))}%` }} /></div><p className="pace-attainment">{pace.attainment === null ? 'Atingimento indisponível' : `${percent(pace.attainment)} de atingimento${pace.definitive ? '' : ' parcial'}`}</p>
-        <div className="pace-delta">{pace.delta !== null && (pace.delta >= 0 ? <ArrowUpRight size={22} /> : <ArrowDownRight size={22} />)}<div><strong>{pace.delta === null ? 'Comparação indisponível' : `${value(Math.abs(pace.delta))} ${pace.delta >= 0 ? 'à frente' : 'atrás'}`}</strong><span>{pace.delta !== null && pace.pacePercent !== null ? `${percent(Math.abs(pace.pacePercent - 100))} ${pace.delta >= 0 ? 'acima' : 'abaixo'} do esperado${pace.definitive ? '' : ' · parcial'}` : 'O comparativo usa o planejamento acumulado.'}</span></div></div>
-        <div className="pace-needed"><span>{pace.ended ? 'Saldo para atingir a meta' : 'Necessário por dia restante'}</span><strong>{value(pace.ended ? pace.remaining : pace.requiredPerDay)}</strong><small>{pace.ended ? 'O período está encerrado.' : `${pace.remainingDays} dias ${pace.basis === 'business' ? 'úteis' : 'corridos'} restantes.${pace.remaining === 0 ? ' Meta atingida.' : ''}`}</small></div>
-        <div className="pace-levels">{[['Meta', pace.target], ['Supermeta', pace.superTarget], ['Ultrameta', pace.ultraTarget]].map(([label, target]) => <div key={label}><span>{label}</span><strong>{target > 0 ? value(target) : 'Não definida'}</strong><small>{target > 0 && pace.actual !== null ? percent(pace.actual / target * 100) : '—'}</small></div>)}</div>
-        {selectedPlan?.notes && <p className="daily-footnote">{selectedPlan.notes}</p>}
-      </div>
-      <div className="pace-visual"><div className="daily-section-heading"><div><h2>Realizado × planejado</h2><p>Acumulado do mês; dias futuros não recebem vendas presumidas.</p></div><div className="daily-segment" role="group" aria-label="Formato do gráfico"><button className="button" aria-pressed={chartMode === 'area'} onClick={() => setChartMode('area')}>Área</button><button className="button" aria-pressed={chartMode === 'line'} onClick={() => setChartMode('line')}>Linhas</button><button className="button" aria-pressed={chartMode === 'bar'} onClick={() => setChartMode('bar')}>Barras</button></div></div>
-        <ReferenceChart title="Evolução acumulada da meta" rows={pace.rows} series={[{ key: 'actual', label: pace.definitive ? 'Realizado' : 'Realizado parcial', unit }, { key: 'planned', label: 'Planejado', unit, color: 'var(--chart-4, #2589b8)', dash: '5 4', fill: false }]} height={390} mode={chartMode} />
-        {pace.unallocatedRecords > 0 && <p className="daily-footnote">{pace.unallocatedRecords} registros ({value(pace.unallocated)}) sem data identificável no mês estão no realizado total, mas não foram distribuídos na curva.</p>}
-      </div>
+    <section className="surface-panel pace-milestones" aria-label="Níveis da meta">
+      <h2>Meta, supermeta e ultrameta</h2>
+      <div className="pace-levels">{[['Meta', pace.target], ['Supermeta', pace.superTarget], ['Ultrameta', pace.ultraTarget]].map(([label, target]) => <div key={label}><span>{label}</span><strong>{current?.plansError ? 'Indisponível' : target > 0 ? value(target) : 'Não definida'}</strong><small>{target > 0 && pace.actual !== null && !pace.future ? percent(pace.actual / target * 100) : '—'}</small></div>)}</div>
+      {selectedPlan?.notes && <p className="daily-footnote">{selectedPlan.notes}</p>}
     </section>
 
     <section className="stat-grid daily-stats pace-rhythm-strip" aria-label="Ritmo da meta" aria-busy={loading}>
       <PaceCard title="Realizado no mês" value={pace.future ? 'Não iniciado' : value(pace.actual)} note={`${pace.future ? '' : partialLabel}${pace.metric.label}. ${pace.ended ? 'Mês encerrado.' : 'Até a data de hoje.'}`} tone="actual" />
-      <PaceCard title="Esperado até hoje" value={pace.validTarget ? value(pace.expected) : 'Sem meta'} note={elapsedNote} />
+      <PaceCard title="Esperado até hoje" value={current?.plansError ? 'Indisponível' : pace.validTarget ? value(pace.expected) : 'Sem meta'} note={elapsedNote} />
       <PaceCard title="Ritmo da meta" value={percent(pace.pacePercent)} note={pace.pacePercent === null ? 'Disponível após início do mês e definição da meta.' : `${partialLabel}100% significa acompanhar o planejado.`} tone={pace.definitive && pace.pacePercent !== null ? pace.pacePercent >= 100 ? 'ahead' : 'behind' : undefined} />
       <PaceCard title={pace.ended ? 'Fechamento realizado' : 'Projeção do mês'} value={value(pace.projection)} note={pace.ended ? 'Valor observado no encerramento.' : `${partialLabel}Projeção linear pelo ritmo observado; não é uma previsão garantida.`} />
     </section>

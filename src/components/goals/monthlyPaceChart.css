@@ -1,0 +1,91 @@
+.pace-stage.pace-hero { display: block; width: 100%; padding: 26px 30px 18px; border-radius: 18px; overflow: hidden; }
+.pace-stage-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+.pace-stage-heading h2 { margin: 0; color: var(--text); font-size: 20px; font-weight: 650; letter-spacing: -.035em; }
+.pace-stage-heading p { display: flex; flex-wrap: wrap; gap: 5px 14px; align-items: baseline; margin: 7px 0 0; font-size: 12px; color: var(--muted); }
+.pace-stage-heading p strong { color: var(--text); font-weight: 600; }
+.pace-stage-actions { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.pace-stage-expand { font-size: 11px; min-height: 36px; padding: 7px 10px; }
+.pace-stage-scoreboard { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: center; padding: 30px 0 24px; }
+.pace-stage-scoreboard > div { min-width: 0; }
+.pace-stage-actual > span, .pace-stage-target > span { display: block; font-size: 12px; color: var(--muted); margin-bottom: 9px; }
+.pace-stage-actual > strong { display: block; font-family: 'Outfit Variable', Outfit, sans-serif; color: var(--chart-1); font-size: clamp(34px, 3.6vw, 54px); font-weight: 550; line-height: 1.05; letter-spacing: -.04em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.pace-stage-target .pace-target { color: var(--chart-2); font-family: 'Outfit Variable', Outfit, sans-serif; font-size: clamp(25px, 2.5vw, 38px); font-weight: 500; line-height: 1.1; }
+.pace-stage-target small, .pace-stage-gap small { display: block; margin-top: 8px; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.pace-stage-gap { padding-left: 23px; border-left: 1px solid var(--border); }
+.pace-stage-status { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 5px; font-size: 11px; font-weight: 600; color: var(--muted); background: var(--surface-subtle); }
+.pace-stage-status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.pace-stage-gap > strong { display: flex; align-items: center; gap: 5px; color: var(--text); font-size: clamp(16px, 1.6vw, 22px); line-height: 1.35; font-weight: 600; letter-spacing: -.025em; margin-top: 10px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.pace-stage-gap > strong svg { flex-shrink: 0; }
+.pace-stage-gap.is-ahead .pace-stage-status { color: var(--chart-5); background: color-mix(in srgb, var(--chart-5) 10%, transparent); }
+.pace-stage-gap.is-behind .pace-stage-status { color: var(--chart-1); background: color-mix(in srgb, var(--chart-1) 10%, transparent); }
+.pace-stage-gap.is-partial .pace-stage-status { color: var(--chart-4); background: color-mix(in srgb, var(--chart-4) 10%, transparent); }
+.pace-stage-chart { width: 100%; min-width: 0; }
+.pace-stage-chart .rr-chart-legend { margin: 0 0 10px; gap: 14px; }
+.pace-stage-chart .rr-chart-legend button { font-size: 12px; padding-left: 0; }
+.pace-stage-chart .rr-chart-legend i { width: 20px; height: 3px; border-radius: 2px; }
+.pace-stage-chart .rr-chart-legend button:nth-child(2) i { background: repeating-linear-gradient(to right, currentColor 0 5px, transparent 5px 8px) !important; }
+.pace-stage-chart .rr-graph-grid line { stroke-dasharray: 2 6; opacity: .85; }
+.pace-stage-chart .rr-graph-grid text, .pace-stage-chart .rr-graph-date { font-size: 11px; }
+.pace-stage-chart .rr-chart-plot:focus-visible { outline-offset: 3px; border-radius: 8px; }
+.pace-stage-footer { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: center; border-top: 1px solid var(--border); margin-top: 12px; padding-top: 18px; }
+.pace-stage-footer p { margin: 0; font-size: 12px; line-height: 1.7; color: var(--text); }
+.pace-stage-footer p span { display: block; color: var(--muted); font-size: 11px; }
+.pace-stage-footer > div span { display: block; font-size: 11px; color: var(--muted); }
+.pace-stage-footer > div strong { display: block; margin-top: 6px; font-size: 19px; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.pace-stage-help { margin: 16px 0 0; font-size: 10px; color: var(--muted); }
+.pace-stage-coverage { margin: 15px 0 0; padding: 10px 12px; border-left: 3px solid var(--chart-4); background: var(--surface-subtle); font-size: 11px; line-height: 1.6; color: var(--text); }
+.pace-stage-dialog { width: calc(100vw - 32px); max-width: none; max-height: calc(100dvh - 32px); margin: auto; padding: 24px 32px; border: 1px solid var(--border); border-radius: 18px; color: var(--text); background: var(--surface); overflow: auto; }
+.pace-stage-dialog::backdrop { background: rgb(8 14 23 / 80%); backdrop-filter: blur(4px); }
+.pace-stage-dialog .pace-stage-scoreboard { padding: 20px 0 18px; }
+.pace-stage-dialog .pace-stage-actual > strong { font-size: clamp(32px, 3vw, 46px); }
+.pace-stage-dialog .pace-stage-target .pace-target { font-size: clamp(24px, 2.5vw, 34px); }
+.pace-stage-dialog .pace-stage-heading h2 { font-size: 18px; }
+.pace-stage-dialog .pace-stage-footer { padding-top: 12px; }
+.pace-stage-dialog .pace-stage-help { margin-top: 12px; }
+.pace-milestones { padding: 20px 24px; }
+.pace-milestones h2 { margin: 0 0 15px; font-size: 15px; }
+.pace-milestones .pace-levels { margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+.pace-milestones .pace-levels > div { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.pace-milestones .pace-levels strong { font-size: 20px; }
+@media (max-width: 1100px) {
+  .pace-stage.pace-hero { padding: 23px; }
+  .pace-stage-heading { flex-wrap: wrap; }
+  .pace-stage-scoreboard { gap: 18px; }
+  .pace-stage-gap { padding-left: 16px; }
+}
+@media (max-width: 650px) {
+  .pace-stage.pace-hero { padding: 18px 14px 15px; border-radius: 13px; }
+  .pace-stage-heading { gap: 14px; }
+  .pace-stage-heading h2 { font-size: 18px; }
+  .pace-stage-heading p { font-size: 11px; gap: 5px 10px; }
+  .pace-stage-actions { width: 100%; justify-content: space-between; gap: 6px; }
+  .pace-stage-actions .daily-segment .button { font-size: 10px; padding: 6px 8px; }
+  .pace-stage-actions .pace-stage-expand { font-size: 10px; padding: 7px 8px; gap: 5px; white-space: nowrap; }
+  .pace-stage-scoreboard { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 20px 14px; padding: 24px 0 18px; }
+  .pace-stage-actual > strong { font-size: 32px; }
+  .pace-stage-target .pace-target { font-size: 25px; }
+  .pace-stage-actual > span, .pace-stage-target > span { font-size: 10px; }
+  .pace-stage-gap { grid-column: 1 / -1; padding: 12px 0 0; border-left: 0; border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; align-items: center; gap: 5px 12px; }
+  .pace-stage-gap > strong { margin-top: 0; font-size: 15px; }
+  .pace-stage-gap small { width: 100%; margin-top: 1px; font-size: 10px; }
+  .pace-stage-chart .rr-chart-legend { gap: 8px; }
+  .pace-stage-chart .rr-chart-legend button { font-size: 10px; }
+  .pace-stage-chart .rr-graph-grid text, .pace-stage-chart .rr-graph-date { font-size: 10px; }
+  .pace-stage-footer { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .pace-stage-footer p { grid-column: 1 / -1; font-size: 11px; }
+  .pace-stage-footer > div strong { font-size: 17px; }
+  .pace-stage-help { font-size: 9px; line-height: 1.5; }
+  .pace-stage-dialog { width: calc(100vw - 16px); max-height: calc(100dvh - 16px); padding: 18px 14px; border-radius: 12px; }
+  .pace-stage-dialog .pace-stage-heading h2 { font-size: 16px; }
+  .pace-milestones { padding: 18px; }
+  .pace-milestones .pace-levels { grid-template-columns: 1fr; gap: 16px; }
+  .pace-milestones .pace-levels > div { display: grid; grid-template-columns: 1fr auto 40px; align-items: center; gap: 10px; }
+  .pace-milestones .pace-levels strong { font-size: 15px; }
+}
+@media (max-width: 480px) {
+  .pace-stage-scoreboard { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+  .pace-stage-actual > strong, .pace-stage-dialog .pace-stage-actual > strong { font-size: clamp(28px, 8vw, 36px); }
+  .pace-stage-target .pace-target { font-size: 28px; }
+  .pace-stage-actual > span, .pace-stage-target > span { margin-bottom: 5px; }
+  .pace-stage-target small { margin-top: 5px; }
+}

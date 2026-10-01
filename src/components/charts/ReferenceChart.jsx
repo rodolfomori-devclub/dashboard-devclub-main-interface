@@ -6,7 +6,7 @@ import './referenceChart.css';
 import { finiteNumber, niceScale, segmentedPaths, positionEndLabels, chooseTickIndices } from './chartMath.js';
 
 const REFERENCE_COLORS = ['var(--chart-1, #e64b63)', 'var(--chart-2, #8064d8)', 'var(--chart-3, #cd7a27)', 'var(--chart-4, #2589b8)', 'var(--chart-5, #159b82)', 'var(--chart-6, #b89a22)'];
-export function ReferenceChart({ rows = [], series = [], title, height = 380, mode = 'line', rotateDates = false, showLegend = true, pointLabels = false, daily = true, maxEndLabels = 4 }) {
+export function ReferenceChart({ rows = [], series = [], title, height = 380, mode = 'line', rotateDates = false, showLegend = true, pointLabels = false, daily = true, maxEndLabels = 4, referenceDate, referenceLabel = 'Hoje', shadeAfterReference = false, tickSpacing, tooltipTitle, tooltipRows, tooltipNote }) {
   const ref = useRef(null), id = useId();
   const [width, setWidth] = useState(800), [hidden, setHidden] = useState([]), [active, setActive] = useState(null);
   useEffect(() => {
@@ -40,12 +40,21 @@ export function ReferenceChart({ rows = [], series = [], title, height = 380, mo
   const hasData = rows.some(row => visible.some(s => finiteNumber(row[s.key]) !== null));
   const selectPointer = event => { const rect = ref.current?.getBoundingClientRect(); if (!rect || !rows.length) return; const pointer = event.clientX - rect.left; setActive(rows.reduce((closest, _, index) => Math.abs(x(index) - pointer) < Math.abs(x(closest) - pointer) ? index : closest, 0)); };
   const selected = active == null ? null : rows[active];
-  const tickIndices = new Set(chooseTickIndices(rows.length, right - left, rotateDates && width > 650 ? 22 : width < 400 ? 65 : 80));
+  const tickIndices = new Set(chooseTickIndices(rows.length, right - left, tickSpacing ?? (rotateDates && width > 650 ? 22 : width < 400 ? 65 : 80)));
+  const referenceIndex = referenceDate ? rows.findIndex(row => row.date === referenceDate) : -1;
+  const selectedTitle = selected && (tooltipTitle?.(selected) || selected.label || formatDate(selected.date, { year: 'numeric' }));
+  const selectedExtras = selected ? tooltipRows?.(selected) || [] : [];
+  const selectedNote = selected && tooltipNote?.(selected);
   return <div className="rr-chart" data-mode={mode}>
     {showLegend && <div className="rr-chart-legend" aria-label={`Séries de ${title}`}>{colored.map(s => <button key={s.key} aria-pressed={!hidden.includes(s.key)} onClick={() => setHidden(old => old.includes(s.key) ? old.filter(k => k !== s.key) : [...old, s.key])}><i style={{ background: s.color, color: s.color }}/>{s.label}</button>)}</div>}
     <div className="rr-chart-plot" ref={ref} style={{ height }} tabIndex={0} role="group" aria-label={`Explorar ${title}`} onPointerMove={selectPointer} onPointerDown={selectPointer} onPointerLeave={() => setActive(null)} onBlur={() => setActive(null)} onKeyDown={e => { if (['ArrowLeft', 'ArrowRight', 'Home', 'End', 'Escape'].includes(e.key)) { e.preventDefault(); setActive(e.key === 'Escape' ? null : e.key === 'Home' ? 0 : e.key === 'End' ? rows.length - 1 : Math.max(0, Math.min(rows.length - 1, (active ?? 0) + (e.key === 'ArrowRight' ? 1 : -1)))); } }}>
       <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} role="img" aria-label={title}>
         <defs>{colored.map((s, index) => <linearGradient key={s.key} id={`${id}-area-${index}`} x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor={s.color} stopOpacity=".22"/><stop offset="100%" stopColor={s.color} stopOpacity=".015"/></linearGradient>)}<clipPath id={`${id}-clip`}><rect x={left - 5} y={top - 9} width={right - left + 10} height={bottom - top + 18}/></clipPath></defs>
+        {referenceIndex >= 0 && <g className="rr-chart-reference" data-reference-date={referenceDate} aria-label={`${referenceLabel}: ${formatDate(referenceDate)}`}>
+          {shadeAfterReference && <rect className="rr-chart-future" x={x(referenceIndex)} y={top} width={Math.max(0, right - x(referenceIndex))} height={bottom - top} />}
+          <line x1={x(referenceIndex)} x2={x(referenceIndex)} y1={top} y2={bottom} />
+          <text x={Math.max(left + 18, Math.min(right - 18, x(referenceIndex)))} y={top - 10} textAnchor="middle">{referenceLabel}</text>
+        </g>}
         {units.slice(0, 2).map((unit, index) => <text key={`unit-${unit}`} className="rr-graph-unit" x={index === 0 ? left : right} y="15" textAnchor={index === 0 ? 'start' : 'end'}>{unit === 'currency' ? 'R$' : unit === 'percent' ? '%' : 'Quantidade'}</text>)}
         {(units.length ? units : ['count']).slice(0, 2).map((unit, i) => (axes[unit] || niceScale([0, 1], { ticks: 5 })).ticks.map(tick => <g key={`${unit}-${tick}`} className="rr-graph-grid">{i === 0 && <line x1={left} x2={right} y1={y(tick, unit)} y2={y(tick, unit)}/>}<text x={i === 0 ? left - 9 : width - 8} y={y(tick, unit) + 3} textAnchor="end">{axisLabel(tick, unit)}</text></g>))}
         {rows.map((row, index) => { return !tickIndices.has(index) ? null : <text key={row.date || index} className="rr-graph-date" transform={rotateDates ? `translate(${x(index)},${bottom + 18}) rotate(-48)` : undefined} x={rotateDates ? undefined : x(index)} y={rotateDates ? undefined : bottom + 22} textAnchor={rotateDates ? 'end' : 'middle'}>{row.label || formatDate(row.date)}</text>; })}
@@ -56,8 +65,8 @@ export function ReferenceChart({ rows = [], series = [], title, height = 380, mo
         {mode !== 'bar' && !selected && endLabels.length <= maxEndLabels && endLabels.map(s => { const label = formatValue(s.value, s.unit, true), labelWidth = Math.min(114, Math.max(54, label.length * 6.2 + 14)); const lx = Math.min(width - labelWidth - 5, Math.max(left, s.x - labelWidth / 2)); return <g key={s.key} style={{ color: s.color }}><circle cx={s.x} cy={s.y} r="2.8" fill="currentColor"/><rect x={lx} y={s.labelY - 23} rx="5" width={labelWidth} height="21" fill="var(--surface, #fff)" stroke="currentColor" strokeWidth=".8"/><text x={lx + labelWidth / 2} y={s.labelY - 9} fill="currentColor" textAnchor="middle" fontSize="12" fontWeight="600">{label}</text></g>; })}
       </svg>
       {!hasData && <div className="rr-chart-empty">{visible.length ? 'Sem dados observados neste período' : 'Selecione uma série na legenda'}</div>}
-      {selected && <div className="rr-chart-tooltip" style={{ left: Math.max(4, Math.min(width - 234, Math.max(8, x(active) + 14))), top: 20 }}><strong>{selected.label || formatDate(selected.date, { year: 'numeric' })}</strong>{visible.map(s => <div key={s.key}><span><i style={{ background: s.color }}/>{s.label}</span><b>{formatValue(selected[s.key], s.unit)}</b></div>)}</div>}
+      {selected && <div className="rr-chart-tooltip" style={{ left: Math.max(4, Math.min(width - 234, Math.max(8, x(active) + 14))), top: 20 }}><strong>{selectedTitle}</strong>{visible.map(s => <div key={s.key}><span><i style={{ background: s.color }}/>{s.label}</span><b>{formatValue(selected[s.key], s.unit)}</b></div>)}{selectedExtras.map((item, index) => <div className="rr-chart-tooltip-detail" key={item.label || index}><span>{item.label}</span><b>{item.value}</b></div>)}{selectedNote && <p className="rr-chart-tooltip-note">{selectedNote}</p>}</div>}
     </div>
-    <span className="rv-sr-only" aria-live="polite">{selected && `${selected.label || formatDate(selected.date)}. ${visible.map(s => `${s.label}: ${formatValue(selected[s.key], s.unit)}`).join('. ')}`}</span>
+    <span className="rv-sr-only" aria-live="polite">{selected && `${selectedTitle}. ${visible.map(s => `${s.label}: ${formatValue(selected[s.key], s.unit)}`).join('. ')}. ${selectedExtras.map(item => `${item.label}: ${item.value}`).join('. ')} ${selectedNote || ''}`}</span>
   </div>;
 }
