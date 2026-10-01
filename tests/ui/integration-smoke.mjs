@@ -5,6 +5,7 @@ import fs from 'node:fs/promises'
 import assert from 'node:assert/strict'
 import {checkComparison} from './comparison-checks.mjs'
 import { checkGoalConfiguration } from './goal-config-checks.mjs'
+import { periodCacheFixture, emptyProviderPayload } from './period-cache-fixture.mjs'
 const out = process.env.DASHBOARD_SMOKE_OUTPUT || fileURLToPath(new URL('./artifacts/integration', import.meta.url))
 await fs.mkdir(out, { recursive: true })
 const base = process.env.DASHBOARD_SMOKE_URL || 'http://localhost:4317'
@@ -50,6 +51,7 @@ await context.route('**/*',async route=>{
  if(!['GET','HEAD'].includes(method))writes.push({path:url.pathname,method,body:request.headers()['content-type']?.includes('json')?request.postDataJSON():request.postData()})
  let body
  if(url.pathname==='/api/access')body={user:{sub:'fixture-user',email:'qa@example.test',name:'QA local',permissions:admin?['admin']:goalReader?['goals']:['materials'],isAdmin:admin}}
+ else if(url.pathname==='/api/period-cache')body=periodCacheFixture(url,{today:date,payloadForSource:(id,range)=>id==='guru'?{data:guruRows.filter(row=>{const day=new Date(row.dates.created_at*1000).toISOString().slice(0,10);return day>=range.startDate&&day<=range.endDate})}:emptyProviderPayload(id)})
 
  else if(url.pathname==='/api/hub/session')body={user:{...profile,role:admin?'gestor':'vendedor'}}
  else if(url.pathname==='/api/hub/materials/upload')body={url:'storage://materials/fixture-upload.pdf'}

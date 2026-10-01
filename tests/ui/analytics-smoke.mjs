@@ -4,6 +4,7 @@ import { existsSync } from 'node:fs'
 import fs from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import assert from 'node:assert/strict'
+import { periodCacheFixture, emptyProviderPayload } from './period-cache-fixture.mjs'
 const base = process.env.DASHBOARD_SMOKE_URL || 'http://127.0.0.1:4317'
 const out = fileURLToPath(new URL('./artifacts/analytics', import.meta.url))
 await fs.mkdir(out, { recursive: true })
@@ -16,6 +17,9 @@ await context.addInitScript(() => {
 })
 if(context.routeWebSocket) await context.routeWebSocket('**/*',()=>{})
 const errors=[], calls=[], external=[]
+const cacheCalls=[]
+let cacheScenario='ready', releaseCache=false
+const ledger={attributions:[],manualSales:[]}
 const products=['DevClub Full Stack','MBA em Inteligência Artificial','IAClub','Seu segundo salário com IA']
 const transactions=[]
 for(let month=1;month<=9;month++) for(let day=1;day<=(month===9?21:28);day++) for(let index=0;index<4;index++) {
@@ -30,6 +34,14 @@ await context.route('**/*',async route=>{
  calls.push(url.pathname)
  let body
  if(url.pathname==='/api/access')body={user:{sub:'fixture',email:'qa@example.test',name:'QA visual',permissions:['today','daily','monthly','yearly','goal-pace','goals'],isAdmin:true}}
+ else if(url.pathname==='/api/period-cache'){
+  cacheCalls.push(Object.fromEntries(url.searchParams))
+  body=periodCacheFixture(url,{today:'2026-09-21',statusForSource:(_id,range)=>cacheScenario==='cold'||cacheScenario==='partialToday'&&range.kind==='today'?'loading':'ready',payloadForSource:(id,range)=>id==='guru'?{data:transactions.filter(row=>{const date=new Date(row.dates.created_at*1000).toISOString().slice(0,10);return date>=range.startDate&&date<=range.endDate})}:emptyProviderPayload(id)})
+  if(cacheScenario==='refresh'&&!releaseCache){
+   for(const segment of body.segments)for(const source of segment.sources){source.status='stale';source.refreshing=true;source.fetchedAt='2026-09-20T07:00:00.000Z'}
+   body.complete=false;body.pending=body.total;body.completed=0
+  }
+ }
  else if(url.pathname==='/api/transactions'){
   const range=request.postDataJSON();body={data:transactions.filter(row=>{const date=new Date(row.dates.created_at*1000).toISOString().slice(0,10);return date>=range.ordered_at_ini&&date<=range.ordered_at_end})}
  }
@@ -38,7 +50,7 @@ await context.route('**/*',async route=>{
  else if(url.pathname.startsWith('/api/boleto/vendas/'))body={success:true,data:[]}
  else if(url.pathname==='/api/boleto/asaas/vendas')body={success:true,data:{count:0,totalGross:0,totalNet:0,totalFees:0,cashReceipts:[],sales:null,availability:{cash:'ready',sales:'unavailable',reason:'checkout_disabled'}}}
  else if(url.pathname==='/api/boleto/boletex/vendas')body={success:true,data:{sales:{count:0,totalValue:0,confirmedValue:0,pendingValue:0,entries:[]}}}
- else if(url.pathname==='/api/sales-ops/ledger')body={data:{attributions:[],manualSales:[]}}
+ else if(url.pathname==='/api/sales-ops/ledger')body={data:ledger}
  else if(url.pathname==='/api/goal-plans/options')body={teams:[],individuals:[]}
  else if(url.pathname.startsWith('/api/goal-plans/'))body={plans:[{id:1,scope:'overall',scopeId:'all',product:'all',metric:'gross',target:175000,superTarget:210000,ultraTarget:240000,paceBasis:'calendar'},...products.map((_,index)=>({id:index+2,scope:'product',scopeId:['DevClub','MBA','IAClub','Seu segundo salário com IA'][index],product:['DevClub','MBA','IAClub','Seu segundo salário com IA'][index],metric:'gross',target:50000,paceBasis:'calendar'}))]}
  else if(url.pathname.startsWith('/api/goals/'))body={success:true,data:{meta:175000,superMeta:210000,ultraMeta:240000}}
@@ -74,6 +86,53 @@ try{
   if(await hero.count())await hero.screenshot({path:`${out}/${path}-${theme}-${width}-hero.png`,animations:'disabled'})
   checks.push({path,theme,width,timeSeries:chartCount,keyboard:true,overflow:false})
  }
+ // Cache protocol and reload regression: real browser state, synthetic APIs.
+ cacheScenario='partialToday'
+ await page.goto(`${base}/mensal`,{waitUntil:'networkidle'})
+ const partialChart=page.locator('.period-revenue-plot .rr-chart-plot')
+ await partialChart.waitFor();await partialChart.focus();await page.keyboard.press('Home')
+ for(let index=0;index<20;index++)await page.keyboard.press('ArrowRight')
+ assert.match(await page.locator('.rr-chart-tooltip').first().innerText(),/Não informado/,'today loading must be a chart gap even when history is ready')
+ cacheScenario='ready'
+ await page.goto(`${base}/mensal`,{waitUntil:'networkidle'})
+ await page.locator('.period-revenue-plot .rr-chart-plot').waitFor()
+ const cacheRegion=page.getByRole('region',{name:'Atualização do histórico'})
+ assert.match(await cacheRegion.innerText(),/21\/09\/2026,? 04:00/)
+ const beforeFilters=calls.length
+ await page.locator('#period-family').selectOption('DevClub')
+ await page.locator('#period-family').selectOption('')
+ assert.equal(calls.length,beforeFilters,'local filters must not reread cache or providers')
+ ledger.manualSales=[{id:'fresh-ledger',date:'2026-09-21',product:'Cache manual QA',family:'DevClub',platform:'Pix direto',gross:400,net:321,cashCollected:200,status:'pending'}]
+ cacheScenario='refresh'
+ const beforeRefresh=cacheCalls.length
+ const beforeLedger=calls.filter(path=>path==='/api/sales-ops/ledger').length
+ await page.getByRole('button',{name:'Atualizar',exact:true}).click()
+ await page.getByText(/consultas usam a última versão disponível/).waitFor()
+ assert.equal(await page.locator('.period-revenue-plot .rr-chart-plot').count(),1,'refresh must preserve the chart')
+ await page.waitForFunction(()=>document.querySelector('#period-product option[value="Cache manual QA"]'))
+ assert.equal(calls.filter(path=>path==='/api/sales-ops/ledger').length,beforeLedger+1,'new load reads the current ledger once')
+ await page.waitForTimeout(2200)
+ assert.ok(cacheCalls.length>beforeRefresh+1,'pending snapshots must be polled')
+ assert.equal(cacheCalls[beforeRefresh].force,'1')
+ assert.ok(cacheCalls.slice(beforeRefresh+1).every(request=>request.force===undefined),'polls must never enqueue another forced update')
+ releaseCache=true
+ await page.waitForFunction(()=>!Array.from(document.querySelectorAll('button')).find(button=>button.textContent.trim()==='Atualizar')?.disabled)
+ assert.equal(calls.filter(path=>path==='/api/sales-ops/ledger').length,beforeLedger+1)
+ cacheScenario='ready'
+ await page.getByLabel('Mês',{exact:true}).fill('2026-08')
+ await page.getByRole('button',{name:/Aplicar período/}).click()
+ await page.waitForFunction(()=>document.querySelector('.period-observed-range')?.textContent.includes('01/08/2026'))
+ assert.equal(cacheCalls.at(-1).force,undefined,'switching month after refresh must reuse the server cache')
+ cacheScenario='cold'
+ await page.getByLabel('Mês',{exact:true}).fill('2026-07')
+ await page.getByRole('button',{name:/Aplicar período/}).click()
+ await page.getByText(/0 de 7 consultas concluídas/).waitFor()
+ const beforeLeaving=cacheCalls.length
+ await page.goto(`${base}/global`,{waitUntil:'networkidle'})
+ await page.waitForTimeout(2200)
+ assert.equal(cacheCalls.length,beforeLeaving,'leaving the page must cancel all later polls')
+ cacheScenario='ready'
+ checks.push({periodCache:true,refreshOnce:true,freshLedger:true,localFilters:true,cancel:true})
  assert.deepEqual(errors,[]);assert.deepEqual(external,[])
  await fs.writeFile(`${out}/results.json`,JSON.stringify({passed:true,checks,apiCalls:calls.length,errors,external},null,2))
  console.log(JSON.stringify({passed:true,screenshots:checks.length,checks:checks.length,apiCalls:calls.length,errors,external,out}))

@@ -9,7 +9,7 @@ import { ReferenceChart } from '../components/charts/ReferenceChart'
 import { ChartPanel, RankedBars, MixChart } from '../components/charts/AnalyticsVisuals'
 import '../components/charts/periodAnalytics.css'
 import WeekSelector from '../components/WeekSelector'
-import { loadPeriodSales } from '../services/periodSalesService'
+import { loadPeriodSales, bucketHasSalesSource } from '../services/periodSalesService'
 import { useAuth } from '../contexts/AuthContext'
 import { localDateKey } from '../components/daily/dailyData'
 import { EMPTY_FILTERS, UNKNOWN, filterSales, filterOptions, groupSales } from '../utils/salesData'
@@ -20,6 +20,7 @@ const currency = (value, currencyCode = 'BRL') => value === null || value === un
 const count = value => Number(value || 0).toLocaleString('pt-BR')
 const displayAmount = value => value.known || !value.missing ? currency(value.value) : '—'
 const dateBR = value => value ? value.slice(0, 10).split('-').reverse().join('/') : 'Sem data'
+const snapshotDate = value => value && Number.isFinite(Date.parse(value)) ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' }).format(new Date(value)) : 'Não informada'
 const TITLE = { global: 'Visão global', month: 'Visão mensal', year: 'Visão anual' }
 const GOALS = { meta: 'Meta', superMeta: 'Super meta', ultraMeta: 'Ultra meta' }
 const GROUP_NAMES = { product: 'Produtos', family: 'Famílias', offer: 'Ofertas', payment: 'Meios de pagamento' }
@@ -71,7 +72,6 @@ export default function PeriodDashboard({ mode = 'global' }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [progress, setProgress] = useState({ current: 0, total: 1 })
-  const [refresh, setRefresh] = useState(0)
   const [chartMode, setChartMode] = useState('area')
   const [accumulated, setAccumulated] = useState(false)
   const [dimension, setDimension] = useState('product')
@@ -90,16 +90,17 @@ export default function PeriodDashboard({ mode = 'global' }) {
 
   useEffect(() => {
     let active = true
+    const controller = new AbortController()
     const today = localDateKey()
     const endDate = range.endDate > today ? today : range.endDate
-    setLoading(true); setData(null); setError(''); setProgress({ current: 0, total: mode === 'year' ? 12 : 1 })
+    setLoading(true); setData(previous => previous?.startDate === range.startDate && previous?.endDate === endDate ? previous : null); setError(''); setProgress({ current: 0, total: 0 })
     if (range.startDate > endDate) { setLoading(false); setError('Este período ainda não começou. Selecione um período iniciado.'); return }
-    loadPeriodSales(range.startDate, endDate, { annual: mode === 'year', force: refresh > 0, isCancelled: () => !active, onProgress: value => { if (active) setProgress(value) } })
+    loadPeriodSales(range.startDate, endDate, { annual: mode === 'year', historical: mode === 'month', force: range.force === true, signal: controller.signal, isCancelled: () => !active, onProgress: value => { if (active) setProgress(value) }, onSnapshot: result => { if (active) setData(result) } })
       .then(result => { if (active) { setData(result); setDetailPage(1) } })
-      .catch(() => { if (active) setError('Não foi possível carregar este período. Tente novamente.') })
+      .catch(() => { if (active) setError('Não foi possível atualizar este período. Os dados anteriores, quando disponíveis, foram mantidos. Tente novamente.') })
       .finally(() => { if (active) setLoading(false) })
-    return () => { active = false }
-  }, [range, mode, refresh])
+    return () => { active = false; controller.abort() }
+  }, [range, mode])
 
   useEffect(() => {
     if (mode === 'global') return
@@ -113,7 +114,7 @@ export default function PeriodDashboard({ mode = 'global' }) {
       })
       .catch(() => { if (!controller.signal.aborted) setGoalError('Metas indisponíveis. Nenhum valor foi substituído por zero.') })
     return () => controller.abort()
-  }, [mode, range, refresh])
+  }, [mode, range])
 
   const allRecords = useMemo(() => data?.records || [], [data])
   const filtered = useMemo(() => filterSales(allRecords, filters).filter(row => !offer || (offer === UNKNOWN ? !row.offer : row.offer === offer)), [allRecords, filters, offer])
@@ -123,14 +124,30 @@ export default function PeriodDashboard({ mode = 'global' }) {
   const sourceAvailable = ids => relevantSources.some(source => ids.includes(source.id) && sourceHasSales(source))
   const digitalAvailable = sourceAvailable(['guru', 'hotmart']) || summary.digital.count > 0
   const boletoAvailable = sourceAvailable(['tmb', 'asaas', 'boletex']) || summary.boleto.count > 0
-  const guruAvailable = sourceAvailable(['guru'])
-  const refundAvailable = sourceAvailable(['guruRefunds', 'hotmartRefunds'])
   const chart = useMemo(() => {
     const values = periodSeries(filtered, range.startDate, range.endDate, mode === 'year')
     const today = localDateKey()
-    values.rows = values.rows.map(row => row.date > today ? { ...row, revenue: null, digital: null, boleto: null, count: null, affiliate: null, refund: null, commercial: null } : { ...row, digital: digitalAvailable ? row.digital : null, boleto: boletoAvailable ? row.boleto : null, affiliate: guruAvailable ? row.affiliate : null, commercial: guruAvailable ? row.commercial : null, refund: refundAvailable ? row.refund : null })
+    const sources = data?.sources.filter(source => !filters.platform || source.platform === filters.platform || source.id === 'manual') || []
+    const observedByBucket = new Map()
+    for (const record of filtered) {
+      const date = mode === 'year' && record.cohortMonth ? `${record.cohortMonth}-01` : localDay(record.date)
+      const key = mode === 'year' ? date?.slice(0, 7) : date
+      if (key) { if (!observedByBucket.has(key)) observedByBucket.set(key, []); observedByBucket.get(key).push(record) }
+    }
+    values.rows = values.rows.map(row => {
+      if (row.date > today) return { ...row, revenue: null, digital: null, boleto: null, count: null, affiliate: null, refund: null, commercial: null }
+      const end = mode === 'year' ? new Date(Date.UTC(Number(row.date.slice(0, 4)), Number(row.date.slice(5, 7)), 0, 12)).toISOString().slice(0, 10) : row.date
+      const observed = observedByBucket.get(mode === 'year' ? row.date.slice(0, 7) : row.date) || []
+      const hasSource = ids => bucketHasSalesSource(sources, ids, row.date, end)
+      const sales = hasSource(['guru', 'hotmart', 'tmb', 'asaas', 'boletex']) || observed.some(record => record.kind === 'sale')
+      const digital = hasSource(['guru', 'hotmart']) || observed.some(record => record.kind === 'sale' && ['Guru', 'Hotmart'].includes(record.platform))
+      const boleto = hasSource(['tmb', 'asaas', 'boletex']) || observed.some(record => record.kind === 'sale' && ['TMB', 'Asaas', 'Boletex'].includes(record.platform))
+      const guru = hasSource(['guru']) || observed.some(record => record.kind === 'sale' && record.platform === 'Guru' && !record.isManual)
+      const refund = hasSource(['guruRefunds', 'hotmartRefunds']) || observed.some(record => record.kind === 'refund')
+      return { ...row, revenue: sales ? row.revenue : null, count: sales ? row.count : null, digital: digital ? row.digital : null, boleto: boleto ? row.boleto : null, affiliate: guru ? row.affiliate : null, commercial: guru ? row.commercial : null, refund: refund ? row.refund : null }
+    })
     return values
-  }, [filtered, range, mode, digitalAvailable, boletoAvailable, guruAvailable, refundAvailable])
+  }, [filtered, range, mode, data, filters.platform])
   const revenueRows = useMemo(() => accumulated ? accumulatedRevenue(chart.rows) : chart.rows, [chart.rows, accumulated])
   const groups = useMemo(() => groupSales(summary.sales, dimension), [summary.sales, dimension])
   const platforms = useMemo(() => groupSales(summary.sales, 'sourceId'), [summary.sales])
@@ -144,6 +161,7 @@ export default function PeriodDashboard({ mode = 'global' }) {
   const unavailable = relevantSources.filter(source => source.status !== 'ready')
   const salesPartial = relevantSources.some(source => source.kind === 'sale' && source.status !== 'ready')
   const boletoPartial = relevantSources.some(source => ['asaas', 'boletex', 'tmb', 'manual'].includes(source.id) && source.status !== 'ready')
+  const cacheStatus = progress.generatedAt ? progress : data?.cache
 
   function selectGroup(name) {
     const value = name === 'Não informado' ? UNKNOWN : name
@@ -154,7 +172,7 @@ export default function PeriodDashboard({ mode = 'global' }) {
   function applyRange(event) {
     event.preventDefault()
     if (!draft.startDate || !draft.endDate || draft.startDate > draft.endDate || (Date.parse(draft.endDate) - Date.parse(draft.startDate)) / 86400000 > 365) { setError('Selecione um período válido de até 366 dias.'); return }
-    setRange({ ...draft }); setSelectedWeek(null); setTraffic(null); setTrafficError(''); setExpanded(null)
+    setRange({ ...draft, force: false }); setSelectedWeek(null); setTraffic(null); setTrafficError(''); setExpanded(null)
   }
   function selectWeek(week) {
     const next = { startDate: localDateKey(week.startDate), endDate: localDateKey(week.endDate) }
@@ -190,7 +208,7 @@ export default function PeriodDashboard({ mode = 'global' }) {
   }
 
   return <div className="hub-page period-analytics space-y-6">
-    <header className="page-heading flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[.16em] text-slate-500 mb-2">Performance comercial</p><h1 className="text-3xl font-semibold">{TITLE[mode]}</h1><p className="text-sm text-slate-500 mt-2">Receita, produtos e meios de pagamento. Do consolidado a cada venda.</p></div><div className="flex gap-2"><button type="button" className="btn btn-ghost disabled:opacity-40" onClick={exportRows} disabled={!filtered.length || loading}><Download size={16} />Exportar</button><button type="button" className="btn btn-ghost disabled:opacity-40" disabled={loading} onClick={() => setRefresh(value => value + 1)}><RefreshCw size={16} className={loading ? 'animate-spin' : ''} />Atualizar</button></div></header>
+    <header className="page-heading flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[.16em] text-slate-500 mb-2">Performance comercial</p><h1 className="text-3xl font-semibold">{TITLE[mode]}</h1><p className="text-sm text-slate-500 mt-2">Receita, produtos e meios de pagamento. Do consolidado a cada venda.</p></div><div className="flex gap-2"><button type="button" className="btn btn-ghost disabled:opacity-40" onClick={exportRows} disabled={!filtered.length || loading}><Download size={16} />Exportar</button><button type="button" className="btn btn-ghost disabled:opacity-40" disabled={loading} title={mode === 'global' ? 'Atualizar fontes' : 'Atualizar histórico e hoje'} onClick={() => setRange(previous => ({ ...previous, force: true }))}><RefreshCw size={16} className={loading ? 'animate-spin' : ''} />Atualizar</button></div></header>
     <form onSubmit={applyRange} className="filter-bar ds-card p-4 flex flex-wrap items-end gap-3">
       {mode === 'month' ? <div><label htmlFor="period-month" className="ds-label">Mês</label><input id="period-month" className="ds-input" type="month" required value={draft.startDate.slice(0, 7)} onChange={e => { const value = monthRange(e.target.value); if (value) setDraft(value) }} /></div>
         : mode === 'year' ? <div><label htmlFor="period-year" className="ds-label">Ano</label><input id="period-year" type="number" min="2020" max={new Date().getFullYear() + 1} required className="ds-input" value={Number(draft.startDate.slice(0, 4))} onChange={e => { if (/^\d{4}$/.test(e.target.value)) setDraft({ startDate: `${e.target.value}-01-01`, endDate: `${e.target.value}-12-31` }) }} /></div>
@@ -200,8 +218,10 @@ export default function PeriodDashboard({ mode = 'global' }) {
     <section className="ds-card p-4" aria-label="Filtros de vendas"><div className="grid sm:grid-cols-2 xl:grid-cols-5 gap-3">{[['family', 'Família'], ['product', 'Produto'], ['platform', 'Plataforma'], ['payment', 'Pagamento']].map(([key, label]) => <div key={key}><label htmlFor={`period-${key}`} className="ds-label">{label}</label><select id={`period-${key}`} className="ds-input" value={filters[key]} onChange={e => changeFilter(key, e.target.value)}><option value="">Todos</option>{(key === 'platform' ? [...new Set([...(data?.sources.filter(source => source.kind === 'sale').map(source => source.platform) || []), ...filterOptions(allRecords, key)])] : filterOptions(allRecords, key)).map(value => <option key={value} value={value}>{value}</option>)}<option value={UNKNOWN}>Não informado</option></select></div>)}<div><label htmlFor="period-offer" className="ds-label">Oferta</label><select id="period-offer" className="ds-input" value={offer} onChange={e => { setOffer(e.target.value); setDetailPage(1) }}><option value="">Todas</option>{filterOptions(allRecords, 'offer').map(value => <option key={value} value={value}>{value}</option>)}<option value={UNKNOWN}>Não informada</option></select></div></div>{hasFilters && <button className="text-xs text-blue-600 dark:text-blue-300 mt-3 underline" type="button" onClick={() => { setFilters({ ...EMPTY_FILTERS }); setOffer(''); setDetailPage(1) }}>Limpar filtros</button>}</section>
     <details className="ds-card p-4"><summary className="text-sm font-medium cursor-pointer">Origem e campanhas</summary><div className="grid sm:grid-cols-2 xl:grid-cols-5 gap-3 mt-4">{[['source', 'Origem UTM'], ['medium', 'Mídia'], ['campaign', 'Campanha'], ['content', 'Conteúdo'], ['term', 'Termo']].map(([key, label]) => <div key={key}><label htmlFor={`period-utm-${key}`} className="ds-label">{label}</label><select id={`period-utm-${key}`} className="ds-input" value={filters[key]} onChange={e => changeFilter(key, e.target.value)}><option value="">Todos</option>{(key === 'platform' ? [...new Set([...(data?.sources.filter(source => source.kind === 'sale').map(source => source.platform) || []), ...filterOptions(allRecords, key)])] : filterOptions(allRecords, key)).map(value => <option key={value} value={value}>{value}</option>)}<option value={UNKNOWN}>Não informado</option></select></div>)}</div><p className="text-xs text-slate-500 mt-3">As fontes que não enviam atribuição permanecem como não informadas.</p></details>
     {error && <div className="ds-card p-4 text-red-600 text-sm" role="alert">{error}</div>}
-    {loading && <div role="status" className="ds-card p-5 text-sm flex items-center gap-3"><RefreshCw size={18} className="animate-spin text-blue-600" />Consultando as plataformas{mode === 'year' ? ` · ${progress.current} de ${progress.total} meses` : ''}. Os valores aparecem após a consolidação.</div>}
-    {!loading && data && <>
+    {loading && <div role="status" className="ds-card p-5 text-sm flex items-center gap-3"><RefreshCw size={18} className="animate-spin text-blue-600 shrink-0" /><span>{mode === 'global' ? 'Consultando as plataformas' : data ? 'Atualizando o período' : 'Preparando o período'}{progress.total > 0 && mode !== 'global' ? ` · ${progress.current} de ${progress.total} consultas concluídas` : ''}. {data ? 'Os valores anteriores permanecem disponíveis.' : 'Os valores aparecem após a consolidação.'}</span></div>}
+    {cacheStatus?.pollTimedOut && <p role="status" className="ds-card p-4 text-sm text-amber-800 dark:text-amber-200">A atualização continua no servidor. Os dados disponíveis foram mantidos, mas o período ainda está incompleto. Use Atualizar para acompanhar novamente.</p>}
+    {mode !== 'global' && <section className="ds-card p-4 text-sm space-y-2" aria-label="Atualização do histórico"><p>Histórico atualizado diariamente às 04h (Brasília). Somente hoje permanece em atualização durante o dia. Use Atualizar para consultar novamente o período completo.</p>{cacheStatus?.oldestSnapshotAt && <p className="text-xs text-slate-500">Histórico coletado: {snapshotDate(cacheStatus.oldestSnapshotAt)}{cacheStatus.newestSnapshotAt !== cacheStatus.oldestSnapshotAt ? ` a ${snapshotDate(cacheStatus.newestSnapshotAt)}` : ''} (Brasília).</p>}{cacheStatus?.todaySnapshotAt && <p className="text-xs text-slate-500">Dados de hoje coletados em {snapshotDate(cacheStatus.todaySnapshotAt)}{cacheStatus.todayNewestSnapshotAt !== cacheStatus.todaySnapshotAt ? ` a ${snapshotDate(cacheStatus.todayNewestSnapshotAt)}` : ''} (Brasília).</p>}{cacheStatus?.staleSources > 0 && <p className="text-xs text-amber-800 dark:text-amber-200">{cacheStatus.staleSources} consultas usam a última versão disponível. A data de coleta não foi alterada; a atualização está {cacheStatus.pending > 0 ? 'em andamento' : 'pendente após uma falha'}.</p>}<p className="text-xs text-slate-500">Vendas manuais e atribuições são consultadas novamente a cada carregamento.</p></section>}
+    {data && <>
       <div className="flex flex-wrap gap-2 text-xs" aria-label="Estado das fontes">{data.sources.map(source => <span key={source.id} className={`rounded-md border px-3 py-2 ${source.status === 'ready' ? 'border-slate-200 dark:border-slate-700 text-slate-500' : 'border-amber-300 bg-amber-50 dark:bg-amber-950 text-amber-800 dark:text-amber-200'}`}>{source.label} · {source.status === 'ready' ? 'Disponível' : source.status === 'not_requested' ? 'Caixa sob consulta · vendas indisponíveis' : source.status === 'partial' ? source.reason === 'checkout_disabled' ? 'Caixa disponível · vendas indisponíveis' : 'Dados parciais' : 'Indisponível'}</span>)}</div>
       {relevantSources.some(source => source.status === 'not_requested') && <p className="text-sm text-amber-800 dark:text-amber-200">Asaas não incluído nesta consolidação. Vendas e valores contratados permanecem indisponíveis; o caixa pode ser consultado separadamente abaixo.</p>}
       {relevantSources.some(source => source.reason === 'checkout_disabled') && <p className="text-sm text-amber-800 dark:text-amber-200">Asaas: recebimentos disponíveis, mas vendas e valores contratados não informados. As demais fontes mantêm seus próprios indicadores.</p>}

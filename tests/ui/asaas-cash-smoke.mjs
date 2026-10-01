@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { existsSync } from 'node:fs'
 import assert from 'node:assert/strict'
 import { chromium } from 'playwright'
+import { periodCacheFixture, emptyProviderPayload } from './period-cache-fixture.mjs'
 
 const root = fileURLToPath(new URL('../../', import.meta.url))
 const socket = createServer()
@@ -51,6 +52,17 @@ try {
     const timestamp = `${date}T12:00:00-03:00`
     let body
     if (url.pathname === '/api/access') body = { user: { sub: 'fixture-user', email: 'qa@example.test', name: 'QA', permissions: ['admin'], isAdmin: true } }
+    else if (url.pathname === '/api/period-cache') body = periodCacheFixture(url, { today: '2026-09-15', statusForSource: id => failedProviders && id !== 'asaas' ? 'unavailable' : 'ready', payloadForSource: (id, range) => {
+      // Existing fixtures have one sale per source/month; today's singleton
+      // is empty, so splitting the same period cannot change the total.
+      if (range.kind === 'today') return emptyProviderPayload(id)
+      const date = range.startDate, timestamp = `${date}T12:00:00-03:00`
+      if (id === 'guru') return { data: [{ id: `g-${date}`, product: { name: 'DevClub' }, calculation_details: { net_amount: 100, total_amount: 120 }, dates: { created_at: timestamp } }] }
+      if (id === 'tmb') return { success: true, data: [{ id: `tmb-${date}`, value: 200, product: 'MBA', timestamp }] }
+      if (id === 'boletex') return { success: true, data: { sales: { count: 1, totalValue: 300, confirmedValue: 30, entries: [{ id: `b-${date}`, productDescription: 'IAClub', totalValue: 300, entryValue: 30, createdAt: timestamp }] } } }
+      if (id === 'asaas') return { success: true, data: { totalGross: 500, totalNet: 495, totalFees: 5, count: 2, sales: null, totalPurchaseValue: null, availability: { cash: 'ready', sales: 'unavailable', reason: 'checkout_disabled' } } }
+      return emptyProviderPayload(id)
+    } })
     else if (url.pathname.startsWith('/api/goals/')) body = { success: true, data: { meta: 30000, superMeta: 35000, ultraMeta: 40000 } }
     else if (url.pathname === '/api/sales-ops/ledger') body = { data: { attributions: [], manualSales: [] } }
     else if (url.pathname === '/api/boleto/asaas/vendas') {
