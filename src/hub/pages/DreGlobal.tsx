@@ -1,3 +1,4 @@
+import { summarizeHubSaleValues, formatHubFinancial, hubFinancialNote } from '@/lib/saleValuePolicy';
 import { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -43,7 +44,7 @@ const isGlobalProduct = (product: string) =>
 
 const months = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
-const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const fmt = (v: number | null) => v === null ? 'Não informado' : v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 const parseLocalDate = (d: string) => {
   const [y, m, day] = d.split('-').map(Number);
@@ -160,7 +161,7 @@ export default function DreGlobal() {
   const available = isDreAvailable(selectedMonth, selectedYear);
 
   const { data: dreData, isLoading: dreLoading } = useDreGlobal(selectedMonth, selectedYear);
-  const { data: allSales = [] } = useSales();
+  const { data: allSales = [], isLoading: salesLoading } = useSales();
   const { data: profiles = [] } = useProfiles();
   const saveDre = useSaveDre();
 
@@ -172,30 +173,22 @@ export default function DreGlobal() {
     });
   }, [allSales, selectedMonth, selectedYear]);
 
-  const autoRevenue = useMemo(() => {
-    let hubla = 0, tmb = 0;
-    globalSales.forEach(s => {
-      const platform = (s.platform || '').toLowerCase();
-      const amount = Number(s.amount) || 0;
-      if (platform.includes('tmb')) tmb += amount;
-      else hubla += amount;
-    });
-    return { hubla, tmb, total: hubla + tmb };
-  }, [globalSales]);
+  const autoRevenue = useMemo(() => ({
+    hubla: summarizeHubSaleValues(globalSales.filter(s => !(s.platform || '').toLowerCase().includes('tmb'))),
+    tmb: summarizeHubSaleValues(globalSales.filter(s => (s.platform || '').toLowerCase().includes('tmb'))),
+    total: summarizeHubSaleValues(globalSales),
+  }), [globalSales]);
 
   const autoCc = useMemo(() => {
-    let hubla = 0, tmb = 0;
-    globalSales.forEach(s => {
-      const platform = (s.platform || '').toLowerCase();
-      const totalSaleValue = Number(s.total_sale_value) || Number(s.amount) || 0;
-      const amount = Number(s.amount) || 0;
-      if (platform.includes('tmb')) {
-        tmb += totalSaleValue * 0.1;
-      } else {
-        hubla += amount;
-      }
-    });
-    return { hubla, tmb, total: hubla + tmb };
+    // Preserve this DRE's existing TMB rule and manually entered values.
+    const cashValue = (sale: any) => (sale.platform || '').toLowerCase().includes('tmb')
+      ? (Number(sale.total_sale_value) || Number(sale.amount) || 0) * 0.1
+      : Number(sale.amount) || 0;
+    return {
+      hubla: summarizeHubSaleValues(globalSales.filter(s => !(s.platform || '').toLowerCase().includes('tmb')), cashValue),
+      tmb: summarizeHubSaleValues(globalSales.filter(s => (s.platform || '').toLowerCase().includes('tmb')), cashValue),
+      total: summarizeHubSaleValues(globalSales, cashValue),
+    };
   }, [globalSales]);
 
   const autoComissoes = useMemo(() => {
@@ -230,27 +223,33 @@ export default function DreGlobal() {
   const ccTmbNum = Number(ccTmb) || 0;
   const revTotal = revHublaNum + revTmbNum;
   const ccTotal = ccHublaNum + ccTmbNum;
+  const hasOverride = (value: number | string) => value !== '' && Number.isFinite(Number(value));
+  const revenueFinancial = { ...autoRevenue.total, knownCount: autoRevenue.total.knownCount || (hasOverride(revHubla) ? 1 : 0) };
+  const cashFinancial = { ...autoCc.total, knownCount: autoCc.total.knownCount || (hasOverride(ccHubla) ? 1 : 0) };
+  const revenueFmt = (value: number) => formatHubFinancial(value, revenueFinancial, fmt);
+  const cashFmt = (value: number) => formatHubFinancial(value, cashFinancial, fmt);
+  const savedOrAuto = (saved: unknown, auto: number | null) => saved !== null && saved !== undefined && saved !== '' && Number.isFinite(Number(saved)) ? Number(saved) : auto ?? '';
 
   const impostosAuto = ccTotal * 0.05;
   const impostos = impostosManual !== null ? impostosManual : impostosAuto;
   const setImpostos = (v: number | string) => setImpostosManual(v);
 
   const dreKey = `${selectedMonth}-${selectedYear}`;
-  if (dreData && loaded !== dreKey) {
+  if (dreData && !salesLoading && loaded !== dreKey) {
     setCostsTime(Array.isArray(dreData.costs_time) ? dreData.costs_time : []);
     setCostsMarketing(Array.isArray(dreData.costs_marketing) ? dreData.costs_marketing : []);
     setCostsFerramentas(Array.isArray(dreData.costs_ferramentas) ? dreData.costs_ferramentas : []);
     setCostsComissoes(Array.isArray(dreData.costs_comissoes) ? dreData.costs_comissoes : []);
     setImpostosManual(Number(dreData.impostos) || 0);
     setOverheadFixo(Number(dreData.overhead_fixo) || 0);
-    setRevHubla(Number(dreData.revenue_hubla) || autoRevenue.hubla);
-    setRevTmb(Number(dreData.revenue_tmb) || autoRevenue.tmb);
-    setCcHubla(Number(dreData.cc_hubla) || autoCc.hubla);
-    setCcTmb(Number(dreData.cc_tmb) || autoCc.tmb);
+    setRevHubla(savedOrAuto(dreData.revenue_hubla, autoRevenue.hubla.value));
+    setRevTmb(savedOrAuto(dreData.revenue_tmb, autoRevenue.tmb.value));
+    setCcHubla(savedOrAuto(dreData.cc_hubla, autoCc.hubla.value));
+    setCcTmb(savedOrAuto(dreData.cc_tmb, autoCc.tmb.value));
     setLocked(dreData.locked || false);
     setLoaded(dreKey);
     setIsDirty(false);
-  } else if (!dreData && !dreLoading && loaded !== dreKey) {
+  } else if (!dreData && !dreLoading && !salesLoading && loaded !== dreKey) {
     setCostsTime([
       { label: 'Dani CS', value: 0 },
       { label: 'Teacher Layla', value: 0 },
@@ -267,10 +266,10 @@ export default function DreGlobal() {
     setCostsComissoes(autoComissoes.length > 0 ? autoComissoes : []);
     setImpostosManual(null);
     setOverheadFixo(0);
-    setRevHubla(autoRevenue.hubla);
-    setRevTmb(autoRevenue.tmb);
-    setCcHubla(autoCc.hubla);
-    setCcTmb(autoCc.tmb);
+    setRevHubla(autoRevenue.hubla.value ?? '');
+    setRevTmb(autoRevenue.tmb.value ?? '');
+    setCcHubla(autoCc.hubla.value ?? '');
+    setCcTmb(autoCc.tmb.value ?? '');
     setLocked(false);
     setLoaded(dreKey);
     setIsDirty(false);
@@ -363,6 +362,9 @@ export default function DreGlobal() {
             generateDrePdf({
               month: selectedMonth,
               year: selectedYear,
+              revenueFinancial, cashFinancial,
+              revenueHublaFinancial: { ...autoRevenue.hubla, knownCount: autoRevenue.hubla.knownCount || (hasOverride(revHubla) ? 1 : 0) },
+              cashHublaFinancial: { ...autoCc.hubla, knownCount: autoCc.hubla.knownCount || (hasOverride(ccHubla) ? 1 : 0) },
               revenueHubla: revHublaNum,
               revenueTmb: revTmbNum,
               revenueTotal: revTotal,
@@ -383,7 +385,7 @@ export default function DreGlobal() {
                 platform: s.platform || '',
                 origin: s.origin || '',
                 commissionValue: Number(s.commission_value) || 0,
-                totalValue: Number(s.total_sale_value) || Number(s.amount) || 0,
+                totalValue: summarizeHubSaleValues([s], sale => Number(sale.total_sale_value) || Number(sale.amount) || 0).value,
                 note: s.note || '',
               })),
             }).catch(() => toast.error('Não foi possível gerar o PDF. Tente novamente.'));
@@ -399,8 +401,9 @@ export default function DreGlobal() {
         </div>
       </div>
 
+      {autoRevenue.total.partial && <p role="status" data-testid="dre-financial-partial" className="rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm text-foreground">{hubFinancialNote(autoRevenue.total)} Os lançamentos manuais do DRE permanecem separados da disponibilidade da integração.</p>}
       {/* Cash Collected Breakdown */}
-      <CashCollectedBreakdown month={selectedMonth} year={selectedYear} ccHubla={ccHublaNum} ccTmb={ccTmbNum} />
+      <CashCollectedBreakdown month={selectedMonth} year={selectedYear} ccHubla={ccHublaNum} ccTmb={ccTmbNum} financialSummary={cashFinancial} hublaFinancialSummary={{ ...autoCc.hubla, knownCount: autoCc.hubla.knownCount || (hasOverride(ccHubla) ? 1 : 0) }} />
 
       {/* Spreadsheet */}
       <div className="border border-border rounded-lg bg-card overflow-hidden text-sm">
@@ -412,23 +415,25 @@ export default function DreGlobal() {
         {/* Vendas */}
         <div className="grid grid-cols-[1fr_180px_40px] gap-1 items-center bg-muted/30 px-3 py-1.5 border-b border-border/50">
           <span className="text-xs font-bold text-foreground">VENDAS</span>
-          <span className="text-xs font-bold text-right text-foreground">{fmt(revTotal)}</span>
+          <span className="text-xs font-bold text-right text-foreground">{revenueFmt(revTotal)}</span>
           <span />
         </div>
         <div className="grid grid-cols-[1fr_180px_40px] gap-1 items-center px-3 py-1">
-          <span className="text-xs text-muted-foreground pl-3" title={`Sugerido: ${fmt(autoRevenue.hubla)}`}>Hubla</span>
+          <span className="text-xs text-muted-foreground pl-3" title={`Sugerido: ${formatHubFinancial(autoRevenue.hubla.value, autoRevenue.hubla, fmt)}`}>Hubla</span>
           <Input
             value={revHubla}
+            aria-label="Receita não TMB"
+            aria-description={autoRevenue.hubla.partial ? hubFinancialNote(autoRevenue.hubla) : undefined}
             onChange={e => { setRevHubla(e.target.value); setIsDirty(true); }}
-            onBlur={() => setRevHubla(Number(revHubla) || 0)}
+            onBlur={() => setRevHubla(revHubla === '' && autoRevenue.hubla.value === null ? '' : Number(revHubla) || 0)}
             disabled={locked}
             className="h-7 text-xs text-right border-0 bg-transparent shadow-none focus-visible:ring-1 px-1 font-mono"
-            placeholder="0,00"
+            placeholder={autoRevenue.hubla.value === null ? "Não informado" : "0,00"}
           />
           <span />
         </div>
         <div className="grid grid-cols-[1fr_180px_40px] gap-1 items-center px-3 py-1 border-b border-border/30">
-          <span className="text-xs text-muted-foreground pl-3" title={`Sugerido: ${fmt(autoRevenue.tmb)}`}>TMB</span>
+          <span className="text-xs text-muted-foreground pl-3" title={`Sugerido: ${formatHubFinancial(autoRevenue.tmb.value, autoRevenue.tmb, fmt)}`}>TMB</span>
           <Input
             value={revTmb}
             onChange={e => { setRevTmb(e.target.value); setIsDirty(true); }}
@@ -443,23 +448,25 @@ export default function DreGlobal() {
         {/* Cash Collected */}
         <div className="grid grid-cols-[1fr_180px_40px] gap-1 items-center bg-muted/30 px-3 py-1.5 border-b border-border/50">
           <span className="text-xs font-bold text-foreground">CASH COLLECTED</span>
-          <span className="text-xs font-bold text-right text-foreground">{fmt(ccTotal)}</span>
+          <span className="text-xs font-bold text-right text-foreground">{cashFmt(ccTotal)}</span>
           <span />
         </div>
         <div className="grid grid-cols-[1fr_180px_40px] gap-1 items-center px-3 py-1">
-          <span className="text-xs text-muted-foreground pl-3" title={`Sugerido: ${fmt(autoCc.hubla)}`}>Hubla CC</span>
+          <span className="text-xs text-muted-foreground pl-3" title={`Sugerido: ${formatHubFinancial(autoCc.hubla.value, autoCc.hubla, fmt)}`}>Hubla CC</span>
           <Input
             value={ccHubla}
+            aria-label="Cash collected não TMB"
+            aria-description={autoCc.hubla.partial ? hubFinancialNote(autoCc.hubla) : undefined}
             onChange={e => { setCcHubla(e.target.value); setIsDirty(true); }}
-            onBlur={() => setCcHubla(Number(ccHubla) || 0)}
+            onBlur={() => setCcHubla(ccHubla === '' && autoCc.hubla.value === null ? '' : Number(ccHubla) || 0)}
             disabled={locked}
             className="h-7 text-xs text-right border-0 bg-transparent shadow-none focus-visible:ring-1 px-1 font-mono"
-            placeholder="0,00"
+            placeholder={autoCc.hubla.value === null ? "Não informado" : "0,00"}
           />
           <span />
         </div>
         <div className="grid grid-cols-[1fr_180px_40px] gap-1 items-center px-3 py-1 border-b border-border">
-          <span className="text-xs text-muted-foreground pl-3" title={`Sugerido: ${fmt(autoCc.tmb)}`}>TMB CC</span>
+          <span className="text-xs text-muted-foreground pl-3" title={`Sugerido: ${formatHubFinancial(autoCc.tmb.value, autoCc.tmb, fmt)}`}>TMB CC</span>
           <Input
             value={ccTmb}
             onChange={e => { setCcTmb(e.target.value); setIsDirty(true); }}
@@ -495,7 +502,7 @@ export default function DreGlobal() {
 
         <div className="grid grid-cols-[1fr_180px_40px] gap-1 items-center px-3 py-1.5">
           <span className="text-xs font-semibold text-foreground">Entrada (Cash Collected)</span>
-          <span className="text-xs font-semibold text-right font-mono text-emerald-600">{fmt(entrada)}</span>
+          <span className="text-xs font-semibold text-right font-mono text-emerald-600">{cashFmt(entrada)}</span>
           <span />
         </div>
         <div className="grid grid-cols-[1fr_180px_40px] gap-1 items-center px-3 py-1.5">
@@ -507,7 +514,7 @@ export default function DreGlobal() {
         {/* Impostos */}
         <div className="grid grid-cols-[1fr_180px_40px] gap-1 items-center px-3 py-1.5">
           <span className="text-xs text-foreground">Impostos (5%)</span>
-          <span className="text-xs text-right font-mono text-foreground">{fmt(impostosAuto)}</span>
+          <span className="text-xs text-right font-mono text-foreground">{cashFmt(impostosAuto)}</span>
           <span />
         </div>
 
@@ -529,7 +536,7 @@ export default function DreGlobal() {
         <div className={`grid grid-cols-[1fr_180px_40px] gap-1 items-center px-3 py-3 ${lucroLiquido >= 0 ? 'bg-emerald-500/10' : 'bg-destructive/10'}`}>
           <span className="text-sm font-black text-foreground uppercase">LUCRO LÍQUIDO</span>
           <span className={`text-sm font-black text-right font-mono ${lucroLiquido >= 0 ? 'text-emerald-600' : 'text-error'}`}>
-            {fmt(lucroLiquido)}
+            {cashFmt(lucroLiquido)}
           </span>
           <span />
         </div>
@@ -539,7 +546,7 @@ export default function DreGlobal() {
           <div className="grid grid-cols-[1fr_180px_40px] gap-1 items-center px-3 py-2 border-t border-border/30 bg-muted/20">
             <span className="text-xs text-muted-foreground">Margem Líquida</span>
             <span className={`text-xs font-semibold text-right ${lucroLiquido >= 0 ? 'text-emerald-600' : 'text-error'}`}>
-              {((lucroLiquido / entrada) * 100).toFixed(1)}%
+              {formatHubFinancial((lucroLiquido / entrada) * 100, cashFinancial, value => `${value.toFixed(1)}%`)}
             </span>
             <span />
           </div>
@@ -574,7 +581,7 @@ export default function DreGlobal() {
                   .sort((a, b) => a.date.localeCompare(b.date))
                   .map((s) => {
                     const sellerName = profiles.find(p => p.id === s.seller_id)?.name || 'Desconhecido';
-                    const totalVal = Number(s.total_sale_value) || Number(s.amount) || 0;
+                    const totalVal = summarizeHubSaleValues([s], sale => Number(sale.total_sale_value) || Number(sale.amount) || 0).value;
                     return (
                       <tr key={s.id} className="border-b border-border/30 hover:bg-muted/20 transition-colors">
                         <td className="px-3 py-1.5 font-mono text-muted-foreground whitespace-nowrap">

@@ -1,8 +1,9 @@
+import { applyPlatformCashRule } from './platformCash.js'
 import { amount, parseSaleDate } from './salesData.js'
 import { goalScope, recordMatchesGoal, recordUnallocatedForGoal } from './goalScopes.js'
 
 export const PACE_METRICS = {
-  gross: { label: 'Bruto', field: 'gross', unit: 'currency' },
+  gross: { label: 'Valor das vendas', field: 'gross', unit: 'currency' },
   net: { label: 'Líquido', field: 'net', unit: 'currency' },
   cash: { label: 'Cash collected · novas vendas', field: 'received', unit: 'currency' },
   operational: { label: 'Valor operacional', field: 'revenue', unit: 'currency' },
@@ -40,7 +41,7 @@ export function calculateGoalPace({ year, month, plan, records = [], sources = [
   const ended = today > bounds.end
   const lastObservedDate = future ? null : today > bounds.end ? bounds.end : today
   const isCash = plan?.metric === 'cash'
-  const selectedRecords = isCash && cashRecords ? cashRecords : records
+  const selectedRecords = (isCash && cashRecords ? cashRecords : records).map(applyPlatformCashRule)
   const selectedSources = isCash && cashSources ? cashSources : sources
   const metricDate = row => dateForRecord(isCash ? { date: row.cashDate || null } : row)
   const inWindow = row => { const date = metricDate(row); return !future && (!date || (date >= bounds.start && date <= lastObservedDate)) }

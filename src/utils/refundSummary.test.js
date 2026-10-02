@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { buildRefundSummary, refundKind, refundPeriodLink } from './refundSummary.js'
 
 const sources = [{ id: 'guruRefunds', status: 'ready' }, { id: 'hotmartRefunds', status: 'ready' }]
-const row = (platform, status, amount = 100, other = {}) => ({ kind: 'refund', platform, quantity: 1, gross: amount, net: amount * .94, revenue: amount * .94, original: { status, currency: 'BRL' }, ...other })
+const row = (platform, status, amount = 100, other = {}) => ({ kind: 'refund', platform, quantity: 1, gross: amount, net: amount == null ? null : amount * .94, revenue: amount * .94, original: { status, currency: 'BRL', ...(platform === 'Hotmart' ? { netValue: amount == null ? null : amount * .94, netCurrency: 'BRL' } : {}) }, ...other })
 
 test('reembolsos totais/parciais ficam separados de disputas, rejeições e status desconhecidos', () => {
   const model = buildRefundSummary([
@@ -17,15 +17,15 @@ test('reembolsos totais/parciais ficam separados de disputas, rejeições e stat
   assert.equal(model.disputes, 2)
   assert.equal(model.cancelled, 1)
   assert.equal(model.unknown, 1)
-  assert.deepEqual(model.purchase.values, [{ currency: 'BRL', value: 2497 }])
+  assert.deepEqual(model.purchase.values, [{ currency: 'BRL', value: 2347.18 }])
   assert.deepEqual(model.refunded.values, [])
   assert.equal(model.refunded.unknown, 4)
 })
 
-test('preço original da compra nunca é confundido com líquido ou valor devolvido', () => {
+test('compra reembolsada usa apenas líquido digital autorizado, nunca preço bruto nem valor devolvido', () => {
   const guru = row('Guru', 'refunded', 100, { original: { status: 'refunded', payment: { total: 1997, currency: 'BRL' } } })
   const model = buildRefundSummary([guru], sources, { platform: 'Guru' })
-  assert.deepEqual(model.purchase.values, [{ currency: 'BRL', value: 1997 }])
+  assert.deepEqual(model.purchase.values, [{ currency: 'BRL', value: 94 }])
   assert.deepEqual(model.refunded.values, [])
   assert.equal(model.confirmed, 1)
 })
@@ -45,22 +45,22 @@ test('fonte indisponível e TMB/Asaas não se tornam zero; vazio conhecido fica 
 })
 
 test('moedas diferentes permanecem separadas e valores desconhecidos não viram zero', () => {
-  const model = buildRefundSummary([row('Guru', 'refunded', null), row('Guru', 'refunded', 100), row('Hotmart', 'refunded', 50, { original: { status: 'REFUNDED', currency: 'USD' } }), row('Hotmart', 'refunded', 900, { original: { status: 'REFUNDED' } })], sources)
-  assert.deepEqual(model.purchase.values, [{ currency: 'BRL', value: 100 }, { currency: 'USD', value: 50 }])
+  const model = buildRefundSummary([row('Guru', 'refunded', null), row('Guru', 'refunded', 100), row('Hotmart', 'refunded', 50, { original: { status: 'REFUNDED', currency: 'USD', netValue: 47, netCurrency: 'USD' } }), row('Hotmart', 'refunded', 900, { original: { status: 'REFUNDED' } })], sources)
+  assert.deepEqual(model.purchase.values, [{ currency: 'BRL', value: 94 }, { currency: 'USD', value: 47 }])
   assert.equal(model.purchase.unknown, 2)
   assert.equal(model.confirmed, 4)
 })
 
 test('central mostra valor efetivamente devolvido apenas quando informado e cancelamento TMB separado', () => {
   const records = [
-    { platform: 'hotmart', kind: 'confirmed', status: 'partially_refunded', saleAmount: 1997, refundAmount: 200, currency: 'BRL' },
+    { platform: 'hotmart', kind: 'confirmed', status: 'partially_refunded', saleAmount: 1997, saleNetAmount: 1877.18, refundAmount: 200, currency: 'BRL' },
     { platform: 'tmb', kind: 'cancelled', status: 'cancelled', saleAmount: 3000, refundAmount: null, currency: 'BRL' },
     { platform: 'guru', kind: 'request', status: 'requested', saleAmount: null, refundAmount: null },
   ]
   const model = buildRefundSummary(records, [{ id: 'hotmart', status: 'available' }, { id: 'tmb', status: 'limited' }, { id: 'guru', status: 'unavailable' }], { overview: true })
   assert.equal(model.confirmed, 1)
   assert.equal(model.cancelled, 1)
-  assert.deepEqual(model.purchase.values, [{ currency: 'BRL', value: 1997 }])
+  assert.deepEqual(model.purchase.values, [{ currency: 'BRL', value: 1877.18 }])
   assert.deepEqual(model.refunded.values, [{ currency: 'BRL', value: 200 }])
   assert.equal(model.providers.find(provider => provider.id === 'guru').confirmed, null)
   assert.equal(model.providers.find(provider => provider.id === 'tmb').confirmed, null)

@@ -29,7 +29,7 @@ export async function checkGoalConfiguration({ page, writes, checked, shot, team
   for (const [index, [scope, label, scopeId, selector]] of scopes.entries()) {
     await nav.getByRole('button', { name: label, exact: true }).click()
     if (selector) await page.getByRole('combobox', { name: selector, exact: true }).selectOption(scopeId)
-    for (const [metricIndex, [metric, name]] of [['gross', 'Bruto'], ['cash', 'Cash collected']].entries()) {
+    for (const [metricIndex, [metric, name]] of [['gross', 'Valor das vendas'], ['cash', 'Cash collected']].entries()) {
       const form = page.getByRole('form', { name: `Meta de ${name}`, exact: true })
       const target = 10000 + index * 1000 + metricIndex * 100
       const values = { target, superTarget: target + 1000, ultraTarget: target + 2000 }
@@ -39,7 +39,7 @@ export async function checkGoalConfiguration({ page, writes, checked, shot, team
         if (metric === 'gross') {
           const before = writes.length
           await areaInput(form, 'Marketing', 'Meta base').fill('1000')
-          await form.getByRole('button', { name: 'Salvar bruto', exact: true }).click()
+          await form.getByRole('button', { name: 'Salvar valor das vendas', exact: true }).click()
           await form.getByRole('alert').waitFor()
           assert.equal(writes.length, before, 'Incomplete area targets must not send a request')
         }
@@ -60,13 +60,13 @@ export async function checkGoalConfiguration({ page, writes, checked, shot, team
   await nav.getByRole('button', { name: 'Produto', exact: true }).click()
   const product = page.getByRole('combobox', { name: 'Família de produtos', exact: true })
   await product.selectOption('DevClub')
-  assert.equal(await page.getByRole('form', { name: 'Meta de Bruto', exact: true }).getByLabel(/Meta base/).inputValue(), '11000')
+  assert.equal(await page.getByRole('form', { name: 'Meta de Valor das vendas', exact: true }).getByLabel(/Meta base/).inputValue(), '11000')
   await product.selectOption('Operação 50K')
-  assert.equal(await page.getByRole('form', { name: 'Meta de Bruto', exact: true }).getByLabel(/Meta base/).inputValue(), '14000')
+  assert.equal(await page.getByRole('form', { name: 'Meta de Valor das vendas', exact: true }).getByLabel(/Meta base/).inputValue(), '14000')
   assert.equal(await page.getByRole('form', { name: 'Meta de Cash collected', exact: true }).getByLabel(/Meta base/).inputValue(), '14100')
   checked('Goals Operação 50K retains independent gross/cash plans without changing DevClub')
   await nav.getByRole('button', { name: 'Geral', exact: true }).click()
-  const gross = page.getByRole('form', { name: 'Meta de Bruto', exact: true })
+  const gross = page.getByRole('form', { name: 'Meta de Valor das vendas', exact: true })
   const cash = page.getByRole('form', { name: 'Meta de Cash collected', exact: true })
   await assertTotals(gross, { target: 10000, superTarget: 11000, ultraTarget: 12000 })
   await assertTotals(cash, { target: 10100, superTarget: 11100, ultraTarget: 12100 })
@@ -74,12 +74,12 @@ export async function checkGoalConfiguration({ page, writes, checked, shot, team
   assert.equal(await areaInput(cash, 'Marketing', 'Meta base').inputValue(), '4040')
   const beforeInvalid = writes.length
   await areaInput(gross, 'Marketing', 'Supermeta').fill('1')
-  await gross.getByRole('button', { name: 'Salvar bruto', exact: true }).click()
+  await gross.getByRole('button', { name: 'Salvar valor das vendas', exact: true }).click()
   await gross.getByRole('alert').waitFor()
   assert.equal(writes.length, beforeInvalid, 'Invalid tier ordering within an area must not send a request')
   await areaInput(gross, 'Marketing', 'Supermeta').fill('4400')
   await areaInput(gross, 'Vendas', 'Meta base').fill('')
-  await gross.getByRole('button', { name: 'Salvar bruto', exact: true }).click()
+  await gross.getByRole('button', { name: 'Salvar valor das vendas', exact: true }).click()
   await gross.getByRole('alert').waitFor()
   assert.equal(writes.length, beforeInvalid, 'A blank target does not become an explicit zero')
   await areaInput(gross, 'Vendas', 'Meta base').fill('6000')
@@ -135,7 +135,7 @@ export async function checkGoalConfiguration({ page, writes, checked, shot, team
 }
 
 export async function checkGoalConfigurationReader({ page, checked }) {
-  for (const name of ['Bruto', 'Cash collected']) {
+  for (const name of ['Valor das vendas', 'Cash collected']) {
     const form = page.getByRole('form', { name: `Meta de ${name}`, exact: true })
     for (const [, area] of areas) for (const [, tier] of tiers) assert.equal(await areaInput(form, area, tier).isDisabled(), true, 'Reader cannot change area targets')
     assert.equal(await form.locator('.goal-breakdown-total').count(), 3)

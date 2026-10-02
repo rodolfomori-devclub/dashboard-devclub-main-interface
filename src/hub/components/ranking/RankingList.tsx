@@ -80,7 +80,7 @@ export function RankingList({ sellers }: RankingListProps) {
           </div>
 
           <div className="text-right w-full sm:w-auto shrink-0">
-            <p className="text-xs text-muted-foreground">Valor bruto{seller.grossPartial ? ' · parcial' : ''}</p>
+            <p className="text-xs text-muted-foreground">Valor das vendas{seller.grossPartial ? ' · parcial' : ''}</p>
             <p className="font-bold text-xl text-primary" data-testid="legacy-gross">{rankingMoney(seller.totalDealValue)}</p>
             <p className="text-xs text-muted-foreground mt-1">Cash collected{seller.cashPartial ? ' · parcial' : ''}</p>
             <p className="font-medium text-sm text-foreground" data-testid="legacy-cash">{rankingMoney(seller.cashCollected)}</p>

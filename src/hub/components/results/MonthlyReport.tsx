@@ -1,3 +1,4 @@
+import { normalizeHubSaleValue, summarizeHubSaleValues, formatHubFinancial, hubFinancialNote } from '@/lib/saleValuePolicy';
 import { isRankingParticipant } from '@/lib/hiddenUsers';
 import { fetchAllRows, HISTORY_STALE_TIME } from '@/lib/fetchAllRows';
 import { useMemo, useCallback, useState } from 'react';
@@ -117,7 +118,7 @@ export function MonthlyReport({ month, year, sales, profiles, canSeeFinancial = 
       const endDate = prevMonth === 11
         ? `${prevYear + 1}-01-01`
         : `${prevYear}-${String(prevMonth + 2).padStart(2, '0')}-01`;
-      return fetchAllRows(() => supabase.from('sales').select('id, amount, date', { count: 'exact' })
+      return fetchAllRows(() => supabase.from('sales').select('id, amount, date, platform, seller_id, dashboard_ledger_id', { count: 'exact' })
         .gte('date', startDate).lt('date', endDate));
     },
   });
@@ -126,13 +127,14 @@ export function MonthlyReport({ month, year, sales, profiles, canSeeFinancial = 
     const monthSales = (sales || []).filter((s: any) => {
       const d = parseLocalDate(s.date);
       return d.getMonth() === month && d.getFullYear() === year;
-    });
+    }).map(normalizeHubSaleValue);
+    const financial = summarizeHubSaleValues(monthSales);
 
     const allSellers = (profiles || []).filter((p: any) => p.role === 'vendedor' && p.active);
     const sellers = allSellers.filter(isRankingParticipant);
     // Use historical monthly goal if available, fallback to current team_settings
     const teamGoal = monthlyGoalData?.team_goal ?? teamSettings?.team_goal ?? 0;
-    const totalRevenue = monthSales.reduce((sum: number, s: any) => sum + Number(s.amount), 0);
+    const totalRevenue = financial.subtotal;
     const salesCount = monthSales.length;
     const achievement = teamGoal > 0 ? (totalRevenue / teamGoal) * 100 : 0;
 
@@ -150,7 +152,8 @@ export function MonthlyReport({ month, year, sales, profiles, canSeeFinancial = 
     // Seller performance
     const allSellerPerformance = allSellers.map((p: any) => {
       const sellerSales = monthSales.filter((s: any) => s.seller_id === p.id);
-      const revenue = sellerSales.reduce((sum: number, s: any) => sum + Number(s.amount), 0);
+      const sellerFinancial = summarizeHubSaleValues(sellerSales);
+      const revenue = sellerFinancial.subtotal;
       const goal = p.individual_goal || 0;
       const expectedPace = workingDays > 0 ? goal / workingDays : 0;
       const actualPace = workingDays > 0 ? revenue / workingDays : 0;
@@ -190,11 +193,11 @@ export function MonthlyReport({ month, year, sales, profiles, canSeeFinancial = 
         sellerProductMap.set(prod, cur);
       });
       const productMix = Array.from(sellerProductMap.entries()).map(([name, data]) => ({
-        name, ...data, pct: revenue > 0 ? (data.revenue / revenue) * 100 : 0,
+        name, ...data, financial: summarizeHubSaleValues(sellerSales.filter((sale: any) => (sale.product || 'Outro') === name)), pct: revenue > 0 ? (data.revenue / revenue) * 100 : 0,
       })).sort((a, b) => b.revenue - a.revenue);
 
       return {
-        id: p.id, name: p.name, revenue, goal, expectedPace, actualPace, achievementPct,
+        id: p.id, name: p.name, financial: sellerFinancial, revenue, goal, expectedPace, actualPace, achievementPct,
         salesCount: sellerSales.length, totalCalls, totalLeads, conversion, avgTicket,
         checklistRate, commission: commResult.totalCommission, fixedSalary, bonuses: totalBonusAmount,
         productMix,
@@ -214,7 +217,7 @@ export function MonthlyReport({ month, year, sales, profiles, canSeeFinancial = 
       productMap.set(p, cur);
     });
     const productBreakdown = Array.from(productMap.entries()).map(([name, data]) => ({
-      name, ...data, pct: totalRevenue > 0 ? (data.revenue / totalRevenue) * 100 : 0,
+      name, ...data, financial: summarizeHubSaleValues(monthSales.filter((sale: any) => (sale.product || 'Outro') === name)), pct: totalRevenue > 0 ? (data.revenue / totalRevenue) * 100 : 0,
     })).sort((a, b) => b.revenue - a.revenue);
 
     // Platform breakdown
@@ -232,7 +235,7 @@ export function MonthlyReport({ month, year, sales, profiles, canSeeFinancial = 
       originMap.set(o, cur);
     });
     const originBreakdown = Array.from(originMap.entries()).map(([name, data]) => ({
-      name, ...data,
+      name, ...data, financial: summarizeHubSaleValues(monthSales.filter((sale: any) => (sale.origin || 'Outro') === name)),
     })).sort((a, b) => b.revenue - a.revenue);
 
     // Aggregated KPIs
@@ -275,20 +278,23 @@ export function MonthlyReport({ month, year, sales, profiles, canSeeFinancial = 
       const weekday = dayDate.getDay();
       const isWeekend = weekday === 0 || weekday === 6;
       const perSeller: Record<string, number> = {};
+      const perSellerFinancial: Record<string, ReturnType<typeof summarizeHubSaleValues>> = {};
       let teamTotal = 0;
       sellers.forEach((p: any) => {
         const v = monthSales
           .filter((s: any) => s.seller_id === p.id && s.date === dateStr)
           .reduce((sum: number, s: any) => sum + Number(s.amount), 0);
         perSeller[p.id] = v;
+        perSellerFinancial[p.id] = summarizeHubSaleValues(monthSales.filter((sale: any) => sale.seller_id === p.id && sale.date === dateStr));
         teamTotal += v;
       });
-      return { day, dateStr, isWeekend, perSeller, teamTotal };
+      return { day, dateStr, isWeekend, perSeller, perSellerFinancial, teamTotal, financial: summarizeHubSaleValues(monthSales.filter((sale: any) => participantIds.has(sale.seller_id) && sale.date === dateStr)) };
     });
 
     // Previous month comparison
-    const prevRevenue = (prevMonthSalesData || []).reduce((sum: number, s: any) => sum + Number(s.amount), 0);
-    const revenueGrowth = prevRevenue > 0 ? ((totalRevenue - prevRevenue) / prevRevenue) * 100 : null;
+    const previousFinancial = summarizeHubSaleValues(prevMonthSalesData || []);
+    const prevRevenue = previousFinancial.subtotal;
+    const revenueGrowth = !financial.partial && !previousFinancial.partial && prevRevenue > 0 ? ((totalRevenue - prevRevenue) / prevRevenue) * 100 : null;
 
     // Top performers
     const topSeller = sellerPerformance.length > 0 ? [...sellerPerformance].sort((a, b) => b.revenue - a.revenue)[0] : null;
@@ -297,13 +303,13 @@ export function MonthlyReport({ month, year, sales, profiles, canSeeFinancial = 
 
     // Insights
     const insights: { type: 'success' | 'warning' | 'info'; message: string }[] = [];
-    if (achievement < 100) insights.push({ type: 'warning', message: `Time não atingiu a meta (${fmtPct(achievement)} de atingimento)` });
-    if (achievement >= 100) insights.push({ type: 'success', message: `Meta atingida! ${fmtPct(achievement)} de atingimento` });
-    if (actualDailyPace < expectedDailyPace) insights.push({ type: 'warning', message: 'Ritmo diário ficou abaixo do esperado' });
+    if (!financial.partial && achievement < 100) insights.push({ type: 'warning', message: `Time não atingiu a meta (${fmtPct(achievement)} de atingimento)` });
+    if (!financial.partial && achievement >= 100) insights.push({ type: 'success', message: `Meta atingida! ${fmtPct(achievement)} de atingimento` });
+    if (!financial.partial && actualDailyPace < expectedDailyPace) insights.push({ type: 'warning', message: 'Ritmo diário ficou abaixo do esperado' });
     if (teamConversion < 15) insights.push({ type: 'warning', message: `Taxa de conversão baixa: ${fmtPct(teamConversion)}` });
-    if (topSeller && topSeller.achievementPct > 100) insights.push({ type: 'success', message: `${topSeller.name} superou a meta individual` });
+    if (!financial.partial && topSeller && topSeller.achievementPct > 100) insights.push({ type: 'success', message: `${topSeller.name} superou a meta individual` });
     sellerPerformance.forEach(sp => {
-      if (sp.achievementPct < 50) insights.push({ type: 'warning', message: `${sp.name} atingiu apenas ${fmtPct(sp.achievementPct)} da meta` });
+      if (!sp.financial.partial && sp.achievementPct < 50) insights.push({ type: 'warning', message: `${sp.name} atingiu apenas ${fmtPct(sp.achievementPct)} da meta` });
     });
     if (checklistAvg < 50) insights.push({ type: 'warning', message: `Execução média do checklist baixa: ${fmtPct(checklistAvg)}` });
 
@@ -315,7 +321,7 @@ export function MonthlyReport({ month, year, sales, profiles, canSeeFinancial = 
     const roiOnCash = totalCost > 0 ? ((cashCollected - totalCost) / totalCost) * 100 : 0;
 
     return {
-      teamGoal, totalRevenue, achievement, salesCount, daysInMonth, workingDays,
+      financial, previousFinancial, teamGoal, totalRevenue, achievement, salesCount, daysInMonth, workingDays,
       expectedDailyPace, actualDailyPace, sellerPerformance, productBreakdown,
       hubla, tmb, both, originBreakdown, totalCalls, totalLeads, teamConversion,
       avgTicket, checklistAvg, totalFixed, totalCommissions, totalBonuses, totalCost,
@@ -324,6 +330,9 @@ export function MonthlyReport({ month, year, sales, profiles, canSeeFinancial = 
       marginOnCash, roiOnCash, dailyHistory,
     };
   }, [sales, profiles, month, year, kpis, checklists, teamSettings, bonuses, incomes, prevMonthSalesData, monthlyGoalData]);
+
+  const financialFmt = (value: number, summary = metrics.financial) => formatHubFinancial(value, summary, fmt);
+  const financialPct = (value: number, summary = metrics.financial) => formatHubFinancial(value, summary, fmtPct);
 
   const chartConfig: ChartConfig = { value: { label: 'Valor' } };
   const [exporting, setExporting] = useState(false);
@@ -365,14 +374,16 @@ export function MonthlyReport({ month, year, sales, profiles, canSeeFinancial = 
         <DownloadButton />
       </div>
 
+      {metrics.financial.partial && <p role="status" className="rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm text-foreground" data-testid="report-financial-partial">{hubFinancialNote(metrics.financial)}</p>}
+      {metrics.previousFinancial.partial && <p className="text-xs text-muted-foreground">Mês anterior: {hubFinancialNote(metrics.previousFinancial)} A comparação de receita aguarda valores completos.</p>}
       <div className="space-y-6">
 
       {/* 1. General Performance */}
       <Section icon={Target} title="Performance Geral">
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           <KpiCard label="Meta Mensal" value={fmt(metrics.teamGoal)} />
-          <KpiCard label="Receita Total" value={fmt(metrics.totalRevenue)} accent />
-          <KpiCard label="Atingimento" value={fmtPct(metrics.achievement)}
+          <KpiCard label="Receita Total" value={financialFmt(metrics.totalRevenue)} accent />
+          <KpiCard label="Atingimento" value={financialPct(metrics.achievement)}
             accent={metrics.achievement >= 100} warning={metrics.achievement < 80} />
         </div>
       </Section>
@@ -381,7 +392,7 @@ export function MonthlyReport({ month, year, sales, profiles, canSeeFinancial = 
       <Section icon={TrendingUp} title="Análise de Ritmo (Pace)">
         <div className="grid grid-cols-2 gap-4 mb-4">
           <KpiCard label="Pace Esperado / dia" value={fmt(metrics.expectedDailyPace)} />
-          <KpiCard label="Pace Real / dia" value={fmt(metrics.actualDailyPace)}
+          <KpiCard label="Pace Real / dia" value={financialFmt(metrics.actualDailyPace)}
             accent={metrics.actualDailyPace >= metrics.expectedDailyPace}
             warning={metrics.actualDailyPace < metrics.expectedDailyPace} />
         </div>
@@ -402,11 +413,11 @@ export function MonthlyReport({ month, year, sales, profiles, canSeeFinancial = 
                 <tr key={sp.id} className="border-b border-border/50">
                   <td className="py-2 font-medium text-foreground">{sp.name}</td>
                   <td className="py-2 text-right text-muted-foreground">{fmt(sp.goal)}</td>
-                  <td className="py-2 text-right font-semibold text-foreground">{fmt(sp.revenue)}</td>
+                  <td className="py-2 text-right font-semibold text-foreground">{financialFmt(sp.revenue, sp.financial)}</td>
                   <td className="py-2 text-right text-muted-foreground">{fmt(sp.expectedPace)}</td>
-                  <td className="py-2 text-right text-muted-foreground">{fmt(sp.actualPace)}</td>
+                  <td className="py-2 text-right text-muted-foreground">{financialFmt(sp.actualPace, sp.financial)}</td>
                   <td className={`py-2 text-right font-semibold ${sp.achievementPct >= 100 ? 'text-green-500' : sp.achievementPct >= 80 ? 'text-yellow-500' : 'text-error'}`}>
-                    {fmtPct(sp.achievementPct)}
+                    {financialPct(sp.achievementPct, sp.financial)}
                   </td>
                 </tr>
               ))}
@@ -443,12 +454,12 @@ export function MonthlyReport({ month, year, sales, profiles, canSeeFinancial = 
                     const v = d.perSeller[sp.id] || 0;
                     return (
                       <td key={sp.id} className={`py-1.5 px-2 text-right ${v > 0 ? 'text-foreground' : 'text-muted-foreground/40'}`}>
-                        {v > 0 ? fmt(v) : '—'}
+                        {d.perSellerFinancial[sp.id].partial ? financialFmt(v, d.perSellerFinancial[sp.id]) : v > 0 ? fmt(v) : '—'}
                       </td>
                     );
                   })}
                   <td className={`py-1.5 px-2 text-right font-semibold ${d.teamTotal > 0 ? 'text-primary' : 'text-muted-foreground/40'}`}>
-                    {d.teamTotal > 0 ? fmt(d.teamTotal) : '—'}
+                    {d.financial.partial ? financialFmt(d.teamTotal, d.financial) : d.teamTotal > 0 ? fmt(d.teamTotal) : '—'}
                   </td>
                 </tr>
               ))}
@@ -456,11 +467,11 @@ export function MonthlyReport({ month, year, sales, profiles, canSeeFinancial = 
                 <td className="py-2 px-2 font-bold text-foreground sticky left-0 bg-primary/5 z-10">Total</td>
                 {metrics.sellerPerformance.map(sp => (
                   <td key={sp.id} className="py-2 px-2 text-right font-bold text-foreground whitespace-nowrap">
-                    {fmt(sp.revenue)}
+                    {financialFmt(sp.revenue, sp.financial)}
                   </td>
                 ))}
                 <td className="py-2 px-2 text-right font-bold text-primary whitespace-nowrap">
-                  {fmt(metrics.totalRevenue)}
+                  {financialFmt(metrics.totalRevenue)}
                 </td>
               </tr>
             </tbody>
@@ -469,7 +480,7 @@ export function MonthlyReport({ month, year, sales, profiles, canSeeFinancial = 
       </Section>
 
       {/* 3. Sales by Product */}
-      <Section icon={ShoppingBag} title="Vendas por Produto">
+      <Section icon={ShoppingBag} title={metrics.financial.partial ? "Vendas por Produto · Parcial" : "Vendas por Produto"}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             {metrics.productBreakdown.map((p, i) => (
@@ -479,13 +490,13 @@ export function MonthlyReport({ month, year, sales, profiles, canSeeFinancial = 
                   <span className="text-sm font-medium text-foreground">{p.name}</span>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-semibold text-foreground">{fmt(p.revenue)}</p>
-                  <p className="text-xs text-muted-foreground">{p.count} vendas · {fmtPct(p.pct)}</p>
+                  <p className="text-sm font-semibold text-foreground">{financialFmt(p.revenue, p.financial)}</p>
+                  <p className="text-xs text-muted-foreground">{p.count} vendas · {financialPct(p.pct, metrics.financial)}</p>
                 </div>
               </div>
             ))}
           </div>
-          {metrics.productBreakdown.length > 0 && (
+          {metrics.productBreakdown.some(p => p.revenue > 0) && (
             <ChartContainer config={chartConfig} className="h-[220px] w-full">
               <PieChart>
                 <Pie data={metrics.productBreakdown} dataKey="revenue" nameKey="name" cx="50%" cy="50%" innerRadius={45} outerRadius={80} paddingAngle={3}
@@ -504,11 +515,11 @@ export function MonthlyReport({ month, year, sales, profiles, canSeeFinancial = 
       {/* 3.5. Seller Product Mix */}
       <Section icon={Users} title="Mix de Produtos por Vendedor">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {metrics.sellerPerformance.filter(sp => sp.revenue > 0).map(sp => (
+          {metrics.sellerPerformance.filter(sp => sp.salesCount > 0).map(sp => (
             <div key={sp.id} className="rounded-lg border border-border p-4 space-y-3">
               <div>
                 <h4 className="text-sm font-bold text-foreground">{sp.name}</h4>
-                <p className="text-xs text-muted-foreground">Total: {fmt(sp.revenue)} · {sp.salesCount} vendas</p>
+                <p className="text-xs text-muted-foreground">Total: {financialFmt(sp.revenue, sp.financial)} · {sp.salesCount} vendas</p>
               </div>
               <div className="flex flex-col md:flex-row items-center gap-4">
                 <div className="flex-1 space-y-1.5 w-full">
@@ -518,7 +529,7 @@ export function MonthlyReport({ month, year, sales, profiles, canSeeFinancial = 
                         <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: chartColor(i) }} />
                         <span className="text-foreground truncate">{pm.name}</span>
                       </div>
-                      <span className="text-muted-foreground font-medium ml-2 whitespace-nowrap">{fmt(pm.revenue)} ({fmtPct(pm.pct)})</span>
+                      <span className="text-muted-foreground font-medium ml-2 whitespace-nowrap">{financialFmt(pm.revenue, pm.financial)} ({financialPct(pm.pct, sp.financial)})</span>
                     </div>
                   ))}
                 </div>
@@ -542,8 +553,8 @@ export function MonthlyReport({ month, year, sales, profiles, canSeeFinancial = 
 
       <Section icon={DollarSign} title="Receita por Plataforma">
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <KpiCard label="Receita Total" value={fmt(metrics.totalRevenue)} accent />
-          <KpiCard label="Cash Collected" value={fmt(metrics.cashCollected)} subValue={fmtPct(metrics.cashCollectedPct)} accent />
+          <KpiCard label="Receita Total" value={financialFmt(metrics.totalRevenue)} accent />
+          <KpiCard label="Cash Collected" value={financialFmt(metrics.cashCollected)} subValue={financialPct(metrics.cashCollectedPct)} accent />
           <KpiCard label="Hubla" value={fmt(metrics.hubla)} />
           <KpiCard label="TMB" value={fmt(metrics.tmb)} />
           <KpiCard label="Hubla + TMB" value={fmt(metrics.both)} />
@@ -551,7 +562,7 @@ export function MonthlyReport({ month, year, sales, profiles, canSeeFinancial = 
       </Section>
 
       {/* 5. Sales Origin */}
-      <Section icon={PieIcon} title="Análise por Origem">
+      <Section icon={PieIcon} title={metrics.financial.partial ? "Análise por Origem · Parcial" : "Análise por Origem"}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             {metrics.originBreakdown.map((o, i) => (
@@ -561,13 +572,13 @@ export function MonthlyReport({ month, year, sales, profiles, canSeeFinancial = 
                   <span className="text-sm font-medium text-foreground">{o.name}</span>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-semibold text-foreground">{fmt(o.revenue)}</p>
+                  <p className="text-sm font-semibold text-foreground">{financialFmt(o.revenue, o.financial)}</p>
                   <p className="text-xs text-muted-foreground">{o.count} vendas</p>
                 </div>
               </div>
             ))}
           </div>
-          {metrics.originBreakdown.length > 0 && (
+          {metrics.originBreakdown.some(o => o.revenue > 0) && (
             <ChartContainer config={chartConfig} className="h-[220px] w-full">
               <PieChart>
                 <Pie data={metrics.originBreakdown} dataKey="revenue" nameKey="name" cx="50%" cy="50%" innerRadius={45} outerRadius={80} paddingAngle={3}
@@ -589,7 +600,7 @@ export function MonthlyReport({ month, year, sales, profiles, canSeeFinancial = 
           <KpiCard label="Total de Calls" value={String(metrics.totalCalls)} />
           <KpiCard label="Total de Leads" value={String(metrics.totalLeads)} />
           <KpiCard label="Conversão" value={fmtPct(metrics.teamConversion)} />
-          <KpiCard label="Ticket Médio" value={fmt(metrics.avgTicket)} />
+          <KpiCard label="Ticket Médio" value={financialFmt(metrics.avgTicket)} />
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -612,8 +623,8 @@ export function MonthlyReport({ month, year, sales, profiles, canSeeFinancial = 
                   <td className="py-2 text-right text-muted-foreground">{sp.totalLeads}</td>
                   <td className="py-2 text-right text-muted-foreground">{fmtPct(sp.conversion)}</td>
                   <td className="py-2 text-right text-muted-foreground">{sp.salesCount}</td>
-                  <td className="py-2 text-right font-semibold text-foreground">{fmt(sp.revenue)}</td>
-                  <td className="py-2 text-right text-muted-foreground">{fmt(sp.avgTicket)}</td>
+                  <td className="py-2 text-right font-semibold text-foreground">{financialFmt(sp.revenue, sp.financial)}</td>
+                  <td className="py-2 text-right text-muted-foreground">{financialFmt(sp.avgTicket, sp.financial)}</td>
                 </tr>
               ))}
             </tbody>
@@ -666,10 +677,10 @@ export function MonthlyReport({ month, year, sales, profiles, canSeeFinancial = 
       </Section>
 
       {/* 10. Top Performers */}
-      <Section icon={Award} title="Destaques do Mês">
+      <Section icon={Award} title={metrics.financial.partial ? "Destaques do Mês · Receita parcial" : "Destaques do Mês"}>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {metrics.topSeller && (
-            <HighlightCard emoji="🏆" title="Top Vendedor" name={metrics.topSeller.name} detail={fmt(metrics.topSeller.revenue)} />
+            <HighlightCard emoji="🏆" title="Top Vendedor" name={metrics.topSeller.name} detail={financialFmt(metrics.topSeller.revenue, metrics.topSeller.financial)} />
           )}
           {metrics.bestConversion && (
             <HighlightCard emoji="🎯" title="Melhor Conversão" name={metrics.bestConversion.name} detail={fmtPct(metrics.bestConversion.conversion)} />
@@ -707,9 +718,9 @@ export function MonthlyReport({ month, year, sales, profiles, canSeeFinancial = 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <KpiCard label="Vendas / Dia" value={metrics.salesPerDay.toFixed(1)} />
           <KpiCard label="Melhor Dia" value={metrics.bestDay ? `${metrics.bestDay[0].split('-').reverse().join('/')}` : '-'}
-            subValue={metrics.bestDay ? fmt(metrics.bestDay[1]) : undefined} accent />
+            subValue={metrics.bestDay ? financialFmt(metrics.bestDay[1]) : undefined} accent />
           <KpiCard label="Pior Dia" value={metrics.worstDay ? `${metrics.worstDay[0].split('-').reverse().join('/')}` : '-'}
-            subValue={metrics.worstDay ? fmt(metrics.worstDay[1]) : undefined} warning />
+            subValue={metrics.worstDay ? financialFmt(metrics.worstDay[1]) : undefined} warning />
           <KpiCard label="Dias Úteis" value={String(metrics.workingDays)} />
         </div>
       </Section>
@@ -719,18 +730,18 @@ export function MonthlyReport({ month, year, sales, profiles, canSeeFinancial = 
       <Section icon={Percent} title="Resumo Financeiro">
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           <KpiCard label="Salários Fixos" value={fmt(metrics.totalFixed)} />
-          <KpiCard label="Comissões" value={fmt(metrics.totalCommissions)} />
+          <KpiCard label="Comissões" value={financialFmt(metrics.totalCommissions)} />
           <KpiCard label="Bônus" value={fmt(metrics.totalBonuses)} />
-          <KpiCard label="Custo Comercial Total" value={fmt(metrics.totalCost)} />
-          <KpiCard label="Custo sobre Receita" value={fmtPct(metrics.costPct)} warning={metrics.costPct > 30} />
-          <KpiCard label="Margem de Contribuição" value={fmt(metrics.margin)}
+          <KpiCard label="Custo Comercial Total" value={financialFmt(metrics.totalCost)} />
+          <KpiCard label="Custo sobre Receita" value={financialPct(metrics.costPct)} warning={metrics.costPct > 30} />
+          <KpiCard label="Margem de Contribuição" value={financialFmt(metrics.margin)}
             accent={metrics.margin > 0} warning={metrics.margin <= 0} />
-          <KpiCard label="ROI Comercial" value={fmtPct(metrics.roi)} accent={metrics.roi > 0} />
-          <KpiCard label="Margem s/ Cash Collected" value={fmt(metrics.marginOnCash)}
-            subValue={`Cash In: ${fmt(metrics.cashCollected)}`}
+          <KpiCard label="ROI Comercial" value={financialPct(metrics.roi)} accent={metrics.roi > 0} />
+          <KpiCard label="Margem s/ Cash Collected" value={financialFmt(metrics.marginOnCash)}
+            subValue={`Cash In: ${financialFmt(metrics.cashCollected)}`}
             accent={metrics.marginOnCash > 0} warning={metrics.marginOnCash <= 0} />
-          <KpiCard label="ROI s/ Cash Collected" value={fmtPct(metrics.roiOnCash)}
-            subValue={`Cash In: ${fmtPct(metrics.cashCollectedPct)}`}
+          <KpiCard label="ROI s/ Cash Collected" value={financialPct(metrics.roiOnCash)}
+            subValue={`Cash In: ${financialPct(metrics.cashCollectedPct)}`}
             accent={metrics.roiOnCash > 0} warning={metrics.roiOnCash <= 0} />
         </div>
       </Section>
@@ -740,8 +751,8 @@ export function MonthlyReport({ month, year, sales, profiles, canSeeFinancial = 
       {metrics.revenueGrowth !== null && (
         <Section icon={TrendingUp} title="Comparação com Mês Anterior">
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            <KpiCard label="Receita Mês Anterior" value={fmt(metrics.prevRevenue)} />
-            <KpiCard label="Receita Este Mês" value={fmt(metrics.totalRevenue)} />
+            <KpiCard label="Receita Mês Anterior" value={financialFmt(metrics.prevRevenue, metrics.previousFinancial)} />
+            <KpiCard label="Receita Este Mês" value={financialFmt(metrics.totalRevenue)} />
             <KpiCard label="Variação" value={`${metrics.revenueGrowth > 0 ? '+' : ''}${fmtPct(metrics.revenueGrowth)}`}
               accent={metrics.revenueGrowth > 0} warning={metrics.revenueGrowth < 0} />
           </div>

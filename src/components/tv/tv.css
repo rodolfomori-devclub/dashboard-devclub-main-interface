@@ -360,3 +360,6 @@
   .tv-player .tv-goal-row .tv-dual-amount>strong { font-size:30px; }
   .tv-player .tv-goal-row .tv-cash-amount { grid-column:1/-1; margin-top:0; line-height:1.4; }
 }
+
+.tv-source-block { display:grid; gap:3px; min-width:0; }
+.tv-sales-policy { color:var(--muted); font-size:10px; line-height:1.5; }

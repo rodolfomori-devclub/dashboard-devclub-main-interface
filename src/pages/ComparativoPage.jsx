@@ -28,14 +28,14 @@ function initialDates() {
 }
 const PRIMARY_METRICS = [
   ['revenue', 'Receita operacional', 'currency'], ['count', 'Vendas', 'count'], ['ticket', 'Ticket médio', 'currency'],
-  ['gross', 'Bruto informado', 'currency'], ['net', 'Líquido informado', 'currency'], ['received', 'Recebimentos das vendas', 'currency'],
+  ['gross', 'Valor das vendas', 'currency'], ['net', 'Líquido informado', 'currency'], ['received', 'Recebimentos das vendas', 'currency'],
 ]
 const DETAIL_METRICS = [
   ['digital', 'Receita digital (Guru + Hotmart)', 'currency'], ['digitalCount', 'Vendas digitais', 'count'],
   ['boleto', 'Receita de boleto (TMB, Asaas e Boletex)', 'currency'], ['boletoCount', 'Vendas de boleto', 'count'],
   ['commercial', 'Receita do comercial identificado', 'currency'], ['commercialCount', 'Vendas do comercial identificado', 'count'],
   ['affiliate', 'Afiliação informada', 'currency'], ['fees', 'Taxas informadas', 'currency'],
-  ['listPrice', 'Preço de tabela informado', 'currency'], ['pending', 'Pendente informado', 'currency'],
+  ['listPrice', 'Preço de tabela · demais plataformas', 'currency'], ['pending', 'Pendente informado', 'currency'],
   ['dailyRevenue', 'Receita média por dia', 'currency'], ['dailyCount', 'Vendas médias por dia', 'count'],
   ['dailyBoleto', 'Receita de boleto média por dia', 'currency'], ['dailyBoletoCount', 'Vendas de boleto médias por dia', 'count'],
 ]
@@ -154,7 +154,7 @@ export default function ComparativoPage() {
       </section>
       {(hasSourceFailures || hasAllocationWarning || isCurrent) && <div className="ds-card p-4 flex gap-3 text-sm text-slate-600 dark:text-slate-300" role="status"><CircleAlert size={18} className="shrink-0 mt-0.5" /><div className="space-y-1">{hasSourceFailures && <p>Algumas fontes não responderam. Os valores disponíveis aparecem como parciais e suas variações ficam suspensas.</p>}{hasAllocationWarning && <p>Há saldos sem identificação fora dos filtros. A distribuição completa por produto ou pagamento não está disponível.</p>}{isCurrent && <p>Hoje ainda está em andamento. Seus resultados representam o observado até a última atualização.</p>}</div></div>}
 
-      <section className="ds-card p-5"><h2 className="text-base font-semibold">Resultado dos períodos</h2><div className="overflow-x-auto mt-3"><table className="data-table w-full text-sm min-w-[680px]">{tableHead}<tbody>{comparisonTableRows(PRIMARY_METRICS)}</tbody></table></div><p className="text-xs text-slate-500 mt-4 max-w-4xl">Receita operacional soma o líquido de Guru e Hotmart, o contratado de TMB, Asaas e Boletex e o líquido das vendas manuais. Bruto, líquido e caixa são informações separadas; valores parciais incluem apenas o que cada fonte informou. — significa indisponível.</p></section>
+      <section className="ds-card p-5"><h2 className="text-base font-semibold">Resultado dos períodos</h2><div className="overflow-x-auto mt-3"><table className="data-table w-full text-sm min-w-[680px]">{tableHead}<tbody>{comparisonTableRows(PRIMARY_METRICS)}</tbody></table></div><p className="text-xs text-slate-500 mt-4 max-w-4xl">Receita operacional soma o líquido de Guru e Hotmart, o contratado de TMB, Asaas e Boletex e o líquido das vendas manuais. O valor das vendas usa líquido após taxas na Guru e Hotmart e valor contratado nas demais plataformas. O cash collected permanece separado; valores parciais incluem apenas o que cada fonte informou. — significa indisponível.</p></section>
 
       <section className="ds-card p-5">
         <div className="flex flex-wrap justify-between gap-3 items-start mb-5"><div><h2 className="font-semibold">{selection.mode === 'days' ? 'Receita ao longo do dia' : 'Receita ao longo dos períodos'}</h2><p className="text-xs text-slate-500 mt-1">{selection.mode === 'days' ? 'Horários de Brasília, com horário de venda informado.' : 'Dias alinhados pela posição dentro de cada intervalo.'}</p></div><div className="flex gap-1" role="group" aria-label="Estilo do gráfico">{[['line', 'Linhas'], ['bar', 'Barras']].map(([value, label]) => <button key={value} type="button" className={`btn btn-sm ${chartMode === value ? 'btn-primary' : 'btn-ghost'}`} aria-pressed={chartMode === value} onClick={() => setChartMode(value)}>{label}</button>)}</div></div>

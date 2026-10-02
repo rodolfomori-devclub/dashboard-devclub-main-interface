@@ -18,12 +18,12 @@ const data = prepareGoalData({ records, sources }, directory)
 const run = (scope, scopeId, overrides = {}) => calculateGoalPace({ year: 2026, month: 6, today: '2026-06-15', ...data, plan: { scope, scopeId, metric: 'gross', target: 10000 }, ...overrides })
 
 test('four goal scopes are independent and aggregate only matching assigned transactions', () => {
- assert.equal(run('overall', '').actual, 3500)
- assert.equal(run('product', 'MBA').actual, 2500)
- assert.equal(run('team', 'closers').actual, 3000)
- assert.equal(run('individual', 'ana').actual, 2000)
+ assert.equal(run('overall', '').actual, 3250)
+ assert.equal(run('product', 'MBA').actual, 2350)
+ assert.equal(run('team', 'closers').actual, 2800)
+ assert.equal(run('individual', 'ana').actual, 1900)
  assert.equal(run('individual', 'ana').definitive, true)
- assert.equal(run('team', 'retention').actual, 500)
+ assert.equal(run('team', 'retention').actual, 450)
 })
 test('legacy general/product identities remain compatible and team does not alias general', () => {
  assert.deepEqual(goalScope({ product: 'all' }), { scope: 'overall', scopeId: '' })
@@ -33,11 +33,11 @@ test('legacy general/product identities remain compatible and team does not alia
 test('unassigned amounts are excluded from each individual/team and prevent definitive pace', () => {
  const extra = { kind: 'sale', date: '2026-06-04', family: 'MBA', gross: 700 }
  const result = run('team', 'closers', { records: [...data.records, extra] })
- assert.equal(result.actual, 3000)
+ assert.equal(result.actual, 2800)
  assert.equal(result.unassignedRecords, 1)
  assert.equal(result.unassignedValue, 700)
  assert.equal(result.definitive, false)
- assert.equal(run('overall', '', { records: [...data.records, extra] }).actual, 4200)
+ assert.equal(run('overall', '', { records: [...data.records, extra] }).actual, 3950)
 })
 test('cash includes full Guru net but never Asaas invoices or lifetime Boletex cash', () => {
  const sales = { records: [...records, { kind: 'sale', sourceId: 'boletex', date: '2026-06-05', family: 'MBA', received: 9999 }], sources: [
@@ -73,7 +73,7 @@ test('unknown receipt dates cannot enter sales pace; invalid membership and outs
  assert.equal(run('team', 'closers', { directoryAvailable: false }).definitive, false)
  assert.equal(run('team', 'closers', { directoryAvailable: false }).actual, null)
  assert.equal(run('individual', '').actual, null)
- assert.equal(run('overall', '', { records: [...data.records, { kind: 'sale', date: '2026-05-31', gross: 9999 }] }).actual, 3500)
+ assert.equal(run('overall', '', { records: [...data.records, { kind: 'sale', date: '2026-05-31', gross: 9999 }] }).actual, 3250)
 })
 test('cash metadata preserves undated receipts without creating sales or changing existing cash totals', () => {
  const result = sourceFinancialMetadata('asaas', { sales: null, totalGross: 500, totalNet: 450, totalFees: 50, count: 2,

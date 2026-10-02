@@ -1,8 +1,13 @@
+import { formatHubFinancial, hubFinancialNote, type HubFinancialSummary } from './saleValuePolicy';
 import type { jsPDF } from 'jspdf';
 
 interface CostLine { label: string; value: number | string; }
 
 interface DreData {
+  revenueFinancial?: HubFinancialSummary;
+  cashFinancial?: HubFinancialSummary;
+  revenueHublaFinancial?: HubFinancialSummary;
+  cashHublaFinancial?: HubFinancialSummary;
   month: number;
   year: number;
   revenueHubla: number;
@@ -24,7 +29,7 @@ interface DreData {
   overheadFixo: number;
   lucroLiquido: number;
   margemLiquida: number | null;
-  sales: { date: string; seller: string; client: string; product: string; platform: string; origin: string; commissionValue: number; totalValue: number; note: string }[];
+  sales: { date: string; seller: string; client: string; product: string; platform: string; origin: string; commissionValue: number; totalValue: number | null; note: string }[];
 }
 
 const months = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
@@ -33,7 +38,7 @@ const PW = 210;
 const PH = 297;
 const CW = PW - MARGIN * 2;
 
-const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const fmt = (v: number | null) => v === null ? 'Não informado' : v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 function header(doc: jsPDF, label: string) {
   doc.setFillColor(20, 31, 32);
@@ -50,7 +55,7 @@ function header(doc: jsPDF, label: string) {
   doc.line(MARGIN, 16, PW - MARGIN, 16);
 }
 
-function footer(doc: jsPDF, page: number) {
+function footer(doc: jsPDF, page: number, partialNote?: string) {
   doc.setDrawColor(200, 200, 200);
   doc.setLineWidth(0.3);
   doc.line(MARGIN, PH - 12, PW - MARGIN, PH - 12);
@@ -58,6 +63,7 @@ function footer(doc: jsPDF, page: number) {
   doc.setFontSize(7);
   doc.setTextColor(150, 150, 150);
   doc.text('DevClub · DRE Global', MARGIN, PH - 7);
+  if (partialNote) doc.text(partialNote, MARGIN, PH - 15);
   doc.text(`Página ${page}`, PW - MARGIN, PH - 7, { align: 'right' });
 }
 
@@ -67,6 +73,9 @@ export async function generateDrePdf(data: DreData) {
   const label = `${months[data.month - 1]} ${data.year}`;
   let y = 22;
   let page = 1;
+  const partialNote = data.revenueFinancial?.partial ? `Financeiro parcial: ${data.revenueFinancial.unknownNetCount} venda(s) sem líquido informado.` : undefined;
+  const revenueFmt = (value: number) => formatHubFinancial(value, data.revenueFinancial, fmt);
+  const cashFmt = (value: number) => formatHubFinancial(value, data.cashFinancial, fmt);
 
   header(doc, label);
 
@@ -80,10 +89,16 @@ export async function generateDrePdf(data: DreData) {
   doc.setTextColor(100, 100, 100);
   doc.text(label, PW / 2, 39, { align: 'center' });
   y = 48;
+  if (data.revenueFinancial?.partial) {
+    doc.setFontSize(8);
+    const lines = doc.splitTextToSize(hubFinancialNote(data.revenueFinancial), CW);
+    doc.text(lines, MARGIN, y);
+    y += lines.length * 4 + 5;
+  }
 
   const ensureSpace = (needed: number) => {
-    if (y + needed > PH - 18) {
-      footer(doc, page);
+    if (y + needed > PH - 24) {
+      footer(doc, page, partialNote);
       doc.addPage();
       page++;
       header(doc, label);
@@ -120,12 +135,12 @@ export async function generateDrePdf(data: DreData) {
 
   // RECEITA
   sectionHeader('RECEITA', [22, 163, 74]);
-  row('VENDAS', fmt(data.revenueTotal), true);
-  row('Hubla', fmt(data.revenueHubla), false, 6);
+  row('VENDAS', revenueFmt(data.revenueTotal), true);
+  row('Hubla', formatHubFinancial(data.revenueHubla, data.revenueHublaFinancial || data.revenueFinancial, fmt), false, 6);
   row('TMB', fmt(data.revenueTmb), false, 6);
   separator();
-  row('CASH COLLECTED', fmt(data.ccTotal), true);
-  row('Hubla CC', fmt(data.ccHubla), false, 6);
+  row('CASH COLLECTED', cashFmt(data.ccTotal), true);
+  row('Hubla CC', formatHubFinancial(data.ccHubla, data.cashHublaFinancial || data.cashFinancial, fmt), false, 6);
   row('TMB CC', fmt(data.ccTmb), false, 6);
   y += 2;
 
@@ -150,9 +165,9 @@ export async function generateDrePdf(data: DreData) {
 
   // RESULTADO
   sectionHeader('RESULTADO', [20, 31, 32]);
-  row('Entrada (Cash Collected)', fmt(data.ccTotal), true, 0, [22, 163, 74]);
+  row('Entrada (Cash Collected)', cashFmt(data.ccTotal), true, 0, [22, 163, 74]);
   row('Saídas', fmt(data.totalSaidas), true, 0, [220, 38, 38]);
-  row('Impostos (5%)', fmt(data.impostos));
+  row('Impostos (5%)', cashFmt(data.impostos));
   row('Overhead Fixo', fmt(data.overheadFixo));
   separator();
 
@@ -162,7 +177,7 @@ export async function generateDrePdf(data: DreData) {
   doc.setFontSize(11);
   doc.setTextColor(profitColor[0], profitColor[1], profitColor[2]);
   doc.text('LUCRO LÍQUIDO', MARGIN + 3, y);
-  doc.text(fmt(data.lucroLiquido), PW - MARGIN - 3, y, { align: 'right' });
+  doc.text(cashFmt(data.lucroLiquido), PW - MARGIN - 3, y, { align: 'right' });
   y += 7;
 
   if (data.margemLiquida !== null) {
@@ -170,7 +185,7 @@ export async function generateDrePdf(data: DreData) {
     doc.setFontSize(8);
     doc.setTextColor(100, 100, 100);
     doc.text('Margem Líquida', MARGIN + 3, y);
-    doc.text(`${data.margemLiquida.toFixed(1)}%`, PW - MARGIN - 3, y, { align: 'right' });
+    doc.text(formatHubFinancial(data.margemLiquida, data.cashFinancial, value => `${value.toFixed(1)}%`), PW - MARGIN - 3, y, { align: 'right' });
     y += 8;
   }
 
@@ -228,6 +243,6 @@ export async function generateDrePdf(data: DreData) {
     });
   }
 
-  footer(doc, page);
+  footer(doc, page, partialNote);
   doc.save(`DRE_Global_${months[data.month - 1]}_${data.year}.pdf`);
 }

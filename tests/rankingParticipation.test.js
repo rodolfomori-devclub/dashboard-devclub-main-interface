@@ -27,7 +27,7 @@ const tv = (overrides = {}) => buildTvData({ year: 2026, month: 10, today: date,
   ], ...overrides })
 
 test('excluding a person keeps company/product amounts across every metric and removes only people performance', () => {
-  for (const [metric, total, participant] of [['gross', 6100, 100], ['cash', 1940, 90], ['net', 5690, 90], ['operational', 5990, 90], ['count', 4, 1]]) {
+  for (const [metric, total, participant] of [['gross', 5990, 90], ['cash', 1940, 90], ['net', 5690, 90], ['operational', 5990, 90], ['count', 4, 1]]) {
     for (const [scope, id] of [['overall', ''], ['product', 'MBA']]) assert.equal(pace(scope, id, metric).actual, total, `${scope}:${metric}`)
     for (const [scope, id] of [['team', 'team'], ['individual', 'seller']]) {
       const result = pace(scope, id, metric)
@@ -51,7 +51,7 @@ test('excluding a person keeps company/product amounts across every metric and r
 
 test('excluded people without a team do not turn into unassigned sales; real unknown sellers remain explicit', () => {
   const people = { ...directory, individuals: directory.individuals.map(person => person.id === 'head' ? { ...person, teamId: null } : person) }
-  const sales = [...records, row('unassigned', { sellerId: null, gross: 77 })]
+  const sales = [...records, row('unassigned', { sellerId: null, gross: 77, net: 77 })]
   const result = pace('team', 'team', 'gross', people, sales)
   assert.equal(result.unassignedRecords, 1)
   assert.equal(result.unassignedValue, 77)
@@ -59,7 +59,7 @@ test('excluded people without a team do not turn into unassigned sales; real unk
   assert.equal(model.unassigned.team.value, 77)
   assert.equal(model.unassigned.seller.value, 77)
   assert.deepEqual(model.sellers.map(row => row.id), ['seller'])
-  assert.equal(model.products[0].value, 6177)
+  assert.equal(model.products[0].value, 6067)
 })
 
 test('TV rankings and historical goals follow dynamic participation, preserving all company panels', () => {
@@ -67,13 +67,13 @@ test('TV rankings and historical goals follow dynamic participation, preserving 
   assert.deepEqual(excluded.sellers.map(row => row.id), ['seller'])
   assert.deepEqual(excluded.individualGoals.map(row => row.id), ['seller'])
   assert.deepEqual(excluded.directory.individuals.map(row => row.id), ['seller'])
-  assert.equal(excluded.teamGoals[0].pace.actual, 100)
+  assert.equal(excluded.teamGoals[0].pace.actual, 90)
   assert.equal(excluded.pace.actual, null)
   assert.equal(excluded.pace.scopeExcluded, true)
   const reincluded = { ...directory, individuals: directory.individuals.map(person => ({ ...person, excludedFromRanking: false })) }
   const included = tv({ directory: reincluded, paceScope: 'individual', paceScopeId: 'head' })
-  assert.equal(included.pace.actual, 6000)
-  assert.equal(included.teamGoals[0].pace.actual, 6100)
+  assert.equal(included.pace.actual, 5900)
+  assert.equal(included.teamGoals[0].pace.actual, 5990)
   assert.deepEqual(included.sellers.map(row => row.id), ['head', 'seller'])
   assert.equal(included.individualGoals.length, 2)
   assert.deepEqual(included.totals, excluded.totals)

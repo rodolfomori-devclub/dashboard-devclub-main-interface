@@ -3,6 +3,7 @@ import { Wallet, Target, Trophy, Layers, Sparkles, TrendingUp } from 'lucide-rea
 import { useSales } from '@/hooks/useSupabaseData';
 import { useGoals } from '@/hooks/useGoals';
 import { parseLocalDate } from '@/lib/utils';
+import { formatHubFinancial, hubFinancialNote, isHubNetSale, summarizeHubSaleValues, type HubFinancialSummary } from '@/lib/saleValuePolicy';
 
 const fmtBRL = (n: number) => `R$ ${Math.round(n).toLocaleString('pt-BR')}`;
 
@@ -36,9 +37,11 @@ interface Props {
   year: number;
   ccHubla: number;
   ccTmb: number;
+  financialSummary?: HubFinancialSummary;
+  hublaFinancialSummary?: HubFinancialSummary;
 }
 
-export function CashCollectedBreakdown({ month, year, ccHubla, ccTmb }: Props) {
+export function CashCollectedBreakdown({ month, year, ccHubla, ccTmb, financialSummary, hublaFinancialSummary }: Props) {
   const { data: allSales = [] } = useSales();
   const { data: goals } = useGoals(month, year);
   const target = Number(goals?.cash_collected_target) || 0;
@@ -50,24 +53,24 @@ export function CashCollectedBreakdown({ month, year, ccHubla, ccTmb }: Props) {
       return d.getMonth() + 1 === month && d.getFullYear() === year;
     });
 
-    const buckets = {
-      total: 0,
-      global: { total: 0, workshop: 0, application: 0 },
-      postgraduate: { total: 0, workshop: 0, application: 0 },
-      other: { total: 0, workshop: 0, application: 0 },
-      funnel: { workshop: 0, application: 0 },
+    // Keep the existing positive-value rule for other platforms, but retain
+    // digital unknowns in coverage instead of silently treating them as zero.
+    const included = monthSales.filter((sale: any) => isHubNetSale(sale) || Number(sale.amount) > 0);
+    const summary = summarizeHubSaleValues(included);
+    const group = (sales: any[]) => {
+      const summary = summarizeHubSaleValues(sales);
+      const workshopSummary = summarizeHubSaleValues(sales.filter(sale => classifyFunnel(sale.origin, sale.product) === 'workshop'));
+      const applicationSummary = summarizeHubSaleValues(sales.filter(sale => classifyFunnel(sale.origin, sale.product) === 'application'));
+      return { total: summary.subtotal, summary, workshop: workshopSummary.subtotal, application: applicationSummary.subtotal,
+        workshopSummary, applicationSummary };
     };
-
-    monthSales.forEach((s: any) => {
-      const amount = Number(s.amount) || 0;
-      if (amount <= 0) return;
-      const product = classifyProduct(s.product);
-      const funnel = classifyFunnel(s.origin, s.product);
-      buckets.total += amount;
-      buckets[product].total += amount;
-      buckets[product][funnel] += amount;
-      buckets.funnel[funnel] += amount;
-    });
+    const buckets = {
+      total: summary.subtotal, summary,
+      global: group(included.filter(sale => classifyProduct(sale.product) === 'global')),
+      postgraduate: group(included.filter(sale => classifyProduct(sale.product) === 'postgraduate')),
+      other: group(included.filter(sale => classifyProduct(sale.product) === 'other')),
+      funnel: group(included),
+    };
 
     const pct = (n: number) => (buckets.total > 0 ? Math.round((n / buckets.total) * 100) : 0);
     const topProductEntry = (['global', 'postgraduate'] as const)
@@ -88,7 +91,7 @@ export function CashCollectedBreakdown({ month, year, ccHubla, ccTmb }: Props) {
       topFunnelEntry,
       progress,
     };
-  }, [allSales, month, year, target]);
+  }, [allSales, month, year, target, cashCollected]);
 
   return (
     <div className="border border-border rounded-lg bg-card overflow-hidden">
@@ -101,6 +104,7 @@ export function CashCollectedBreakdown({ month, year, ccHubla, ccTmb }: Props) {
       </div>
 
       <div className="p-4 space-y-4">
+        {data.summary.partial && <p role="status" className="text-xs text-muted-foreground">{hubFinancialNote(data.summary)}</p>}
         {/* Master KPIs: Faturamento + Cash Collected.
             SO UM dos dois pode ser verde. Faturamento e o total bruto (contexto)
             e fica neutro em bg-card; Cash Collected e a metrica que o time
@@ -113,7 +117,7 @@ export function CashCollectedBreakdown({ month, year, ccHubla, ccTmb }: Props) {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-semibold">Faturamento do mês</p>
-              <p className="text-3xl font-extrabold text-foreground tracking-tight mt-0.5">{fmtBRL(data.total)}</p>
+              <p className="text-3xl font-extrabold text-foreground tracking-tight mt-0.5">{formatHubFinancial(data.total, data.summary, fmtBRL)}</p>
               <p className="text-[11px] text-muted-foreground mt-0.5">Soma de todas as vendas registradas</p>
             </div>
           </div>
@@ -127,9 +131,9 @@ export function CashCollectedBreakdown({ month, year, ccHubla, ccTmb }: Props) {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[10px] uppercase tracking-[0.2em] text-success-text/80 font-semibold">Cash Collected</p>
-              <p className="text-3xl font-extrabold text-foreground tracking-tight mt-0.5">{fmtBRL(cashCollected)}</p>
+              <p className="text-3xl font-extrabold text-foreground tracking-tight mt-0.5">{formatHubFinancial(cashCollected, financialSummary, fmtBRL)}</p>
               <p className="text-[11px] text-muted-foreground mt-0.5">
-                Hubla {fmtBRL(Number(ccHubla) || 0)} · TMB {fmtBRL(Number(ccTmb) || 0)}
+                Hubla {formatHubFinancial(Number(ccHubla) || 0, hublaFinancialSummary || financialSummary, fmtBRL)} · TMB {fmtBRL(Number(ccTmb) || 0)}
               </p>
             </div>
           </div>
@@ -143,6 +147,10 @@ export function CashCollectedBreakdown({ month, year, ccHubla, ccTmb }: Props) {
             pct={data.pctGlobal}
             workshop={data.global.workshop}
             application={data.global.application}
+            summary={data.global.summary}
+            workshopSummary={data.global.workshopSummary}
+            applicationSummary={data.global.applicationSummary}
+            distributionSummary={data.summary}
             accent="primary"
             isTop={data.topProductEntry?.key === 'global' && data.global.total > 0}
           />
@@ -152,6 +160,10 @@ export function CashCollectedBreakdown({ month, year, ccHubla, ccTmb }: Props) {
             pct={data.pctPostgrad}
             workshop={data.postgraduate.workshop}
             application={data.postgraduate.application}
+            summary={data.postgraduate.summary}
+            workshopSummary={data.postgraduate.workshopSummary}
+            applicationSummary={data.postgraduate.applicationSummary}
+            distributionSummary={data.summary}
             accent="info"
             isTop={data.topProductEntry?.key === 'postgraduate' && data.postgraduate.total > 0}
           />
@@ -167,20 +179,20 @@ export function CashCollectedBreakdown({ month, year, ccHubla, ccTmb }: Props) {
             </div>
             {target > 0 ? (
               <>
-                <p className="text-xl font-extrabold text-foreground">{fmtBRL(cashCollected)}</p>
+                <p className="text-xl font-extrabold text-foreground">{formatHubFinancial(cashCollected, financialSummary, fmtBRL)}</p>
                 <p className="text-xs text-muted-foreground">de <span className="font-semibold text-foreground">{fmtBRL(target)}</span></p>
                 <div className="h-2 rounded-full overflow-hidden bg-muted mt-3">
                   <div
                     className="h-full rounded-full"
                     style={{
-                      width: `${data.progress}%`,
+                      width: `${financialSummary?.partial && !financialSummary.knownCount ? 0 : data.progress}%`,
                       background: data.progress >= 100
                         ? 'linear-gradient(90deg, var(--primary), var(--brand-grad-end))'
                         : 'linear-gradient(90deg, var(--primary), var(--dc-info-solid))',
                     }}
                   />
                 </div>
-                <p className="text-xs text-right text-success-text font-bold mt-1">{data.progress}%</p>
+                <p className="text-xs text-right text-success-text font-bold mt-1">{formatHubFinancial(data.progress, financialSummary, value => `${value}%`)}</p>
               </>
             ) : (
               <p className="text-xs text-muted-foreground">Configure em Configurações → Metas Comerciais</p>
@@ -194,8 +206,8 @@ export function CashCollectedBreakdown({ month, year, ccHubla, ccTmb }: Props) {
               <h3 className="text-[11px] font-semibold text-foreground uppercase tracking-wider">Cash por Funil</h3>
             </div>
             <div className="space-y-3">
-              <FunnelRow label="Workshop / Live" value={data.funnel.workshop} pct={data.pctWorkshop} color="var(--primary)" />
-              <FunnelRow label="Application" value={data.funnel.application} pct={data.pctApplication} color="var(--dc-info-solid)" />
+              <FunnelRow label="Workshop / Live" value={data.funnel.workshop} pct={data.pctWorkshop} color="var(--primary)" summary={data.funnel.workshopSummary} distributionSummary={data.summary} />
+              <FunnelRow label="Application" value={data.funnel.application} pct={data.pctApplication} color="var(--dc-info-solid)" summary={data.funnel.applicationSummary} distributionSummary={data.summary} />
             </div>
           </div>
 
@@ -216,7 +228,7 @@ export function CashCollectedBreakdown({ month, year, ccHubla, ccTmb }: Props) {
                 <p className="text-sm font-extrabold text-foreground truncate">
                   {data.topProductEntry?.value ? (data.topProductEntry.key === 'global' ? 'GLOBAL' : 'POSTGRADUATE') : '—'}
                 </p>
-                <p className="text-sm font-bold text-warning">{fmtBRL(data.topProductEntry?.value || 0)}</p>
+                <p className="text-sm font-bold text-warning">{formatHubFinancial(data.topProductEntry?.value || 0, data.summary, fmtBRL)}</p>
               </div>
             </div>
             <div
@@ -229,7 +241,7 @@ export function CashCollectedBreakdown({ month, year, ccHubla, ccTmb }: Props) {
                 <p className="text-sm font-extrabold text-foreground truncate">
                   {data.topFunnelEntry?.value ? (data.topFunnelEntry.key === 'workshop' ? 'Workshop / Live' : 'Application') : '—'}
                 </p>
-                <p className="text-sm font-bold text-success-text">{fmtBRL(data.topFunnelEntry?.value || 0)}</p>
+                <p className="text-sm font-bold text-success-text">{formatHubFinancial(data.topFunnelEntry?.value || 0, data.summary, fmtBRL)}</p>
               </div>
             </div>
           </div>
@@ -240,10 +252,11 @@ export function CashCollectedBreakdown({ month, year, ccHubla, ccTmb }: Props) {
 }
 
 function ProductCard({
-  name, total, pct, workshop, application, accent, isTop,
+  name, total, pct, workshop, application, accent, isTop, summary, workshopSummary, applicationSummary, distributionSummary,
 }: {
   name: string; total: number; pct: number; workshop: number; application: number;
   accent: 'primary' | 'info'; isTop: boolean;
+  summary: HubFinancialSummary; workshopSummary: HubFinancialSummary; applicationSummary: HubFinancialSummary; distributionSummary: HubFinancialSummary;
 }) {
   // O antigo 'lavender' virou --brand-grad-end (= green-11) no rebrand, ou
   // seja: GLOBAL e POSTGRADUATE passaram a ser dois verdes quase iguais e o
@@ -265,24 +278,24 @@ function ProductCard({
       )}
       <div className="flex items-baseline justify-between mb-2">
         <h3 className="text-sm font-bold text-foreground tracking-wide uppercase">{name}</h3>
-        <span className="text-xs font-semibold" style={{ color: accentColor }}>{pct}%</span>
+        <span className="text-xs font-semibold" style={{ color: accentColor }}>{formatHubFinancial(pct, distributionSummary, value => `${value}%`)}</span>
       </div>
-      <p className="text-2xl font-extrabold text-foreground tracking-tight">{fmtBRL(total)}</p>
+      <p className="text-2xl font-extrabold text-foreground tracking-tight">{formatHubFinancial(total, summary, fmtBRL)}</p>
       <div className="mt-3 pt-3 border-t border-border/30 grid grid-cols-2 gap-2">
         <div>
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Workshop / Live</p>
-          <p className="text-sm font-bold text-foreground mt-0.5">{fmtBRL(workshop)}</p>
+          <p className="text-sm font-bold text-foreground mt-0.5">{formatHubFinancial(workshop, workshopSummary, fmtBRL)}</p>
         </div>
         <div>
           <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Application</p>
-          <p className="text-sm font-bold text-foreground mt-0.5">{fmtBRL(application)}</p>
+          <p className="text-sm font-bold text-foreground mt-0.5">{formatHubFinancial(application, applicationSummary, fmtBRL)}</p>
         </div>
       </div>
     </div>
   );
 }
 
-function FunnelRow({ label, value, pct, color }: { label: string; value: number; pct: number; color: string }) {
+function FunnelRow({ label, value, pct, color, summary, distributionSummary }: { label: string; value: number; pct: number; color: string; summary: HubFinancialSummary; distributionSummary: HubFinancialSummary }) {
   return (
     <div>
       <div className="flex items-baseline justify-between mb-1">
@@ -290,9 +303,9 @@ function FunnelRow({ label, value, pct, color }: { label: string; value: number;
           <span className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
           {label}
         </span>
-        <span className="text-xs font-semibold text-muted-foreground">{pct}%</span>
+        <span className="text-xs font-semibold text-muted-foreground">{formatHubFinancial(pct, distributionSummary, amount => `${amount}%`)}</span>
       </div>
-      <p className="text-sm font-bold text-foreground">{fmtBRL(value)}</p>
+      <p className="text-sm font-bold text-foreground">{formatHubFinancial(value, summary, fmtBRL)}</p>
       <div className="h-1.5 rounded-full overflow-hidden bg-muted mt-1">
         <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
       </div>

@@ -10,14 +10,14 @@ const record = (overrides = {}) => ({ id: 'guru:one', source: 'guru', sourceId: 
 const mapping = (overrides = {}) => ({ utmSource: 'Comercial-Emanuel', sellerId: sellerA, sellerName: 'Emanuel', enabled: true, revision: 1, ...overrides })
 const ledger = (overrides = {}) => ({ attributions: [], manualSales: [], utmMappings: [mapping()], attributionMappingsStatus: 'ready', ...overrides })
 
-test('approved exact source identifies a seller without changing source fields or monetary values', () => {
+test('approved exact source identifies a seller with net policy and without mutating the original source', () => {
   const sale = record()
   const snapshot = structuredClone(sale)
   const [result] = mergeSalesOperations([sale], ledger())
   assert.equal(result.sellerId, sellerA)
   assert.equal(result.attributionMethod, 'utm')
   assert.deepEqual(result.utm, snapshot.utm)
-  assert.equal(result.gross, 1997)
+  assert.equal(result.gross, 1800)
   assert.equal(result.received, 1800)
   assert.deepEqual(sale, snapshot)
   assert.equal(result.status, undefined, 'identification does not silently reconcile a transaction')

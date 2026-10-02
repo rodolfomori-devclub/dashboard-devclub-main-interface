@@ -6,7 +6,7 @@ import { formatValue } from '../charts/chartFormatters.js'
 const value = (number, unit) => number == null ? '—' : formatValue(number, unit)
 const percent = number => number == null ? '—' : formatValue(number, 'percent')
 const fill = number => `${Math.max(0, Math.min(100, number || 0))}%`
-const metricName = model => model.metric === 'cash' ? 'Cash collected' : model.metric === 'count' ? 'Quantidade de vendas' : 'Valor bruto'
+const metricName = model => model.metric === 'cash' ? 'Cash collected' : model.metric === 'count' ? 'Quantidade de vendas' : 'Valor das vendas'
 const isPartial = (metrics, key) => metrics?.[`${key}Partial`] ?? metrics?.partial ?? false
 
 function Empty({ title, children }) {
@@ -17,14 +17,14 @@ function Stat({ label, amount, unit = 'currency', accent = false }) {
 }
 function FinancialHero({ metrics, context }) {
   return <div className="tv-financial-hero">
-    <span className="tv-eyebrow">Valor bruto{context ? ` · ${context}` : ''}{isPartial(metrics, 'gross') ? ' · parcial' : ''}</span>
+    <span className="tv-eyebrow">Valor das vendas{context ? ` · ${context}` : ''}{isPartial(metrics, 'gross') ? ' · parcial' : ''}</span>
     <strong className="tv-hero-value" data-testid="tv-main-value"><span data-testid="tv-gross-value">{value(metrics?.gross, 'currency')}</span></strong>
     <div className="tv-cash-secondary"><span>Cash collected{isPartial(metrics, 'cash') ? ' · parcial' : ''}</span><strong data-testid="tv-cash-value">{value(metrics?.cash, 'currency')}</strong><small>Novas vendas</small></div>
   </div>
 }
 function DualAmount({ metrics }) {
   return <div className="tv-dual-amount">
-    <span className="tv-amount-label">Valor bruto{isPartial(metrics, 'gross') ? ' · parcial' : ''}</span>
+    <span className="tv-amount-label">Valor das vendas{isPartial(metrics, 'gross') ? ' · parcial' : ''}</span>
     <strong data-testid="tv-gross-value">{value(metrics?.gross, 'currency')}</strong>
     <span className="tv-cash-amount">Cash collected{isPartial(metrics, 'cash') ? ' · parcial' : ''} <b data-testid="tv-cash-value">{value(metrics?.cash, 'currency')}</b></span>
   </div>
@@ -76,7 +76,7 @@ function Ranking({ rows, model, sellers = false }) {
   const max = Math.max(1, ...rows.map(row => row.value || 0))
   return <div className="tv-ranking"><p className="tv-order-basis">Ordenação: {metricName(model)}</p>{rows[0].value > 0 && <div className="tv-ranking-leader"><Trophy size={34}/><div className="tv-ranking-leader-name"><span className="tv-eyebrow">{sellers ? 'Destaque do mês' : 'Produto em destaque'}</span><h3>{rows[0].name}</h3></div><DualAmount metrics={rows[0]}/></div>}
     <div className="tv-ranking-rows">{rows.slice(0, 8).map((row, index) => <div className="tv-ranking-row" data-tv-row-id={row.id} key={row.id} style={{ '--row-color': `var(--chart-${index % 6 + 1})` }}><span className="tv-position">{String(index + 1).padStart(2, '0')}</span><div className="tv-ranking-name"><strong>{row.name}</strong><div className="tv-track"><i style={{ width: fill((row.value || 0) / max * 100) }}/></div><span>{value(row.count, 'count')} vendas{row.partial ? ' · parcial' : ''}</span></div><div className="tv-ranking-result"><DualAmount metrics={row}/></div></div>)}</div>
-    <p className="tv-footnote">{rows.length > 8 ? `Top 8 de ${rows.length}. ` : ''}{unassigned?.count > 0 ? `${value(unassigned.count, 'count')} vendas sem ${sellers ? 'vendedor' : 'produto'}: valor bruto ${value(unassigned.gross, 'currency')} · cash collected ${value(unassigned.cash, 'currency')}. ` : ''}Somente novas vendas identificadas{model.attributionAvailable === false ? ' · atribuições indisponíveis' : ''}.</p>
+    <p className="tv-footnote">{rows.length > 8 ? `Top 8 de ${rows.length}. ` : ''}{unassigned?.count > 0 ? `${value(unassigned.count, 'count')} vendas sem ${sellers ? 'vendedor' : 'produto'}: valor das vendas ${value(unassigned.gross, 'currency')} · cash collected ${value(unassigned.cash, 'currency')}. ` : ''}Somente novas vendas identificadas{model.attributionAvailable === false ? ' · atribuições indisponíveis' : ''}.</p>
   </div>
 }
 function Daily({ model, chartHeight }) {
@@ -84,7 +84,7 @@ function Daily({ model, chartHeight }) {
   if (!day.inSelectedMonth) return <Empty title="Hoje está fora do mês selecionado">Use o período Mês atual para acompanhar as vendas do dia nesta programação.</Empty>
   return <div><div className="tv-daily-lead"><FinancialHero metrics={day} context="hoje · horário de Brasília"/><ArrowUpRight size={64}/></div>
     <div className="tv-stat-row"><Stat label="Vendas realizadas hoje" amount={day.count} unit="count"/></div>
-    <ReferenceChart rows={day.hours.map(hour => ({ ...hour, label: hour.hour }))} title="Vendas de hoje por hora" height={Math.max(210, chartHeight - 120)} mode="bar" series={[{ key: 'gross', label: 'Valor bruto', unit: 'currency', color: 'var(--chart-1)' }, { key: 'cash', label: 'Cash collected', unit: 'currency', color: 'var(--accent)' }]}/>
+    <ReferenceChart rows={day.hours.map(hour => ({ ...hour, label: hour.hour }))} title="Vendas de hoje por hora" height={Math.max(210, chartHeight - 120)} mode="bar" series={[{ key: 'gross', label: 'Valor das vendas', unit: 'currency', color: 'var(--chart-1)' }, { key: 'cash', label: 'Cash collected', unit: 'currency', color: 'var(--accent)' }]}/>
     {day.unknownHourCount > 0 && <p className="tv-footnote">{day.unknownHourCount} vendas com horário não informado, fora do gráfico por hora.</p>}
   </div>
 }

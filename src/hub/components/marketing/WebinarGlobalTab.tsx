@@ -1,3 +1,4 @@
+import { summarizeHubSaleValues, formatHubFinancial, hubFinancialNote } from '@/lib/saleValuePolicy';
 import { fetchAllRows, HISTORY_STALE_TIME } from '@/lib/fetchAllRows';
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -530,7 +531,7 @@ export default function WebinarGlobalTab() {
     queryFn: async () => {
       return fetchAllRows<any>(() => (supabase as any)
         .from('sales')
-        .select('id,amount,total_sale_value,date,product,origin,note,utm', { count: 'exact' })
+        .select('id,amount,total_sale_value,date,product,origin,note,utm,platform,seller_id,dashboard_ledger_id', { count: 'exact' })
         .ilike('origin', '%workshop global%'));
     },
   });
@@ -672,7 +673,8 @@ export default function WebinarGlobalTab() {
       const d = (m.scheduled_at || m.meeting_date || '').slice(0, 10);
       return d >= activeRange.from && d <= activeRange.to;
     });
-    const revenue = salesInRange.reduce((s: number, x: any) => s + (Number(x.total_sale_value) || Number(x.amount) || 0), 0);
+    const financial = summarizeHubSaleValues(salesInRange, sale => Number(sale.total_sale_value) || Number(sale.amount) || 0);
+    const revenue = financial.subtotal;
     const meetingsBooked = meetingsInRange.length;
     const salesCount = salesInRange.length;
     const convMeeting = meetingsBooked > 0 ? salesCount / meetingsBooked : 0;
@@ -693,7 +695,7 @@ export default function WebinarGlobalTab() {
       liveRate: leads > 0 ? live / leads : 0,
       appRate: leads > 0 ? apps / leads : 0,
       appLiveRate: live > 0 ? apps / live : 0,
-      revenue,
+      revenue, financial,
       meetingsBooked,
       salesCount,
       convMeeting,
@@ -797,13 +799,14 @@ export default function WebinarGlobalTab() {
           {/* Commercial results row — derived from Global sales tagged as webinar + webinar-sourced meetings */}
           <div>
             <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Resultados Comerciais</div>
+            {agg.financial.partial && <p role="status" data-testid="webinar-financial-partial" className="text-xs text-muted-foreground mb-3">{hubFinancialNote(agg.financial)}</p>}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-              <KpiCard label="Faturamento" value={fmtBRL(agg.revenue)} hint="Vendas com origem Workshop Global" />
+              <KpiCard label="Faturamento" value={formatHubFinancial(agg.revenue, agg.financial, fmtBRL)} hint="Vendas com origem Workshop Global" />
               <KpiCard label="Reuniões Agendadas" value={fmtInt(agg.meetingsBooked)} hint="Origem webinar" />
               <KpiCard label="Vendas" value={fmtInt(agg.salesCount)} hint="Qtd. de vendas" />
               <KpiCard label="Conversão Webinar→Venda" value={fmtPct(agg.convMeeting)} hint="Vendas ÷ Reuniões" />
               <KpiCard label="Conversão Geral da Lista" value={fmtPct(agg.convList)} hint="Vendas ÷ Leads" />
-              <KpiCard label="ROAS" value={agg.roas > 0 ? `${agg.roas.toFixed(2)}x` : '—'} hint="Faturamento ÷ Investimento" />
+              <KpiCard label="ROAS" value={formatHubFinancial(agg.roas, agg.financial, value => value > 0 ? `${value.toFixed(2)}x` : '—')} hint="Faturamento ÷ Investimento" />
             </div>
           </div>
 

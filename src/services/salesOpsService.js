@@ -1,3 +1,4 @@
+import { applyPlatformCashRule } from '../utils/platformCash.js';
 import { applyTmbCashRule } from '../utils/tmbCash.js';
 
 const request = async (path, options) => {
@@ -19,7 +20,7 @@ export const getSalesAudit = (type, id) => request(`/audit/${encodeURIComponent(
 const key = (source, id) => JSON.stringify([source, String(id)]);
 
 export function manualSaleRecord(sale) {
-  return applyTmbCashRule({
+  return applyPlatformCashRule(applyTmbCashRule({
     id: `manual:${sale.id}`, manualId: sale.id, source: 'manual', sourceId: 'manual', externalId: sale.id,
     kind: 'sale', quantity: 1, isManual: true, canAttribute: false, platform: sale.platform,
     buyerName: sale.buyerName, buyerEmail: sale.buyerEmail, date: `${sale.date}T12:00:00-03:00`,
@@ -28,7 +29,7 @@ export function manualSaleRecord(sale) {
     fees: null, affiliate: null, listPrice: null, pending: null,
     utm: sale.utm || {}, sellerId: sale.sellerId, sellerName: sale.sellerName,
     status: sale.status, note: sale.note, syncPending: sale.syncPending, original: sale, attributionMethod: 'manual',
-  });
+  }));
 }
 
 // Sources remain immutable. Only approved UTM links can identify a seller;
@@ -46,7 +47,7 @@ export function mergeSalesOperations(records, ledger = {}) {
     }
   }
   const sourceRecords = records.filter((row) => !row.isManual && row.source !== 'manual').map((original) => {
-    const row = { ...original };
+    const row = { ...applyPlatformCashRule(original) };
     if (['utm', 'manual'].includes(row.attributionMethod)) {
       for (const field of ['sellerId', 'sellerName', 'attributionId', 'attributionMethod', 'attributionUtmSource', 'note', 'syncPending']) delete row[field];
       if (Object.hasOwn(row, 'attributionOriginalStatus')) row.status = row.attributionOriginalStatus;
@@ -68,6 +69,7 @@ export function mergeSalesOperations(records, ledger = {}) {
 }
 
 export function saleSnapshot(row) {
+  row = applyPlatformCashRule(row);
   const money = (value) => value == null ? null : Math.round(Number(value) * 100) / 100;
   const date = new Date(row.date);
   if (Number.isNaN(date.getTime())) throw new Error('A fonte não informou uma data válida para esta transação.');

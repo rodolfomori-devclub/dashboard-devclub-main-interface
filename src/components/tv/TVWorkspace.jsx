@@ -79,7 +79,7 @@ export default function TVWorkspace() {
   }
   const reloadDraft = async () => { const next = await readSettings(); if (next) { setEditor(next); setSaveError(''); setConflict(false) } }
   return <div className="tv-workspace tv-surface">
-    <header className="tv-workspace-heading"><div><span className="tv-eyebrow"><Monitor size={15}/>Operação em tempo real</span><h1>TV Mode</h1><p>Os números que movem o time, sempre à vista.</p></div><div className="tv-actions">{userRoles?.isAdmin && <button disabled={!saved || saving} onClick={() => { setEditor(saved); setSaveError(''); setConflict(false); setNotice('') }}><Settings2 size={17}/>Configurar TV</button>}<button className="tv-primary" onClick={startTv} disabled={!saved || !allowed || Boolean(editor)}><Play size={17}/>Iniciar TV</button></div></header>
+    <header className="tv-workspace-heading"><div><span className="tv-eyebrow"><Monitor size={15}/>Operação em tempo real</span><h1>TV Mode</h1><p>Guru e Hotmart: líquido após taxas; demais: valor contratado. Cash collected sempre visível.</p></div><div className="tv-actions">{userRoles?.isAdmin && <button disabled={!saved || saving} onClick={() => { setEditor(saved); setSaveError(''); setConflict(false); setNotice('') }}><Settings2 size={17}/>Configurar TV</button>}<button className="tv-primary" onClick={startTv} disabled={!saved || !allowed || Boolean(editor)}><Play size={17}/>Iniciar TV</button></div></header>
     {settingsError && <div className="tv-notice" role="alert">{settingsError} <button onClick={readSettings}>Tentar novamente</button></div>}
     {notice && <p className="tv-save-notice" role="status">{notice}</p>}
     {userRoles?.isAdmin && <TvSharing/>}

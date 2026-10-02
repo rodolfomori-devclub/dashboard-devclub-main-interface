@@ -122,7 +122,7 @@ const RefundDetailsModal = ({ isOpen, onClose, refundsData = [] }) => {
           
           <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg border border-red-200 dark:border-red-800">
             <h4 className="text-lg font-medium text-red-800 dark:text-red-200 mb-2">
-              Valor Total Reembolsado
+              Valor líquido das vendas
             </h4>
             <p className="text-3xl font-bold text-red-600 dark:text-red-300">
               {formatCurrency(totalValue)}
@@ -131,7 +131,7 @@ const RefundDetailsModal = ({ isOpen, onClose, refundsData = [] }) => {
           
           <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg border border-red-200 dark:border-red-800">
             <h4 className="text-lg font-medium text-red-800 dark:text-red-200 mb-2">
-              Valor Médio por Reembolso
+              Valor líquido médio por venda
             </h4>
             <p className="text-3xl font-bold text-red-600 dark:text-red-300">
               {formatCurrency(totalRefunds > 0 ? totalValue / totalRefunds : 0)}

@@ -1,10 +1,12 @@
 import { getCashCollected } from './utils.ts';
+import { hubNetSaleValue, isHubNetSale } from './saleValuePolicy.ts';
 
 const money = (value: unknown): number | null => value !== null && value !== undefined && value !== '' && typeof value !== 'boolean'
   && Number.isFinite(Number(value)) && Number(value) >= 0 ? Number(value) : null;
 
-/** Mirrors expose the original gross via the authorized API; legacy mirror values can be net. */
+/** Compatibility name: Guru/Hotmart use net; other platforms retain contracted value. */
 export function rankingGross(sale: any): number | null {
+  if (isHubNetSale(sale)) return hubNetSaleValue(sale);
   if (sale.dashboard_ledger_id || sale.dashboard_value != null) return money(sale.dashboard_gross);
   const contract = money(sale.total_sale_value);
   // Historical Hub rows defaulted total_sale_value to zero before tracking contracts.
@@ -15,6 +17,7 @@ export function rankingGross(sale: any): number | null {
 }
 
 export function rankingCash(sale: any): number | null {
+  if (isHubNetSale(sale)) return hubNetSaleValue(sale);
   if (sale.dashboard_cash_known === false) return null;
   return money(sale.real_collected_this_month) ?? money(sale.cash_collected)
     ?? (money(sale.amount) === null ? null : getCashCollected(sale));

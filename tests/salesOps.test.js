@@ -35,7 +35,7 @@ test('source identities are platform-scoped and refunds never inherit sales attr
 test('snapshot preserves missing values and Sao Paulo business date', () => {
   const snapshot = saleSnapshot({ ...source, date: '2026-10-01T01:00:00Z', net: null, gross: 12.349 })
   assert.equal(snapshot.date, '2026-09-30')
-  assert.equal(snapshot.gross, 12.35)
+  assert.equal(snapshot.gross, null)
   assert.equal(snapshot.net, null)
   assert.equal(snapshot.cashCollected, null)
 });

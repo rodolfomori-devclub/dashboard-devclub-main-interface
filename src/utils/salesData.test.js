@@ -20,9 +20,9 @@ test('classifica famílias por nomes explícitos, sem jogar produto desconhecido
   assert.equal(productFamily(null), 'Não informado')
 })
 
-test('mantém bruto, líquido, taxas e afiliado Guru sem dupla dedução', () => {
+test('usa líquido Guru em todos os valores de venda sem dupla dedução', () => {
   const [row] = normalizeSource('guru', guru)
-  assert.deepEqual([row.gross, row.net, row.fees, row.affiliate, row.revenue], [1000, 890, 12, 98, 890])
+  assert.deepEqual([row.gross, row.net, row.fees, row.affiliate, row.revenue], [890, 890, 12, 98, 890])
   assert.equal(row.product, 'DevClub Vitalício')
   assert.equal(row.payment, 'Pix')
   assert.equal(row.externalId, 'g-1')
@@ -93,11 +93,14 @@ test('TMB usa pedido_id real; Sheets e Asaas sem ID não recebem identidade inve
   assert.equal(normalizeSource('asaas', checkout)[0].buyerEmail, 'fixture@example.test')
 })
 
-test('reembolso usa valor próprio do provedor, sem diminuir vendas na normalização', () => {
+test('preço bruto legado de compra Hotmart reembolsada não vira líquido nem valor devolvido', () => {
   const rows = normalizeSource('hotmartRefunds', { success: true, data: { count: 1, totalRefundAmount: 400, transactions: [{ transaction: 'h-ref', value: 400, product: 'MBA', paymentMethod: 'PIX' }] } })
   assert.equal(rows[0].kind, 'refund')
   assert.equal(rows[0].net, null)
-  assert.equal(summarizeSales(rows).revenue.value, 400)
+  assert.equal(rows[0].revenue, null)
+  assert.equal(rows[0].gross, null)
+  assert.equal(summarizeSales(rows).revenue.known, 0)
+  assert.equal(rows.length, 1, 'the legacy gross total must not generate a residual')
 })
 
 test('valores ausentes diferem de zero real', () => {

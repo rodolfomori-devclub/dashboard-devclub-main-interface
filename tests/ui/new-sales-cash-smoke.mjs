@@ -153,14 +153,15 @@ try {
     }
     if (await page.evaluate(() => document.documentElement.classList.contains('dark')) !== (theme === 'dark')) await page.getByRole('button', { name: theme === 'dark' ? 'Usar tema escuro' : 'Usar tema claro', exact: true }).click()
   }
-  async function assertNewSales({ gross = '900,00', operational = '833,64', cash = '833,64', count = '3', ticket = '300,00' } = {}) {
-    await revenueCard().getByRole('heading', { name: 'Valor bruto das vendas', exact: true }).waitFor()
+  async function assertNewSales({ gross = '833,64', operational = '833,64', cash = '833,64', count = '3', ticket = '277,88' } = {}) {
+    await revenueCard().getByRole('heading', { name: 'Valor das vendas', exact: true }).waitFor()
     await assertMoney(page.getByTestId('revenue-gross-value'), gross)
+    assert.doesNotMatch(await revenueCard().innerText(), /Valor bruto|900,00|2\.900,00/, 'Hotmart purchase price must never leak into sales value')
     await assertMoney(page.getByTestId('revenue-operational-value'), operational)
     assert.match(await page.getByTestId('revenue-operational-secondary').innerText(), /Receita operacional/)
     await assertMoney(cashCard().locator('.revenue-card-value'), cash)
     assert.equal((await detail('Vendas realizadas').innerText()).trim(), count)
-    await assertMoney(detail('Ticket médio bruto'), ticket)
+    await assertMoney(detail('Ticket médio'), ticket)
     assert.doesNotMatch(await cashCard().locator('.revenue-cash-details').innerText(), /Asaas\s*·\s*faturas recebidas|1\.255,36|2\.089,00/, 'Invoice totals must never enter the new-sales cash card')
   }
   async function assertLedger() {
@@ -183,10 +184,10 @@ try {
   await assertNewSales()
   const grossFont = await page.getByTestId('revenue-gross-value').evaluate(node => parseFloat(getComputedStyle(node).fontSize))
   const operationalFont = await page.getByTestId('revenue-operational-value').evaluate(node => parseFloat(getComputedStyle(node).fontSize))
-  assert.ok(grossFont > operationalFont, 'Gross is the visually primary amount; operational revenue remains subordinate')
+  assert.ok(grossFont > operationalFont, 'Sales value is the visually primary amount; operational revenue remains subordinate')
   holdFinancial()
   await page.getByRole('button', { name: 'Atualizar dados', exact: true }).click()
-  for (const [id, amount] of [['revenue-gross-value', '900,00'], ['revenue-operational-value', '833,64']]) {
+  for (const [id, amount] of [['revenue-gross-value', '833,64'], ['revenue-operational-value', '833,64']]) {
     await page.getByTestId(id).locator('.financial-value[data-state="refreshing"]').waitFor()
     assert.match(await page.getByTestId(id).innerText(), new RegExp(`R\\$\\s*${amount}\\s+Atualizando`))
   }
@@ -194,7 +195,7 @@ try {
   await page.waitForLoadState('networkidle')
   await page.getByTestId('revenue-gross-value').locator('.financial-value[data-state="ready"]').waitFor()
   await assertNewSales()
-  checks.push('First-day gross900 and operational833.64 have explicit loading, no premature zero, gross visual emphasis, and independent preserved values on refresh')
+  checks.push('First-day net sales833.64 and operational833.64 have explicit loading, no premature zero, sales visual emphasis, and independent preserved values on refresh')
   const layouts = published
     ? [['diario', 1440, 'light'], ['diario', 360, 'dark'], ['global', 1440, 'dark'], ['mensal', 360, 'light'], ['anual', 1440, 'light']]
     : ['diario', 'global', 'mensal', 'anual'].flatMap(path => [[path, 1440, 'light'], [path, 360, 'dark']])
@@ -211,13 +212,27 @@ try {
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${path}/${width}/${theme} overflow`)
     await revenueCard().getByRole('heading').click()
     await page.screenshot({ path: `${out}/${path}-${width}-${theme}.png`, fullPage: true, animations: 'disabled' })
-    checks.push(`${path}/${width}/${theme}: gross900, operational/cash833.64, count3, gross ticket300; separate invoice ledger1255.36; annual receipt query never inflates main totals`)
+    checks.push(`${path}/${width}/${theme}: net sales/operational/cash833.64, count3, net ticket277.88; separate invoice ledger1255.36; annual receipt query never inflates main totals`)
     const beforeFilter = calls.length
     const platform = path === 'diario' ? page.getByLabel('Plataforma', { exact: true }) : page.locator('#period-platform')
     await platform.selectOption('Hotmart')
     await assertNewSales()
     assert.equal(await panel().count(), 0, 'Hotmart filter cannot display Asaas receipts')
     assert.equal(calls.length, beforeFilter, 'Platform filtering remains local')
+    if (path === 'mensal') {
+      const downloaded = page.waitForEvent('download');
+      await page.getByRole('button', { name: 'Exportar', exact: true }).click();
+      const download = await downloaded;
+      const csv = await fs.readFile(await download.path(), 'utf8');
+      const rows = csv.replace(/^\uFEFF/, '').trim().split('\r\n').slice(1).map(line => line.split(';').map(value => value.slice(1, -1)));
+      assert.equal(rows.length, 3);
+      for (const row of rows) {
+        assert.equal(row[1], 'Hotmart');
+        assert.equal(row[8], '277.88', 'Exported sales value must use net, never purchase price300');
+        assert.equal(row[9], '277.88', 'Exported cash must use the same net without subtracting fees again');
+      }
+      checks.push(`Monthly CSV/${width}: every Hotmart row exports net277.88 for sales and cash`);
+    }
   }
 
   // Even a linked current-period invoice is a receipt, not a new sale or entry.
@@ -231,7 +246,7 @@ try {
   // Confirmed entry attached to an actual new contract is eligible, exactly once.
   scenario = 'new-sale'
   await navigate('diario')
-  await assertNewSales({ gross: '2.900,00', operational: '2.833,64', cash: '1.033,64', count: '4', ticket: '725,00' })
+  await assertNewSales({ gross: '2.833,64', operational: '2.833,64', cash: '1.033,64', count: '4', ticket: '708,41' })
   await assertLedger()
   assert.match(await cashCard().locator('.revenue-cash-details').innerText(), /Asaas.*entradas.*novas vendas/s)
   const boleto = page.locator('.revenue-card--boleto')
@@ -240,12 +255,12 @@ try {
   const paymentMetric = label => asaas.locator('dl > div').filter({ has: page.locator('dt').filter({ hasText: new RegExp(`^${label}$`) }) }).locator('dd')
   await assertMoney(paymentMetric('Cash collected'), '200,00')
   await assertMoney(paymentMetric('Entrada recebida'), '200,00')
-  checks.push('A confirmed new Asaas contract adds gross2000 and cash entry200 once; its invoice ledger1255.36 remains separate')
+  checks.push('A confirmed new Asaas contract adds contracted sales2000 and cash entry200 once; its invoice ledger1255.36 remains separate')
 
   for (const origin of ['legacy-only', 'linked-invoice-only', 'new-sale']) {
     scenario = origin
     await navigate('diario')
-    const expectedGross = origin === 'new-sale' ? '2.900,00' : '900,00'
+    const expectedGross = origin === 'new-sale' ? '2.833,64' : '833,64'
     const expected = origin === 'new-sale' ? '1.033,64' : '833,64'
     await assertMoney(page.getByTestId('revenue-gross-value'), expectedGross)
     await assertMoney(cashCard().locator('.revenue-card-value'), expected)
@@ -256,7 +271,7 @@ try {
     }
     const beforePace = calls.length
     await navigate('pace?year=2026&month=10', origin === 'legacy-only' ? 1440 : 360, origin === 'linked-invoice-only' ? 'dark' : 'light')
-    assert.equal((await page.locator('.pace-financial-card').filter({ has: page.locator('.pace-financial-label').getByText('Valor bruto', { exact: true }) }).locator(':scope > strong').innerText()).replace(/\s/g, ''), dailyAmounts.gross, `${origin}: first-day monthly gross must exactly match Diário gross, never net operational revenue`)
+    assert.equal((await page.locator('.pace-financial-card').filter({ has: page.locator('.pace-financial-label').getByText('Valor das vendas', { exact: true }) }).locator(':scope > strong').innerText()).replace(/\s/g, ''), dailyAmounts.gross, `${origin}: first-day monthly sales must exactly match Diário sales, using platform net`)
     assert.equal((await page.locator('.pace-financial-card').filter({ has: page.locator('.pace-financial-label').getByText('Cash collected', { exact: true }) }).locator(':scope > strong').innerText()).replace(/\s/g, ''), dailyAmounts.cash, `${origin}: first-day monthly cash must exactly match Diário cash, excluding invoice receipts`)
     await assertMoney(page.locator('.pace-stage-actual > strong'), expectedGross)
     const paceCalls = calls.slice(beforePace)
@@ -281,7 +296,7 @@ try {
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
     await page.locator('.pace-stage-heading h2').click()
     await page.locator('.pace-stage').screenshot({ path: `${out}/pace-${origin}.png`, animations: 'disabled' })
-    checks.push(`First-day Diário equals Pace ${origin}: gross${expectedGross}, cash${expected}; same provider date; invoice receipts excluded from actual and scoped goals`)
+    checks.push(`First-day Diário equals Pace ${origin}: sales${expectedGross}, cash${expected}; same provider date; invoice receipts excluded from actual and scoped goals`)
   }
   assert.deepEqual(errors, [])
   assert.deepEqual(unexpected, [])

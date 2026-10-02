@@ -33,8 +33,8 @@ test('boleto platform details separate gross, operational cash and confirmed dow
   const sources = ['guru', 'hotmart', 'tmb', 'boletex'].map(id => source(id)).concat(source('asaas', { cashReceipts: [{ received: 900, date: '2026-10-01' }] }))
   const model = buildRevenueBreakdown(rows, sources)
   const details = Object.fromEntries(model.payments.boleto.providers.map(provider => [provider.id, [provider.gross.value, provider.cash.value, provider.entry.value]]))
-  assert.deepEqual(details.guru, [1000, 900, null])
-  assert.deepEqual(details.hotmart, [2000, 1880, null])
+  assert.deepEqual(details.guru, [900, 900, null])
+  assert.deepEqual(details.hotmart, [1880, 1880, null])
   assert.deepEqual(details.tmb, [3000, 1200, null])
   assert.deepEqual(details.boletex, [5000, null, null])
   assert.deepEqual(details.asaas, [4000, 300, 300])
@@ -52,18 +52,18 @@ test('a cash-only Asaas statement never becomes a boleto platform, gross or entr
   assert.equal(model.cash.value, null)
 })
 
-test('manual platform attribution combines the right method while preserving declared cash once', () => {
+test('manual digital platform attribution applies full net cash once in the correct payment method', () => {
   const rows = [row('g', 'guru', 'Boleto', 1000, 900), row('m', 'manual', 'Boleto', 500, 450, { isManual: true, platform: 'Guru', received: 100 }),
     row('mc', 'manual', 'Cartão', 600, 550, { isManual: true, platform: 'Guru', received: 200 })]
   const model = buildRevenueBreakdown(rows, [source('guru'), source('manual')])
   assert.deepEqual(ids(model.payments.boleto), ['guru'])
   assert.deepEqual(ids(model.payments.card), ['guru'])
   const boleto = model.payments.boleto.providers[0]
-  assert.equal(boleto.gross.value, 1500)
-  assert.equal(boleto.cash.value, 1000)
+  assert.equal(boleto.gross.value, 1350)
+  assert.equal(boleto.cash.value, 1350)
   assert.equal(boleto.value, 1350)
   assert.equal(boleto.entry.value, null)
-  assert.equal(model.cash.value, 1200)
+  assert.equal(model.cash.value, 1900)
 })
 
 test('empty, unavailable and unclassified payment states stay distinct without fake platform rows', () => {

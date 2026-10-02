@@ -133,9 +133,9 @@ export function buildTvData({ sales = {}, plans = [], directory = {}, plansError
   const dayMetric = inSelectedMonth ? dailyPace(selectedMetric) : null
   const dailyGross = inSelectedMonth ? dailyPace('gross') : null
   const dailyCash = inSelectedMonth ? dailyPace('cash') : null
-  const grossHours = hourlySales(dailyRecords.map(row => ({ ...row, revenue: row.gross })))
-  const cashHours = hourlySales(dailyCashRecords.map(row => ({ ...row, date: row.cashDateBasis === 'sale_date' ? row.date : row.cashDate || row.date, revenue: row.received })))
-  const hourly = hourlySales((selectedMetric === 'cash' ? dailyCashRecords : dailyRecords).map(row => ({ ...row, revenue: row[info.field] })))
+  const grossHours = hourlySales(dailyRecords, { valueField: 'gross' })
+  const cashHours = hourlySales(dailyCashRecords.map(row => ({ ...row, date: row.cashDateBasis === 'sale_date' ? row.date : row.cashDate || row.date })), { valueField: 'received' })
+  const hourly = hourlySales(selectedMetric === 'cash' ? dailyCashRecords : dailyRecords, { valueField: info.field })
   for (const [index, hour] of hourly.hours.entries()) {
     if (!inSelectedMonth || !dayMetric?.available) { hour.value = null; hour.count = null }
     Object.assign(hour, { gross: dailyGross?.available ? grossHours.hours[index].value : null,

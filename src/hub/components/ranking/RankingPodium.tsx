@@ -51,7 +51,7 @@ export function RankingPodium({ sellers }: RankingPodiumProps) {
               </div>
             </div>
             <p className="font-semibold text-sm text-center truncate w-full text-foreground">{seller.name}</p>
-            <p className="text-[11px] text-muted-foreground mt-1">Valor bruto{seller.grossPartial ? ' · parcial' : ''}</p>
+            <p className="text-[11px] text-muted-foreground mt-1">Valor das vendas{seller.grossPartial ? ' · parcial' : ''}</p>
             <p className="text-lg font-bold text-primary" data-testid="legacy-gross">{rankingMoney(seller.totalDealValue)}</p>
             <p className="text-[11px] text-muted-foreground">Cash collected{seller.cashPartial ? ' · parcial' : ''}</p>
             <p className="text-sm font-medium text-foreground" data-testid="legacy-cash">{rankingMoney(seller.cashCollected)}</p>

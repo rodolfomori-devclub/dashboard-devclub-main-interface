@@ -98,14 +98,14 @@ try {
     assert.deepEqual(errors, [])
   }
   for (const [path, annual] of [['/diario', false], ['/global', false], ['/mensal', false], ['/anual', true]]) {
-    const title = 'Valor bruto das vendas'
+    const title = 'Valor das vendas'
     await page.setViewportSize({ width: 1440, height: 1000 })
     const beforeAsaas = calls.filter(path => path === '/api/boleto/asaas/vendas').length
     cashPause = annual
     await visit(path)
     if (annual) {
       assert.equal(calls.filter(path => path === '/api/boleto/asaas/vendas').length, beforeAsaas, 'annual operations must not request Asaas')
-      assert.match(await page.getByTestId('revenue-gross-value').innerText(), /5\.580,00/)
+      assert.match(await page.getByTestId('revenue-gross-value').innerText(), /5\.400,00/)
       assert.match(await page.getByTestId('revenue-operational-value').innerText(), /5\.400,00/)
       assert.match(await cash().innerText(), /ainda não consultado/)
       await page.getByRole('button', { name: 'Consultar caixa Asaas', exact: true }).click()
@@ -115,7 +115,7 @@ try {
       assert.equal(cashIntervals.length, 37)
       assert.equal(peakCash, 2)
     }
-    assert.match(await page.getByTestId('revenue-gross-value').innerText(), annual ? /5\.580,00/ : /620,00/)
+    assert.match(await page.getByTestId('revenue-gross-value').innerText(), annual ? /5\.400,00/ : /600,00/)
     assert.match(await page.getByTestId('revenue-operational-value').innerText(), annual ? /5\.400,00/ : /600,00/)
     assert.match(await cash().innerText(), annual ? /18\.315,00/ : /495,00/)
     assert.match(await card(title).innerText(), /parcial/i)
@@ -126,7 +126,7 @@ try {
     assert.match(await card(title).innerText(), /indispon|Aguardando|Não informado/i)
     assert.equal(await cash().count(), 1)
     await platform.selectOption('Guru')
-    assert.match(await page.getByTestId('revenue-gross-value').innerText(), annual ? /1\.080,00/ : /120,00/)
+    assert.match(await page.getByTestId('revenue-gross-value').innerText(), annual ? /900,00/ : /100,00/)
     assert.match(await page.getByTestId('revenue-operational-value').innerText(), annual ? /900,00/ : /100,00/)
     assert.doesNotMatch(await card(title).innerText(), /parcial/i)
     assert.equal(await cash().count(), 0)
@@ -176,7 +176,7 @@ try {
   assert.equal(calls.filter(path => path === '/api/boleto/asaas/vendas').length, beforeOptionCache + 1, 'includeAsaas must be part of the cache key')
   failedProviders = true
   await visit('/diario')
-  assert.match(await card('Valor bruto das vendas').innerText(), /Indisponível|Não informado/)
+  assert.match(await card('Valor das vendas').innerText(), /Indisponível|Não informado/)
   assert.match(await cash().innerText(), /495,00/)
   assert.deepEqual(errors, [])
   console.log('PASS only Asaas cash available with empty manual ledger never becomes zero sales')

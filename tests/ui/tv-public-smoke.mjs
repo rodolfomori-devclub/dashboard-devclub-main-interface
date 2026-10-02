@@ -145,7 +145,7 @@ try {
     assert.equal(await page.getByRole('link', { name: 'Visão global', exact: true }).count(), 0)
     assert.equal(new URL(page.url()).pathname, path)
   }
-  const checkValue = async () => { await expect(player().getByTestId('tv-main-value')).toHaveText('R$ 1.900,00'); await expectTvDual(player(), 1900, 1233.64) }
+  const checkValue = async () => { await expect(player().getByTestId('tv-main-value')).toHaveText('R$ 1.833,64'); await expectTvDual(player(), 1833.64, 1233.64) }
   const shot = async name => {
     await page.clock.runFor(35)
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${name}: no horizontal overflow`)
@@ -265,7 +265,7 @@ try {
   model.overview.cash = null; model.totals.cash = null; model.overview.cashPartial = true
   revision++
   await page.clock.runFor(61000)
-  await expectTvDual(player(), 1900, null)
+  await expectTvDual(player(), 1833.64, null)
   model = structuredClone(initialModel)
   model.overview.gross = 0; model.overview.cash = 0; model.totals.gross = 0; model.totals.cash = 0
   revision++

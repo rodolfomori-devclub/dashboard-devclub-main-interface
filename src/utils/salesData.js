@@ -117,7 +117,7 @@ export function normalizeSource(sourceId, payload) {
         product: raw.product?.name, payment: raw.payment?.method || calculation.payment_method,
         date: source.kind === 'refund' ? raw.dates?.canceled_at ?? raw.dates?.cancelled_at ?? raw.dates?.created_at : raw.dates?.created_at,
         revenue: amount(calculation.net_amount),
-        gross: amount(calculation.total_amount ?? raw.payment?.total), net: amount(calculation.net_amount),
+        gross: amount(calculation.net_amount), net: amount(calculation.net_amount),
         fees: feeValues.length && feeValues.every((value) => value !== null) ? feeValues.reduce((sum, value) => sum + value, 0) : null,
         affiliate: amount(calculation.net_affiliate_value),
       }))
@@ -142,12 +142,15 @@ export function normalizeSource(sourceId, payload) {
     const brl = (value, unit) => unit === 'BRL' ? amount(value) : null
     const rows = (data.transactions || []).map((raw, i) => record(source, raw, i, {
       product: raw.product, payment: raw.paymentMethod, date: raw.orderDate,
-      revenue: isRefund ? brl(raw.value, raw.currency || 'BRL') : brl(raw.netValue, currency(raw, 'netCurrency')),
-      gross: brl(isRefund ? raw.value : raw.grossValue, raw.currency || (data.financialSchemaVersion === 2 ? null : 'BRL')),
-      net: isRefund ? null : brl(raw.netValue, currency(raw, 'netCurrency')),
+      // Legacy refund value/totalRefundAmount are purchase prices, not net or
+      // proof of money returned. Cached payloads must obey the same read rule.
+      revenue: brl(raw.netValue, isRefund ? raw.netCurrency : currency(raw, 'netCurrency')),
+      gross: brl(raw.netValue, isRefund ? raw.netCurrency : currency(raw, 'netCurrency')),
+      net: brl(raw.netValue, isRefund ? raw.netCurrency : currency(raw, 'netCurrency')),
       fees: isRefund ? null : brl(raw.fee, currency(raw, 'feeCurrency')),
-      currency: raw.currency || (data.financialSchemaVersion === 2 ? null : 'BRL'),
-      netCurrency: isRefund ? null : currency(raw, 'netCurrency'),
+      currency: isRefund ? raw.netCurrency ?? null : raw.currency || (data.financialSchemaVersion === 2 ? null : 'BRL'),
+      netCurrency: isRefund ? raw.netCurrency ?? null : currency(raw, 'netCurrency'),
+      ...(isRefund ? { refundAmount: amount(raw.refundAmount), refundCurrency: raw.refundCurrency ?? raw.currency ?? null } : {}),
       feeCurrency: isRefund ? null : currency(raw, 'feeCurrency'),
       excludedCurrencies: [...new Set([raw.currency, ...(!isRefund ? [currency(raw, 'netCurrency'), currency(raw, 'feeCurrency')] : [])].filter(unit => unit && unit !== 'BRL'))],
     }))
@@ -155,8 +158,8 @@ export function normalizeSource(sourceId, payload) {
     // amounts from their detailed rows until the versioned snapshot refreshes.
     const mixedLegacy = data.financialSchemaVersion !== 2 && rows.some(row => row.excludedCurrencies.length)
     return reconcile(rows, source, {
-      quantity: data.count, revenue: mixedLegacy ? null : isRefund ? data.totalRefundAmount : data.totalNet,
-      gross: mixedLegacy ? null : isRefund ? data.totalRefundAmount : data.totalGross,
+      quantity: data.count, revenue: isRefund || mixedLegacy ? null : data.totalNet,
+      gross: isRefund || mixedLegacy ? null : data.totalNet,
       net: isRefund || mixedLegacy ? null : data.totalNet, fees: isRefund || mixedLegacy ? null : data.totalFees,
     }).map(applyPlatformCashRule)
   }
@@ -189,6 +192,7 @@ export function filterOptions(records, key) {
 }
 
 export function sumAmount(records, key) {
+  records = records.map(applyPlatformCashRule)
   const known = records.filter((row) => amount(row[key]) !== null)
   return { value: known.reduce((sum, row) => sum + amount(row[key]), 0), known: known.length, missing: records.length - known.length }
 }
@@ -211,17 +215,18 @@ export function groupSales(records, dimension) {
   return [...groups].map(([name, rows]) => ({ name, ...summarizeSales(rows) })).sort((a, b) => b.revenue.value - a.revenue.value)
 }
 
-export function hourlySales(records) {
+export function hourlySales(records, { valueField = 'revenue' } = {}) {
   const hours = Array.from({ length: 24 }, (_, hour) => ({ hour: `${String(hour).padStart(2, '0')}h`, count: 0, value: 0, missingAmounts: 0 }))
   let unknown = 0
   let unknownRecords = 0
-  for (const row of records) {
+  for (const original of records) {
+    const row = applyPlatformCashRule(original)
     // Manual entry captures a calendar date only, not a time of sale.
     const hour = row.isManual || row.hasExactTime === false ? null : saleHour(row.date)
     if (hour === null) { unknown += row.quantity; unknownRecords++; continue }
     hours[hour].count += row.quantity
-    hours[hour].value += amount(row.revenue) ?? 0
-    if (amount(row.revenue) === null) hours[hour].missingAmounts++
+    hours[hour].value += amount(row[valueField]) ?? 0
+    if (amount(row[valueField]) === null) hours[hour].missingAmounts++
   }
   for (const hour of hours) if (hour.missingAmounts > 0) hour.value = null
   return { hours, unknown, unknownRecords }

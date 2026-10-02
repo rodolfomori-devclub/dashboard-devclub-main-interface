@@ -1,3 +1,4 @@
+import { isNetSalesPlatform } from './platformCash.js'
 // Refund status and purchase price are distinct from the amount actually returned.
 const PROVIDERS = [{ id: 'guru', label: 'Guru' }, { id: 'hotmart', label: 'Hotmart' }, { id: 'tmb', label: 'TMB' }, { id: 'asaas', label: 'Asaas' }]
 const value = number => number !== null && number !== undefined && number !== '' && Number.isFinite(Number(number)) && Number(number) >= 0 ? Number(number) : null
@@ -14,13 +15,17 @@ export function refundKind(status) {
 function normalizedRecord(row, overview) {
   const raw = row.original || {}
   const status = overview ? row.status : raw.status
+  const digital = isNetSalesPlatform(row.platform)
+  const hotmart = String(row.platform || '').toLowerCase() === 'hotmart'
+  const netPurchase = overview ? value(row.saleNetAmount) : hotmart ? value(raw.netValue) : value(row.net)
   return {
     platform: String(row.platform || '').toLowerCase(),
     kind: overview ? row.kind : refundKind(status), status: statusKey(status),
     quantity: overview ? 1 : value(row.quantity) ?? 1,
-    purchase: value(overview ? row.saleAmount : raw.payment?.total ?? row.gross),
-    refunded: overview ? value(row.refundAmount) : null,
-    currency: currency(overview ? row.currency : raw.payment?.currency || raw.currency),
+    purchase: digital ? netPurchase : value(overview ? row.saleAmount : raw.payment?.total ?? row.gross),
+    refunded: overview ? value(row.refundAmount) : value(row.refundAmount ?? raw.refundAmount),
+    currency: currency(overview ? row.currency : hotmart ? raw.netCurrency : raw.payment?.currency || raw.currency),
+    refundCurrency: currency(overview ? row.refundCurrency || row.currency : row.refundCurrency || raw.refundCurrency || raw.payment?.currency || raw.currency),
   }
 }
 
@@ -28,8 +33,9 @@ function amounts(records, key, available) {
   const byCurrency = {}
   let unknown = 0
   for (const row of records) {
-    if (row[key] === null || !row.currency) { unknown += row.quantity; continue }
-    byCurrency[row.currency] = (byCurrency[row.currency] || 0) + Math.round(row[key] * 100)
+    const unit = key === 'refunded' ? row.refundCurrency : row.currency
+    if (row[key] === null || !unit) { unknown += row.quantity; continue }
+    byCurrency[unit] = (byCurrency[unit] || 0) + Math.round(row[key] * 100)
   }
   // Zero is meaningful only for an available refund source with no records.
   if (!records.length && available) byCurrency.BRL = 0

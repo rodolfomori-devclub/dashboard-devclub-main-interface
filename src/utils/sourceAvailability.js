@@ -11,9 +11,10 @@ export function asaasCashOnly(data) {
 
 export function sourceFinancialMetadata(sourceId, data) {
   if (sourceId === 'tmb') return { status: 'ready', ...TMB_CASH_METADATA }
-  if (sourceId === 'hotmart') {
+  if (sourceId === 'hotmart' || sourceId === 'hotmartRefunds') {
     const incomplete = Object.values(data?.financialCoverage || {}).some(coverage => coverage?.complete === false)
       || (data?.financialSchemaVersion !== 2 && data?.transactions?.some(row => row.currency && row.currency !== 'BRL'))
+      || (sourceId === 'hotmartRefunds' && data?.transactions?.some(row => row.netValue === null || row.netValue === undefined || row.netCurrency !== 'BRL'))
     return { status: incomplete ? 'partial' : 'ready', ...(data?.financialCoverage ? { financialCoverage: data.financialCoverage } : {}) }
   }
   if (sourceId !== 'asaas') return { status: 'ready' }

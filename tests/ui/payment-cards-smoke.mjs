@@ -122,16 +122,16 @@ try {
   const expectedBoleto = path === 'anual' ? ['guru', 'hotmart', 'tmb', 'boletex'] : ['guru', 'hotmart', 'tmb', 'asaas', 'boletex']
   assert.deepEqual(await providerIds(card('Boleto')), expectedBoleto, 'Boleto providers require observed boleto sales, with Asaas annual loaded on demand')
   await assertMoney(card('Cartão').locator('.revenue-card-value'), '1.280,00', 'Card value contains net Guru and Hotmart only')
-  for (const [id, gross, cash] of [['guru', '750,00', '700,00'], ['hotmart', '1.000,00', '940,00'], ['tmb', '800,00', '320,00'], ['boletex', '2.000,00', null]]) {
+  for (const [id, gross, cash] of [['guru', '700,00', '700,00'], ['hotmart', '940,00', '940,00'], ['tmb', '800,00', '320,00'], ['boletex', '2.000,00', null]]) {
    const row = provider(card('Boleto'), id)
-   await assertMoney(metric(row, 'Valor bruto'), gross)
+   await assertMoney(metric(row, ['guru', 'hotmart'].includes(id) ? 'Líquido após taxas' : 'Valor contratado'), gross)
    if (cash) await assertMoney(metric(row, 'Cash collected'), cash, `${id} cash must not deduct taxes a second time`)
    else assert.match(await metric(row, 'Cash collected').innerText(), /Não informado/)
    assert.match(await metric(row, 'Entrada recebida').innerText(), /Não informado/, `${id} unconfirmed entry must not be guessed`)
   }
   if (path !== 'anual') {
    const row = provider(card('Boleto'), 'asaas')
-   await assertMoney(metric(row, 'Valor bruto'), '1.000,00')
+   await assertMoney(metric(row, 'Valor contratado'), '1.000,00')
    await assertMoney(metric(row, 'Entrada recebida'), '200,00')
    await assertMoney(metric(row, 'Cash collected'), '200,00', 'Only confirmed new-contract entry counts as Asaas sales cash')
    await assertMoney(page.locator('.revenue-card--cash .revenue-card-value'), '3.440,00')
@@ -142,7 +142,7 @@ try {
    assert.ok(bounds.x >= -1 && bounds.x + bounds.width <= width + 1, 'Provider financial rows fit viewport')
   }
   await page.locator('.revenue-payment-grid').screenshot({ path: `${out}/${path}-${width}-${theme}.png`, animations: 'disabled' })
-  checks.push(`${path}/${width}/${theme}: payment providers, gross/cash/entry semantics, no overflow`)
+  checks.push(`${path}/${width}/${theme}: payment providers, net digital sales/contracted others/cash/entry semantics, no overflow`)
   if (path === 'diario') {
    if (verifyLoading && !refreshChecked) {
     holdFinancial()

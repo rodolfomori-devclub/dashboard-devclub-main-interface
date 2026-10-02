@@ -42,7 +42,7 @@ export function TeamRankingList({ month, year, variant = 'default' }: { month?: 
             <div className="flex-1 min-w-0">
               <div className="flex items-baseline justify-between gap-3 flex-wrap">
                 <p className={`${isTv ? 'text-2xl' : 'text-base'} font-bold text-foreground truncate`}>{r.name}</p>
-                <div className="text-left sm:text-right"><p className="text-xs text-muted-foreground">Valor bruto{r.grossPartial ? ' · parcial' : ''}</p><p className={`${isTv ? 'text-3xl' : 'text-xl'} font-bold text-primary`} data-testid="legacy-gross">{rankingMoney(r.gross)}</p><p className="text-xs text-muted-foreground mt-1">Cash collected{r.cashPartial ? ' · parcial' : ''}</p><p className="text-sm font-medium text-foreground" data-testid="legacy-cash">{rankingMoney(r.cash)}</p></div>
+                <div className="text-left sm:text-right"><p className="text-xs text-muted-foreground">Valor das vendas{r.grossPartial ? ' · parcial' : ''}</p><p className={`${isTv ? 'text-3xl' : 'text-xl'} font-bold text-primary`} data-testid="legacy-gross">{rankingMoney(r.gross)}</p><p className="text-xs text-muted-foreground mt-1">Cash collected{r.cashPartial ? ' · parcial' : ''}</p><p className="text-sm font-medium text-foreground" data-testid="legacy-cash">{rankingMoney(r.cash)}</p></div>
               </div>
               {r.goal > 0 ? (
                 <>

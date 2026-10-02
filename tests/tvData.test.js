@@ -19,7 +19,7 @@ test('TV uses new sales only: the reported 833.64 remains independent of Asaas i
   almost(model.overview.actual, 833.64)
   almost(model.pace.rows[0].actual, 833.64)
   almost(model.products[0].value, 833.64)
-  assert.equal(model.totals.gross, 900)
+  assert.equal(model.totals.gross, 833.64)
   assert.equal(model.totals.count, 3)
   assert.equal(model.coverage.find(item => item.id === 'asaas').status, 'unavailable')
   assert.equal(model.overview.definitive, false)
@@ -30,7 +30,7 @@ test('TMB contributes 40% once to cash, while preserving its full gross and paym
     revenue: 1000, received: 9999, family: 'MBA', payment: 'Boleto', sellerId: 'ana' })],
   sources: [source('hotmart'), source('tmb'), invoice] } })
   almost(model.totals.cash, 677.88)
-  assert.equal(model.totals.gross, 1300)
+  assert.equal(model.totals.gross, 1277.88)
   assert.equal(model.products.find(row => row.id === 'MBA').value, 400)
   assert.equal(model.sellers.find(row => row.id === 'ana').value, 400)
   assert.equal(model.payments.find(row => row.id === 'boleto').value, 400)
@@ -49,7 +49,7 @@ test('native Asaas new-contract entry contributes; its account statement and lin
 })
 
 test('manual cash and quantities are not combined with legacy Hub totals', () => {
-  const model = run({ sales: { total: 999999, records: [sale('manual', { sourceId: 'manual', isManual: true,
+  const model = run({ sales: { total: 999999, records: [sale('manual', { sourceId: 'manual', platform: 'Pix direto', isManual: true,
     received: 80, sellerId: 'ana', date: '2026-10-15T12:00:00-03:00' })], sources: [source('manual')] } })
   assert.equal(model.totals.cash, 80)
   assert.equal(model.sellers[0].value, 80)
@@ -194,7 +194,7 @@ test('every TV financial scene includes gross and cash without changing a cash g
     records: [sale('tmb', { sourceId: 'tmb', platform: 'TMB', gross: 1000, family: 'MBA', payment: 'Boleto', sellerId: 'ana' }),
       sale('hotmart', { gross: 700, net: 650, sellerId: 'bia' })], sources: [source('tmb'), source('hotmart')],
   } })
-  assert.equal(model.overview.gross, 1700)
+  assert.equal(model.overview.gross, 1650)
   assert.equal(model.overview.cash, 1050)
   assert.equal(model.overview.actual, 1050)
   assert.equal(model.overview.target, 2000)
@@ -211,15 +211,15 @@ test('every TV financial scene includes gross and cash without changing a cash g
   assert.equal(model.pace.target, 1000)
   assert.equal(model.pace.actual, 400)
   assert.equal(model.pace.attainment, 40)
-  assert.equal(model.daily.gross, 1700)
+  assert.equal(model.daily.gross, 1650)
   assert.equal(model.daily.cash, 1050)
-  assert.equal(model.daily.hours[11].gross, 1700)
+  assert.equal(model.daily.hours[11].gross, 1650)
   assert.equal(model.daily.hours[11].cash, 1050)
 })
 
 test('gross and cash availability stay independent across scopes, payment groups and hourly readings', () => {
   const model = run({ today: '2026-10-01', sales: {
-    records: [sale('missing-net', { gross: 1000, net: null, sellerId: 'ana' })], sources: [source('hotmart')],
+    records: [sale('missing-entry', { sourceId: 'asaas', platform: 'Asaas', gross: 1000, received: null, sellerId: 'ana' })], sources: [source('asaas')],
   } })
   for (const row of [model.totals, model.overview, model.sellers[0], model.products[0], model.payments.find(row => row.id === 'card'), model.daily, model.daily.hours[11]]) {
     assert.equal(row.gross, 1000)
@@ -250,13 +250,13 @@ test('unassigned totals show both metrics while excluded sellers stay out of peo
     sales: { records: [sale('excluded', { sellerId: 'ana', gross: 900, net: 800 }), sale('assigned', { sellerId: 'bia', gross: 500, net: 450 }),
       sale('unassigned', { gross: 300, net: 250 })], sources: [source('hotmart')] } })
   assert.deepEqual(model.sellers.map(row => row.id), ['bia'])
-  assert.equal(model.sellers[0].gross, 500)
+  assert.equal(model.sellers[0].gross, 450)
   assert.equal(model.sellers[0].cash, 450)
-  assert.equal(model.unassigned.seller.gross, 300)
+  assert.equal(model.unassigned.seller.gross, 250)
   assert.equal(model.unassigned.seller.cash, 250)
-  assert.equal(model.totals.gross, 1700)
+  assert.equal(model.totals.gross, 1500)
   assert.equal(model.totals.cash, 1500)
-  assert.equal(model.products[0].gross, 1700)
+  assert.equal(model.products[0].gross, 1500)
   assert.equal(model.products[0].cash, 1500)
 })
 
@@ -277,8 +277,8 @@ test('TV model defaults and invalid metric fallback use gross with both amounts 
   for (const metric of [undefined, 'unexpected']) {
     const model = run({ metric })
     assert.equal(model.metric, 'gross')
-    assert.equal(model.overview.actual, 900)
-    assert.equal(model.overview.gross, 900)
+    assert.equal(model.overview.actual, 833.64)
+    assert.equal(model.overview.gross, 833.64)
     almost(model.overview.cash, 833.64)
   }
 })

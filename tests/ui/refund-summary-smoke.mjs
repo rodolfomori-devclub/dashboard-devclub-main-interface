@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 import assert from 'node:assert/strict'
 import { periodCacheFixture, emptyProviderPayload } from './period-cache-fixture.mjs'
 const base = process.env.DASHBOARD_SMOKE_URL || 'http://127.0.0.1:4317'
-const out = fileURLToPath(new URL('./artifacts/refund-summary', import.meta.url))
+const out = process.env.DASHBOARD_SMOKE_OUTPUT || fileURLToPath(new URL('./artifacts/refund-summary', import.meta.url))
 await fs.mkdir(out, { recursive: true })
 const date = '2026-10-01', timestamp = Date.parse(`${date}T15:00:00Z`) / 1000
 const guruRefunds = [['refunded', 100], ['partially_refunded', 250], ['chargeback', 400], ['rejected', 600]].map(([status, value], index) => ({ id: `refund-${index}`, status, product: { name: 'DevClub' }, payment: { method: 'credit_card', total: value, currency: 'BRL' }, calculation_details: { total_amount: value, net_amount: value * .9 }, dates: { created_at: timestamp, canceled_at: timestamp }, contact: { name: 'Fixture reembolso', email: 'fixture@example.test' } }))
@@ -17,7 +17,7 @@ function payload(id, range = { startDate: date, endDate: date }) {
  if (id === 'hotmartRefunds') return hotmartRefunds
  return emptyProviderPayload(id)
 }
-const overview = { data: [...guruRefunds.map(row => ({ id: row.id, platform: 'guru', sources: ['guru'], kind: ['refunded','partially_refunded'].includes(row.status) ? 'confirmed' : row.status === 'chargeback' ? 'dispute' : 'cancelled', status: row.status, product: 'DevClub', name: 'Fixture reembolso', referenceDate: date, dateBasis: 'refund', saleAmount: row.payment.total, refundAmount: null, currency: 'BRL' })), { id: 'hotmart-refund', platform: 'hotmart', sources: ['hotmart'], kind: 'confirmed', status: 'partially_refunded', product: 'DevClub', referenceDate: date, dateBasis: 'purchase', saleAmount: 1997, refundAmount: null, currency: 'BRL' }, { id: 'tmb-cancelled', platform: 'tmb', sources: ['tmb'], kind: 'cancelled', status: 'cancelled', product: 'DevClub', referenceDate: date, dateBasis: 'purchase', saleAmount: 9999, refundAmount: null, currency: 'BRL' }], sources: [{ id: 'guru', status: 'available', recordCount: 4 }, { id: 'hotmart', status: 'available', recordCount: 1 }, { id: 'tmb', status: 'limited', recordCount: 1 }], incomplete: false, deduplication: { removed: 0 }, excludedUndated: 0, generatedAt: `${date}T15:00:00Z` }
+const overview = { data: [...guruRefunds.map(row => ({ id: row.id, platform: 'guru', sources: ['guru'], kind: ['refunded','partially_refunded'].includes(row.status) ? 'confirmed' : row.status === 'chargeback' ? 'dispute' : 'cancelled', status: row.status, product: 'DevClub', name: 'Fixture reembolso', referenceDate: date, dateBasis: 'refund', saleAmount: row.calculation_details.net_amount, saleNetAmount: row.calculation_details.net_amount, refundAmount: row.status === 'refunded' ? 100 : null, currency: 'BRL' })), { id: 'hotmart-refund', platform: 'hotmart', sources: ['hotmart'], kind: 'confirmed', status: 'partially_refunded', product: 'DevClub', referenceDate: date, dateBasis: 'purchase', saleAmount: null, saleNetAmount: null, refundAmount: 150, currency: 'BRL' }, { id: 'tmb-cancelled', platform: 'tmb', sources: ['tmb'], kind: 'cancelled', status: 'cancelled', product: 'DevClub', referenceDate: date, dateBasis: 'purchase', saleAmount: 9999, refundAmount: null, currency: 'BRL' }], sources: [{ id: 'guru', status: 'available', recordCount: 4 }, { id: 'hotmart', status: 'available', recordCount: 1 }, { id: 'tmb', status: 'limited', recordCount: 1 }], incomplete: false, deduplication: { removed: 0 }, excludedUndated: 0, generatedAt: `${date}T15:00:00Z` }
 const localChrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 const browser = await chromium.launch({ headless: true, executablePath: existsSync(localChrome) ? localChrome : undefined })
 const context = await browser.newContext({ locale: 'pt-BR', timezoneId: 'America/Sao_Paulo' })
@@ -57,16 +57,18 @@ try {
   await page.goto(`${base}/${path}`, { waitUntil: 'networkidle' })
   const card = page.getByRole('region', { name: 'Resumo de reembolsos' })
   await card.waitFor()
-  await page.waitForFunction(() => document.querySelector('.refund-summary-amount')?.textContent.includes('2.347,00'))
+  await page.waitForFunction(() => document.querySelector('.refund-summary-amount')?.textContent.includes('315,00'))
   assert.match(await card.locator('.refund-summary-metrics > div').nth(0).innerText(), /Confirmados\s+3\s+2 parciais incluídos/)
   assert.match(await card.locator('.refund-summary-metrics > div').nth(1).innerText(), /Contestações\s+1/)
   assert.match(await card.locator('.refund-summary-metrics > div').nth(2).innerText(), new RegExp(`Cancelamentos\\s+${path === 'reembolsos' ? 2 : 1}`))
   const before = calls.length
   await card.locator('summary').focus(); await page.keyboard.press('Enter')
   const guru = card.locator('[data-provider="guru"]'), hotmart = card.locator('[data-provider="hotmart"]')
-  assert.match(await guru.innerText(), /R\$\s*350,00/)
-  assert.match(await hotmart.innerText(), /R\$\s*1.997,00/)
-  assert.match(await hotmart.innerText(), /Valor devolvido\s+Não informado/)
+  assert.match(await guru.innerText(), /R\$\s*315,00/)
+  assert.match(await hotmart.innerText(), /Valor das vendas\s+Não informado/, 'Missing Hotmart net must not fall back to raw purchase price1997')
+  assert.doesNotMatch(await hotmart.innerText(), /1\.997,00/)
+  assert.match(await hotmart.innerText(), path === 'reembolsos' ? /Valor devolvido\s+R\$\s*150,00/ : /Valor devolvido\s+Não informado/)
+  if (path === 'reembolsos') assert.match(await guru.innerText(), /Valor devolvido\s+R\$\s*100,00/, 'Actual refund100 is preserved, not reduced to net90')
   assert.match(await card.locator('[data-provider="tmb"]').innerText(), /Reembolsos confirmados\s+—/)
   assert.match(await card.locator('[data-provider="asaas"]').innerText(), /Reembolsos confirmados\s+—/)
   assert.equal(calls.length, before, 'refund expansion must stay local')
@@ -74,7 +76,7 @@ try {
   if (path === 'diario') {
    assert.equal(await card.getByRole('link').getAttribute('href'), `/reembolsos?startDate=${date}&endDate=${date}`)
    await page.getByRole('combobox', { name: 'Plataforma', exact: true }).selectOption('Hotmart')
-   assert.match(await card.locator('.refund-summary-amount').innerText(), /1.997,00/)
+   assert.match(await card.locator('.refund-summary-amount').innerText(), /Não informado/)
    assert.equal(await card.locator('.refund-summary-provider').count(), 1)
    assert.equal(calls.length, before, 'platform filter must stay local')
    await page.getByRole('combobox', { name: 'Plataforma', exact: true }).selectOption('')
@@ -93,7 +95,7 @@ try {
  await page.goto(`${base}/comparativo`, { waitUntil: 'networkidle' })
  const comparisonCards = page.getByRole('region', { name: 'Resumo de reembolsos' })
  assert.equal(await comparisonCards.count(), 2)
- assert.match(await comparisonCards.nth(0).locator('.refund-summary-amount').innerText(), /2.347,00/)
+ assert.match(await comparisonCards.nth(0).locator('.refund-summary-amount').innerText(), /315,00/)
  assert.match(await comparisonCards.nth(1).locator('.refund-summary-amount').innerText(), /R\$\s*0,00/)
  assert.equal(await comparisonCards.nth(1).getByRole('link').getAttribute('href'), '/reembolsos?startDate=2026-09-30&endDate=2026-09-30')
  checks.push('comparison keeps A/B refunds and links separate')

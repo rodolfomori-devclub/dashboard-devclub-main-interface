@@ -31,7 +31,7 @@ export function TvSettingsEditor({ initial, directory, saving, error, conflict, 
     return { ...old, fixedPanel: ids[0], panels: [...ids, ...TV_PANELS.map(p => p.id).filter(id => !ids.includes(id))].map(id => ({ ...old.panels.find(p => p.id === id), enabled: ids.includes(id) })) }
   })
   return <form className="tv-editor" aria-label="Programação da TV" onSubmit={event => { event.preventDefault(); onSave(draft) }}>
-    <div className="tv-section-heading"><div><span className="tv-eyebrow">Controle de exibição</span><h2>Programe a sua TV</h2><p>Valor bruto em destaque e cash collected sempre visível. A base escolhida define as metas e a ordenação dos rankings. Esta programação vale para todas as TVs.</p></div><button type="button" className="tv-icon-button" aria-label="Fechar configuração" onClick={onCancel} disabled={saving}><X size={20}/></button></div>
+    <div className="tv-section-heading"><div><span className="tv-eyebrow">Controle de exibição</span><h2>Programe a sua TV</h2><p>Valor das vendas em destaque e cash collected sempre visível. A base escolhida define as metas e a ordenação dos rankings. Esta programação vale para todas as TVs.</p></div><button type="button" className="tv-icon-button" aria-label="Fechar configuração" onClick={onCancel} disabled={saving}><X size={20}/></button></div>
     <fieldset disabled={saving}>
       <div className="tv-presets"><span>Começar com</span>{Object.keys(PRESETS).map(name => <button type="button" key={name} onClick={() => preset(name)}>{name}</button>)}</div>
       <div className="tv-form-grid">

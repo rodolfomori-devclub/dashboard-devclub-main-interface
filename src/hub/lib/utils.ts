@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { hubNetSaleValue, isHubNetSale } from './saleValuePolicy.ts';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -28,6 +29,7 @@ export function parseLocalDate(dateStr: string): Date {
  */
 export function getCashCollected(sale: any): number {
   if (sale == null) return 0;
+  if (isHubNetSale(sale)) return hubNetSaleValue(sale) ?? 0;
   const rc = sale.real_collected_this_month;
   if (rc !== null && rc !== undefined && rc !== '') {
     const n = Number(rc);
@@ -51,6 +53,7 @@ export function getCashCollected(sale: any): number {
  */
 export function getPendingValue(sale: any): number {
   if (sale == null) return 0;
+  if (isHubNetSale(sale)) return 0;
   const pendingFuture = Number(sale.pending_future_value) || 0;
   const status = String(sale.outstanding_status || 'none').toLowerCase();
   const outstanding = status === 'pending' || status === 'expired'

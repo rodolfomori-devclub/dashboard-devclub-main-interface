@@ -15,7 +15,7 @@ export default function AsaasSeparationDetails({ model, loading = false, ready =
     <div className="asaas-separation-grid">
       <article className="asaas-sales-block" aria-label="Vendas novas Asaas">
         <h3><FileCheck2 size={18} aria-hidden="true" />Vendas novas Asaas{sales.partial && ready && <small>Parcial</small>}</h3>
-        <p className="asaas-block-caption">Valor bruto dos contratos confirmados criados neste período.</p>
+        <p className="asaas-block-caption">Valor contratado das vendas confirmadas criados neste período.</p>
         <p className="asaas-block-value" data-metric="sales-gross">{value(sales.gross)}</p>
         <dl className="asaas-sales-details"><div><dt>Vendas confirmadas</dt><dd data-metric="sales-count">{value(sales.count, false)}</dd></div><div><dt>Entradas desses contratos</dt><dd data-metric="sales-entry">{value(sales.entry)}</dd></div></dl>
         <p className="asaas-block-note">{sales.available ? 'O pagamento de outra parcela não cria uma nova venda.' : annual ? 'Contratos Asaas não consultados nesta visão. Receber uma fatura não confirma uma nova venda.' : 'Contratos não informados pela integração. Os recebimentos não são usados para estimar vendas.'}</p>

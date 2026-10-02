@@ -1,3 +1,4 @@
+import { formatHubFinancial, hubFinancialNote } from './saleValuePolicy';
 import { jsPDF } from 'jspdf';
 
 const fmt = (v: number) =>
@@ -20,6 +21,7 @@ interface PdfState {
   y: number;
   page: number;
   monthLabel: string;
+  partialNote?: string;
 }
 
 function addHeader(state: PdfState) {
@@ -47,11 +49,12 @@ function addFooter(state: PdfState) {
   doc.setFontSize(7);
   doc.setTextColor(150, 150, 150);
   doc.text('DevClub · Sistema de Gestão Comercial', MARGIN, PAGE_HEIGHT - 7);
+  if (state.partialNote) { doc.setFontSize(7); doc.text(state.partialNote, MARGIN, PAGE_HEIGHT - 15); }
   doc.text(`Página ${page}`, PAGE_WIDTH - MARGIN, PAGE_HEIGHT - 7, { align: 'right' });
 }
 
 function ensureSpace(state: PdfState, needed: number) {
-  if (state.y + needed > PAGE_HEIGHT - 18) {
+  if (state.y + needed > PAGE_HEIGHT - 24) {
     addFooter(state);
     state.doc.addPage();
     state.page++;
@@ -165,7 +168,9 @@ export function generateResultsPdf(metrics: any, month: number, year: number, op
   const includeFinancial = options.includeFinancial !== false;
   const doc = new jsPDF('p', 'mm', 'a4');
   const monthLabel = `${monthNames[month]} ${year}`;
-  const state: PdfState = { doc, y: 22, page: 1, monthLabel };
+  const state: PdfState = { doc, y: 22, page: 1, monthLabel, partialNote: metrics.financial?.partial ? `Financeiro parcial: ${metrics.financial.unknownNetCount} venda(s) sem líquido. * Subtotal conhecido; líquido ausente não equivale a zero.` : undefined };
+  const financialFmt = (value: number, summary = metrics.financial) => formatHubFinancial(value, summary, fmt).replace(' · Parcial', ' *');
+  const financialPct = (value: number, summary = metrics.financial) => formatHubFinancial(value, summary, fmtPct).replace(' · Parcial', ' *');
 
   addHeader(state);
 
@@ -191,18 +196,25 @@ export function generateResultsPdf(metrics: any, month: number, year: number, op
   doc.line(MARGIN, state.y, PAGE_WIDTH - MARGIN, state.y);
   state.y += 8;
 
+  if (metrics.financial?.partial) {
+    doc.setFontSize(8);
+    const lines = doc.splitTextToSize(hubFinancialNote(metrics.financial), CONTENT_WIDTH);
+    doc.text(lines, MARGIN, state.y);
+    state.y += lines.length * 4 + 5;
+  }
+
   // ── 1. Performance Geral ──
   sectionTitle(state, '1. Performance Geral');
   kpiRow(state, [
     { label: 'Meta Mensal', value: fmt(metrics.teamGoal) },
-    { label: 'Receita Total', value: fmt(metrics.totalRevenue) },
-    { label: 'Atingimento', value: fmtPct(metrics.achievement) },
+    { label: 'Receita Total', value: financialFmt(metrics.totalRevenue) },
+    { label: 'Atingimento', value: financialPct(metrics.achievement) },
     { label: 'Total Vendas', value: String(metrics.salesCount) },
   ]);
 
   if (metrics.revenueGrowth !== null) {
     kpiRow(state, [
-      { label: 'Receita Mês Anterior', value: fmt(metrics.prevRevenue) },
+      { label: 'Receita Mês Anterior', value: financialFmt(metrics.prevRevenue, metrics.previousFinancial) },
       { label: 'Variação', value: `${metrics.revenueGrowth > 0 ? '+' : ''}${fmtPct(metrics.revenueGrowth)}` },
     ]);
   }
@@ -211,14 +223,14 @@ export function generateResultsPdf(metrics: any, month: number, year: number, op
   sectionTitle(state, '2. Análise de Ritmo (Pace)');
   kpiRow(state, [
     { label: 'Pace Esperado/dia', value: fmt(metrics.expectedDailyPace) },
-    { label: 'Pace Real/dia', value: fmt(metrics.actualDailyPace) },
+    { label: 'Pace Real/dia', value: financialFmt(metrics.actualDailyPace) },
     { label: 'Dias Úteis', value: String(metrics.workingDays) },
   ]);
 
   const paceHeaders = ['Vendedor', 'Meta', 'Receita', 'Pace Esp.', 'Pace Real', 'Ating.'];
   const paceWidths = [35, 30, 30, 28, 28, 19];
   const paceRows = metrics.sellerPerformance.map((sp: any) => [
-    sp.name, fmt(sp.goal), fmt(sp.revenue), fmt(sp.expectedPace), fmt(sp.actualPace), fmtPct(sp.achievementPct),
+    sp.name, fmt(sp.goal), financialFmt(sp.revenue, sp.financial), fmt(sp.expectedPace), financialFmt(sp.actualPace, sp.financial), financialPct(sp.achievementPct, sp.financial),
   ]);
   drawTable(state, paceHeaders, paceRows, paceWidths);
 
@@ -263,12 +275,12 @@ export function generateResultsPdf(metrics: any, month: number, year: number, op
 
       const rows = metrics.dailyHistory.map((d: any) => {
         const dayLabel = `${String(d.day).padStart(2, '0')}/${String(month + 1).padStart(2, '0')}`;
-        const cells = chunk.map((sp: any) => fmtCompact(d.perSeller[sp.id] || 0));
-        return [dayLabel, ...cells, fmtCompact(d.teamTotal)];
+        const cells = chunk.map((sp: any) => formatHubFinancial(d.perSeller[sp.id] || 0, d.perSellerFinancial?.[sp.id], fmtCompact).replace(' · Parcial', ' *'));
+        return [dayLabel, ...cells, formatHubFinancial(d.teamTotal, d.financial, fmtCompact).replace(' · Parcial', ' *')];
       });
 
       // Footer row: monthly totals per seller in chunk
-      const totalRow = ['Total', ...chunk.map((sp: any) => fmtCompact(sp.revenue)), fmtCompact(metrics.totalRevenue)];
+      const totalRow = ['Total', ...chunk.map((sp: any) => formatHubFinancial(sp.revenue, sp.financial, fmtCompact).replace(' · Parcial', ' *')), formatHubFinancial(metrics.totalRevenue, metrics.financial, fmtCompact).replace(' · Parcial', ' *')];
       rows.push(totalRow);
 
       drawTable(state, headers, rows, widths);
@@ -286,7 +298,7 @@ export function generateResultsPdf(metrics: any, month: number, year: number, op
   sectionTitle(state, '3. Vendas por Produto');
   bulletList(state, metrics.productBreakdown.map((p: any) => ({
     label: p.name,
-    detail: `${p.count} vendas · ${fmt(p.revenue)} (${fmtPct(p.pct)})`,
+    detail: `${p.count} vendas · ${financialFmt(p.revenue, p.financial)} (${financialPct(p.pct, metrics.financial)})`,
   })));
 
   // ── 4. Mix de Produtos por Vendedor ──
@@ -298,19 +310,19 @@ export function generateResultsPdf(metrics: any, month: number, year: number, op
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8);
       doc.setTextColor(20, 31, 32);
-      doc.text(`${sp.name}  (Total: ${fmt(sp.revenue)} · ${sp.salesCount} vendas)`, MARGIN + 2, state.y);
+      doc.text(`${sp.name}  (Total: ${financialFmt(sp.revenue, sp.financial)} · ${sp.salesCount} vendas)`, MARGIN + 2, state.y);
       state.y += 5;
       bulletList(state, sp.productMix.map((pm: any) => ({
         label: pm.name,
-        detail: `${fmt(pm.revenue)} (${fmtPct(pm.pct)})`,
+        detail: `${financialFmt(pm.revenue, pm.financial)} (${financialPct(pm.pct, sp.financial)})`,
       })));
     });
 
   // ── 5. Receita por Plataforma ──
   sectionTitle(state, '5. Receita por Plataforma');
   kpiRow(state, [
-    { label: 'Receita Total', value: fmt(metrics.totalRevenue) },
-    { label: 'Cash Collected', value: fmt(metrics.cashCollected) },
+    { label: 'Receita Total', value: financialFmt(metrics.totalRevenue) },
+    { label: 'Cash Collected', value: financialFmt(metrics.cashCollected) },
   ]);
   kpiRow(state, [
     { label: 'Hubla', value: fmt(metrics.hubla) },
@@ -322,7 +334,7 @@ export function generateResultsPdf(metrics: any, month: number, year: number, op
   sectionTitle(state, '6. Análise por Origem');
   bulletList(state, metrics.originBreakdown.map((o: any) => ({
     label: o.name,
-    detail: `${o.count} vendas · ${fmt(o.revenue)}`,
+    detail: `${o.count} vendas · ${financialFmt(o.revenue, o.financial)}`,
   })));
 
   // ── 7. Performance de KPIs ──
@@ -331,14 +343,14 @@ export function generateResultsPdf(metrics: any, month: number, year: number, op
     { label: 'Total Calls', value: String(metrics.totalCalls) },
     { label: 'Total Leads', value: String(metrics.totalLeads) },
     { label: 'Conversão', value: fmtPct(metrics.teamConversion) },
-    { label: 'Ticket Médio', value: fmt(metrics.avgTicket) },
+    { label: 'Ticket Médio', value: financialFmt(metrics.avgTicket) },
   ]);
 
   const kpiHeaders = ['Vendedor', 'Calls', 'Leads', 'Conversão', 'Vendas', 'Receita', 'Ticket'];
   const kpiWidths = [32, 18, 18, 22, 18, 30, 32];
   const kpiRows = metrics.sellerPerformance.map((sp: any) => [
     sp.name, String(sp.totalCalls), String(sp.totalLeads), fmtPct(sp.conversion),
-    String(sp.salesCount), fmt(sp.revenue), fmt(sp.avgTicket),
+    String(sp.salesCount), financialFmt(sp.revenue, sp.financial), financialFmt(sp.avgTicket, sp.financial),
   ]);
   drawTable(state, kpiHeaders, kpiRows, kpiWidths);
 
@@ -373,7 +385,7 @@ export function generateResultsPdf(metrics: any, month: number, year: number, op
   // ── 10. Destaques do Mês ──
   sectionTitle(state, '10. Destaques do Mês');
   const highlights: { label: string; detail: string }[] = [];
-  if (metrics.topSeller) highlights.push({ label: '🏆 Top Vendedor', detail: `${metrics.topSeller.name} — ${fmt(metrics.topSeller.revenue)}` });
+  if (metrics.topSeller) highlights.push({ label: '🏆 Top Vendedor', detail: `${metrics.topSeller.name} — ${financialFmt(metrics.topSeller.revenue, metrics.topSeller.financial)}` });
   if (metrics.bestConversion) highlights.push({ label: '🎯 Melhor Conversão', detail: `${metrics.bestConversion.name} — ${fmtPct(metrics.bestConversion.conversion)}` });
   if (metrics.mostConsistent) highlights.push({ label: '✅ Mais Consistente', detail: `${metrics.mostConsistent.name} — ${fmtPct(metrics.mostConsistent.checklistRate)}` });
   bulletList(state, highlights);
@@ -391,8 +403,8 @@ export function generateResultsPdf(metrics: any, month: number, year: number, op
   sectionTitle(state, '12. Métricas Avançadas');
   kpiRow(state, [
     { label: 'Vendas/Dia', value: metrics.salesPerDay.toFixed(1) },
-    { label: 'Melhor Dia', value: metrics.bestDay ? `${metrics.bestDay[0].split('-').reverse().join('/')} (${fmt(metrics.bestDay[1])})` : '-' },
-    { label: 'Pior Dia', value: metrics.worstDay ? `${metrics.worstDay[0].split('-').reverse().join('/')} (${fmt(metrics.worstDay[1])})` : '-' },
+    { label: 'Melhor Dia', value: metrics.bestDay ? `${metrics.bestDay[0].split('-').reverse().join('/')} (${financialFmt(metrics.bestDay[1])})` : '-' },
+    { label: 'Pior Dia', value: metrics.worstDay ? `${metrics.worstDay[0].split('-').reverse().join('/')} (${financialFmt(metrics.worstDay[1])})` : '-' },
   ]);
 
   // ── 13. Resumo Financeiro (apenas gestores/financeiro) ──
@@ -400,29 +412,29 @@ export function generateResultsPdf(metrics: any, month: number, year: number, op
     sectionTitle(state, '13. Resumo Financeiro');
     kpiRow(state, [
       { label: 'Salários Fixos', value: fmt(metrics.totalFixed) },
-      { label: 'Comissões', value: fmt(metrics.totalCommissions) },
+      { label: 'Comissões', value: financialFmt(metrics.totalCommissions) },
       { label: 'Bônus', value: fmt(metrics.totalBonuses) },
     ]);
     kpiRow(state, [
-      { label: 'Custo Comercial Total', value: fmt(metrics.totalCost) },
-      { label: 'Custo sobre Receita', value: fmtPct(metrics.costPct) },
-      { label: 'Margem de Contribuição', value: fmt(metrics.margin) },
+      { label: 'Custo Comercial Total', value: financialFmt(metrics.totalCost) },
+      { label: 'Custo sobre Receita', value: financialPct(metrics.costPct) },
+      { label: 'Margem de Contribuição', value: financialFmt(metrics.margin) },
     ]);
     kpiRow(state, [
-      { label: 'ROI Comercial', value: fmtPct(metrics.roi) },
-      { label: 'Cash Collected', value: `${fmt(metrics.cashCollected)} (${fmtPct(metrics.cashCollectedPct)})` },
-      { label: 'Margem s/ Cash Collected', value: fmt(metrics.marginOnCash) },
+      { label: 'ROI Comercial', value: financialPct(metrics.roi) },
+      { label: 'Cash Collected', value: `${financialFmt(metrics.cashCollected)} (${financialPct(metrics.cashCollectedPct)})` },
+      { label: 'Margem s/ Cash Collected', value: financialFmt(metrics.marginOnCash) },
     ]);
     kpiRow(state, [
-      { label: 'ROI s/ Cash Collected', value: fmtPct(metrics.roiOnCash) },
+      { label: 'ROI s/ Cash Collected', value: financialPct(metrics.roiOnCash) },
     ]);
 
     // Seller financial table
     const finHeaders = ['Vendedor', 'Salário', 'Comissão', 'Bônus', 'Total'];
     const finWidths = [35, 35, 35, 30, 35];
     const finRows = metrics.sellerPerformance.map((sp: any) => [
-      sp.name, fmt(sp.fixedSalary), fmt(sp.commission), fmt(sp.bonuses),
-      fmt(sp.fixedSalary + sp.commission + sp.bonuses),
+      sp.name, fmt(sp.fixedSalary), financialFmt(sp.commission, sp.financial), fmt(sp.bonuses),
+      financialFmt(sp.fixedSalary + sp.commission + sp.bonuses, sp.financial),
     ]);
     drawTable(state, finHeaders, finRows, finWidths);
   }

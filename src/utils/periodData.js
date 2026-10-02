@@ -1,15 +1,17 @@
+import { applyPlatformCashRule } from './platformCash.js'
 import { sourceHasSales } from './sourceAvailability.js'
 import { summarizeSales } from './salesData.js'
 import { mergeAsaasReceiptOrigins } from './asaasSeparation.js'
 
 export function enrichPeriodRecord(row) {
+  row = applyPlatformCashRule(row)
   const raw = row.original || {}
   const offer = raw.offer?.name || raw.product?.offer?.name || raw.offerName || raw.trackings?.utm_campaign || raw.trackings?.utm_content || raw.trackings?.offer_code || raw.order?.offer_code || null
   return { ...row, offer, commercial: row.platform === 'Guru' && raw.trackings?.utm_source === 'comercial' }
 }
 
 export function summarizePeriod(records) {
-  const sales = records.filter(row => row.kind === 'sale')
+  const sales = records.filter(row => row.kind === 'sale').map(applyPlatformCashRule)
   const refunds = records.filter(row => row.kind === 'refund')
   const digital = sales.filter(row => ['Guru', 'Hotmart'].includes(row.platform))
   const boleto = sales.filter(row => ['TMB', 'Asaas', 'Boletex'].includes(row.platform))
@@ -40,7 +42,8 @@ export function periodSeries(records, startDate, endDate, monthly = false) {
     else cursor.setUTCDate(cursor.getUTCDate() + 1)
   }
   let undated = 0
-  for (const row of records) {
+  for (const original of records) {
+    const row = applyPlatformCashRule(original)
     const day = localDay(row.date)
     const key = monthly ? row.cohortMonth || day?.slice(0, 7) : day
     const bucket = buckets.get(key)

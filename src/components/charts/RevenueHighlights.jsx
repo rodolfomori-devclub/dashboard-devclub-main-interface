@@ -24,10 +24,10 @@ function PaymentCard({ title, detail, data, tone, icon: Icon, ready, loading, er
         {data.providers.map(provider => tone === 'boleto'
           ? <div className="revenue-provider-row revenue-provider-row--financial" key={provider.id} data-provider={provider.id}>
             <header><span>{provider.label}</span><small>{salesCount(provider.count)}{provider.partial && ' · parcial'}</small></header>
-            <dl className="revenue-provider-financials">{[['gross', 'Valor bruto'], ['cash', 'Cash collected'], ['entry', 'Entrada recebida']].map(([key, label]) => <div key={key}>
+            <dl className="revenue-provider-financials">{[['gross', ['guru', 'hotmart'].includes(provider.id) ? 'Líquido após taxas' : 'Valor contratado'], ['cash', 'Cash collected'], ['entry', 'Entrada recebida']].map(([key, label]) => <div key={key}>
               <dt>{label}</dt><dd><FinancialValue ready={ready} loading={loading} error={error} compact>{money(provider[key].value)}</FinancialValue>{provider[key].partial && provider[key].value !== null && <small>Parcial</small>}</dd>
             </div>)}</dl>
-            <p className="revenue-provider-note">{provider.id === 'tmb' ? 'Cash collected: 40% do bruto. ' : ['guru', 'hotmart'].includes(provider.id) ? 'Cash collected: líquido integral. ' : ''}{provider.note}</p>
+            <p className="revenue-provider-note">{provider.id === 'tmb' ? 'Cash collected: 40% do valor contratado. ' : ['guru', 'hotmart'].includes(provider.id) ? 'Cash collected: líquido integral. ' : ''}{provider.note}</p>
           </div>
           : <div className="revenue-provider-row" key={provider.id} data-provider={provider.id}><div><span>{provider.label}</span><small>{salesCount(provider.count)}{provider.partial && ' · parcial'}</small></div><strong><FinancialValue ready={ready} loading={loading} error={error} compact>{money(provider.value)}</FinancialValue></strong></div>)}
         {!data.providers.length && <p className="revenue-provider-empty">{loading ? 'Carregando as plataformas deste período…' : !ready || data.value === null ? 'Detalhamento indisponível neste recorte.' : `Nenhuma venda por ${title.toLocaleLowerCase('pt-BR')} neste recorte.`}</p>}
@@ -41,10 +41,10 @@ export default function RevenueHighlights({ records = [], sources = [], filters 
   return <section className="revenue-highlights" aria-label="Resumo financeiro" aria-busy={loading}>
     <div className="revenue-lead-grid">
       <article className="revenue-card revenue-card--total" data-testid="revenue-gross-main">
-        <div className="revenue-card-heading"><h2><ArrowUpRight size={22} aria-hidden="true" />Valor bruto das vendas</h2><Coverage partial={ready && model.gross.partial} /></div>
+        <div className="revenue-card-heading"><h2><ArrowUpRight size={22} aria-hidden="true" />Valor das vendas</h2><Coverage partial={ready && model.gross.partial} /></div>
         <p className="revenue-card-value" data-testid="revenue-gross-value"><FinancialValue ready={ready && (model.gross.value !== null || !loading)} loading={loading} error={error} announce>{money(model.gross.value)}</FinancialValue></p>
-        <p className="revenue-card-subtitle">{ready ? 'Novas vendas, antes das taxas das plataformas' : 'Aguardando os dados do período'}</p>
-        <dl className="revenue-total-details"><div><dt>Vendas realizadas</dt><dd><FinancialValue ready={ready} loading={loading} error={error} compact>{number(model.gross.count)}</FinancialValue></dd></div><div><dt>Ticket médio bruto</dt><dd><FinancialValue ready={ready} loading={loading} error={error} compact>{money(model.gross.ticket)}</FinancialValue></dd></div></dl>
+        <p className="revenue-card-subtitle">{ready ? 'Guru e Hotmart: líquido após taxas; demais: valor contratado.' : 'Aguardando os dados do período'}</p>
+        <dl className="revenue-total-details"><div><dt>Vendas realizadas</dt><dd><FinancialValue ready={ready} loading={loading} error={error} compact>{number(model.gross.count)}</FinancialValue></dd></div><div><dt>Ticket médio</dt><dd><FinancialValue ready={ready} loading={loading} error={error} compact>{money(model.gross.ticket)}</FinancialValue></dd></div></dl>
         <div className="revenue-operational-summary" data-testid="revenue-operational-secondary">
           <div className="revenue-operational-heading"><span>Receita operacional</span><Coverage partial={ready && model.revenue.partial} /><strong data-testid="revenue-operational-value"><FinancialValue ready={ready && (model.revenue.value !== null || !loading)} loading={loading} error={error} compact>{money(model.revenue.value)}</FinancialValue></strong></div>
           <p>Líquido de Guru e Hotmart; valores contratados ou informados nas demais fontes.</p>

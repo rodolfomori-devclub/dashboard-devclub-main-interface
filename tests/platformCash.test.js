@@ -23,10 +23,10 @@ test('Guru and Hotmart cash use the complete backend net without a second deduct
     assert.deepEqual(applyPlatformCashRule(applyPlatformCashRule(row)), row)
   }
   assert.equal(hotmart().received, 1882.68)
-  assert.equal(hotmart().gross, 1997)
+  assert.equal(hotmart().gross, 1882.68)
   for (const value of [null, undefined, '', ' ', false, Infinity, 'bad']) assert.equal(applyPlatformCashRule({ kind: 'sale', sourceId: 'guru', net: value }).received, null)
   const manual = { kind: 'sale', sourceId: 'manual', platform: 'Guru', isManual: true, net: 1000, received: 200 }
-  assert.strictEqual(applyPlatformCashRule(manual), manual)
+  assert.equal(applyPlatformCashRule(manual).received, 1000)
   const refund = { kind: 'refund', sourceId: 'guruRefunds', net: 1000 }
   assert.strictEqual(applyPlatformCashRule(refund), refund)
 })
@@ -95,12 +95,12 @@ test('Hotmart respects independent purchase/commission currencies, and unknown n
   const data = { financialSchemaVersion: 2, count: 1, totalGross: null, totalNet: 500, totalFees: null,
     transactions: [{ transaction: 'converted-by-source', grossValue: 100, currency: 'USD', netValue: 500, netCurrency: 'BRL', fee: 5, feeCurrency: 'USD', orderDate: date }] }
   const row = normalizeSource('hotmart', { data })[0]
-  assert.equal(row.gross, null)
+  assert.equal(row.gross, 500)
   assert.equal(row.net, 500)
   assert.equal(row.received, 500)
   const unknown = normalizeSource('hotmart', { data: { financialSchemaVersion: 2, count: 1, totalGross: 1997, totalNet: null, totalFees: 114.32,
     transactions: [{ transaction: 'unknown-net', grossValue: 1997, currency: 'BRL', netValue: null, netCurrency: null, fee: 114.32, feeCurrency: 'BRL', orderDate: date }] } })[0]
-  assert.equal(unknown.gross, 1997)
+  assert.equal(unknown.gross, null)
   assert.equal(unknown.net, null)
   assert.equal(unknown.received, null)
 })

@@ -1,3 +1,4 @@
+import { applyPlatformCashRule } from './platformCash.js'
 import { amount, summarizeSales, sumAmount } from './salesData.js'
 import { asaasCashView, sourceHasSales } from './sourceAvailability.js'
 import { prepareGoalData } from './goalData.js'
@@ -46,12 +47,12 @@ function existingAsaasCash(sources, filters) {
 // Records are already filtered. Provider availability is kept separate from a
 // payment classification: a missing payment never becomes a card or a boleto.
 export function buildRevenueBreakdown(records = [], sources = [], filters = {}) {
-  const sales = records.filter(row => row.kind === 'sale')
+  const sales = records.filter(row => row.kind === 'sale').map(applyPlatformCashRule)
   const saleSources = sources.filter(source => source.kind === 'sale' && (!filters.platform || source.platform === filters.platform || source.id === 'manual'))
   const available = saleSources.some(source => observedSource(source, sales.filter(row => row.sourceId === source.id))) || sales.some(row => amount(row.revenue) !== null)
   const summary = summarizeSales(sales)
-  // Gross is a separate financial basis. A known net amount never fills a
-  // missing gross value, and gross coverage does not depend on net coverage.
+  // Compatibility key `gross` now follows each provider's sales-value rule:
+  // Guru/Hotmart net after fees; contracted value for the other providers.
   const grossAvailable = saleSources.some(source => observedSource(source, sales.filter(row => row.sourceId === source.id)))
     || sales.some(row => amount(row.gross) !== null)
   const grossPartial = !grossAvailable || saleSources.some(source => source.status !== 'ready' || source.salesAvailable === false) || summary.gross.missing > 0
