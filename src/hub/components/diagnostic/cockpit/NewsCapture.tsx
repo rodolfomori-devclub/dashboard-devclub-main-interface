@@ -1,14 +1,14 @@
 import { useMemo } from 'react';
 import { Check, MonitorPlay, Mic } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { findNews } from '@diag/content.ts';
+import { findNews, hasNewsSource } from '@diag/content.ts';
 import { plannedNews, toggleNewsShown, type PlannedNews } from '@/lib/diagnostic/cockpit';
 import { MAX_NEWS_SHOWN } from '@/lib/diagnostic/presentationEffects';
 import { useCockpit } from './cockpitContext';
 import { Note, SectionLabel } from './parts';
 
 function NewsCard({ planned, shown, full }: { planned: PlannedNews; shown: boolean; full: boolean }) {
-  const { readOnly, write } = useCockpit();
+  const { api, readOnly, write } = useCockpit();
   const { item, mode, suggested } = planned;
   const screen = mode === 'screen';
   let action = screen ? 'Registrar como mostrada' : 'Citei';
@@ -40,7 +40,7 @@ function NewsCard({ planned, shown, full }: { planned: PlannedNews; shown: boole
           className="ml-auto h-8"
           disabled={readOnly || (!shown && full)}
           aria-pressed={shown}
-          onClick={() => write((w) => toggleNewsShown(w, item.id))}
+          onClick={() => write((w) => toggleNewsShown(w, item.id, api.content))}
         >
           {shown && <Check />}
           {action}
@@ -58,7 +58,10 @@ export function NewsCapture() {
   // Sem plano, a sugestao segue o perfil que vale (confirmado ou sugerido), como na preparacao.
   const archetypeId = model.archetypeSource !== 'none' ? (model.archetype?.id ?? '') : '';
   const planned = useMemo(() => plannedNews(content, prep, archetypeId), [content, prep, archetypeId]);
-  const shownIds = ws.diagnosis.news_shown_ids;
+  const pendingSources = [...new Set([...prep.newsScreen, ...prep.newsSpoken])]
+    .map((id) => findNews(content, id))
+    .filter((item) => item && !hasNewsSource(item));
+  const shownIds = ws.diagnosis.news_shown_ids.filter((id) => hasNewsSource(findNews(content, id)));
   const full = shownIds.length >= MAX_NEWS_SHOWN;
   const shownNames = shownIds.map((id) => findNews(content, id)?.veiculo ?? id);
   const closing = content.reportagem_fecho?.trim();
@@ -67,6 +70,11 @@ export function NewsCapture() {
     <div className="space-y-3">
       <SectionLabel>Reportagens</SectionLabel>
       {planned.length === 0 && <Note>Nenhuma reportagem para este perfil. Escolha na preparação.</Note>}
+      {pendingSources.length > 0 && (
+        <Note tone="warn">
+          Fonte pendente: {pendingSources.map((item) => item!.veiculo).join(', ')}. Esses materiais não entram no roteiro; não cite os dados antes da publicação da fonte.
+        </Note>
+      )}
       {planned.some((p) => p.suggested) && (
         <p className="text-xs text-muted-foreground">Nada planejado na preparação: sugestão pelo perfil.</p>
       )}

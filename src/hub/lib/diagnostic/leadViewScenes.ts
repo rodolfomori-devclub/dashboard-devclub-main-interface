@@ -4,6 +4,7 @@
  * lead ve em cada passo (build). So respostas dele, nas faixas em que respondeu.
  */
 import type { CallBlockId, NewsItem, PillarId } from '@diag/types.ts';
+import { hasNewsSource } from '@diag/content.ts';
 import type {
   AberturaVM,
   MercadoVM,
@@ -118,7 +119,7 @@ export function screenArticles({ ws, content }: LeadViewContext): NewsItem[] {
   for (const id of ws.diagnosis.prep_config.newsScreen) {
     const n = content.reportagens.find((x) => x.id === id);
     if (!n || out.includes(n)) continue;
-    if (!n.na_tela || !n.url || !n.veiculo.trim() || !n.data.trim() || !n.manchete.trim()) continue;
+    if (!n.na_tela || !hasNewsSource(n) || !n.veiculo.trim() || !n.data.trim() || !n.manchete.trim()) continue;
     out.push(n);
     if (out.length === MAX_SCREEN_NEWS) break;
   }

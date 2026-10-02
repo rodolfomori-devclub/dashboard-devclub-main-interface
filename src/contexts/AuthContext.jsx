@@ -45,7 +45,7 @@ export function AuthProvider({ children }) {
       // background check on focus and every 2 minutes, e.g. mid-call in the
       // diagnostic cockpit. Every API call still validates the token; 401/403
       // answers and first loads end the session as before.
-      if (identityKey.current && (!err.status || err.status >= 500)) return
+      if (identityKey.current && (!err.status || err.status >= 500 || [408, 429].includes(err.status))) return
       identityKey.current = ''; await clearPrivateData()
       if (request !== accessRequest.current) return
       setCurrentUser(null); setUserRoles(null); setError(err.message)

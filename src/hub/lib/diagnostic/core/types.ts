@@ -397,7 +397,8 @@ export type DeliveryField =
   /** Sem perfil (confirmado ou sugerido) e sem causa raiz escrita pelo consultor. */
   | 'rootCause'
   /** Sem nome do consultor: o PDF sairia com "[Consultor]". */
-  | 'consultant';
+  | 'consultant'
+  | 'lessonUrl';
 
 export interface ValidationIssue {
   field: DeliveryField;

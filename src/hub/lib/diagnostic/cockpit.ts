@@ -19,7 +19,7 @@ import type {
   TemplateVars,
 } from '@diag/types.ts';
 import { suggestNews } from '@diag/archetype.ts';
-import { findNews } from '@diag/content.ts';
+import { findNews, hasNewsSource } from '@diag/content.ts';
 import { isValidYmd } from '@diag/dates.ts';
 import { normalizeText } from '@diag/guardrails.ts';
 import { seatsClause } from '@diag/offer.ts';
@@ -372,7 +372,7 @@ export function plannedNews(
   const out: PlannedNews[] = [];
   const push = (id: string, wanted: 'screen' | 'spoken', suggested: boolean) => {
     const item = findNews(content, id);
-    if (!item || out.some((o) => o.item.id === id)) return;
+    if (!item || !hasNewsSource(item) || out.some((o) => o.item.id === id)) return;
     const canScreen = item.na_tela && !!item.url;
     out.push({ item, mode: wanted === 'screen' && canScreen ? 'screen' : 'spoken', suggested });
   };
@@ -387,8 +387,10 @@ export function plannedNews(
 }
 
 /** "Citei"/"Mostrei": entra ou sai de news_shown_ids, no maximo 2 por call. */
-export function toggleNewsShown(ws: Workspace, newsId: string): Workspace {
-  const ids = ws.diagnosis.news_shown_ids;
+export function toggleNewsShown(ws: Workspace, newsId: string, content: DiagnosticContent): Workspace {
+  const item = findNews(content, newsId);
+  if (!hasNewsSource(item)) return ws;
+  const ids = ws.diagnosis.news_shown_ids.filter((id) => hasNewsSource(findNews(content, id)));
   if (ids.includes(newsId)) return patchDiagnosis(ws, { news_shown_ids: ids.filter((id) => id !== newsId) });
   if (ids.length >= MAX_NEWS_SHOWN) return ws;
   return patchDiagnosis(ws, { news_shown_ids: [...ids, newsId] });

@@ -115,9 +115,15 @@ export function useWorkspaceStatusActions(ctx: StatusActionsContext) {
   );
 
   const markSent = useCallback(async (): Promise<MarkSentResult> => {
+    const clicked = wsRef.current;
     if (!(await flush())) return { ok: false, message: FLUSH_FAILED };
     const current = wsRef.current;
     if (!current || !input || !liveModel) return { ok: false, message: 'Diagnóstico ainda carregando.' };
+    // A pending autosave may take long enough for more answers to be edited.
+    // Never freeze those new answers with the older PDF captured by this click.
+    if (clicked && touchesFrozen({ ...clicked, status: 'sent' }, current)) {
+      return { ok: false, message: 'O diagnóstico mudou durante o salvamento. Revise o PDF e tente marcar como enviado novamente.' };
+    }
     const found = validateForDelivery(input, liveModel);
     if (found.length > 0) return { ok: false, issues: found };
     const now = new Date().toISOString();

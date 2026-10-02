@@ -36,6 +36,7 @@ p{margin:0}
 .muted{color:var(--p-ink-2)}
 
 .sheet{background:var(--p-bg);color:var(--p-ink);font-size:13px;line-height:1.5;overflow-wrap:anywhere}
+.sheet a{color:inherit;text-decoration:underline;text-underline-offset:2px}
 .sheet .hd{background:var(--p-ink);color:#FFFFFF;padding:20px 34px 18px;display:grid;gap:6px}
 .sheet .hd .eyebrow{color:#C9D1DB}
 .sheet .hd h2{font-size:26px;color:#FFFFFF}
@@ -59,6 +60,11 @@ p{margin:0}
 .brow .n{font:600 12px var(--mono);text-align:right}
 .mapwrap{width:100%;max-width:560px;margin:0 auto}
 .mapwrap svg{display:block;width:100%;height:auto}
+/* A primeira folha tambem leva o aviso legal. Reserve espaco sem reduzir a fonte do texto. */
+.sheet:first-child .hd{padding-top:16px;padding-bottom:14px}
+.sheet:first-child .bd{gap:10px;padding-top:14px;padding-bottom:14px}
+.sheet:first-child .sec{gap:6px}
+.sheet:first-child .mapwrap{max-width:480px}
 .mv{display:grid;gap:8px;margin:0;padding:0;counter-reset:m}
 .mv li{list-style:none;display:grid;grid-template-columns:28px 1fr;gap:8px;counter-increment:m}
 .mv li::before{content:counter(m);font:700 13px var(--display);background:var(--p-acc-soft);color:var(--p-acc);border-radius:50%;width:24px;height:24px;display:grid;place-items:center}

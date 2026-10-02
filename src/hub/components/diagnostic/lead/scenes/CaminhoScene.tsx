@@ -40,9 +40,8 @@ export function CaminhoScene({ scene }: { scene: CaminhoVM }) {
     <div key="trilha" className="lead-view lead-reveal">
       <div className="lead-stack">
         <Eyebrow>Se quiser ir além</Eyebrow>
-        <h2 className="lead-title">
-          {scene.goal ? `O caminho de 12 meses até “${scene.goal}”` : 'O caminho de 12 meses'}
-        </h2>
+        <h2 className="lead-title">Trilha de desenvolvimento de 12 meses</h2>
+        {scene.goal && <p className="lead-text">Objetivo: {scene.goal}</p>}
       </div>
       <ol className="lead-grid-4">
         {scene.quarters.map((q) => (

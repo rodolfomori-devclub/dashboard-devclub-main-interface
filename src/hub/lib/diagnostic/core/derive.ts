@@ -18,7 +18,7 @@ import type {
 } from './types.ts';
 import { PILLAR_ORDER } from './types.ts';
 import { isValidYmd, ymdToBR } from './dates.ts';
-import { archetypeById, areaDisplayName, areaGroup, areaPhrase, findNews, findPillar, lessonForGroup } from './content.ts';
+import { archetypeById, areaDisplayName, areaGroup, areaPhrase, findNews, findPillar, hasNewsSource, lessonForGroup } from './content.ts';
 import { suggestArchetype } from './archetype.ts';
 
 export const LEVEL_LABEL: Record<Level, string> = {
@@ -78,7 +78,7 @@ function deriveReadLater(input: DiagnosisInput, content: DiagnosticContent): New
   const out: NewsItem[] = [];
   for (const id of input.newsShownIds ?? []) {
     const item = findNews(content, id);
-    if (item && item.url && item.vai_no_pdf && !out.includes(item)) out.push(item);
+    if (item && hasNewsSource(item) && item.vai_no_pdf && !out.includes(item)) out.push(item);
   }
   return out;
 }
@@ -210,6 +210,15 @@ export function validateForDelivery(input: DiagnosisInput, model: DiagnosisModel
   }
   if (!text(input.consultant?.name)) {
     issues.push({ field: 'consultant', message: 'Falta o nome do consultor: ele vai no PDF.' });
+  }
+  if (model.material.type === 'aula') {
+    const value = text(model.material.lessonUrl);
+    let valid = false;
+    try {
+      const url = new URL(value);
+      valid = ['https:', 'http:'].includes(url.protocol) && url.hostname.includes('.') && !/\s/.test(value);
+    } catch { /* An incomplete or unsupported URL cannot be delivered as a gift. */ }
+    if (!valid) issues.push({ field: 'lessonUrl', message: 'O link da aula não é válido: corrija o endereço completo ou remova-o para entregar o kit de prompts.' });
   }
   return issues;
 }

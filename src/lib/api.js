@@ -8,19 +8,28 @@ export const vault = new VaultAuth({
 })
 let refreshPromise
 export async function refreshSession() {
-  if (!refreshPromise) refreshPromise = vault.refresh().finally(() => { refreshPromise = null })
+  if (!refreshPromise) refreshPromise = vault.refresh().then(refreshed => {
+    // A failed renewal with retained credentials is an outage, not a refused
+    // session. Do not send an expired token and turn that outage into a 401.
+    if (!refreshed && localStorage.getItem('vault_refresh_token')) {
+      throw Object.assign(new Error('O Vault está indisponível no momento. Tente novamente.'), { status: 503, code: 'VAULT_UNAVAILABLE' })
+    }
+    return refreshed
+  }).finally(() => { refreshPromise = null })
   return refreshPromise
 }
 export async function accessToken() {
   let token = vault.getAccessToken()
   if (token) {
+    let expiresSoon = false
     try {
       const encoded = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
-      if (JSON.parse(atob(encoded)).exp * 1000 < Date.now() + 30000) {
-        await refreshSession()
-        token = vault.getAccessToken()
-      }
+      expiresSoon = JSON.parse(atob(encoded)).exp * 1000 < Date.now() + 30000
     } catch { /* Signature validation belongs to the API. */ }
+    if (expiresSoon) {
+      await refreshSession()
+      token = vault.getAccessToken()
+    }
   }
   return token
 }

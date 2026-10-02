@@ -28,13 +28,13 @@ export function PdfStep({ api, step, index, now, overflow }: StepProps & { overf
   };
 
   let status = 'Pendente';
-  if (step.done) status = doneLabel('Gerado', step.at, now);
+  if (step.done) status = doneLabel('Preparado para salvar', step.at, now);
   else if (step.blocked) status = 'Travado';
   else if (stale) status = 'Desatualizado';
 
   let hint = 'Igual à prévia ao lado: 2 páginas com a aula, 3 com o kit de prompts.';
   // Depois de enviado a previa e a versao congelada; com o PDF velho, nao da para garantir que foi a que ele recebeu.
-  if (api.frozen) hint = stale ? 'A versão marcada como enviada.' : 'O mesmo PDF que o lead recebeu.';
+  if (api.frozen) hint = 'A versão marcada como enviada.';
 
   return (
     <StepCard
@@ -49,7 +49,7 @@ export function PdfStep({ api, step, index, now, overflow }: StepProps & { overf
       {step.blocked && <BlockedNote>{step.reason}</BlockedNote>}
       {stale && <WarnNote>{step.reason}</WarnNote>}
       <div>
-        <Button type="button" className="gap-1.5" onClick={generate} disabled={step.blocked}>
+        <Button type="button" className="gap-1.5" onClick={generate} disabled={step.blocked || overflow.length > 0}>
           <FileDown className="h-4 w-4" aria-hidden="true" /> Gerar PDF
         </Button>
       </div>
@@ -60,7 +60,7 @@ export function PdfStep({ api, step, index, now, overflow }: StepProps & { overf
       {overflow.length > 0 && (
         <WarnNote>{pagesText(overflow)} do tamanho de uma folha A4 na prévia: encurte as frases ou a causa raiz.</WarnNote>
       )}
-      {lessonProblem && <WarnNote>O link da aula não parece um endereço válido e vai assim no PDF. Corrija no passo 1.</WarnNote>}
+      {lessonProblem && <WarnNote>Corrija o link da aula no passo 1 antes de gerar o PDF ou apague-o para entregar o kit de prompts.</WarnNote>}
     </StepCard>
   );
 }

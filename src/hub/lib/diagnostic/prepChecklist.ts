@@ -7,6 +7,7 @@ import type { ApplicationAnswers, DiagnosisModel, DiagnosticContent, Graduation,
 import type { OfferConfig, OfferEvaluation, OfferProblem, OfferSettings, PaymentPath } from '@diag/types.ts';
 import { normalizeText } from '@diag/guardrails.ts';
 import { evaluateOffer } from '@diag/offer.ts';
+import { hasNewsSource } from '@diag/content.ts';
 import { sanitizePhone } from '@/lib/whatsapp';
 import { buildLeadView, screenArticles, type LeadViewContext } from '@/lib/diagnostic/leadView';
 import { WEEKS_PER_YEAR } from '@/lib/diagnostic/leadViewShared';
@@ -237,7 +238,7 @@ export type NewsMode = 'tela' | 'falar' | 'fora';
 type NewsLists = Pick<PrepConfig, 'newsScreen' | 'newsSpoken'>;
 
 /** So reportagem marcada para a tela e com link pode aparecer na tela do lead. */
-export const canGoOnScreen = (item: Pick<NewsItem, 'na_tela' | 'url'>): boolean => item.na_tela === true && filled(item.url);
+export const canGoOnScreen = (item: Pick<NewsItem, 'na_tela' | 'url'>): boolean => item.na_tela === true && hasNewsSource(item);
 
 export function newsModeOf(prep: NewsLists, id: string): NewsMode {
   if (prep.newsScreen.includes(id)) return 'tela';
@@ -250,6 +251,7 @@ export const newsCount = (prep: NewsLists): number => new Set([...prep.newsScree
 /** Novo par de listas, ou null quando nada muda (sem vaga, ou "na tela" sem link). */
 export function setNewsMode(prep: NewsLists, item: Pick<NewsItem, 'id' | 'na_tela' | 'url'>, mode: NewsMode): NewsLists | null {
   if (newsModeOf(prep, item.id) === mode) return null;
+  if (mode !== 'fora' && !hasNewsSource(item)) return null;
   if (mode === 'tela' && !canGoOnScreen(item)) return null;
   const screen = prep.newsScreen.filter((x) => x !== item.id);
   const spoken = prep.newsSpoken.filter((x) => x !== item.id);

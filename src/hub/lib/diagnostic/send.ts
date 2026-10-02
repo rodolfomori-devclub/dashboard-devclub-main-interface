@@ -48,6 +48,7 @@ export const ISSUE_ANCHOR: Record<DeliveryField, string> = {
   commitmentDueDate: 'send-commitment',
   rootCause: 'send-root-cause',
   consultant: 'send-consultant',
+  lessonUrl: 'send-lesson',
 };
 
 /** Marcas da entrega em call_data.ticks (id -> ISO do ultimo uso). */

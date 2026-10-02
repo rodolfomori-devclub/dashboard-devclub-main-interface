@@ -204,7 +204,15 @@ export type { WorkspaceRows } from '@/lib/diagnostic/workspaceRows';
 // Atualizacoes imutaveis (para usar dentro de update(fn) do hook)
 // ---------------------------------------------------------------------------
 
-export const patchLead = (ws: Workspace, p: Partial<LeadFields>): Workspace => ({ ...ws, lead: { ...ws.lead, ...p } });
+export const patchLead = (ws: Workspace, p: Partial<LeadFields>): Workspace => ({
+  ...ws,
+  lead: { ...ws.lead, ...p },
+  // All graduation editors (preparation, SDR import and delivery) must revoke
+  // an ineligible scholarship in the same save, including its seat count.
+  diagnosis: p.graduation_status === 'cursando' && ws.diagnosis.scholarship_status !== 'none'
+    ? { ...ws.diagnosis, scholarship_status: 'none' }
+    : ws.diagnosis,
+});
 
 export const patchQualification = (ws: Workspace, p: Partial<QualificationFields>): Workspace => ({
   ...ws,

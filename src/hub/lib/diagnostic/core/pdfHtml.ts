@@ -38,6 +38,20 @@ const KIT_TIPS = [
 /** Texto aparado; null/undefined (snapshot antigo) vira ''. */
 const txt = (v: unknown): string => (v == null ? '' : String(v).trim());
 
+/** Links do presente e das leituras continuam clicaveis no PDF exportado. */
+function linkedUrl(value: string): string {
+  const label = escapeHtml(value);
+  try {
+    const url = new URL(value);
+    if (['https:', 'http:'].includes(url.protocol) && url.hostname && !/\s/.test(value)) {
+      return `<a href="${escapeHtml(url.href)}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+    }
+  } catch {
+    // Um link antigo invalido continua como texto, nunca vira destino ativo.
+  }
+  return label;
+}
+
 /** Siglas (IA, TI, RH) ficam em maiusculas quando a frase vai para o meio do texto. */
 function isAcronym(word: string): boolean {
   const letters = word.replace(/[^\p{L}]/gu, '');
@@ -127,6 +141,7 @@ function page1(m: DiagnosisModel): string {
     indexSection(m),
     sec('Seu mapa', `<div class="mapwrap">${mindMapSvg(m)}</div>`),
     rootCauseSection(m),
+    disclaimer(m),
   ].filter(Boolean);
   return `<section class="sheet">${header}\n<div class="bd">\n${body.join('\n')}\n</div></section>`;
 }
@@ -165,7 +180,7 @@ function materialSection(m: DiagnosisModel): string {
     return sec(
       'Seu material de presente',
       `<p><b>Aula: ${escapeHtml(lesson || 'IA aplicada à sua área')}</b></p>` +
-        (url ? `<p class="muted link">${escapeHtml(url)}</p>` : ''),
+        (url ? `<p class="muted link">${linkedUrl(url)}</p>` : ''),
     );
   }
   if (mat?.type !== 'kit') return '';
@@ -185,7 +200,7 @@ function readLaterSection(m: DiagnosisModel): string {
   const items = reads
     .map((r) => {
       const url = txt(r.url);
-      return `<li>${escapeHtml(txt(r.titulo))}${url ? `<br><span class="muted url">${escapeHtml(url)}</span>` : ''}</li>`;
+      return `<li>${escapeHtml(txt(r.titulo))}${url ? `<br><span class="muted url">${linkedUrl(url)}</span>` : ''}</li>`;
     })
     .join('');
   return sec('Para ler depois', `<ul class="cl reads">${items}</ul>`);
@@ -195,9 +210,8 @@ function readLaterSection(m: DiagnosisModel): string {
 function pathSection(m: DiagnosisModel): string {
   if (!m.eligible) return '';
   const goal = txt(m.goal);
-  const title = goal
-    ? `Se quiser ir além: 12 meses até "${escapeHtml(lowerInline(goal))}"`
-    : 'Se quiser ir além: 12 meses';
+  const title = 'Se quiser ir além: trilha de desenvolvimento de 12 meses';
+  const objective = goal ? `<p class="note">Objetivo: ${escapeHtml(goal)}</p>` : '';
   const steps = (m.path ?? [])
     .map(
       (t) =>
@@ -207,7 +221,7 @@ function pathSection(m: DiagnosisModel): string {
     .join('');
   const credential = txt(m.credential);
   const program = PROGRAM_LEAD + (credential ? `${escapeHtml(credential)}, ` : '') + PROGRAM_TAIL;
-  return sec(title, (steps ? `<div class="tri">${steps}</div>` : '') + `<p class="note">${program}</p>`);
+  return sec(title, objective + (steps ? `<div class="tri">${steps}</div>` : '') + `<p class="note">${program}</p>`);
 }
 
 function nextStepSection(m: DiagnosisModel): string {

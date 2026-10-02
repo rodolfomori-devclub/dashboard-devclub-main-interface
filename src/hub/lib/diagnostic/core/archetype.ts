@@ -15,7 +15,7 @@ import type {
   Pillar,
   PillarId,
 } from './types.ts';
-import { archetypeById, findNews, findPillar } from './content.ts';
+import { archetypeById, findNews, findPillar, hasNewsSource } from './content.ts';
 import { findForbidden, normalizeText } from './guardrails.ts';
 
 const MAX_NEWS = 2;
@@ -103,7 +103,7 @@ export function suggestArchetype(answers: ApplicationAnswers, content: Diagnosti
   return { id: winner.id, score: winner.score, reasons: winner.reasons, scores };
 }
 
-/** Ate 2 reportagens: na tela as que podem (na_tela e com link), as outras so faladas. */
+/** Ate 2 reportagens com fonte: na tela as permitidas; as demais, apenas faladas. */
 export function suggestNews(
   content: DiagnosticContent,
   archetypeId: string,
@@ -117,7 +117,7 @@ export function suggestNews(
   for (const id of source ?? []) {
     if (screen.length + spoken.length >= MAX_NEWS) break;
     const item = findNews(content, id);
-    if (!item || screen.includes(id) || spoken.includes(id)) continue;
+    if (!item || !hasNewsSource(item) || screen.includes(id) || spoken.includes(id)) continue;
     (item.na_tela && item.url ? screen : spoken).push(id);
   }
   return { screen, spoken };

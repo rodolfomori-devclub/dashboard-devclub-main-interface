@@ -18,7 +18,7 @@ let output = '', browser
 server.stdout.on('data', chunk => { output = (output + chunk).slice(-2000) })
 server.stderr.on('data', chunk => { output = (output + chunk).slice(-2000) })
 const encode = value => Buffer.from(JSON.stringify(value)).toString('base64url')
-const token = generation => `${encode({alg:'RS256',kid:'ui-fixture-only'})}.${encode({sub:'fixture-user',iss:'fixture-vault',aud:'local-fixture-client',token_use:'access',exp:4102444800,generation})}.fixture-signature-not-valid`
+const token = generation => `${encode({alg:'RS256',kid:'ui-fixture-only'})}.${encode({sub:'fixture-user',iss:'fixture-vault',aud:'local-fixture-client',token_use:'access',exp:generation === 'refreshed' ? 7258118400 : 4102444800,generation})}.fixture-signature-not-valid`
 const originalToken = token('original'), refreshedToken = token('refreshed')
 const user = { sub:'fixture-user', name:'Fixture', email:'fixture@example.test', permissions:['today'], isAdmin:false }
 const financialPaths = new Set(['/api/transactions','/api/refunds','/api/hotmart/vendas','/api/hotmart/reembolsos','/api/boleto/vendas/data','/api/boleto/asaas/vendas','/api/boleto/boletex/vendas','/api/sales-ops/ledger'])
@@ -42,8 +42,10 @@ async function scenario(name, seed, check) {
       const body = req.postDataJSON()
       assert.equal(body.grant_type,'refresh_token')
       assert.equal(body.client_id,'local-fixture-client')
-      assert.equal(body.refresh_token,'fixture-refresh-token')
+      assert.ok(['fixture-refresh-token','fixture-refresh-rotated'].includes(body.refresh_token))
       await pause(40) // Exercise shared refresh while StrictMode requests overlap.
+      if(state.refresh === 'offline') return route.abort('internetdisconnected')
+      if(state.refresh === 'unavailable') return route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'temporarily_unavailable'})})
       return route.fulfill({status:state.refresh === 'valid' ? 200 : 400,contentType:'application/json',body:JSON.stringify(state.refresh === 'valid' ? {access_token:refreshedToken,refresh_token:'fixture-refresh-rotated'} : {error:'invalid_grant'})})
     }
     if(!url.pathname.startsWith('/api/')) return route.continue()
@@ -53,7 +55,7 @@ async function scenario(name, seed, check) {
     calls.push(call)
     if(url.pathname === '/api/access') {
       if(state.access === 'offline') { call.status = 0; return route.abort('internetdisconnected') }
-      const failed = state.access === 'denied' ? [403,'DASHBOARD_ACCESS_REQUIRED'] : state.access === 'unavailable' ? [503,'VAULT_UNAVAILABLE'] : state.access === 'unauthorized' || (state.access === 'refresh-needed' && !call.refreshed) ? [401,'VAULT_TOKEN_INVALID'] : null
+      const failed = state.access === 'denied' ? [403,'DASHBOARD_ACCESS_REQUIRED'] : state.access === 'unavailable' ? [503,'VAULT_UNAVAILABLE'] : state.access === 'rate-limited' ? [429,'RATE_LIMITED'] : state.access === 'unauthorized' || (state.access === 'refresh-needed' && !call.refreshed) ? [401,'VAULT_TOKEN_INVALID'] : null
       call.status = failed?.[0] || 200
       return route.fulfill({status:call.status,contentType:'application/json',body:JSON.stringify(failed ? {error:'Fixture access error',code:failed[1]} : {user})})
     }
@@ -160,7 +162,7 @@ try {
   await scenario('an open session survives a background outage or network failure; an authorization answer still ends it',{access:originalToken},async ({page,state,accessCalls,recovered}) => {
     await recovered()
     const heading = page.getByRole('heading',{name:'Diário de vendas',exact:true})
-    for(const outage of ['unavailable','offline']) {
+    for(const outage of ['unavailable','offline','rate-limited']) {
       const before = accessCalls().length
       state.access = outage
       await page.evaluate(() => window.dispatchEvent(new Event('focus')))
@@ -172,6 +174,40 @@ try {
     state.access = 'denied'
     await page.evaluate(() => window.dispatchEvent(new Event('focus')))
     await page.getByRole('heading',{name:'Acesso ao Dashboard não configurado',exact:true}).waitFor()
+  })
+  await scenario('startup renewal outage keeps the refresh token and shows retry instead of an expired session',{refresh:'fixture-refresh-token',state:{refresh:'unavailable'}},async ({page,state,accessCalls,providerCalls,recovered}) => {
+    await page.getByRole('heading',{name:'Não foi possível verificar seu acesso',exact:true}).waitFor()
+    assert.equal(accessCalls().length,0);assert.equal(providerCalls().length,0)
+    assert.equal(await page.evaluate(()=>localStorage.getItem('vault_refresh_token')),'fixture-refresh-token')
+    state.refresh='valid'
+    await page.getByRole('button',{name:'Tentar novamente',exact:true}).click()
+    await recovered()
+  })
+  await scenario('an open session survives renewal outages before token expiry without sending the old JWT',{access:originalToken,refresh:'fixture-refresh-token'},async ({page,state,accessCalls,refreshCalls,recovered}) => {
+    await recovered()
+    const heading=page.getByRole('heading',{name:'Diário de vendas',exact:true})
+    await page.evaluate(()=>{window.fixtureDateNow=Date.now;Date.now=()=>4102444780000})
+    for(const outage of ['unavailable','offline']) {
+      state.refresh=outage
+      const beforeAccess=accessCalls().length, beforeRefresh=refreshCalls().length
+      await page.evaluate(()=>window.dispatchEvent(new Event('focus')))
+      await pause(400)
+      assert.ok(refreshCalls().length>beforeRefresh,`${outage}: renewal was attempted`)
+      assert.equal(accessCalls().length,beforeAccess,`${outage}: no request with an expiring JWT`)
+      assert.ok(await heading.isVisible(),`${outage}: open screen survives`)
+      assert.equal(await page.evaluate(()=>localStorage.getItem('vault_refresh_token')),'fixture-refresh-token')
+    }
+    state.refresh='valid'
+    const beforeRecovery=accessCalls().length
+    await page.evaluate(()=>window.dispatchEvent(new Event('focus')))
+    await pause(400)
+    assert.ok(accessCalls().length>beforeRecovery)
+    assert.ok(accessCalls().at(-1).refreshed, 'recovered access uses the renewed JWT')
+    assert.ok(await heading.isVisible(), 'the same open screen recovers')
+    await page.evaluate(()=>{Date.now=window.fixtureDateNow})
+    state.refresh='invalid';state.access='unauthorized'
+    await page.evaluate(()=>window.dispatchEvent(new Event('focus')))
+    await page.getByRole('heading',{name:'Sua sessão expirou',exact:true}).waitFor()
   })
   console.log(JSON.stringify({passed:true,externalRequests:0,scenarios:results}))
 } finally {

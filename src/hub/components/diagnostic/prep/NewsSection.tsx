@@ -4,7 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import type { ReadyWorkspace } from '@/components/diagnostic/WorkspaceFrame';
-import { patchPrepConfig } from '@/lib/diagnostic/workspace';
+import { patchPrepConfig, type PrepConfig } from '@/lib/diagnostic/workspace';
 import {
   canGoOnScreen,
   MAX_PREP_NEWS,
@@ -15,6 +15,7 @@ import {
   type NewsMode,
 } from '@/lib/diagnostic/prepChecklist';
 import { suggestNews } from '@diag/archetype.ts';
+import { hasNewsSource } from '@diag/content.ts';
 import type { DiagnosticContent, NewsItem } from '@diag/types.ts';
 import { Segmented } from './fields';
 import { PrepSubheading } from './PrepCard';
@@ -25,10 +26,16 @@ function outletsOf(content: DiagnosticContent, ids: string[]): string {
   return ids.map((id) => content.reportagens.find((n) => n.id === id)?.veiculo || id).join(' e ');
 }
 
+/** Escolhas antigas sem fonte nao ocupam as duas vagas de reportagens da call. */
+function sourcedPlan(prep: PrepConfig, content: DiagnosticContent): PrepConfig {
+  const ready = (id: string) => hasNewsSource(content.reportagens.find((item) => item.id === id));
+  return { ...prep, newsScreen: prep.newsScreen.filter(ready), newsSpoken: prep.newsSpoken.filter(ready) };
+}
+
 /** "Lead com medo" e as reportagens planejadas: na tela, so falar ou fora (no maximo 2). */
 export function NewsSection({ api, archetypeId }: { api: ReadyWorkspace; archetypeId: string }) {
   const { ws, content } = api;
-  const prep = ws.diagnosis.prep_config;
+  const prep = sourcedPlan(ws.diagnosis.prep_config, content);
   const readOnly = !api.canEdit;
 
   const suggestion = suggestNews(content, archetypeId, prep.fearful);
@@ -39,7 +46,7 @@ export function NewsSection({ api, archetypeId }: { api: ReadyWorkspace; archety
 
   const setMode = (item: NewsItem, mode: NewsMode) =>
     api.update((w) => {
-      const next = setNewsMode(w.diagnosis.prep_config, item, mode);
+      const next = setNewsMode(sourcedPlan(w.diagnosis.prep_config, content), item, mode);
       return next ? patchPrepConfig(w, next) : w;
     });
   const applySuggestion = () =>
@@ -102,7 +109,7 @@ export function NewsSection({ api, archetypeId }: { api: ReadyWorkspace; archety
         Reportagens
       </PrepSubheading>
       <p className="text-xs text-muted-foreground">
-        Duas no máximo: mais que isso vira aula de medo. Diga sempre o veículo e o ano. Na tela só vai matéria com link.
+        Duas no máximo: mais que isso vira aula de medo. Use fontes publicadas e diga sempre o veículo e o ano, inclusive ao citar sem mostrar a tela.
       </p>
 
       <ul className="space-y-2">
@@ -121,8 +128,10 @@ export function NewsSection({ api, archetypeId }: { api: ReadyWorkspace; archety
                     {[n.veiculo, n.data, n.selo].filter((x) => x && x.trim()).join(' · ')}
                     {suggestedIds.has(n.id) && <span className="ml-2 normal-case tracking-normal text-primary">sugerida</span>}
                   </p>
-                  <p className="text-sm text-foreground">{n.manchete}</p>
-                  <p className="text-xs text-muted-foreground">{n.quando_usar}</p>
+                  <p className="text-sm text-foreground">{hasNewsSource(n) ? n.manchete : 'Fonte pendente'}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {hasNewsSource(n) ? n.quando_usar : 'Aguarde a publicação da fonte antes de usar este material na call. Não cite os dados enquanto ela estiver pendente.'}
+                  </p>
                 </div>
                 <Segmented
                   label={`Como usar: ${n.veiculo}`}
@@ -134,15 +143,15 @@ export function NewsSection({ api, archetypeId }: { api: ReadyWorkspace; archety
                       value: 'tela',
                       label: 'Na tela',
                       disabled: !screenOk || full,
-                      title: screenOk ? undefined : 'Sem link: só dá para citar falando.',
+                      title: screenOk ? undefined : 'Fonte pendente ou material não liberado para a tela.',
                     },
-                    { value: 'falar', label: 'Só falar', disabled: full },
+                    { value: 'falar', label: 'Só falar', disabled: !hasNewsSource(n) || full },
                     { value: 'fora', label: 'Fora' },
                   ]}
                 />
               </div>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-                {n.url && (
+                {hasNewsSource(n) && n.url && (
                   <a href={n.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
                     <ExternalLink className="h-3 w-3" /> Abrir matéria
                   </a>
@@ -154,10 +163,11 @@ export function NewsSection({ api, archetypeId }: { api: ReadyWorkspace; archety
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 text-primary hover:underline"
                   >
-                    <PlayCircle className="h-3 w-3" /> Abrir vídeo (só você)
+                    <PlayCircle className="h-3 w-3" /> Abrir vídeo para revisão (só você)
                   </a>
                 )}
-                {!screenOk && <span className="text-muted-foreground">Sem link para a tela: cite falando, com fonte e ano.</span>}
+                {!hasNewsSource(n) && <span className="text-amber-400">Fonte pendente: indisponível para apresentar ou citar.</span>}
+                {hasNewsSource(n) && !screenOk && <span className="text-muted-foreground">Fonte disponível somente para citação, com veículo e ano.</span>}
                 {full && <span className="text-muted-foreground">Já tem {MAX_PREP_NEWS}. Tire uma para trocar.</span>}
               </div>
             </li>

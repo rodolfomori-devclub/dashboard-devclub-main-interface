@@ -35,6 +35,18 @@ export function findNews(content: DiagnosticContent, id: string): NewsItem | nul
   return (content.reportagens ?? []).find((n) => n.id === id) ?? null;
 }
 
+/** Sem uma fonte publica cadastrada, a reportagem fica pendente, inclusive para citacao falada. */
+export function hasNewsSource(item: Pick<NewsItem, 'url'> | null | undefined): boolean {
+  const value = typeof item?.url === 'string' ? item.url.trim() : '';
+  if (!value || /\s/.test(value)) return false;
+  try {
+    const url = new URL(value);
+    return ['https:', 'http:'].includes(url.protocol) && url.hostname.includes('.');
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Grupo de material da area (kit e aula). Aplica os apelidos da aplicacao
  * ('Tenho meu próprio negócio' -> 'Negócio próprio'). Desconhecida ou vazia -> 'generico'.
