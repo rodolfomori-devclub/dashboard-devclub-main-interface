@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <title>DevClub · TV Light</title>
+  <link rel="stylesheet" href="/tv-light/style.css">
+  <script defer src="/tv-light/config.js"></script>
+  <script defer src="/tv-light/app.js"></script>
+</head>
+<body data-tv-state="loading" data-tv-theme="dark">
+  <div class="tv-light-shell">
+    <header class="tv-light-header">
+      <div class="tv-light-brand"><span class="tv-light-dot" aria-hidden="true"></span>DevClub <span class="tv-light-brand-sub">TV Light</span></div>
+      <div class="tv-light-context" id="tv-light-context">Indicadores da operação</div>
+    </header>
+    <main>
+      <div class="tv-light-heading"><p class="tv-light-eyebrow" id="tv-light-eyebrow">Programação da TV</p><h1 id="tv-light-title">Abrindo a TV Light</h1></div>
+      <p id="tv-light-error" class="tv-light-notice" role="alert" style="display:none"></p>
+      <section id="tv-light-panel" aria-labelledby="tv-light-title"><div class="tv-light-empty"><p>Preparando os indicadores. Se esta mensagem continuar, confira a conexão e tente novamente.</p><noscript><p>Ative o JavaScript no navegador da TV para exibir os indicadores.</p></noscript></div></section>
+    </main>
+    <footer class="tv-light-footer">
+      <div class="tv-light-footer-info"><p id="tv-light-status" role="status">Conectando…</p><p id="tv-light-updated">Atualização automática</p></div>
+      <div class="tv-light-controls" aria-label="Controles da TV">
+        <button type="button" id="tv-light-prev" aria-label="Painel anterior" disabled>Anterior</button>
+        <button type="button" id="tv-light-pause" disabled>Pausar</button>
+        <button type="button" id="tv-light-next" aria-label="Próximo painel" disabled>Próximo</button>
+        <button type="button" id="tv-light-retry">Tentar novamente</button>
+        <button type="button" id="tv-light-fullscreen">Tela cheia</button>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>

@@ -212,6 +212,7 @@ try {
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${path}/${width}/${theme} overflow`)
     await revenueCard().getByRole('heading').click()
     await page.screenshot({ path: `${out}/${path}-${width}-${theme}.png`, fullPage: true, animations: 'disabled' })
+    if (path === 'diario') await page.locator('.revenue-lead-grid').screenshot({ path: `${out}/${path}-${width}-${theme}-lead.png`, animations: 'disabled' })
     checks.push(`${path}/${width}/${theme}: net sales/operational/cash833.64, count3, net ticket277.88; separate invoice ledger1255.36; annual receipt query never inflates main totals`)
     const beforeFilter = calls.length
     const platform = path === 'diario' ? page.getByLabel('Plataforma', { exact: true }) : page.locator('#period-platform')

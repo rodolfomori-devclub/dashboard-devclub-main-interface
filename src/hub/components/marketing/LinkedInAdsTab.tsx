@@ -27,7 +27,7 @@ interface CampaignConfig {
   label: string;
   currency: 'BRL' | 'USD';
   costSheet: 'costBRL' | 'costUSD';
-  campaignGroup: string[]; // Campaign Group Name filter in cost sheet
+  campaignGroup: string[]; // Chaves externas da planilha; exibir label na interface.
   leadsSheet: 'leadsBRL' | 'leadsUSD' | 'leadsCons';
   hasOrigem: boolean; // whether leads sheet has an Origem column (G)
   mqlColumnIndex: number; // 0-based column in the lead row that indicates MQL
@@ -331,7 +331,7 @@ function CampaignDashboard({ campaignKey, data }: { campaignKey: CampaignKey; da
                   <SelectItem value="all">Todas</SelectItem>
                   {subOptions.map((o) => (
                     <SelectItem key={o} value={o}>
-                      {o}
+                      {cfg.campaignGroup.includes(o) ? cfg.label : o}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -341,7 +341,7 @@ function CampaignDashboard({ campaignKey, data }: { campaignKey: CampaignKey; da
           <p className="text-[11px] text-muted-foreground">
             Período: <span className="font-medium text-foreground">{range.from}</span> →{' '}
             <span className="font-medium text-foreground">{range.to}</span>
-            {' · '}Campaign Group: <span className="font-medium text-foreground">{cfg.campaignGroup.join(', ')}</span>
+            {' · '}Campanha: <span className="font-medium text-foreground">{cfg.label}</span>
           </p>
         </CardContent>
       </Card>

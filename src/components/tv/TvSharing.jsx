@@ -8,6 +8,7 @@ export default function TvSharing() {
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const input = useRef(null)
+  const lightInput = useRef(null)
   const mounted = useRef(false)
   const load = useCallback(async signal => {
     try {
@@ -17,6 +18,7 @@ export default function TvSharing() {
   }, [])
   useEffect(() => { mounted.current = true; const controller = new AbortController(); load(controller.signal); return () => { mounted.current = false; controller.abort() } }, [load])
   const url = share?.enabled && share.simplePath === '/tv' ? new URL('/tv', window.location.origin).href : ''
+  const lightUrl = url ? new URL('/tv-light', window.location.origin).href : ''
   const change = async action => {
     if (!share || busy) return
     setBusy(true); setError(''); setMessage('')
@@ -33,9 +35,14 @@ export default function TvSharing() {
     try { await navigator.clipboard.writeText(url); setMessage('Link copiado.'); setError('') }
     catch { input.current?.focus(); input.current?.select(); setMessage('Não foi possível copiar automaticamente. O link está selecionado para copiar.'); }
   }
+  const copyLight = async () => {
+    try { await navigator.clipboard.writeText(lightUrl); setMessage('Link do Modo TV Light copiado.'); setError('') }
+    catch { lightInput.current?.focus(); lightInput.current?.select(); setMessage('O link do Modo TV Light está selecionado para copiar.'); }
+  }
   return <section className="tv-sharing" data-testid="tv-sharing" aria-labelledby="tv-sharing-title">
     <div className="tv-sharing-heading"><Link2 size={20}/><div><h2 id="tv-sharing-title">Link público da TV</h2><p>Um endereço fácil de digitar em qualquer TV ou aparelho, sem login.</p></div><span className="tv-sharing-state" data-enabled={Boolean(url)}>{share ? url ? 'Ativo' : 'Desativado' : 'Carregando…'}</span></div>
     {url ? <><div className="tv-share-url"><input ref={input} aria-label="Endereço público da TV" readOnly value={url} onFocus={event => event.target.select()}/><button onClick={copy} disabled={busy}><Copy size={16}/>Copiar link</button><a className="tv-share-open" href={url} target="_blank" rel="noopener noreferrer"><ExternalLink size={16}/>Abrir TV pública</a></div><div className="tv-share-management"><p>O endereço é sempre o mesmo. Desativar o link interrompe o acesso público.</p><button onClick={() => change('disable')} disabled={busy}><Unlink size={14}/>Desativar link</button></div></> : share && <div className="tv-share-management"><p>Ative o acesso público para abrir a programação usando o endereço fixo /tv.</p><button className="tv-primary" onClick={() => change('create')} disabled={busy}><Link2 size={16}/>{busy ? 'Ativando…' : 'Ativar link público'}</button></div>}
+    {lightUrl && <div className="tv-share-management"><p><strong>Modo TV Light</strong> · Para TVs antigas, com os mesmos indicadores e programação em um visual simplificado.</p><div className="tv-share-url"><input ref={lightInput} aria-label="Endereço do Modo TV Light" readOnly value={lightUrl} onFocus={event => event.target.select()}/><button onClick={copyLight} disabled={busy}><Copy size={16}/>Copiar TV Light</button><a className="tv-share-open" href={lightUrl} target="_blank" rel="noopener noreferrer"><ExternalLink size={16}/>Abrir TV Light</a></div></div>}
     {busy && url && <p role="status" className="tv-sharing-message">Atualizando link…</p>}
     {message && <p role="status" className="tv-sharing-message">{message}</p>}
     {error && <div role="alert" className="tv-notice">{error}{!share && <button disabled={busy} onClick={() => load()}>Tentar novamente</button>}</div>}

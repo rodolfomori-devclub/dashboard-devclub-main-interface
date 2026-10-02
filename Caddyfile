@@ -21,7 +21,9 @@
 	respond /health 200
 	# Canonical and legacy public TV addresses share privacy/cache headers.
 	@publicTv path /tv /tv/*
-	log_skip @publicTv
+	@publicTvLight path /tv-light /tv-light/*
+	@tvVisits path /tv /tv/* /tv-light /tv-light/*
+	log_skip @tvVisits
 
 	header {
 		X-Content-Type-Options "nosniff"
@@ -41,6 +43,22 @@
 				hide .git .env*
 			}
 		}
+	}
+
+	# TV Light is a separate HTML document, runnable without ES modules/React.
+	@tvLightAssets path /tv-light/*.js /tv-light/*.css
+	handle @tvLightAssets {
+		header Cache-Control "no-store"
+		header Referrer-Policy "no-referrer"
+		header X-Robots-Tag "noindex, nofollow, noarchive"
+		file_server
+	}
+	handle @publicTvLight {
+		header Cache-Control "no-store"
+		header Referrer-Policy "no-referrer"
+		header X-Robots-Tag "noindex, nofollow, noarchive"
+		rewrite * /tv-light/index.html
+		file_server
 	}
 
 	# Keep ETag revalidation for HTML, including direct routes and OAuth callback.

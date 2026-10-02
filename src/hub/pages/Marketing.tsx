@@ -29,7 +29,7 @@ export default function Marketing() {
           <TabsTrigger value="content" className="gap-2">
             <Share2 className="h-4 w-4" /> Distribuição de Conteúdo
           </TabsTrigger>
-          <TabsTrigger value="lt-fsc" className="gap-2">
+          <TabsTrigger value="lt-devclub" className="gap-2">
             <Tag className="h-4 w-4" /> Low Ticket DevClub
           </TabsTrigger>
           <TabsTrigger value="webinar-global" className="gap-2">
@@ -46,7 +46,7 @@ export default function Marketing() {
         <TabsContent value="content" className="mt-4">
           <ContentDistributionTab />
         </TabsContent>
-        <TabsContent value="lt-fsc" className="mt-4">
+        <TabsContent value="lt-devclub" className="mt-4">
           <LowTicketDevClubTab />
         </TabsContent>
         <TabsContent value="webinar-global" className="mt-4">

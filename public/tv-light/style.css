@@ -1,0 +1,94 @@
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; background: #101614; color: #f1f6f3; }
+body { font-family: Arial, Helvetica, sans-serif; font-size: 18px; line-height: 1.35; }
+.tv-light-shell { max-width: 1920px; margin: 0 auto; padding: 20px 34px 16px; }
+.tv-light-header { display: table; width: 100%; border-bottom: 1px solid #35413b; padding-bottom: 13px; }
+.tv-light-brand, .tv-light-context { display: table-cell; vertical-align: middle; }
+.tv-light-brand { font-size: 25px; font-weight: bold; white-space: nowrap; }
+.tv-light-brand-sub { font-size: 17px; font-weight: normal; color: #bdc9c2; margin-left: 12px; }
+.tv-light-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #99edac; margin-right: 11px; vertical-align: middle; }
+.tv-light-context { text-align: right; color: #bdc9c2; font-size: 16px; }
+.tv-light-heading { padding: 16px 0 13px; }
+.tv-light-eyebrow { font-size: 14px; color: #99edac; margin: 0 0 5px; letter-spacing: 1px; text-transform: uppercase; }
+h1 { font-size: 34px; font-weight: bold; letter-spacing: -1px; line-height: 1.15; margin: 0; }
+p { margin: 0; }
+#tv-light-panel { min-height: 320px; }
+.tv-light-hero { display: table; table-layout: fixed; width: 100%; background: #1b2520; border: 1px solid #35413b; border-radius: 12px; margin-bottom: 17px; }
+.tv-light-hero-cell { display: table-cell; padding: 18px 25px; vertical-align: middle; width: 58%; }
+.tv-light-hero-cell + .tv-light-hero-cell { width: 42%; border-left: 1px solid #35413b; }
+.tv-light-label { display: block; font-size: 16px; color: #bdc9c2; font-weight: normal; }
+.tv-light-gross { display: block; font-size: 51px; line-height: 1.14; margin-top: 5px; letter-spacing: -1px; overflow-wrap: break-word; word-wrap: break-word; }
+.tv-light-cash { display: block; font-size: 34px; line-height: 1.2; margin: 6px 0; color: #99edac; overflow-wrap: break-word; word-wrap: break-word; }
+.tv-light-note { font-size: 15px; color: #bdc9c2; margin-top: 11px; line-height: 1.45; }
+.tv-light-stat-table { display: table; table-layout: fixed; border-collapse: separate; border-spacing: 10px 0; width: 100%; margin: 0 0 17px; }
+.tv-light-stat { display: table-cell; padding: 13px 15px; width: 25%; background: #1b2520; border: 1px solid #35413b; border-radius: 8px; vertical-align: top; }
+.tv-light-stat strong { display: block; font-size: 25px; margin-top: 7px; word-wrap: break-word; }
+.tv-light-pace { border-left: 4px solid #99edac; padding: 8px 17px; margin: 11px 0 0; }
+.tv-light-track { background: #35413b; height: 10px; border-radius: 5px; margin: 13px 0; overflow: hidden; }
+.tv-light-track span { display: block; height: 10px; background: #99edac; }
+.tv-light-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.tv-light-table th { font-size: 15px; font-weight: normal; color: #bdc9c2; padding: 0 10px 11px; text-align: right; }
+.tv-light-table th:first-child { text-align: left; width: 36%; }
+.tv-light-table td { text-align: right; border-top: 1px solid #35413b; padding: 13px 10px; vertical-align: middle; font-size: 23px; overflow-wrap: break-word; word-wrap: break-word; }
+.tv-light-table td:first-child { text-align: left; font-size: 21px; font-weight: bold; }
+.tv-light-table small { display: block; font-size: 14px; color: #bdc9c2; font-weight: normal; margin-top: 3px; }
+.tv-light-table .tv-light-table-cash { font-size: 20px; color: #99edac; }
+.tv-light-table-goals th:first-child { width: 28%; }
+.tv-light-table-goals td { font-size: 21px; padding-top: 11px; padding-bottom: 11px; }
+.tv-light-table-goals td:first-child { font-size: 19px; }
+.tv-light-table-goals .tv-light-label { font-size: 13px; }
+.tv-light-empty { padding: 60px 25px; border: 1px solid #35413b; background: #1b2520; border-radius: 12px; text-align: center; color: #bdc9c2; }
+.tv-light-empty h2 { color: #f1f6f3; font-size: 26px; margin: 0 0 10px; }
+.tv-light-notice { background: #3e3320; color: #ffdda0; border: 1px solid #8c7041; padding: 10px 14px; margin: 0 0 12px; border-radius: 6px; font-size: 16px; }
+.tv-light-footer { border-top: 1px solid #35413b; padding-top: 12px; margin-top: 15px; display: table; width: 100%; }
+.tv-light-footer-info, .tv-light-controls { display: table-cell; vertical-align: middle; }
+.tv-light-footer-info { width: 39%; font-size: 15px; color: #bdc9c2; }
+#tv-light-updated { font-size: 13px; margin-top: 4px; }
+.tv-light-controls { text-align: right; }
+button { background: #1b2520; border: 1px solid #526359; color: #f1f6f3; border-radius: 6px; font-family: inherit; font-size: 14px; padding: 10px 11px; margin: 3px 0 3px 5px; cursor: pointer; }
+button:focus { outline: 3px solid #99edac; outline-offset: 2px; }
+button:disabled { opacity: 0.4; cursor: default; }
+body[data-tv-theme="light"], body[data-tv-theme="light"] .tv-light-shell { background: #f1f5f2; color: #13231a; }
+body[data-tv-theme="light"] .tv-light-hero, body[data-tv-theme="light"] .tv-light-stat, body[data-tv-theme="light"] .tv-light-empty, body[data-tv-theme="light"] button { background: #ffffff; border-color: #c6d3cb; color: #13231a; }
+body[data-tv-theme="light"] .tv-light-label, body[data-tv-theme="light"] .tv-light-note, body[data-tv-theme="light"] .tv-light-table small, body[data-tv-theme="light"] .tv-light-context, body[data-tv-theme="light"] .tv-light-table th, body[data-tv-theme="light"] .tv-light-footer-info, body[data-tv-theme="light"] .tv-light-brand-sub { color: #4c6053; }
+body[data-tv-theme="light"] .tv-light-eyebrow, body[data-tv-theme="light"] .tv-light-cash, body[data-tv-theme="light"] .tv-light-table-cash { color: #23623a; }
+body[data-tv-theme="light"] .tv-light-empty h2 { color: #13231a; }
+body[data-tv-theme="light"] .tv-light-header, body[data-tv-theme="light"] .tv-light-footer, body[data-tv-theme="light"] .tv-light-table td, body[data-tv-theme="light"] .tv-light-hero-cell { border-color: #c6d3cb; }
+body[data-tv-theme="light"] .tv-light-dot, body[data-tv-theme="light"] .tv-light-track span { background: #37804a; }
+body[data-tv-theme="light"] .tv-light-pace { border-color: #37804a; }
+@media (min-width: 1600px) {
+  .tv-light-shell { padding: 42px 64px; }
+  .tv-light-heading { padding: 32px 0 27px; }
+  h1 { font-size: 45px; }
+  #tv-light-panel { min-height: 600px; }
+  .tv-light-gross { font-size: 75px; }
+  .tv-light-cash { font-size: 48px; }
+  .tv-light-hero-cell { padding: 38px; }
+  .tv-light-stat { padding: 25px; }
+  .tv-light-stat strong { font-size: 35px; }
+  .tv-light-table td { padding: 24px 14px; font-size: 32px; }
+  .tv-light-table td:first-child { font-size: 30px; }
+  .tv-light-table .tv-light-table-cash { font-size: 28px; }
+  .tv-light-table small { font-size: 18px; }
+}
+@media (max-width: 800px) {
+  .tv-light-shell { padding: 18px; }
+  .tv-light-header, .tv-light-brand, .tv-light-context, .tv-light-footer, .tv-light-footer-info, .tv-light-controls { display: block; width: 100%; text-align: left; }
+  .tv-light-context { margin-top: 8px; }
+  .tv-light-controls { margin-top: 13px; }
+  h1 { font-size: 29px; }
+  .tv-light-hero, .tv-light-hero-cell, .tv-light-hero-cell + .tv-light-hero-cell { display: block; width: 100%; }
+  .tv-light-hero-cell + .tv-light-hero-cell { border-left: 0; border-top: 1px solid #35413b; }
+  .tv-light-gross { font-size: 39px; }
+  .tv-light-cash { font-size: 30px; }
+  .tv-light-stat-table { display: block; }
+  .tv-light-stat { display: inline-block; width: 47%; min-height: 105px; margin: 0 2% 12px 0; }
+  .tv-light-stat strong { font-size: 21px; }
+  .tv-light-table td, .tv-light-table td:first-child, .tv-light-table .tv-light-table-cash, .tv-light-table-goals td, .tv-light-table-goals td:first-child { font-size: 15px; padding: 13px 4px; }
+  .tv-light-table th, .tv-light-table small { font-size: 12px; }
+  .tv-light-table th { padding-left: 4px; padding-right: 4px; }
+  .tv-light-table th:first-child { width: 31%; }
+  .tv-light-table-goals th:first-child { width: 25%; }
+  .tv-light-label { font-size: 14px; }
+  #tv-light-panel { min-height: 290px; }
+}

@@ -1,22 +1,7 @@
 /**
- * Chaves de localStorage do app + migracao do prefixo legado `fsc_` -> `dc_`.
- *
- * POR QUE ISTO EXISTE
- * Renomear uma chave de localStorage e uma quebra SILENCIOSA: o dado antigo
- * continua no navegador do usuario, mas o codigo passa a ler um nome que nunca
- * foi escrito. No rebrand, renomear direto causaria:
- *
- *   fsc_remember  -> todo mundo cai na tela de login na proxima visita
- *   fsc_milestones-> marcos reprocessados = CelebrationOverlay dispara em massa,
- *                    confete em tela cheia para o time inteiro
- *   fsc_draft_*   -> rascunhos de venda nao salvos ficam orfaos (perda de dado)
- *   fsc_view_mode -> quem estava "vendo como vendedor" e jogado para outra UI
- *   fsc_audio_*   -> som de venda volta ao default (TV pode passar de muda a alta)
- *
- * `migrateLegacyStorage()` roda uma vez no boot, copia o que existir de `fsc_`
- * para `dc_` e apaga o antigo. Depois de alguns deploys, quando ninguem mais
- * tiver o prefixo velho no navegador, este arquivo pode ser simplificado —
- * basta remover a funcao e manter as constantes.
+ * Chaves de localStorage do app e migracao de preferencias de versoes anteriores.
+ * Preserva sessao lembrada, marcos, rascunhos, modo de visualizacao e audio.
+ * O prefixo antigo existe apenas para recuperar os dados salvos no navegador.
  */
 
 const LEGACY_PREFIX = 'fsc_';
@@ -37,7 +22,7 @@ export const DRAFT_PREFIX = `${PREFIX}draft_`;
 const MIGRATED_FLAG = `${PREFIX}storage_migrated_v1`;
 
 /**
- * Copia toda chave `fsc_*` para `dc_*` e remove a antiga.
+ * Copia as chaves legadas para o prefixo atual e remove as antigas.
  * Idempotente e tolerante a falha — se o localStorage estiver indisponivel
  * (modo privado, storage cheio), o app segue funcionando com os defaults.
  */
@@ -66,7 +51,7 @@ export function migrateLegacyStorage(): void {
     localStorage.setItem(MIGRATED_FLAG, '1');
 
     if (legadas.length > 0) {
-      console.info(`[storage] ${legadas.length} chave(s) migrada(s) de fsc_ para dc_`);
+      console.info(`[storage] ${legadas.length} preferencia(s) atualizada(s)`);
     }
   } catch (e) {
     console.warn('[storage] migracao de chaves legadas falhou (ignorado):', e);
