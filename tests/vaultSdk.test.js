@@ -45,3 +45,15 @@ test('canonical development origin starts PKCE locally without an origin redirec
  assert.equal(authorize.searchParams.get('state'),sessionStorage.getItem('vault_oauth_state'))
  assert(sessionStorage.getItem('vault_code_verifier'))
 })
+test('refresh keeps the credentials through outages and clears them only when Vault refuses them',async()=>{
+ const original=globalThis.fetch
+ const attempt=async response=>{
+  setup();localStorage.setItem('vault_refresh_token','refresh-example')
+  const sdk=new VaultAuth({vaultUrl:'https://vault.example',clientId:'dashboard',redirectUri:'https://workspace.example/callback'})
+  globalThis.fetch=async()=>{if(response instanceof Error)throw response;return response}
+  try{return {refreshed:await sdk.refresh(),stored:localStorage.getItem('vault_refresh_token')}}finally{globalThis.fetch=original}
+ }
+ assert.deepEqual(await attempt(new TypeError('Failed to fetch')),{refreshed:false,stored:'refresh-example'})
+ for(const status of [500,502,503,408,429])assert.deepEqual(await attempt({ok:false,status}),{refreshed:false,stored:'refresh-example'},`status ${status}`)
+ for(const status of [400,401,403])assert.deepEqual(await attempt({ok:false,status}),{refreshed:false,stored:null},`status ${status}`)
+})

@@ -26,7 +26,7 @@ export interface SceneControlProps {
 }
 
 const CONNECTION: Record<LeadConnection, { label: string; className: string }> = {
-  live: { label: 'ao vivo', className: 'border-success/40 bg-success/15 text-success' },
+  live: { label: 'ao vivo', className: 'border-emerald-500/40 bg-emerald-500/15 text-emerald-400' },
   background: { label: 'em segundo plano, pode congelar', className: 'border-warning/40 bg-warning/15 text-warning' },
   disconnected: { label: 'desconectada', className: 'border-destructive/40 bg-destructive/10 text-error' },
   closed: { label: 'fechada', className: 'border-border bg-muted text-muted-foreground' },
@@ -118,7 +118,7 @@ function SceneList({ p, readOnly, compact }: { p: LeadPresentation; readOnly: bo
                 <span
                   className={cn(
                     'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold',
-                    st.ready && o.enabled ? 'bg-success/15 text-success' : 'bg-muted text-muted-foreground',
+                    st.ready && o.enabled ? 'bg-emerald-500/15 text-emerald-400' : 'bg-muted text-muted-foreground',
                   )}
                   aria-hidden="true"
                 >

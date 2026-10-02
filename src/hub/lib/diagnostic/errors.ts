@@ -7,7 +7,12 @@ export function errorText(err: unknown): string {
   if (!err) return '';
   if (typeof err === 'string') return err;
   if (err instanceof Error) return err.message;
-  if (typeof err === 'object' && 'message' in err) return String((err as { message: unknown }).message ?? '');
+  if (typeof err === 'object') {
+    const { message, error } = err as { message?: unknown; error?: unknown };
+    // The Dashboard API answers Vault failures as {error, code}, without message.
+    if (typeof message === 'string' && message) return message;
+    if (typeof error === 'string' && error) return error;
+  }
   return String(err);
 }
 
@@ -63,8 +68,12 @@ export function diagnosticErrorMessage(err: unknown): string {
   if (msg.includes('DIAG_CONTENT_MISSING') || msg.includes('DIAG_CONTENT_INVALID')) {
     return 'O conteúdo do diagnóstico não carregou. Tente de novo; se continuar, avise a gestão comercial.';
   }
-  // Dashboard API: a Vault session that expired and could not be renewed.
-  if (/^VAULT_/.test(String(errorField(err, 'code') ?? ''))) return 'Sua sessão expirou. Entre de novo pelo Vault.';
+  // Dashboard API: a Vault session that expired and could not be renewed, or a
+  // screen removed in Vault. Vault outages (VAULT_UNAVAILABLE, 503) are transient.
+  const code = String(errorField(err, 'code') ?? '');
+  if (['VAULT_TOKEN_REQUIRED', 'VAULT_TOKEN_INVALID', 'VAULT_SESSION_INVALID'].includes(code)) return 'Sua sessão expirou. Entre de novo pelo Vault.';
+  if (['DASHBOARD_ACCESS_REQUIRED', 'DASHBOARD_PERMISSION_REQUIRED'].includes(code)) return 'Seu acesso ao Apoio Vendas mudou. Recarregue a página ou fale com um administrador.';
+  if (['VAULT_UNAVAILABLE', 'HUB_UNAVAILABLE'].includes(code)) return 'O servidor não respondeu agora. Tente de novo em instantes.';
   const invalid = msg.match(/DIAG_INVALID:\s*(.+)$/);
   if (invalid) {
     const text = invalid[1].trim();

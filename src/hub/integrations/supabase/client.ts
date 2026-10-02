@@ -11,6 +11,8 @@ export const supabase = createClient<Database>(new URL(`${API_URL}/hub`, window.
   global:{fetch:async(input,init)=>{
     const headers=new Headers(init?.headers);
     headers.delete('apikey');headers.delete('authorization');
+    // postgrest-js marks GET retries with X-Retry-Count; the API's CORS list does not allow it.
+    headers.delete('x-retry-count');
     const url=typeof input==='string'?input:input instanceof URL?input.toString():input.url;
     const response=await apiFetch(url,{...init,headers});
     if ((init?.method || 'GET').toUpperCase()==='GET' && response.ok

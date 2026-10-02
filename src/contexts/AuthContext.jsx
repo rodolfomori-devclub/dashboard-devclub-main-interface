@@ -41,6 +41,11 @@ export function AuthProvider({ children }) {
       setUserRoles(Object.assign(Object.fromEntries([...user.permissions].sort().map(permission => [permission, true])), { isAdmin: user.isAdmin }))
     } catch (err) {
       if (request !== accessRequest.current) return
+      // An open session survives a network failure or an outage (5xx) in the
+      // background check on focus and every 2 minutes, e.g. mid-call in the
+      // diagnostic cockpit. Every API call still validates the token; 401/403
+      // answers and first loads end the session as before.
+      if (identityKey.current && (!err.status || err.status >= 500)) return
       identityKey.current = ''; await clearPrivateData()
       if (request !== accessRequest.current) return
       setCurrentUser(null); setUserRoles(null); setError(err.message)

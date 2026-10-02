@@ -59,7 +59,7 @@ function SalesSupportScreen() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {TOOLS.map((tool) => (
-          <div key={tool.id} className="glass-card-hover p-5 flex flex-col gap-4">
+          <div key={tool.id} className="glass-card p-5 flex flex-col gap-4 transition-colors hover:border-primary/40">
             <div className="flex items-start gap-3">
               <div className="h-10 w-10 rounded-md bg-primary/15 text-primary flex items-center justify-center shrink-0">
                 <tool.icon className="h-5 w-5" />

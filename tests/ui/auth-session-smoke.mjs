@@ -52,6 +52,7 @@ async function scenario(name, seed, check) {
     const call = {path:url.pathname,refreshed:bearer === `Bearer ${refreshedToken}`}
     calls.push(call)
     if(url.pathname === '/api/access') {
+      if(state.access === 'offline') { call.status = 0; return route.abort('internetdisconnected') }
       const failed = state.access === 'denied' ? [403,'DASHBOARD_ACCESS_REQUIRED'] : state.access === 'unavailable' ? [503,'VAULT_UNAVAILABLE'] : state.access === 'unauthorized' || (state.access === 'refresh-needed' && !call.refreshed) ? [401,'VAULT_TOKEN_INVALID'] : null
       call.status = failed?.[0] || 200
       return route.fulfill({status:call.status,contentType:'application/json',body:JSON.stringify(failed ? {error:'Fixture access error',code:failed[1]} : {user})})
@@ -155,6 +156,22 @@ try {
     const before=accessCalls().length;state.access='ready'
     await page.getByRole('button',{name:'Tentar novamente',exact:true}).click()
     await recovered();assert.equal(accessCalls().length,before+1)
+  })
+  await scenario('an open session survives a background outage or network failure; an authorization answer still ends it',{access:originalToken},async ({page,state,accessCalls,recovered}) => {
+    await recovered()
+    const heading = page.getByRole('heading',{name:'Diário de vendas',exact:true})
+    for(const outage of ['unavailable','offline']) {
+      const before = accessCalls().length
+      state.access = outage
+      await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+      await pause(400)
+      assert.ok(accessCalls().length > before, `${outage}: the background check ran`)
+      assert.ok(await heading.isVisible(), `${outage}: the screen stays open`)
+      assert.equal(await page.getByRole('button',{name:'Entrar pelo Vault',exact:true}).count(),0)
+    }
+    state.access = 'denied'
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+    await page.getByRole('heading',{name:'Acesso ao Dashboard não configurado',exact:true}).waitFor()
   })
   console.log(JSON.stringify({passed:true,externalRequests:0,scenarios:results}))
 } finally {

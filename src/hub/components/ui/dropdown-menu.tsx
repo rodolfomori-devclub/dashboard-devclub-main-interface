@@ -8,7 +8,11 @@ import { cn } from "@/lib/utils";
 // Dashboard already ships. Items close the menu; arrow keys move between them.
 const DropdownMenu = PopoverPrimitive.Root;
 
-const DropdownMenuTrigger = PopoverPrimitive.Trigger;
+const DropdownMenuTrigger = React.forwardRef<
+  React.ElementRef<typeof PopoverPrimitive.Trigger>,
+  React.ComponentPropsWithoutRef<typeof PopoverPrimitive.Trigger>
+>((props, ref) => <PopoverPrimitive.Trigger ref={ref} aria-haspopup="menu" {...props} />);
+DropdownMenuTrigger.displayName = "DropdownMenuTrigger";
 
 const DropdownMenuContent = React.forwardRef<
   React.ElementRef<typeof PopoverPrimitive.Content>,

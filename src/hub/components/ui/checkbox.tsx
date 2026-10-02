@@ -11,13 +11,18 @@ type CheckboxProps = Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "onChan
 // The shadcn/Radix checkbox API (a button with role="checkbox") without a new
 // dependency. A surrounding <label> or htmlFor toggles it like the original.
 const Checkbox = React.forwardRef<HTMLButtonElement, CheckboxProps>(
-  ({ className, checked = false, onCheckedChange, onClick, ...props }, ref) => (
+  ({ className, checked = false, onCheckedChange, onClick, onKeyDown, ...props }, ref) => (
     <button
       ref={ref}
       type="button"
       role="checkbox"
       aria-checked={checked}
       data-state={checked ? "checked" : "unchecked"}
+      onKeyDown={(event) => {
+        onKeyDown?.(event);
+        // Checkboxes toggle with Space only (WAI-ARIA), as in Radix.
+        if (event.key === "Enter") event.preventDefault();
+      }}
       onClick={(event) => {
         onClick?.(event);
         if (!event.defaultPrevented) onCheckedChange?.(!checked);

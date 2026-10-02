@@ -433,15 +433,18 @@ export function useDiagnosticWorkspace(
   const { refetch } = query;
   const { refetch: refetchContent } = contentQuery;
   const { refetch: refetchSettings } = settingsQuery;
-  // Only a first load that failed blocks the screen; a failed background refetch keeps the data.
+  // Only a first load that failed blocks the screen; a failed background refetch keeps
+  // the data. For the workspace this also covers the Hub-wide "Tentar novamente": an
+  // open cockpit is never replaced (its local state is the source of truth).
+  const workspaceFailed = query.isError && !query.isFetching && !query.data;
   const contentFailed = contentQuery.isError && !contentQuery.isFetching && !contentQuery.data;
   const settingsFailed = settingsQuery.isError && !settingsQuery.isFetching && !settingsQuery.data;
   const retryLoad = useCallback(() => {
-    if (query.isError) void refetch();
+    if (workspaceFailed) void refetch();
     if (contentFailed) void refetchContent();
     if (settingsFailed) void refetchSettings();
-  }, [query.isError, refetch, contentFailed, refetchContent, settingsFailed, refetchSettings]);
-  const loadFailure = query.error && !query.isFetching ? query.error : contentFailed ? contentQuery.error : settingsFailed ? settingsQuery.error : null;
+  }, [workspaceFailed, refetch, contentFailed, refetchContent, settingsFailed, refetchSettings]);
+  const loadFailure = workspaceFailed ? query.error : contentFailed ? contentQuery.error : settingsFailed ? settingsQuery.error : null;
 
   return {
     // Os numeros da Head entram no calculo da oferta: sem eles a bolsa sairia sem ancora.

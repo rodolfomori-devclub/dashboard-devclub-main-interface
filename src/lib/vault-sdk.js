@@ -229,7 +229,9 @@ export class VaultAuth {
       });
 
       if (!res.ok) {
-        this._clearTokens();
+        // Only a refused credential ends the session. An outage (5xx, timeout,
+        // rate limit) keeps it for the next attempt.
+        if (res.status >= 400 && res.status < 500 && ![408, 429].includes(res.status)) this._clearTokens();
         return false;
       }
 
@@ -237,7 +239,7 @@ export class VaultAuth {
       this._setTokens(tokens);
       return true;
     } catch {
-      this._clearTokens();
+      // Network failure: keep the credentials; the next check retries.
       return false;
     }
   }
