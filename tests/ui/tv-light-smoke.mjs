@@ -17,10 +17,12 @@ const out = process.env.DASHBOARD_SMOKE_OUTPUT || fileURLToPath(new URL('./artif
 const now = new Date('2026-10-15T15:00:00-03:00')
 const token = 'fixtureTv0000001'
 const directory = { teams: [{ id: 'commercial', name: 'Comercial' }], individuals: [{ id: 'ana', name: 'Ana sintética', teamId: 'commercial' }] }
-const source = { id: 'hotmart', label: 'Fonte sintética', kind: 'sale', status: 'ready', platform: 'hotmart' }
+// A new Asaas contract legitimately has different sale and collected-entry
+// amounts; Guru/Hotmart now use the authoritative platform net for both.
+const source = { id: 'asaas', label: 'Fonte sintética', kind: 'sale', status: 'ready', platform: 'asaas', salesAvailable: true }
 const initialModel = buildTvData({ year: 2026, month: 10, today: '2026-10-15', metric: 'cash', directory,
   plans: [{ scope: 'overall' }, { scope: 'team', scopeId: 'commercial' }, { scope: 'product', scopeId: 'DevClub' }].map(scope => ({ ...scope, metric: 'cash', target: 5000 })),
-  sales: { sources: [source], records: [{ id: 'synthetic-sale', sourceId: 'hotmart', platform: 'Hotmart', kind: 'sale', quantity: 1, date: '2026-10-15T14:00:00Z', family: 'DevClub', gross: 1900.12, net: 1233.64, revenue: 1233.64, payment: 'Cartão', sellerId: 'ana' }] },
+  sales: { sources: [source], records: [{ id: 'synthetic-sale', sourceId: 'asaas', platform: 'Asaas', kind: 'sale', quantity: 1, date: '2026-10-15T14:00:00Z', family: 'DevClub', gross: 1900.12, net: 1233.64, revenue: 1233.64, received: 1233.64, payment: 'Cartão', sellerId: 'ana' }] },
 })
 delete initialModel.directory
 let settings = { ...defaultTvSettings(), theme: 'dark', metric: 'cash', panels: TV_PANELS.map(panel => ({ id: panel.id, enabled: true, durationSeconds: 10 })) }
