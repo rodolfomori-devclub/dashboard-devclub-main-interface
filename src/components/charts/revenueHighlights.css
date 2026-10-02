@@ -21,6 +21,14 @@
 .revenue-total-details { display: flex; flex-wrap: wrap; gap: 24px 48px; margin: 23px 0 0; padding-top: 17px; border-top: 1px solid var(--rev-divider); }
 .revenue-total-details dt, .revenue-cash-details dt { color: var(--rev-muted); font-size: 11px; }
 .revenue-total-details dd { margin: 4px 0 0; font-size: 20px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.revenue-operational-summary { margin-top: 20px; padding-top: 15px; border-top: 1px solid var(--rev-divider); }
+.revenue-operational-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; }
+.revenue-operational-heading > span:first-child { color: var(--rev-muted); font-size: 11px; }
+.revenue-operational-heading > strong { margin-left: auto; min-width: 0; color: var(--rev-ink); font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.revenue-operational-heading .financial-value { align-items: flex-end; }
+.revenue-operational-summary > p { margin: 8px 0 0; color: var(--rev-muted); font-size: 10px; line-height: 1.6; }
+.revenue-card .revenue-payment-basis { margin: 14px 0 0; color: var(--rev-muted); font-size: 11px; line-height: 1.5; }
+.revenue-payment-grid .revenue-card-value { margin-top: 4px; }
 .revenue-cash-details { display: grid; gap: 7px; margin: 23px 0 0; padding-top: 17px; border-top: 1px solid var(--rev-divider); }
 .revenue-cash-details > div { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
 .revenue-cash-details dd { margin: 0; font-size: 13px; font-weight: 650; font-variant-numeric: tabular-nums; text-align: right; }

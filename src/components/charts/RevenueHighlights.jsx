@@ -15,11 +15,12 @@ function PaymentCard({ title, detail, data, tone, icon: Icon, ready, loading, er
   const amountReady = ready && (data.value !== null || !loading)
   return <article className={`revenue-card revenue-card--${tone}`} aria-busy={loading}>
     <div className="revenue-card-heading"><h2><Icon size={19} aria-hidden="true" />{title}</h2><Coverage partial={ready && data.partial} /></div>
+    <p className="revenue-payment-basis">Receita operacional</p>
     <p className="revenue-card-value"><FinancialValue ready={amountReady} loading={loading} error={error}>{money(data.value)}</FinancialValue></p>
     <p className="revenue-card-subtitle">{!ready ? 'Aguardando os dados do período' : data.count === null ? 'Contagem não informada' : `${salesCount(data.count)} ${data.count === 1 ? 'identificada' : 'identificadas'}`}<span>{detail}</span></p>
     <details className="revenue-breakdown">
       <summary><span>Detalhar {title.toLocaleLowerCase('pt-BR')} por plataforma</span><ChevronDown size={17} aria-hidden="true" /></summary>
-      <div className="revenue-provider-list" aria-label={`Receita de ${title.toLocaleLowerCase('pt-BR')} por plataforma`}>
+      <div className="revenue-provider-list" aria-label={`Receita operacional de ${title.toLocaleLowerCase('pt-BR')} por plataforma`}>
         {data.providers.map(provider => tone === 'boleto'
           ? <div className="revenue-provider-row revenue-provider-row--financial" key={provider.id} data-provider={provider.id}>
             <header><span>{provider.label}</span><small>{salesCount(provider.count)}{provider.partial && ' · parcial'}</small></header>
@@ -35,15 +36,19 @@ function PaymentCard({ title, detail, data, tone, icon: Icon, ready, loading, er
   </article>
 }
 
-export default function RevenueHighlights({ records = [], sources = [], filters = {}, title = 'Receita operacional', loading = false, ready = false, error = false }) {
+export default function RevenueHighlights({ records = [], sources = [], filters = {}, loading = false, ready = false, error = false }) {
   const model = useMemo(() => buildRevenueBreakdown(records, sources, filters), [records, sources, filters])
   return <section className="revenue-highlights" aria-label="Resumo financeiro" aria-busy={loading}>
     <div className="revenue-lead-grid">
-      <article className="revenue-card revenue-card--total">
-        <div className="revenue-card-heading"><h2><ArrowUpRight size={22} aria-hidden="true" />{title}</h2><Coverage partial={ready && model.revenue.partial} /></div>
-        <p className="revenue-card-value"><FinancialValue ready={ready && (model.revenue.value !== null || !loading)} loading={loading} error={error} announce>{money(model.revenue.value)}</FinancialValue></p>
-        <p className="revenue-card-subtitle">{ready ? 'Receita das vendas no recorte selecionado' : 'Aguardando os dados do período'}</p>
-        <dl className="revenue-total-details"><div><dt>Vendas realizadas</dt><dd><FinancialValue ready={ready} loading={loading} error={error} compact>{number(model.revenue.count)}</FinancialValue></dd></div><div><dt>Ticket médio</dt><dd><FinancialValue ready={ready} loading={loading} error={error} compact>{money(model.revenue.ticket)}</FinancialValue></dd></div></dl>
+      <article className="revenue-card revenue-card--total" data-testid="revenue-gross-main">
+        <div className="revenue-card-heading"><h2><ArrowUpRight size={22} aria-hidden="true" />Valor bruto das vendas</h2><Coverage partial={ready && model.gross.partial} /></div>
+        <p className="revenue-card-value" data-testid="revenue-gross-value"><FinancialValue ready={ready && (model.gross.value !== null || !loading)} loading={loading} error={error} announce>{money(model.gross.value)}</FinancialValue></p>
+        <p className="revenue-card-subtitle">{ready ? 'Novas vendas, antes das taxas das plataformas' : 'Aguardando os dados do período'}</p>
+        <dl className="revenue-total-details"><div><dt>Vendas realizadas</dt><dd><FinancialValue ready={ready} loading={loading} error={error} compact>{number(model.gross.count)}</FinancialValue></dd></div><div><dt>Ticket médio bruto</dt><dd><FinancialValue ready={ready} loading={loading} error={error} compact>{money(model.gross.ticket)}</FinancialValue></dd></div></dl>
+        <div className="revenue-operational-summary" data-testid="revenue-operational-secondary">
+          <div className="revenue-operational-heading"><span>Receita operacional</span><Coverage partial={ready && model.revenue.partial} /><strong data-testid="revenue-operational-value"><FinancialValue ready={ready && (model.revenue.value !== null || !loading)} loading={loading} error={error} compact>{money(model.revenue.value)}</FinancialValue></strong></div>
+          <p>Líquido de Guru e Hotmart; valores contratados ou informados nas demais fontes.</p>
+        </div>
       </article>
       <article className="revenue-card revenue-card--cash">
         <div className="revenue-card-heading"><h2><Wallet size={21} aria-hidden="true" />Cash collected</h2><Coverage partial={ready && model.cash.partial} /></div>
@@ -56,6 +61,6 @@ export default function RevenueHighlights({ records = [], sources = [], filters 
       <PaymentCard title="Cartão" detail="Somente plataformas com vendas por cartão neste recorte" data={model.payments.card} tone="card" icon={CreditCard} ready={ready} loading={loading} error={error} />
       <PaymentCard title="Boleto" detail="Boleto à vista e parcelado · plataformas deste recorte" data={model.payments.boleto} tone="boleto" icon={ReceiptText} ready={ready} loading={loading} error={error} />
     </div>
-    <div className="revenue-other-payments" aria-label="Outros meios de pagamento"><Banknote size={17} aria-hidden="true" /><p>Também compõem a receita</p>{[['pix', 'Pix'], ['other', 'Outros meios'], ['unknown', 'Meio não informado']].map(([key, label]) => <div key={key}><span>{label}</span><strong><FinancialValue ready={ready} loading={loading} error={error} compact>{money(model.payments[key].value)}</FinancialValue></strong></div>)}</div>
+    <div className="revenue-other-payments" aria-label="Outros meios de pagamento"><Banknote size={17} aria-hidden="true" /><p>Também compõem a receita operacional</p>{[['pix', 'Pix'], ['other', 'Outros meios'], ['unknown', 'Meio não informado']].map(([key, label]) => <div key={key}><span>{label}</span><strong><FinancialValue ready={ready} loading={loading} error={error} compact>{money(model.payments[key].value)}</FinancialValue></strong></div>)}</div>
   </section>
 }

@@ -9,7 +9,7 @@ import { periodCacheFixture, emptyProviderPayload } from './period-cache-fixture
 
 const base = process.env.DASHBOARD_SMOKE_URL || 'http://127.0.0.1:4317'
 assert.ok(['localhost', '127.0.0.1', '[::1]'].includes(new URL(base).hostname), 'Use a local fixture server')
-const out = fileURLToPath(new URL('./artifacts/financial-loading', import.meta.url))
+const out = process.env.DASHBOARD_SMOKE_OUTPUT || fileURLToPath(new URL('./artifacts/financial-loading', import.meta.url))
 await fs.mkdir(out, { recursive: true })
 const date = '2026-10-01', timestamp = Date.parse(`${date}T15:00:00Z`) / 1000
 const localChrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
@@ -79,7 +79,8 @@ try {
     assert.match(await refund.locator('.refund-summary-amount').innerText(), /R\$\s*350,00/)
     assert.equal(await refund.locator('.refund-summary-amount .financial-value-status').count(), 0)
     assert.equal(await revenue.locator('.revenue-card-value .financial-value[data-state="ready"]').count(), 4)
-    assert.match(await revenue.locator('.revenue-card--total .revenue-card-value').innerText(), /R\$\s*900,00/)
+    assert.match(await revenue.getByTestId('revenue-gross-value').innerText(), /R\$\s*1\.000,00/)
+    assert.match(await revenue.getByTestId('revenue-operational-value').innerText(), /R\$\s*900,00/)
     assert.match(await revenue.locator('.revenue-card--cash .revenue-card-value').innerText(), /R\$\s*900,00/)
     assert.match(await revenue.locator('.revenue-card--card .revenue-card-value').innerText(), /R\$\s*900,00/)
     assert.match(await revenue.locator('.revenue-card--boleto .revenue-card-value').innerText(), /R\$\s*0,00/)
@@ -96,7 +97,7 @@ try {
   assert.equal(await refund.locator('.refund-summary-amount .financial-value-skeleton').count(), 0)
   assert.equal(await revenue.locator('.revenue-card-value .financial-value[data-state="refreshing"]').count(), 4)
   for (const value of await revenue.locator('.revenue-card-value').all()) {
-    assert.match(await value.innerText(), /R\$\s*(?:900|0),00\s+Atualizando/)
+    assert.match(await value.innerText(), /R\$\s*(?:1\.000|900|0),00\s+Atualizando/)
     assert.equal(await value.locator('.financial-value-skeleton').count(), 0)
   }
   release()

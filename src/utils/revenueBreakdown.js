@@ -50,6 +50,11 @@ export function buildRevenueBreakdown(records = [], sources = [], filters = {}) 
   const saleSources = sources.filter(source => source.kind === 'sale' && (!filters.platform || source.platform === filters.platform || source.id === 'manual'))
   const available = saleSources.some(source => observedSource(source, sales.filter(row => row.sourceId === source.id))) || sales.some(row => amount(row.revenue) !== null)
   const summary = summarizeSales(sales)
+  // Gross is a separate financial basis. A known net amount never fills a
+  // missing gross value, and gross coverage does not depend on net coverage.
+  const grossAvailable = saleSources.some(source => observedSource(source, sales.filter(row => row.sourceId === source.id)))
+    || sales.some(row => amount(row.gross) !== null)
+  const grossPartial = !grossAvailable || saleSources.some(source => source.status !== 'ready' || source.salesAvailable === false) || summary.gross.missing > 0
   const partial = saleSources.some(source => source.status !== 'ready' || source.salesAvailable === false) || summary.revenue.missing > 0
   const prepared = prepareGoalData({ records: sales, sources: saleSources })
   const paymentGroups = {}
@@ -109,7 +114,9 @@ export function buildRevenueBreakdown(records = [], sources = [], filters = {}) 
   const cashPartial = prepared.cashSources.some(source => source.status !== 'ready')
     || prepared.cashRecords.some(row => amount(row.received) === null || !row.cashDate)
     || prepared.excludedCashManuals.length > 0
-  return { revenue: { value: numeric(summary.revenue, available), count: available ? summary.count : null, partial,
+  return { gross: { value: numeric(summary.gross, grossAvailable), count: grossAvailable ? summary.count : null, partial: grossPartial,
+    ticket: grossAvailable && summary.count > 0 && summary.gross.known ? summary.gross.value / summary.count : null },
+  revenue: { value: numeric(summary.revenue, available), count: available ? summary.count : null, partial,
     ticket: available && summary.count > 0 && summary.revenue.known ? summary.revenue.value / summary.count : null },
   payments: paymentGroups, cash: { value: cashKnown ? cashProviders.reduce((total, provider) => total + (provider.value ?? 0), 0) : null, partial: cashPartial, providers: cashProviders } }
 }

@@ -52,7 +52,7 @@ await context.route('**/*',async route=>{
  await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(body)})
 })
 const page=await context.newPage()
-const revenueCard=()=>page.locator('article').filter({has:page.getByRole('heading',{name:'Valor das vendas',exact:true})})
+const revenueCard=()=>page.getByTestId('revenue-gross-main')
 await page.clock.setFixedTime(new Date('2026-09-15T15:00:00-03:00'))
 page.on('pageerror',error=>errors.push(error.message))
 for(const width of [1440,360]){
@@ -67,7 +67,8 @@ for(const width of [1440,360]){
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true,`${key} ${theme} width ${width} overflow`)
    await page.screenshot({path:`${out}/${key}-${theme}-${width}.png`,fullPage:true,animations:'disabled'})
    if(key==='daily'){
-    assert.match(await revenueCard().innerText(),/8.150,00/)
+    assert.match(await page.getByTestId('revenue-gross-value').innerText(),/8\.400,00/)
+    assert.match(await page.getByTestId('revenue-operational-value').innerText(),/8\.150,00/,'Operational revenue remains available with an explicit secondary label')
     const cashCard=page.locator('.revenue-card--cash')
     assert.match(await cashCard.locator('.revenue-card-value').innerText(),/4\.870,00/,'Cash includes full Guru and Hotmart net, TMB 40%, confirmed Asaas new-sale entries and declared manual cash')
     const cashProvider=label=>cashCard.locator('.revenue-cash-details > div').filter({has:page.locator('dt').filter({hasText:label})})
@@ -102,7 +103,8 @@ for(const width of [1440,360]){
     assert.equal(apiCalls.length,beforeInteraction,'expansion and notifications must not request data')
     const before=apiCalls.length
     await page.getByLabel('Família de produto',{exact:true}).selectOption('Seu segundo salário com IA')
-    assert.match(await revenueCard().innerText(),/250,00/)
+    assert.match(await page.getByTestId('revenue-gross-value').innerText(),/300,00/)
+    assert.match(await page.getByTestId('revenue-operational-value').innerText(),/250,00/)
     assert.equal(apiCalls.length,before,'Local filter unexpectedly refetched APIs')
     await page.getByRole('button',{name:/Limpar filtros/}).click()
    } else {

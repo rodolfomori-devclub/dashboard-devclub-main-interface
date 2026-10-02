@@ -3,6 +3,8 @@ import assert from 'node:assert/strict'
 import { buildRevenueBreakdown, buildRevenueNotices, revenuePaymentGroup } from '../src/utils/revenueBreakdown.js'
 import { mergePeriodSources } from '../src/utils/periodData.js'
 import { asaasCashView } from '../src/utils/sourceAvailability.js'
+import { prepareGoalData } from '../src/utils/goalData.js'
+import { calculateGoalPace } from '../src/utils/goalPace.js'
 
 const platforms = { guru: 'Guru', hotmart: 'Hotmart', tmb: 'TMB', asaas: 'Asaas', boletex: 'Boletex', manual: 'Manual' }
 const source = (id, extra = {}) => ({ id, label: platforms[id], platform: platforms[id], kind: 'sale', status: 'ready', ...extra })
@@ -134,4 +136,69 @@ test('only the confirmed entry of a new Asaas contract contributes, never its in
   assert.equal(result.payments.boleto.providers[0].cash.value, 200)
   assert.equal(asaasCashView([sourceAsaas]).gross, 1455.36)
   assert.equal(buildRevenueBreakdown([contract], [sourceAsaas], { family: 'MBA' }).cash.value, 200)
+})
+
+
+test('first-day Daily and Goal Pace agree on gross/cash while the old operational basis stays explicit', () => {
+  const sales = [row('guru', 'Cartão', 1880, { gross: 1997, net: 1880 }),
+    row('hotmart', 'Cartão', 1877.18, { gross: 1997, net: 1877.18 }),
+    row('tmb', 'Boleto', 3000, { gross: 3000 }),
+    row('asaas', 'Boleto parcelado', 2000, { gross: 2000, received: 200 }),
+    row('manual', 'Pix', 90, { isManual: true, platform: 'Pix direto', gross: 100, net: 90, received: 80 })]
+  const receipts = 2172.51
+  const sources = [source('guru'), source('hotmart'), source('tmb'), source('manual'), source('asaas', {
+    cash: { gross: receipts, net: 2150, fees: 22.51, count: 4, availablePeriods: 1, periods: 1 },
+    cashReceipts: [{ date: '2026-10-01', received: receipts, count: 4 }],
+    cashReceiptOrigins: { schemaVersion: 1, basis: 'checkout_created_at', status: 'ready',
+      rows: [{ receiptDate: '2026-10-01', saleDate: '2026-09-01', received: receipts, count: 4 }] },
+  })]
+  const daily = buildRevenueBreakdown(sales, sources)
+  const prepared = prepareGoalData({ records: sales, sources })
+  const pace = metric => calculateGoalPace({ ...prepared, year: 2026, month: 10, today: '2026-10-01', plan: { scope: 'overall', metric } })
+  assert.equal(daily.gross.value, 9094)
+  assert.equal(daily.gross.value, pace('gross').actual)
+  assert.equal(daily.cash.value, pace('cash').actual)
+  assert.equal(Math.round(daily.cash.value * 100), 523718)
+  assert.equal(daily.revenue.value, pace('operational').actual)
+  assert.equal(Math.round(daily.revenue.value * 100), 884718)
+  assert.equal(daily.gross.count, 5)
+  assert.equal(daily.gross.ticket, 9094 / 5)
+  assert.equal(daily.gross.partial, false)
+  assert.equal(asaasCashView(sources).gross, receipts)
+  assert.equal(daily.cash.providers.find(provider => provider.id === 'asaas').value, 200)
+  assert.notEqual(daily.gross.value, daily.revenue.value, 'bruto must not reuse the mixed net-first operational value')
+})
+
+test('gross coverage is independent from known net/cash and never treats an unknown gross as zero', () => {
+  const knownNet = buildRevenueBreakdown([row('hotmart', 'Cartão', 940, { gross: null, net: 940 })], [source('hotmart')])
+  assert.deepEqual(knownNet.gross, { value: null, count: 1, partial: true, ticket: null })
+  assert.equal(knownNet.revenue.value, 940)
+  assert.equal(knownNet.cash.value, 940)
+  const knownGross = buildRevenueBreakdown([row('hotmart', 'Cartão', null, { gross: 1000, net: null })], [source('hotmart')])
+  assert.deepEqual(knownGross.gross, { value: 1000, count: 1, partial: false, ticket: 1000 })
+  assert.equal(knownGross.revenue.value, null)
+  assert.equal(knownGross.cash.value, null)
+  const partialGross = buildRevenueBreakdown([row('hotmart', 'Cartão', 940, { gross: 1000, net: 940 }),
+    row('hotmart', 'Cartão', 500, { gross: null, net: 500 })], [source('hotmart')])
+  assert.equal(partialGross.gross.value, 1000)
+  assert.equal(partialGross.gross.partial, true)
+  assert.equal(partialGross.revenue.value, 1440)
+})
+
+test('gross distinguishes explicit zero, known empty sales and Asaas invoices without a new-sale ledger', () => {
+  const zero = buildRevenueBreakdown([row('hotmart', 'Cartão', 0, { gross: 0, net: 0 })], [source('hotmart')])
+  assert.deepEqual(zero.gross, { value: 0, count: 1, partial: false, ticket: 0 })
+  const empty = buildRevenueBreakdown([], [source('hotmart')])
+  assert.deepEqual(empty.gross, { value: 0, count: 0, partial: false, ticket: null })
+  const invoices = source('asaas', { status: 'partial', salesAvailable: false, reason: 'checkout_disabled',
+    cash: { gross: 2172.51, net: 2150, fees: 22.51, count: 4, availablePeriods: 1, periods: 1 },
+    cashReceipts: [{ date: '2026-10-01', received: 2172.51, count: 4 }] })
+  const receiptsOnly = buildRevenueBreakdown([], [invoices])
+  assert.deepEqual(receiptsOnly.gross, { value: null, count: null, partial: true, ticket: null })
+  assert.equal(receiptsOnly.cash.value, null)
+  const mixed = buildRevenueBreakdown([row('hotmart', 'Cartão', 940, { gross: 1000, net: 940 })], [source('hotmart'), invoices])
+  assert.equal(mixed.gross.value, 1000)
+  assert.equal(mixed.gross.partial, true)
+  assert.equal(mixed.cash.value, 940)
+  assert.equal(asaasCashView([invoices]).gross, 2172.51)
 })

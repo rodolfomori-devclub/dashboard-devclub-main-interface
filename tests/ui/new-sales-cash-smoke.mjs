@@ -33,6 +33,8 @@ if (!base) {
 }
 const today = '2026-10-01'
 let scenario = 'legacy-only'
+let financialGate = null, releaseFinancial = null
+const holdFinancial = () => { financialGate = new Promise(resolve => { releaseFinancial = () => { financialGate = null; resolve() } }) }
 const calls = [], checks = [], errors = [], blocked = [], unexpected = [], applicationAssets = new Map()
 const includes = (range, date) => range.startDate <= date && range.endDate >= date
 const plans = ['gross', 'cash'].flatMap(metric => [
@@ -105,7 +107,8 @@ try {
     if (req.method() === 'OPTIONS') {
       await route.fulfill({ status: 204, headers: { 'access-control-allow-origin': base, 'access-control-allow-headers': 'authorization,content-type', 'access-control-allow-methods': 'GET,POST,OPTIONS' } }); return
     }
-    calls.push({ path: url.pathname, method: req.method(), query: url.searchParams.toString() })
+    calls.push({ path: url.pathname, method: req.method(), query: url.searchParams.toString(), ...(req.method() === 'POST' ? { body: req.postDataJSON() } : {}) })
+    if (url.pathname !== '/api/access' && financialGate) await financialGate
     const requestedDate = (url.searchParams.get('date') || today).slice(0, 10)
     const range = { startDate: url.searchParams.get('data_inicio') || requestedDate, endDate: url.searchParams.get('data_final') || requestedDate }
     let body
@@ -140,26 +143,58 @@ try {
   const cashCard = () => page.locator('.revenue-card--cash')
   const assertMoney = async (locator, expected) => assert.equal((await locator.innerText()).replace(/\s/g, ''), `R$${expected}`)
   const detail = label => revenueCard().locator('.revenue-total-details > div').filter({ has: page.locator('dt').filter({ hasText: new RegExp(`^${label}$`) }) }).locator('dd')
-  async function navigate(path, width = 1440, theme = 'light') {
+  async function navigate(path, width = 1440, theme = 'light', pending = false) {
     await page.setViewportSize({ width, height: 1000 })
-    await page.goto(`${base}/${path}`, { waitUntil: 'networkidle' })
+    await page.goto(`${base}/${path}`, { waitUntil: pending ? 'domcontentloaded' : 'networkidle' })
     if (path.startsWith('pace')) await page.locator('.pace-stage').waitFor()
     else {
       await panel().waitFor()
-      await page.waitForFunction(() => document.querySelector('.revenue-highlights')?.getAttribute('aria-busy') === 'false')
+      if (!pending) await page.waitForFunction(() => document.querySelector('.revenue-highlights')?.getAttribute('aria-busy') === 'false')
     }
     if (await page.evaluate(() => document.documentElement.classList.contains('dark')) !== (theme === 'dark')) await page.getByRole('button', { name: theme === 'dark' ? 'Usar tema escuro' : 'Usar tema claro', exact: true }).click()
   }
-  async function assertNewSales({ sales = '833,64', cash = '833,64', count = '3', ticket = '277,88' } = {}) {
-    await assertMoney(revenueCard().locator('.revenue-card-value'), sales)
+  async function assertNewSales({ gross = '900,00', operational = '833,64', cash = '833,64', count = '3', ticket = '300,00' } = {}) {
+    await revenueCard().getByRole('heading', { name: 'Valor bruto das vendas', exact: true }).waitFor()
+    await assertMoney(page.getByTestId('revenue-gross-value'), gross)
+    await assertMoney(page.getByTestId('revenue-operational-value'), operational)
+    assert.match(await page.getByTestId('revenue-operational-secondary').innerText(), /Receita operacional/)
     await assertMoney(cashCard().locator('.revenue-card-value'), cash)
     assert.equal((await detail('Vendas realizadas').innerText()).trim(), count)
-    await assertMoney(detail('Ticket médio'), ticket)
+    await assertMoney(detail('Ticket médio bruto'), ticket)
     assert.doesNotMatch(await cashCard().locator('.revenue-cash-details').innerText(), /Asaas\s*·\s*faturas recebidas|1\.255,36|2\.089,00/, 'Invoice totals must never enter the new-sales cash card')
   }
   async function assertLedger() {
     await assertMoney(panel().locator('[data-metric="receipts-gross"]'), '1.255,36')
   }
+  // Hold the shared first-day provider responses: neither gross nor operational
+  // values may render a premature zero, and refresh retains each distinct amount.
+  holdFinancial()
+  await navigate('diario', 1440, 'light', true)
+  for (const id of ['revenue-gross-value', 'revenue-operational-value']) {
+    const value = page.getByTestId(id)
+    await value.locator('.financial-value[data-state="loading"]').waitFor()
+    assert.match(await value.innerText(), /Carregando valor/)
+    assert.doesNotMatch(await value.innerText(), /R\$/)
+  }
+  await revenueCard().screenshot({ path: `${out}/gross-operational-loading.png`, animations: 'disabled' })
+  releaseFinancial()
+  await page.waitForLoadState('networkidle')
+  await page.getByTestId('revenue-gross-value').locator('.financial-value[data-state="ready"]').waitFor()
+  await assertNewSales()
+  const grossFont = await page.getByTestId('revenue-gross-value').evaluate(node => parseFloat(getComputedStyle(node).fontSize))
+  const operationalFont = await page.getByTestId('revenue-operational-value').evaluate(node => parseFloat(getComputedStyle(node).fontSize))
+  assert.ok(grossFont > operationalFont, 'Gross is the visually primary amount; operational revenue remains subordinate')
+  holdFinancial()
+  await page.getByRole('button', { name: 'Atualizar dados', exact: true }).click()
+  for (const [id, amount] of [['revenue-gross-value', '900,00'], ['revenue-operational-value', '833,64']]) {
+    await page.getByTestId(id).locator('.financial-value[data-state="refreshing"]').waitFor()
+    assert.match(await page.getByTestId(id).innerText(), new RegExp(`R\\$\\s*${amount}\\s+Atualizando`))
+  }
+  releaseFinancial()
+  await page.waitForLoadState('networkidle')
+  await page.getByTestId('revenue-gross-value').locator('.financial-value[data-state="ready"]').waitFor()
+  await assertNewSales()
+  checks.push('First-day gross900 and operational833.64 have explicit loading, no premature zero, gross visual emphasis, and independent preserved values on refresh')
   const layouts = published
     ? [['diario', 1440, 'light'], ['diario', 360, 'dark'], ['global', 1440, 'dark'], ['mensal', 360, 'light'], ['anual', 1440, 'light']]
     : ['diario', 'global', 'mensal', 'anual'].flatMap(path => [[path, 1440, 'light'], [path, 360, 'dark']])
@@ -176,7 +211,7 @@ try {
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${path}/${width}/${theme} overflow`)
     await revenueCard().getByRole('heading').click()
     await page.screenshot({ path: `${out}/${path}-${width}-${theme}.png`, fullPage: true, animations: 'disabled' })
-    checks.push(`${path}/${width}/${theme}: sales/cash833.64, count3, ticket277.88; separate invoice ledger1255.36; annual receipt query never inflates main totals`)
+    checks.push(`${path}/${width}/${theme}: gross900, operational/cash833.64, count3, gross ticket300; separate invoice ledger1255.36; annual receipt query never inflates main totals`)
     const beforeFilter = calls.length
     const platform = path === 'diario' ? page.getByLabel('Plataforma', { exact: true }) : page.locator('#period-platform')
     await platform.selectOption('Hotmart')
@@ -196,7 +231,7 @@ try {
   // Confirmed entry attached to an actual new contract is eligible, exactly once.
   scenario = 'new-sale'
   await navigate('diario')
-  await assertNewSales({ sales: '2.833,64', cash: '1.033,64', count: '4', ticket: '708,41' })
+  await assertNewSales({ gross: '2.900,00', operational: '2.833,64', cash: '1.033,64', count: '4', ticket: '725,00' })
   await assertLedger()
   assert.match(await cashCard().locator('.revenue-cash-details').innerText(), /Asaas.*entradas.*novas vendas/s)
   const boleto = page.locator('.revenue-card--boleto')
@@ -209,9 +244,29 @@ try {
 
   for (const origin of ['legacy-only', 'linked-invoice-only', 'new-sale']) {
     scenario = origin
-    await navigate('pace?year=2026&month=10', origin === 'legacy-only' ? 1440 : 360, origin === 'linked-invoice-only' ? 'dark' : 'light')
-    await page.getByLabel('Base financeira', { exact: true }).selectOption('cash')
+    await navigate('diario')
+    const expectedGross = origin === 'new-sale' ? '2.900,00' : '900,00'
     const expected = origin === 'new-sale' ? '1.033,64' : '833,64'
+    await assertMoney(page.getByTestId('revenue-gross-value'), expectedGross)
+    await assertMoney(cashCard().locator('.revenue-card-value'), expected)
+    await assertLedger()
+    const dailyAmounts = {
+      gross: (await page.getByTestId('revenue-gross-value').innerText()).replace(/\s/g, ''),
+      cash: (await cashCard().locator('.revenue-card-value').innerText()).replace(/\s/g, ''),
+    }
+    const beforePace = calls.length
+    await navigate('pace?year=2026&month=10', origin === 'legacy-only' ? 1440 : 360, origin === 'linked-invoice-only' ? 'dark' : 'light')
+    assert.equal((await page.locator('.pace-financial-card').filter({ has: page.locator('.pace-financial-label').getByText('Valor bruto', { exact: true }) }).locator(':scope > strong').innerText()).replace(/\s/g, ''), dailyAmounts.gross, `${origin}: first-day monthly gross must exactly match Diário gross, never net operational revenue`)
+    assert.equal((await page.locator('.pace-financial-card').filter({ has: page.locator('.pace-financial-label').getByText('Cash collected', { exact: true }) }).locator(':scope > strong').innerText()).replace(/\s/g, ''), dailyAmounts.cash, `${origin}: first-day monthly cash must exactly match Diário cash, excluding invoice receipts`)
+    await assertMoney(page.locator('.pace-stage-actual > strong'), expectedGross)
+    const paceCalls = calls.slice(beforePace)
+    assert.equal(paceCalls.some(call => call.path === '/api/period-cache'), false, 'Pace uses the same live first-day provider flow, not a historical snapshot')
+    for (const call of paceCalls.filter(call => ['/api/transactions', '/api/refunds'].includes(call.path))) {
+      assert.equal(call.body.ordered_at_ini, today)
+      assert.equal(call.body.ordered_at_end, today)
+    }
+    for (const call of paceCalls.filter(call => call.path.startsWith('/api/boleto/') || call.path.startsWith('/api/hotmart/'))) assert.equal(new URLSearchParams(call.query).get('date'), today, 'Pace first-day provider date equals Diário date in São Paulo')
+    await page.getByLabel('Base financeira', { exact: true }).selectOption('cash')
     await assertMoney(page.locator('.pace-stage-actual > strong'), expected)
     assert.doesNotMatch(await page.locator('.pace-stat').first().innerText(), /2\.089,00|2\.289,00/)
     const before = calls.length
@@ -226,7 +281,7 @@ try {
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
     await page.locator('.pace-stage-heading h2').click()
     await page.locator('.pace-stage').screenshot({ path: `${out}/pace-${origin}.png`, animations: 'disabled' })
-    checks.push(`Pace ${origin}: ${expected} eligible new-sales cash; invoice receipts excluded from actual and scoped goals`)
+    checks.push(`First-day Diário equals Pace ${origin}: gross${expectedGross}, cash${expected}; same provider date; invoice receipts excluded from actual and scoped goals`)
   }
   assert.deepEqual(errors, [])
   assert.deepEqual(unexpected, [])
@@ -235,6 +290,7 @@ try {
   await fs.writeFile(`${out}/results.json`, JSON.stringify({ passed: true, published, assets, checks, apiCalls: calls.length, realApiRequests: 0, realWrites: 0, applicationAssets: [...applicationAssets.values()], errors, blocked, unexpected }, null, 2))
   console.log(JSON.stringify({ passed: true, published, assets, checks: checks.length, apiCalls: calls.length, errors, blocked, unexpected }))
 } finally {
+  releaseFinancial?.()
   if (browser) await browser.close()
   if (server) server.kill('SIGTERM')
 }
