@@ -13,7 +13,10 @@ export type ActivityAction =
   | 'USER_PASSWORD_RESET'
   | 'USER_DELETED'
   | 'GOAL_UPDATED'
-  | 'PROFILE_UPDATED';
+  | 'PROFILE_UPDATED'
+  | 'DIAGNOSIS_CREATED'
+  | 'DIAGNOSIS_SENT'
+  | 'DIAGNOSIS_REOPENED';
 
 interface LogActivityParams {
   userId: string;
@@ -63,4 +66,7 @@ export const ACTION_LABELS: Record<ActivityAction, string> = {
   USER_DELETED: 'Usuário excluído',
   GOAL_UPDATED: 'Meta atualizada',
   PROFILE_UPDATED: 'Perfil atualizado',
+  DIAGNOSIS_CREATED: 'Diagnóstico criado',
+  DIAGNOSIS_SENT: 'Diagnóstico enviado',
+  DIAGNOSIS_REOPENED: 'Diagnóstico reaberto',
 };

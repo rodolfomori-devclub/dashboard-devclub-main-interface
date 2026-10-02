@@ -1,0 +1,389 @@
+/*
+ * Tela do lead: regras de cada cena. Importado DEPOIS de lead.css (as cenas
+ * ajustam pecas comuns, como o padding de .lead-card). Tudo sob .lead-surface.
+ */
+
+/* ---- Abertura ------------------------------------------------------------ */
+
+.lead-surface .lead-hello {
+  font-size: 72px;
+  line-height: 1.05;
+}
+.lead-surface .lead-abertura-cards {
+  margin-top: 28px;
+  align-items: start;
+}
+
+/* ---- Seu momento --------------------------------------------------------- */
+
+.lead-surface .lead-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.lead-surface .lead-tile-value {
+  font: 600 26px/1.25 var(--lead-display);
+  overflow-wrap: anywhere;
+}
+.lead-surface .lead-tile-quote {
+  font-size: 26px;
+  line-height: 1.35;
+  font-style: italic;
+}
+.lead-surface .lead-decision {
+  font: 700 56px/1 var(--lead-display);
+  color: var(--lead-accent);
+}
+.lead-surface .lead-decision small {
+  font-size: 28px;
+  color: var(--lead-ink-2);
+}
+
+/* ---- Onde seu tempo vai -------------------------------------------------- */
+
+.lead-surface .lead-tempo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 32px;
+  align-items: start;
+}
+.lead-surface .lead-tasks {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.lead-surface .lead-tasks-dense {
+  gap: 10px;
+}
+.lead-surface .lead-task {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 18px;
+  align-items: baseline;
+}
+.lead-surface .lead-task-label {
+  font-size: 24px;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lead-surface .lead-tasks-dense .lead-task-label {
+  font-size: 22px;
+}
+.lead-surface .lead-task .lead-track {
+  grid-column: 1 / -1;
+  height: 18px;
+}
+.lead-surface .lead-tasks-dense .lead-track {
+  height: 14px;
+}
+.lead-surface .lead-task .lead-fill {
+  background: var(--lead-accent);
+}
+.lead-surface .lead-task-hours {
+  font: 600 22px/1.2 var(--lead-mono);
+  text-align: right;
+  white-space: nowrap;
+}
+.lead-surface .lead-total {
+  font: 700 30px/1.15 var(--lead-display);
+  color: var(--lead-ink);
+}
+.lead-surface .lead-total-number {
+  font-size: 60px;
+  line-height: 1;
+  color: var(--lead-accent);
+}
+
+/* ---- Mercado ------------------------------------------------------------- */
+
+.lead-surface .lead-article {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.lead-surface .lead-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.lead-surface .lead-headline {
+  font-size: 42px;
+  line-height: 1.15;
+}
+.lead-surface .lead-article-data {
+  font-size: 26px;
+  line-height: 1.45;
+}
+.lead-surface .lead-url {
+  font: 400 16px/1.4 var(--lead-mono);
+  color: var(--lead-ink-2);
+  overflow-wrap: anywhere;
+}
+.lead-surface .lead-closing {
+  font: 700 48px/1.15 var(--lead-display);
+  letter-spacing: -0.01em;
+  max-width: 1000px;
+  text-wrap: balance;
+}
+
+/* ---- Montando ------------------------------------------------------------ */
+
+.lead-surface .lead-pillar-row {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 14px 22px;
+}
+.lead-surface .lead-pillar-name {
+  flex: 1 1 auto;
+  font: 600 28px/1.2 var(--lead-display);
+}
+.lead-surface .lead-pillar-state {
+  font-size: 22px;
+  color: var(--lead-ink-2);
+}
+
+/* ---- Nas suas palavras e objetivo ---------------------------------------- */
+
+.lead-surface .lead-bigquote {
+  font: 600 52px/1.2 var(--lead-display);
+  max-width: 1080px;
+  text-wrap: balance;
+}
+.lead-surface .lead-bigquote.lead-long {
+  font-size: 40px;
+}
+.lead-surface .lead-bigquote.lead-xlong {
+  font-size: 32px;
+}
+.lead-surface .lead-qm {
+  color: var(--lead-accent);
+}
+.lead-surface .lead-goal {
+  font-size: 60px;
+  line-height: 1.08;
+}
+
+/* ---- Devolutiva ---------------------------------------------------------- */
+
+.lead-surface .lead-quotes {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.lead-surface .lead-quotes .lead-quote {
+  font-size: 32px;
+  line-height: 1.35;
+}
+.lead-surface .lead-pillar-big {
+  font: 700 40px/1.12 var(--lead-display);
+}
+.lead-surface .lead-cause-lead {
+  font-size: 38px;
+  line-height: 1.15;
+}
+.lead-surface .lead-blockers {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 22px;
+  line-height: 1.4;
+}
+.lead-surface .lead-blockers li {
+  padding-left: 22px;
+  position: relative;
+}
+.lead-surface .lead-blockers li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 13px;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--lead-red);
+}
+.lead-surface .lead-index {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+}
+.lead-surface .lead-index-number {
+  font: 700 96px/0.95 var(--lead-display);
+}
+.lead-surface .lead-index-of {
+  font-size: 30px;
+  color: var(--lead-ink-2);
+}
+.lead-surface .lead-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.lead-surface .lead-bar-row {
+  display: grid;
+  grid-template-columns: 360px minmax(0, 1fr) 64px 170px;
+  gap: 20px;
+  align-items: center;
+}
+.lead-surface .lead-bar-name {
+  font-size: 23px;
+}
+.lead-surface .lead-bar-score {
+  font: 600 22px/1 var(--lead-mono);
+  text-align: right;
+}
+.lead-surface .lead-map {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  justify-content: center;
+}
+.lead-surface .lead-map svg {
+  height: 100%;
+  width: auto;
+  max-width: 100%;
+}
+.lead-surface .lead-map-line { stroke: var(--lead-line); stroke-width: 2; }
+.lead-surface .lead-map-center { fill: var(--lead-ink); }
+.lead-surface .lead-map-center-label {
+  font: 500 10px var(--lead-mono);
+  letter-spacing: 1px;
+  fill: #C9D1DB;
+}
+.lead-surface .lead-map-goal { font: 700 14px var(--lead-display); fill: #FFFFFF; }
+.lead-surface .lead-map-node { fill: #FFFFFF; stroke-width: 2; }
+.lead-surface .lead-map-node.lead-lvs-trava { stroke: var(--lead-red); }
+.lead-surface .lead-map-node.lead-lvs-em_construcao { stroke: var(--lead-amber); }
+.lead-surface .lead-map-node.lead-lvs-ponto_forte { stroke: var(--lead-green); }
+.lead-surface .lead-map-name { font: 600 13.5px var(--lead-sans); fill: var(--lead-ink); }
+.lead-surface .lead-map-score { font: 600 13.5px var(--lead-mono); }
+.lead-surface .lead-map-score.lead-lvs-trava { fill: var(--lead-red); }
+.lead-surface .lead-map-score.lead-lvs-em_construcao { fill: var(--lead-amber); }
+.lead-surface .lead-map-score.lead-lvs-ponto_forte { fill: var(--lead-green); }
+.lead-surface .lead-map-level { font: 500 11.5px var(--lead-sans); fill: var(--lead-ink-2); }
+.lead-surface .lead-map-hint { font: 400 11px var(--lead-sans); fill: var(--lead-ink-2); }
+.lead-surface .lead-recap {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+.lead-surface .lead-recap-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 10px;
+  border: 1px solid var(--lead-line);
+  border-radius: 12px;
+  background: var(--lead-card);
+  font: 600 24px/1.2 var(--lead-display);
+}
+
+/* ---- Plano --------------------------------------------------------------- */
+
+.lead-surface .lead-moves {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.lead-surface .lead-moves .lead-list-item {
+  font-size: 26px;
+  line-height: 1.4;
+}
+.lead-surface .lead-pact {
+  border: 2px dashed var(--lead-accent);
+  border-radius: 16px;
+  padding: 30px 34px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: var(--lead-card);
+}
+.lead-surface .lead-pact-text {
+  font: 700 40px/1.15 var(--lead-display);
+  letter-spacing: -0.01em;
+}
+
+/* ---- Caminho ------------------------------------------------------------- */
+
+.lead-surface .lead-quarter {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px 22px;
+}
+.lead-surface .lead-quarter-title {
+  font-size: 28px;
+  line-height: 1.15;
+}
+.lead-surface .lead-quarter-text {
+  font-size: 22px;
+  line-height: 1.4;
+  color: var(--lead-ink-2);
+}
+.lead-surface .lead-pair {
+  display: grid;
+  grid-template-columns: 340px 40px minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
+  padding: 16px 24px;
+}
+.lead-surface .lead-pair-label {
+  font: 700 28px/1.15 var(--lead-display);
+}
+.lead-surface .lead-pair-arrow {
+  color: var(--lead-accent);
+}
+.lead-surface .lead-pair-text {
+  font-size: 22px;
+  line-height: 1.4;
+}
+
+/* ---- Proximo passo e bolsa ----------------------------------------------- */
+
+.lead-surface .lead-option {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 26px 28px;
+}
+.lead-surface .lead-option-label {
+  font: 600 32px/1.2 var(--lead-display);
+}
+.lead-surface .lead-single {
+  font: 700 52px/1.12 var(--lead-display);
+  letter-spacing: -0.01em;
+  max-width: 1080px;
+  text-wrap: balance;
+}
+.lead-surface .lead-money-anchor {
+  font: 600 32px/1.1 var(--lead-display);
+  color: var(--lead-ink-2);
+}
+.lead-surface .lead-money-final {
+  font: 700 72px/1 var(--lead-display);
+  color: var(--lead-accent);
+}
+.lead-surface .lead-path-main {
+  font: 700 34px/1.1 var(--lead-display);
+}
+.lead-surface .lead-facts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 22px;
+}
+
+/* ---- Encerramento -------------------------------------------------------- */
+
+.lead-surface .lead-contact {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  font-size: 24px;
+}

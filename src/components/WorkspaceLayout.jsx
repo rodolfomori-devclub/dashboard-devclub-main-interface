@@ -1,8 +1,8 @@
 /* eslint-disable react/prop-types -- Internal React 19 components with explicit props. */
 import { useEffect, useRef, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { Sun, ChartNoAxesCombined, CalendarDays, CalendarRange, Columns3, Undo2, Target, Gauge, GitCompareArrows, House, ListChecks, ClipboardList, CheckCheck, ChartColumnIncreasing, Trophy, Library, Link, NotebookPen, Wallet, Landmark, Table2, Megaphone, Settings2, History, Database, ShieldCheck, Square, PanelsTopLeft, LogOut, Menu, ChevronRight, Moon } from 'lucide-react'
-const Icons = { Sun, ChartNoAxesCombined, CalendarDays, CalendarRange, Columns3, Undo2, Target, Gauge, GitCompareArrows, House, ListChecks, ClipboardList, CheckCheck, ChartColumnIncreasing, Trophy, Library, Link, NotebookPen, Wallet, Landmark, Table2, Megaphone, Settings2, History, Database, ShieldCheck, Square, PanelsTopLeft, LogOut, Menu, ChevronRight, Moon }
+import { Sun, ChartNoAxesCombined, CalendarDays, CalendarRange, Columns3, Undo2, Target, Gauge, GitCompareArrows, House, ListChecks, ClipboardList, CheckCheck, ChartColumnIncreasing, Trophy, Library, Link, NotebookPen, Wallet, Landmark, Table2, Megaphone, Settings2, History, Database, ShieldCheck, Square, PanelsTopLeft, LogOut, Menu, ChevronRight, Moon, Presentation } from 'lucide-react'
+const Icons = { Sun, ChartNoAxesCombined, CalendarDays, CalendarRange, Columns3, Undo2, Target, Gauge, GitCompareArrows, House, ListChecks, ClipboardList, CheckCheck, ChartColumnIncreasing, Trophy, Library, Link, NotebookPen, Wallet, Landmark, Table2, Megaphone, Settings2, History, Database, ShieldCheck, Square, PanelsTopLeft, LogOut, Menu, ChevronRight, Moon, Presentation }
 import { NAVIGATION, SCREENS } from '../lib/navigation'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -38,7 +38,7 @@ export default function WorkspaceLayout({ children }) {
     document.addEventListener('keydown', key)
     return () => { document.removeEventListener('keydown', key); document.body.style.overflow = previousOverflow; menuButton?.focus() }
   }, [open, mobile])
-  const title = SCREENS.find(screen => screen.path === location.pathname)?.label || 'Operação'
+  const title = SCREENS.find(screen => location.pathname === screen.path || location.pathname.startsWith(`${screen.path}/`))?.label || 'Operação'
   const initials = (currentUser?.displayName || 'U').split(' ').slice(0,2).map(word => word[0]).join('')
   return <div className="workspace">
     <a href="#workspace-main" className="skip-link">Ir para o conteúdo</a>

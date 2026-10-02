@@ -1,0 +1,14 @@
+/*
+ * The diagnostic screens came from the Hub, which only had a dark theme. Inside
+ * the Dashboard (light and dark) their status colors follow the Dashboard
+ * tokens. Active only while a page renders .diagnostic-scope; :has() also
+ * reaches the dialogs and menus those pages open in portals.
+ */
+body:has(.diagnostic-scope) { --diag-warning: #8a5a0b; }
+.dark body:has(.diagnostic-scope) { --diag-warning: #f2c46d; }
+
+body:has(.diagnostic-scope) :is([class~="text-amber-300"], [class~="text-amber-400"]) { color: var(--diag-warning); }
+body:has(.diagnostic-scope) :is([class~="text-red-300"], [class~="text-red-400"]) { color: var(--error-text); }
+body:has(.diagnostic-scope) :is([class~="text-emerald-300"], [class~="text-emerald-400"]) { color: var(--success); }
+body:has(.diagnostic-scope) :is([class~="text-sky-300"], [class~="text-sky-400"]) { color: var(--primary); }
+body:has(.diagnostic-scope) [class~="hover:text-red-400"]:hover { color: var(--error-text); }

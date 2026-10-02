@@ -20,6 +20,7 @@ export const NAVIGATION = [
     { path: '/ranking', label: 'Ranking e TV', permission: 'ranking', icon: 'Trophy' },
     { path: '/materials', label: 'Materiais', permission: 'materials', icon: 'Library' },
     { path: '/sales-links', label: 'Links de venda', permission: 'sales-links', icon: 'Link' },
+    { path: '/apoio-vendas', label: 'Apoio Vendas', permission: 'sales-support', icon: 'Presentation' },
     { path: '/manager-notes', label: 'Anotações', permission: 'manager-notes', icon: 'NotebookPen' },
   ] },
   { group: 'Gestão', items: [

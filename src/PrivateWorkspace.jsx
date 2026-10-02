@@ -1,5 +1,5 @@
 /* eslint-disable react/prop-types -- Internal React 19 components with explicit props. */
-import { Component, lazy, Suspense } from 'react'
+import { Component, lazy, Suspense, useEffect } from 'react'
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'react-hot-toast'
@@ -39,6 +39,12 @@ const Financial = lazy(() => import('./hub/pages/FinancialCommissions'))
 const Dre = lazy(() => import('./hub/pages/DreGlobal'))
 const Marketing = lazy(() => import('./hub/pages/Marketing'))
 const Activities = lazy(() => import('./hub/pages/ActivityLog'))
+const SalesSupport = lazy(() => import('./hub/pages/SalesSupport'))
+const DiagnosticSessions = lazy(() => import('./hub/pages/DiagnosticSessions'))
+const DiagnosticSettings = lazy(() => import('./hub/pages/DiagnosticSettings'))
+const DiagnosticPrep = lazy(() => import('./hub/pages/DiagnosticPrep'))
+const DiagnosticSend = lazy(() => import('./hub/pages/DiagnosticSend'))
+const DiagnosticCockpit = lazy(() => import('./hub/pages/DiagnosticCockpit'))
 
 
 class ScreenBoundary extends Component {
@@ -55,7 +61,16 @@ function Screen({ permission, hub, children }) {
   if (!hasPermission(permission)) return <section className="surface-panel empty-state"><h1>Acesso não liberado</h1><p>Um administrador pode liberar esta tela em Administração → Usuários e acessos.</p></section>
   return <ScreenBoundary key={pathname}><Suspense fallback={<PageSkeleton />}>{hub ? <HubProvider>{children}</HubProvider> : children}</Suspense></ScreenBoundary>
 }
-function SessionLayout() {
+// The diagnostic call cockpit runs full screen beside the video call, without
+// the workspace menu, keeping the theme chosen in the workspace.
+function BareWorkspace({ children }) {
+  useEffect(() => {
+    const saved = localStorage.getItem('workspace-theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+    document.documentElement.classList.toggle('dark', saved === 'dark')
+  }, [])
+  return <main id="workspace-main">{children}</main>
+}
+function SessionLayout({ bare = false }) {
   const { currentUser, userRoles, loading, error, errorCode, errorStatus, login, reload, vault } = useAuth()
   const accessKey = JSON.stringify(userRoles)
   if (loading) return <div className="session-screen"><PageSkeleton /></div>
@@ -71,6 +86,7 @@ function SessionLayout() {
       <button className={`button${unavailable ? ' button-primary' : ''}`} onClick={reload}>Tentar novamente</button>
     </div></section></main>
   }
+  if (bare) return <BareWorkspace key={`${currentUser.uid}:${accessKey}`}><Outlet /></BareWorkspace>
   return <WorkspaceLayout key={`${currentUser.uid}:${accessKey}`}><Outlet /></WorkspaceLayout>
 }
 function StartPage() {
@@ -91,8 +107,15 @@ function AppRouter() {
     ['/manager-notes', 'manager-notes', ManagerNotes, true], ['/commissions', 'commissions', Commissions, true],
     ['/financial', 'financial', Financial, true], ['/dre-global', 'dre-global', Dre, true], ['/marketing', 'marketing', Marketing, true],
     ['/activity-log', 'activity-log', Activities, true],
+    ['/apoio-vendas', 'sales-support', SalesSupport, true], ['/apoio-vendas/diagnostico/sessoes', 'sales-support', DiagnosticSessions, true],
+    ['/apoio-vendas/diagnostico/sessoes/:sessionId/preparo', 'sales-support', DiagnosticPrep, true],
+    ['/apoio-vendas/diagnostico/sessoes/:sessionId/envio', 'sales-support', DiagnosticSend, true],
+    ['/apoio-vendas/diagnostico/configuracoes', 'admin', DiagnosticSettings, true],
   ]
-  return <Routes><Route element={<SessionLayout />}><Route index element={<StartPage />} />{routes.map(([path, permission, Page, hub]) => <Route key={path} path={path} element={<Screen permission={permission} hub={hub}><Page /></Screen>} />)}<Route path="*" element={<StartPage />} /></Route></Routes>
+  return <Routes>
+    <Route element={<SessionLayout />}><Route index element={<StartPage />} />{routes.map(([path, permission, Page, hub]) => <Route key={path} path={path} element={<Screen permission={permission} hub={hub}><Page /></Screen>} />)}<Route path="/apoio-vendas/diagnostico" element={<Navigate to="/apoio-vendas/diagnostico/sessoes" replace />} /><Route path="*" element={<StartPage />} /></Route>
+    <Route element={<SessionLayout bare />}><Route path="/apoio-vendas/diagnostico/sessoes/:sessionId/cockpit" element={<Screen permission="sales-support" hub><DiagnosticCockpit /></Screen>} /></Route>
+  </Routes>
 }
 export default function PrivateWorkspace() {
   return <AuthProvider><QueryClientProvider client={queryClient}><TooltipProvider><Toaster position="top-center" /><CommercialToaster /><Sonner /><AppRouter /></TooltipProvider></QueryClientProvider></AuthProvider>

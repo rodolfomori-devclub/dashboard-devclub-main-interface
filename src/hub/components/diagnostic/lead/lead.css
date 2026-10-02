@@ -1,0 +1,460 @@
+/*
+ * Tela do lead do Diagnostico de Carreira com IA (sessao.html e a miniatura do
+ * cockpit). Identidade do PDF: papel claro, tinta escura, ocre, IBM Plex e
+ * Bricolage Grotesque, sempre clara.
+ *
+ * Tudo fica sob .lead-surface: o cockpit (tema escuro do Hub) importa este
+ * arquivo. @font-face e @keyframes nao tem escopo, entao usam nomes proprios
+ * ("Diag ...", "lead-...") para nao colidir com nada do Hub nem do PDF.
+ * As regras de cada cena ficam em lead-scenes.css (importado depois).
+ *
+ * Legivel sob compressao de video, no palco logico de 1280x720: texto >= 22px,
+ * eyebrow >= 14px, barras >= 14px, cor de nivel sempre com o rotulo, sem
+ * degrade, blur ou sombra. Movimento: opacidade e ate 10px, ate 450 ms.
+ */
+
+@font-face { font-family: 'Diag Bricolage Grotesque'; font-weight: 200 800; font-style: normal; font-display: block;
+  src: url('/fonts/diagnostic/bricolage-grotesque-opsz.woff2') format('woff2'); }
+@font-face { font-family: 'Diag IBM Plex Sans'; font-weight: 400; font-style: normal; font-display: block;
+  src: url('/fonts/diagnostic/ibm-plex-sans-400.woff2') format('woff2'); }
+@font-face { font-family: 'Diag IBM Plex Sans'; font-weight: 400; font-style: italic; font-display: block;
+  src: url('/fonts/diagnostic/ibm-plex-sans-400-italic.woff2') format('woff2'); }
+@font-face { font-family: 'Diag IBM Plex Sans'; font-weight: 500; font-style: normal; font-display: block;
+  src: url('/fonts/diagnostic/ibm-plex-sans-500.woff2') format('woff2'); }
+@font-face { font-family: 'Diag IBM Plex Sans'; font-weight: 600; font-style: normal; font-display: block;
+  src: url('/fonts/diagnostic/ibm-plex-sans-600.woff2') format('woff2'); }
+@font-face { font-family: 'Diag IBM Plex Mono'; font-weight: 400; font-style: normal; font-display: block;
+  src: url('/fonts/diagnostic/ibm-plex-mono-400.woff2') format('woff2'); }
+@font-face { font-family: 'Diag IBM Plex Mono'; font-weight: 500; font-style: normal; font-display: block;
+  src: url('/fonts/diagnostic/ibm-plex-mono-500.woff2') format('woff2'); }
+@font-face { font-family: 'Diag IBM Plex Mono'; font-weight: 600; font-style: normal; font-display: block;
+  src: url('/fonts/diagnostic/ibm-plex-mono-600.woff2') format('woff2'); }
+
+@keyframes lead-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes lead-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ---- Superficie, tokens e reset local ---------------------------------- */
+
+.lead-surface {
+  --lead-paper: #F4F6F8;
+  --lead-card: #FFFFFF;
+  --lead-soft: #EEF1F4;
+  --lead-ink: #131B26;
+  --lead-ink-2: #4A5666;
+  --lead-line: #D5DCE4;
+  --lead-accent: #8A5A0B;
+  --lead-accent-soft: #F6EAD2;
+  --lead-red: #B3261E;
+  --lead-red-soft: #F9E1DF;
+  --lead-amber: #B7791F;
+  --lead-amber-ink: #8A5A0B;
+  --lead-amber-soft: #FBEFD9;
+  --lead-green: #2F6B3A;
+  --lead-green-soft: #E1F0E3;
+  --lead-display: 'Diag Bricolage Grotesque', 'Bricolage Grotesque', 'Diag IBM Plex Sans', system-ui, sans-serif;
+  --lead-sans: 'Diag IBM Plex Sans', 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --lead-mono: 'Diag IBM Plex Mono', 'IBM Plex Mono', ui-monospace, Menlo, Consolas, monospace;
+
+  position: relative;
+  overflow: hidden;
+  color-scheme: light;
+  background: var(--lead-paper);
+  color: var(--lead-ink);
+  font-family: var(--lead-sans);
+  font-size: 24px;
+  font-weight: 400;
+  font-style: normal;
+  line-height: 1.45;
+  letter-spacing: normal;
+  text-align: left;
+  text-transform: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: normal;
+}
+.lead-surface *,
+.lead-surface *::before,
+.lead-surface *::after {
+  box-sizing: border-box;
+}
+.lead-surface :where(h1, h2, h3, h4, p, ol, ul, li, figure, blockquote, dl, dt, dd) {
+  margin: 0;
+  padding: 0;
+}
+.lead-surface :where(ol, ul) {
+  list-style: none;
+}
+.lead-surface :where(h1, h2, h3, h4) {
+  font-family: var(--lead-display);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--lead-ink);
+  text-wrap: balance;
+}
+.lead-surface svg {
+  display: block;
+  overflow: visible;
+}
+
+/* ---- Palco 1280x720 escalado para caber (sobra fica em papel) ----------- */
+
+.lead-surface .lead-stage {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1280px;
+  height: 720px;
+  transform-origin: 50% 50%;
+  display: flex;
+  flex-direction: column;
+  background: var(--lead-paper);
+  overflow: hidden;
+}
+.lead-surface .lead-head {
+  flex: none;
+  height: 60px;
+  padding: 0 64px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border-bottom: 1px solid var(--lead-line);
+}
+.lead-surface .lead-head-mark {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: var(--lead-accent);
+}
+.lead-surface .lead-head-label {
+  font: 500 15px/1.2 var(--lead-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--lead-ink-2);
+}
+.lead-surface .lead-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 32px 64px 26px;
+  display: flex;
+  flex-direction: column;
+}
+.lead-surface .lead-foot {
+  flex: none;
+  padding: 12px 64px 16px;
+  border-top: 1px solid var(--lead-line);
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--lead-ink-2);
+}
+
+/* ---- Pecas comuns -------------------------------------------------------- */
+
+.lead-surface .lead-scene {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  animation: lead-fade 300ms ease-out both;
+}
+.lead-surface .lead-view {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.lead-surface .lead-reveal {
+  animation: lead-rise 450ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.lead-surface .lead-eyebrow {
+  font: 600 15px/1.3 var(--lead-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--lead-accent);
+}
+.lead-surface .lead-eyebrow-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 24px;
+}
+.lead-surface .lead-eyebrow-quiet {
+  font: 500 15px/1.3 var(--lead-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--lead-ink-2);
+}
+.lead-surface .lead-title {
+  font-size: 46px;
+  line-height: 1.1;
+}
+.lead-surface .lead-title-xl {
+  font-size: 64px;
+  line-height: 1.05;
+}
+.lead-surface .lead-lede {
+  font-size: 28px;
+  line-height: 1.4;
+  color: var(--lead-ink-2);
+}
+.lead-surface .lead-text {
+  font-size: 24px;
+  line-height: 1.45;
+}
+.lead-surface .lead-small {
+  font-size: 22px;
+  line-height: 1.45;
+}
+.lead-surface .lead-muted {
+  color: var(--lead-ink-2);
+}
+.lead-surface .lead-strong {
+  font-weight: 600;
+}
+.lead-surface .lead-card {
+  background: var(--lead-card);
+  border: 1px solid var(--lead-line);
+  border-radius: 14px;
+  padding: 22px 26px;
+}
+.lead-surface .lead-quote {
+  font-style: italic;
+  color: var(--lead-ink-2);
+  border-left: 3px solid var(--lead-line);
+  padding-left: 20px;
+}
+.lead-surface .lead-label {
+  font: 500 15px/1.3 var(--lead-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--lead-ink-2);
+}
+.lead-surface .lead-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.lead-surface .lead-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+.lead-surface .lead-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+.lead-surface .lead-grid-auto {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+.lead-surface .lead-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.lead-surface .lead-stack-tight {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.lead-surface .lead-center {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 24px;
+}
+.lead-surface .lead-center-x {
+  align-items: center;
+  text-align: center;
+}
+.lead-surface .lead-align-start {
+  align-items: start;
+}
+.lead-surface .lead-num {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--lead-accent-soft);
+  color: var(--lead-accent);
+  font: 700 22px/1 var(--lead-display);
+}
+.lead-surface .lead-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.lead-surface .lead-list-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+.lead-surface .lead-list-item > .lead-num {
+  margin-top: -4px;
+}
+.lead-surface .lead-check {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  margin-top: 2px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--lead-accent-soft);
+  color: var(--lead-accent);
+}
+.lead-surface .lead-check-pending {
+  background: var(--lead-soft);
+  color: var(--lead-ink-2);
+}
+.lead-surface .lead-chosen {
+  border: 2px solid var(--lead-accent);
+  background: var(--lead-accent-soft);
+}
+.lead-surface .lead-tag {
+  display: inline-block;
+  align-self: flex-start;
+  font: 600 15px/1 var(--lead-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 7px 10px;
+  border-radius: 6px;
+  background: var(--lead-accent);
+  color: #FFFFFF;
+}
+.lead-surface .lead-badge {
+  display: inline-flex;
+  align-items: center;
+  font: 600 16px/1 var(--lead-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 8px 12px;
+  border-radius: 7px;
+  border: 1px solid var(--lead-line);
+  background: var(--lead-soft);
+  color: var(--lead-ink);
+}
+.lead-surface .lead-badge-accent {
+  border-color: var(--lead-accent);
+  background: var(--lead-accent-soft);
+  color: var(--lead-accent);
+}
+
+/* Niveis: cor sempre junto do rotulo */
+.lead-surface .lead-lv {
+  display: inline-block;
+  font: 600 18px/1 var(--lead-sans);
+  padding: 6px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+.lead-surface .lead-lv-trava { color: var(--lead-red); background: var(--lead-red-soft); }
+/* rotulo ambar em tom mais escuro: contraste sobre o fundo claro */
+.lead-surface .lead-lv-em_construcao { color: var(--lead-amber-ink); background: var(--lead-amber-soft); }
+.lead-surface .lead-lv-ponto_forte { color: var(--lead-green); background: var(--lead-green-soft); }
+.lead-surface .lead-fill-trava { background: var(--lead-red); }
+.lead-surface .lead-fill-em_construcao { background: var(--lead-amber); }
+.lead-surface .lead-fill-ponto_forte { background: var(--lead-green); }
+.lead-surface .lead-ink-trava { color: var(--lead-red); }
+.lead-surface .lead-ink-em_construcao { color: var(--lead-amber); }
+.lead-surface .lead-ink-ponto_forte { color: var(--lead-green); }
+
+.lead-surface .lead-track {
+  height: 16px;
+  border-radius: 999px;
+  background: var(--lead-soft);
+  overflow: hidden;
+}
+.lead-surface .lead-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}
+
+/* ---- Telas neutras (espera, pausa, erro) -------------------------------- */
+
+.lead-surface .lead-slate {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  text-align: center;
+  padding: 64px;
+  animation: lead-fade 300ms ease-out both;
+}
+.lead-surface .lead-slate-mark {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  background: var(--lead-accent);
+}
+.lead-surface .lead-slate-title {
+  font-size: 56px;
+  line-height: 1.1;
+}
+.lead-surface .lead-slate-sub {
+  font-size: 30px;
+  color: var(--lead-ink-2);
+}
+
+/* ---- Janela do lead (sessao.html) ---------------------------------------- */
+
+.lead-surface.lead-window {
+  position: fixed;
+  inset: 0;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+}
+.lead-surface.lead-window.lead-cursor-hidden,
+.lead-surface.lead-window.lead-cursor-hidden * {
+  cursor: none;
+}
+/* O palco ocupa o container posicionado (a propria raiz .lead-surface ou um filho). */
+.lead-surface.lead-fill-parent,
+.lead-surface .lead-fill-parent {
+  position: absolute;
+  inset: 0;
+}
+
+/* Reserva do quadro de erro: sem palco, sem escala, so CSS. */
+.lead-surface.lead-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2vh;
+  text-align: center;
+  padding: 4vw;
+}
+.lead-surface.lead-fallback .lead-fallback-title {
+  font: 700 clamp(22px, 4.4vw, 64px)/1.1 var(--lead-display);
+}
+.lead-surface.lead-fallback .lead-fallback-sub {
+  font-size: clamp(16px, 2.3vw, 32px);
+  color: var(--lead-ink-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lead-surface .lead-scene,
+  .lead-surface .lead-reveal,
+  .lead-surface .lead-slate {
+    animation: none;
+  }
+}

@@ -113,8 +113,13 @@ export function openWhatsApp(raw?: string | null, opts: WhatsAppUrlOptions = {})
   }
 
   try {
-    const win = (window.top || window).open(webUrl, '_blank', 'noopener,noreferrer');
-    if (win) return true;
+    // No 'noopener' in the features: with it window.open always returns null
+    // and this tab fell through to the navigation below, leaving the Dashboard.
+    const win = (window.top || window).open(webUrl, '_blank');
+    if (win) {
+      try { win.opener = null; } catch { /* noop */ }
+      return true;
+    }
   } catch { /* sandbox might throw */ }
 
   // Last-resort: navigate the top window so the user can come back via history.
