@@ -13,6 +13,8 @@ await fs.mkdir(out, { recursive: true })
 let server, browser, base = process.env.DASHBOARD_SMOKE_URL
 const results = [], errors = [], unexpected = [], calls = []
 let scenario = 'normal'
+let gate = null, release = null
+const hold = () => { gate = new Promise(resolve => { release = () => { gate = null; resolve() } }) }
 const today = '2026-09-15'
 const plans = ['gross', 'cash'].flatMap(metric => [
   { scope: 'overall', scopeId: '', scopeName: 'Geral', product: 'all' },
@@ -68,6 +70,7 @@ try {
     const request = route.request(), url = new URL(request.url())
     if (url.pathname.startsWith('/api/')) {
       calls.push({ path: url.pathname, method: request.method() })
+      if (url.pathname !== '/api/access' && gate) await gate
       if (scenario === 'plans-unavailable' && /^\/api\/goal-plans\/\d{4}\/\d{1,2}$/.test(url.pathname)) {
         await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'fixture_unavailable' }) }); return
       }
@@ -86,9 +89,70 @@ try {
   const chart = () => stage().getByRole('group', { name: 'Explorar Evolução acumulada da meta', exact: true })
   const settled = async () => { await page.getByRole('heading', { name: 'Metas e ritmo de vendas', exact: true }).waitFor(); await page.getByRole('button', { name: 'Atualizar dados', exact: true }).waitFor(); await stage().waitFor() }
   const openMonth = async (month = 9) => { await page.goto(`${base}/pace?year=2026&month=${month}`, { waitUntil: 'networkidle' }); await settled() }
-  const noOverflow = async () => assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, 'No horizontal viewport overflow')
+  const noOverflow = async () => {
+    await page.waitForFunction(() => document.documentElement.scrollWidth <= window.innerWidth, null, { timeout: 2000 })
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, 'No horizontal viewport overflow')
+  }
   const tooltip = async key => { await chart().focus(); await page.keyboard.press(key); return chart().locator('.rr-chart-tooltip').innerText() }
   const selectedTotal = () => page.locator('.pace-stat').first().innerText()
+  const pending = () => page.getByRole('status', { name: 'Carregando metas e vendas', exact: true })
+  const assertPending = async label => {
+    await pending().waitFor()
+    assert.doesNotMatch(await page.locator('.pace-page').innerText(), /R\$|Sem meta|Não definida|Meta não definida|Nenhum cadastro disponível/i, `${label}: no premature value or empty-state diagnosis`)
+    assert.equal(await chart().count(), 0, `${label}: the pending period has no interactive plot`)
+    assert.equal(await page.locator('.pace-financial-grid').count(), 0, `${label}: calculated cards wait for the response`)
+  }
+
+  hold()
+  await page.goto(`${base}/pace?year=2026&month=9`, { waitUntil: 'domcontentloaded' })
+  await assertPending('First load')
+  for (const width of [1440, 360]) {
+    await page.setViewportSize({ width, height: 1000 })
+    await noOverflow()
+    await pending().screenshot({ path: `${out}/pace-loading-${width}.png`, animations: 'disabled' })
+  }
+  await page.getByRole('group', { name: 'Escopo da meta' }).getByRole('button', { name: 'Time', exact: true }).click()
+  assert.equal(await page.getByLabel('Time', { exact: true }).isDisabled(), true, 'Directory-dependent selection waits for its response')
+  await assertPending('Scope selection during first load')
+  await page.getByRole('group', { name: 'Escopo da meta' }).getByRole('button', { name: 'Geral', exact: true }).click()
+  release()
+  await settled()
+  assert.equal(await pending().count(), 0)
+  assert.match(await selectedTotal(), /4\.900,00/)
+  record('First response gates financial results and charts, including mobile and scope selection')
+
+  hold()
+  await page.getByRole('button', { name: 'Atualizar dados', exact: true }).click()
+  await page.locator('.pace-page').getByRole('status').filter({ hasText: /Atualizando metas e vendas/ }).waitFor()
+  assert.equal(await pending().count(), 0, 'Refreshing the same period does not replace known results with skeletons')
+  assert.match(await selectedTotal(), /4\.900,00/, 'Refresh retains the last loaded amount')
+  assert.equal(await chart().count(), 1, 'Refresh keeps the known chart usable')
+  release()
+  await settled()
+  record('Same-period refresh retains values and graph with an accessible update notice')
+
+  hold()
+  await page.getByLabel('Mês', { exact: true }).selectOption('8')
+  await assertPending('Month change')
+  release()
+  await settled()
+  assert.equal(await pending().count(), 0, 'The new month leaves loading after its response')
+  assert.match(await stage().locator('.pace-stage-heading').innerText(), /Agosto de 2026/)
+  record('Changing month hides the prior period until the new response arrives')
+
+  scenario = 'plans-unavailable'
+  hold()
+  await page.getByLabel('Mês', { exact: true }).selectOption('9')
+  await assertPending('Failing month query')
+  release()
+  await settled()
+  assert.equal(await pending().count(), 0, 'A failed plan response ends loading')
+  assert.match(await stage().locator('.pace-target').innerText(), /Indisponível/i)
+  assert.match(await selectedTotal(), /4\.900,00/, 'A failed plan query preserves available sales')
+  assert.match(await page.locator('.daily-feedback').innerText(), /Metas indisponíveis/)
+  record('A failed month query terminates pending state and exposes the real error')
+  scenario = 'normal'
+
   for (const width of [1440, 360]) for (const theme of ['light', 'dark']) {
     await page.setViewportSize({ width, height: 1000 })
     await openMonth()
@@ -185,6 +249,7 @@ try {
   errors.push(error.stack || error.message)
   throw error
 } finally {
+  release?.()
   await fs.writeFile(`${out}/results.json`, JSON.stringify({ passed: errors.length === 0, cases: results, mockedApiRequests: calls.length, realApiRequests: 0, unexpectedRequests: unexpected, errors }, null, 2))
   await browser?.close()
   server?.kill('SIGTERM')

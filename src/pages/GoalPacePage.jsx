@@ -23,6 +23,14 @@ function PaceCard({ title, value, note, tone }) {
   return <article className={`stat-card daily-stat pace-stat${tone ? ` pace-${tone}` : ''}`}><h2>{title}</h2><strong>{value}</strong><p>{note}</p></article>
 }
 
+function PaceLoading() {
+  return <section className="surface-panel pace-loading" role="status" aria-label="Carregando metas e vendas">
+    <p><RefreshCw size={18} className="daily-spin" aria-hidden="true" />Carregando metas e vendas do período…</p>
+    <div className="stat-grid" aria-hidden="true">{[0, 1, 2, 3].map(key => <div className="skeleton skeleton-stat" key={key} />)}</div>
+    <div className="skeleton skeleton-chart" aria-hidden="true" />
+  </section>
+}
+
 export default function GoalPacePage() {
   const [today] = useState(brazilDate)
   const { hasPermission } = useAuth()
@@ -108,15 +116,16 @@ export default function GoalPacePage() {
     <section className="surface-panel daily-filters" aria-label="Filtros de metas"><div className="daily-filter-grid pace-filter-grid">
       <label className="daily-field"><span>Ano</span><select aria-label="Ano" className="ds-input" value={year} onChange={(event) => setYear(Number(event.target.value))}>{[...new Set([year, ...Array.from({ length: 9 }, (_, index) => Number(today.slice(0, 4)) - 5 + index)])].sort((a,b)=>a-b).map((item) => <option key={item}>{item}</option>)}</select></label>
       <label className="daily-field"><span>Mês</span><select aria-label="Mês" className="ds-input" value={month} onChange={(event) => setMonth(Number(event.target.value))}>{MONTHS.map((name, index) => <option key={name} value={index + 1}>{name}</option>)}</select></label>
-      {scope !== 'overall' && <label className="daily-field"><span>{GOAL_SCOPES[scope]}</span><select aria-label={scope === 'product' ? 'Família de produto' : GOAL_SCOPES[scope]} className="ds-input" value={scopeId} onChange={event => setTargetId(event.target.value)}>{excludedSelection && <option value={targetId} disabled>{excludedSelection.name} · fora dos cálculos</option>}{!targetOptions.length && !excludedSelection && <option value="">Nenhum cadastro disponível</option>}{targetOptions.map(item => <option key={item.id} value={item.id}>{item.name}{item.active === false ? ' · histórico' : ''}</option>)}</select></label>}
-      <label className="daily-field"><span>Base financeira</span><select aria-label="Base financeira" className="ds-input" value={metric} onChange={(event) => setSelectedMetric(event.target.value)}>{Object.entries(PACE_METRICS).map(([key, item]) => <option key={key} value={key}>{item.label}{!scopePlans.some((plan) => plan.metric === key) ? ' · sem meta' : ''}</option>)}</select></label>
-      <div className="daily-field"><span>Distribuição da meta</span><strong className="pace-basis">{selectedPlan ? pace.basis === 'business' ? 'Dias úteis · seg–sex' : 'Dias corridos' : 'Meta não definida'}</strong></div>
+      {scope !== 'overall' && <label className="daily-field"><span>{GOAL_SCOPES[scope]}</span><select aria-label={scope === 'product' ? 'Família de produto' : GOAL_SCOPES[scope]} className="ds-input" value={scopeId} disabled={!current} onChange={event => setTargetId(event.target.value)}>{excludedSelection && <option value={targetId} disabled>{excludedSelection.name} · fora dos cálculos</option>}{!targetOptions.length && !excludedSelection && <option value="">{current ? 'Nenhum cadastro disponível' : 'Carregando cadastros…'}</option>}{targetOptions.map(item => <option key={item.id} value={item.id}>{item.name}{item.active === false ? ' · histórico' : ''}</option>)}</select></label>}
+      <label className="daily-field"><span>Base financeira</span><select aria-label="Base financeira" className="ds-input" value={metric} onChange={(event) => setSelectedMetric(event.target.value)}>{Object.entries(PACE_METRICS).map(([key, item]) => <option key={key} value={key}>{item.label}{current && !current.plansError && !scopePlans.some((plan) => plan.metric === key) ? ' · sem meta' : ''}</option>)}</select></label>
+      <div className="daily-field"><span>Distribuição da meta</span><strong className="pace-basis">{!current ? 'Carregando…' : current.plansError ? 'Indisponível' : selectedPlan ? pace.basis === 'business' ? 'Dias úteis · seg–sex' : 'Dias corridos' : 'Meta não definida'}</strong></div>
     </div><p className="daily-footnote">O dia atual conta como transcorrido. Dias úteis consideram segunda a sexta, sem calendário de feriados. Horário de Brasília.</p></section>
 
+    {!current ? <PaceLoading /> : <>
+    {loading && <p className="daily-notice" role="status">Atualizando metas e vendas… Os valores exibidos são da última consulta deste período.</p>}
     <MonthlyPaceChart pace={pace} ready={Boolean(current)} loading={loading} targetUnavailable={Boolean(current?.plansError)} breakdown={scope === 'overall' ? selectedPlan?.breakdown : null} scopeName={goalScopeName(selection)} periodLabel={`${MONTHS[month - 1]} de ${year}`} today={today} selectionKey={`${periodKey}:${goalScopeKey(selection)}:${metric}`} />
 
     <div className="daily-feedback" aria-live="polite">
-      {loading && !current && <p className="daily-notice">Carregando metas e vendas do período.</p>}
       {pace.scopeExcluded && <p className="daily-notice" role="status">Esta pessoa foi excluída dos cálculos de desempenho pelo administrador. Selecione outro participante. As vendas e metas históricas continuam preservadas.</p>}
       {current?.plansError && <p className="daily-notice is-warning" role="alert">Metas indisponíveis. Não foi possível consultar o plano deste mês.</p>}
       {current && !current.plansError && !selectedPlan && <p className="daily-notice">Ainda não há meta para este escopo e indicador. {hasPermission('goals') && <Link to="/metas">Configurar uma meta</Link>}</p>}
@@ -166,5 +175,6 @@ export default function GoalPacePage() {
     {overview.length > 1 && <section className="surface-panel daily-panel"><div className="daily-section-heading"><div><h2>Metas da operação</h2><p>Metas independentes na base {pace.metric.label.toLowerCase()}. Os escopos não devem ser somados.</p></div></div><div className="daily-table-scroll"><table className="data-table"><thead><tr><th>Escopo</th><th>Meta de</th><th>Meta</th><th>Realizado</th><th>Esperado</th><th>Ritmo</th><th>Atingimento</th></tr></thead><tbody>{overview.map(({ plan, pace: item }) => <tr key={plan.id || `${goalScopeKey(plan)}:${plan.metric}`}><td>{GOAL_SCOPES[goalScope(plan).scope]}</td><td><button className="pace-table-link" onClick={() => { const target = goalScope(plan); setScope(target.scope); setTargetId(target.scopeId) }}>{goalScopeName(plan)}</button>{!item.definitive && <small className="daily-cell-note">Parcial</small>}</td><td>{item.validTarget ? value(item.target) : 'Não definida'}</td><td>{value(item.actual)}</td><td>{value(item.expected)}</td><td>{percent(item.pacePercent)}</td><td>{percent(item.attainment)}</td></tr>)}</tbody></table></div></section>}
 
     <section className="surface-panel daily-panel"><div className="daily-section-heading"><div><h2>Dia a dia</h2><p>O ritmo compara acumulados. “—” indica um dia ainda não observado ou um valor indisponível.</p></div></div><div className="daily-table-scroll"><table className="data-table pace-day-table"><thead><tr><th>Dia</th><th>Planejado no dia</th><th>Realizado no dia</th><th>Planejado acumulado</th><th>Realizado acumulado</th><th>Diferença acumulada</th></tr></thead><tbody>{pace.rows.map((row) => <tr key={row.date} className={row.date === today ? 'pace-current-day' : ''}><td><strong>{new Date(`${row.date}T12:00:00Z`).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}</strong><small className="daily-cell-note">{new Date(`${row.date}T12:00:00Z`).toLocaleDateString('pt-BR', { weekday: 'short' })}{row.date === today ? ' · hoje' : ''}</small></td><td>{row.dailyTarget === null ? '—' : value(row.dailyTarget)}</td><td>{row.dailyActual === null ? '—' : value(row.dailyActual)}</td><td>{row.planned === null ? '—' : value(row.planned)}</td><td>{row.actual === null ? '—' : value(row.actual)}</td><td>{row.actual === null || row.planned === null ? '—' : value(row.actual - row.planned)}</td></tr>)}</tbody></table></div></section>
+    </>}
   </div>
 }
