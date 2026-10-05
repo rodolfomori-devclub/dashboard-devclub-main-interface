@@ -23,6 +23,10 @@ export const NAVIGATION = [
     { path: '/apoio-vendas', label: 'Apoio Vendas', permission: 'sales-support', icon: 'Presentation' },
     { path: '/manager-notes', label: 'Anotações', permission: 'manager-notes', icon: 'NotebookPen' },
   ] },
+  { group: 'Onboarding', items: [
+    { path: '/onboarding/mba', label: 'Onboarding MBA', permission: 'onboarding-mba', icon: 'GraduationCap' },
+    { path: '/onboarding/devclub', label: 'Onboarding DevClub', permission: 'onboarding-devclub', icon: 'BookOpen' },
+  ] },
   { group: 'Gestão', items: [
     { path: '/commissions', label: 'Minhas comissões', permission: 'commissions', icon: 'Wallet' },
     { path: '/financial', label: 'Financeiro comercial', permission: 'financial', icon: 'Landmark' },

@@ -1,8 +1,8 @@
 /* eslint-disable react/prop-types -- Internal React 19 components with explicit props. */
 import { useEffect, useRef, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { Sun, ChartNoAxesCombined, CalendarDays, CalendarRange, Columns3, Undo2, Target, Gauge, GitCompareArrows, House, ListChecks, ClipboardList, CheckCheck, ChartColumnIncreasing, Trophy, Library, Link, NotebookPen, Wallet, Landmark, Table2, Megaphone, Settings2, History, Database, ShieldCheck, Square, PanelsTopLeft, LogOut, Menu, ChevronRight, Moon, Presentation } from 'lucide-react'
-const Icons = { Sun, ChartNoAxesCombined, CalendarDays, CalendarRange, Columns3, Undo2, Target, Gauge, GitCompareArrows, House, ListChecks, ClipboardList, CheckCheck, ChartColumnIncreasing, Trophy, Library, Link, NotebookPen, Wallet, Landmark, Table2, Megaphone, Settings2, History, Database, ShieldCheck, Square, PanelsTopLeft, LogOut, Menu, ChevronRight, Moon, Presentation }
+import { Sun, ChartNoAxesCombined, CalendarDays, CalendarRange, Columns3, Undo2, Target, Gauge, GitCompareArrows, House, ListChecks, ClipboardList, CheckCheck, ChartColumnIncreasing, Trophy, Library, Link, NotebookPen, Wallet, Landmark, Table2, Megaphone, Settings2, History, Database, ShieldCheck, Square, PanelsTopLeft, LogOut, Menu, ChevronRight, Moon, Presentation, GraduationCap, BookOpen } from 'lucide-react'
+const Icons = { Sun, ChartNoAxesCombined, CalendarDays, CalendarRange, Columns3, Undo2, Target, Gauge, GitCompareArrows, House, ListChecks, ClipboardList, CheckCheck, ChartColumnIncreasing, Trophy, Library, Link, NotebookPen, Wallet, Landmark, Table2, Megaphone, Settings2, History, Database, ShieldCheck, Square, PanelsTopLeft, LogOut, Menu, ChevronRight, Moon, Presentation, GraduationCap, BookOpen }
 import { NAVIGATION, SCREENS } from '../lib/navigation'
 import { useAuth } from '../contexts/AuthContext'
 

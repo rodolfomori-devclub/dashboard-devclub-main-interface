@@ -87,7 +87,7 @@ export default function UserManagement({ onDirectoryChange }) {
 
   return <section className="surface-panel admin-users" data-testid="admin-users" aria-labelledby="admin-users-title">
     <div className="admin-users-heading"><span className="admin-users-icon"><Users size={24}/></span><div><h2 id="admin-users-title">Usuários e acessos</h2><p>A equipe entra por aqui. O Vault cuida da conta.</p></div><button className="button button-primary" disabled={!catalog} onClick={() => setEditor({ mode: 'create' })}><UserPlus size={17}/>Adicionar usuário</button></div>
-    <p className="admin-users-description">Crie um vendedor ou administrador e escolha as telas que ele poderá acessar. Se o e-mail já estiver no Vault, vinculamos a conta existente ao Dashboard.</p>
+    <p className="admin-users-description">Crie um vendedor ou administrador e escolha as telas que ele poderá acessar. Em Onboarding, libere MBA, DevClub ou ambos; cada opção inclui a trilha e os materiais daquele time. Se o e-mail já estiver no Vault, vinculamos a conta existente ao Dashboard.</p>
     {catalogError && <div className="notice notice-error" role="alert">{catalogError}<button className="button" onClick={() => loadCatalog()}>Recarregar opções</button></div>}
     <div className="admin-users-toolbar"><label><span>Buscar conta</span><input type="search" className="ds-input" placeholder="Nome ou e-mail" maxLength={200} value={query} onChange={event => { setQuery(event.target.value); setPage(1) }}/></label><button className="button" disabled={loading} onClick={refresh} aria-label="Atualizar contas"><RefreshCw size={16} className={loading ? 'participation-spin' : ''}/>Atualizar</button></div>
     {notice && <p className="admin-users-success" role="status"><Check size={17}/>{notice}</p>}

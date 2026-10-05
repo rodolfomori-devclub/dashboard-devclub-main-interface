@@ -26,6 +26,7 @@ const Admin = lazy(() => import('./pages/AdminPage'))
 const HubProvider = lazy(() => import('./hub/contexts/AuthContext').then(module => ({ default: module.HubProvider })))
 const Settings = lazy(() => import('./pages/HubSettings'))
 const Materials = lazy(() => import('./pages/MaterialsPage'))
+const Onboarding = lazy(() => import('./pages/OnboardingPage'))
 const DailyKpis = lazy(() => import('./hub/pages/DailyKpis'))
 const KpiReport = lazy(() => import('./hub/pages/KpiReport'))
 const KpiDetail = lazy(() => import('./hub/pages/KpiReportSellerDetail'))
@@ -100,6 +101,7 @@ function AppRouter() {
     ['/comparativo', 'comparativo', Comparativo], ['/reembolsos', 'refunds', Refunds], ['/metas', 'goals', Goals],
     ['/pace', 'goal-pace', Pace], ['/atribuicao', 'attribution', Attribution], ['/data-sources', 'data-sources', Sources],
     ['/hub', 'hub-home', HubHome], ['/admin', 'admin', Admin],
+    ['/onboarding/mba', 'onboarding-mba', Onboarding], ['/onboarding/devclub', 'onboarding-devclub', Onboarding],
     ['/materials', 'materials', Materials, true], ['/settings', 'settings', Settings, true],
     ['/daily-kpis', 'daily-kpis', DailyKpis, true], ['/kpi-report', 'kpi-report', KpiReport, true],
     ['/kpi-report/:sellerId', 'kpi-report', KpiDetail, true], ['/daily-checklist', 'daily-checklist', DailyChecklist, true],
