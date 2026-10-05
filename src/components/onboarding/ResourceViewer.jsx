@@ -1,5 +1,5 @@
 /* eslint-disable react/prop-types -- Resources and files come from the authorized onboarding catalog. */
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { Download, ExternalLink, LoaderCircle, RefreshCw, X } from 'lucide-react'
 import { API_URL, apiFetch } from '../../lib/api'
@@ -12,6 +12,9 @@ import './resourceViewer.css'
 const FORMATS = { html: 'Material interativo', markdown: 'Roteiro de consulta', pdf: 'Documento PDF', mp4: 'Vídeo', link: 'Material externo' }
 
 export default function ResourceViewer({ track, catalog, resource, anchor = '', onClose, onSelectResource }) {
+  // Saving checklist progress must not reload a tool with unsaved in-frame notes.
+  const { files, assets, resources } = catalog
+  const viewerCatalog = useMemo(() => ({ files, assets, resources }), [files, assets, resources])
   const [content, setContent] = useState(null)
   const [error, setError] = useState('')
   const [navigationError, setNavigationError] = useState('')
@@ -59,7 +62,7 @@ export default function ResourceViewer({ track, catalog, resource, anchor = '', 
           if (!safeExternalUrl(resource.url)) throw new Error('O endereço deste material não é válido.')
           next = { kind: 'link' }
         } else {
-          const file = resourceFile(catalog, resource)
+          const file = resourceFile(viewerCatalog, resource)
           if (!file) throw new Error('O arquivo não está no catálogo de materiais disponíveis para você.')
           if (resource.format === 'markdown') {
             const source = typeof resource.markdown === 'string' ? resource.markdown : await (await getBlob(file)).text()
@@ -73,7 +76,7 @@ export default function ResourceViewer({ track, catalog, resource, anchor = '', 
           } else if (resource.format === 'html') {
             const html = await (await getBlob(file)).text()
             next = { kind: 'html', ...await prepareResourceHtml({
-              html, catalog, resource, loadFile, createObjectURL: scope.create, signal: controller.signal,
+              html, catalog: viewerCatalog, resource, loadFile, createObjectURL: scope.create, signal: controller.signal,
               channel: channel.current, parentOrigin: window.location.origin, anchor: currentAnchor.current,
             }) }
           } else if (['pdf', 'mp4'].includes(resource.format)) {
@@ -87,7 +90,7 @@ export default function ResourceViewer({ track, catalog, resource, anchor = '', 
     }
     load()
     return () => { live = false; controller.abort(); scope.dispose() }
-  }, [track, catalog, resource, attempt])
+  }, [track, viewerCatalog, resource, attempt])
 
   useEffect(() => {
     const currentFrame = iframe.current?.contentWindow
@@ -98,7 +101,7 @@ export default function ResourceViewer({ track, catalog, resource, anchor = '', 
     const receive = event => {
       if (!isViewerMessage(event, currentFrame, channel.current)) return
       if (event.data.type === 'onboarding-resource-ready') { sendAnchor(currentAnchor.current); return }
-      const destination = resolveResourceHref(event.data.href, { catalog, resource, anchors: content.anchors })
+      const destination = resolveResourceHref(event.data.href, { catalog: viewerCatalog, resource, anchors: content.anchors })
       if (destination?.kind === 'resource') currentCallbacks.current.onSelectResource(destination.resource.id, destination.anchor)
       else if (destination?.kind === 'anchor') sendAnchor(destination.anchor)
       else setNavigationError('Esse link não está disponível nesta biblioteca. Consulte a liderança para confirmar o material.')
@@ -106,7 +109,7 @@ export default function ResourceViewer({ track, catalog, resource, anchor = '', 
     window.addEventListener('message', receive)
     sendAnchor(currentAnchor.current)
     return () => window.removeEventListener('message', receive)
-  }, [content, catalog, resource, anchor])
+  }, [content, viewerCatalog, resource, anchor])
 
   useEffect(() => {
     if (content?.kind !== 'markdown' || !currentAnchor.current) return
@@ -117,7 +120,7 @@ export default function ResourceViewer({ track, catalog, resource, anchor = '', 
   const followMarkdownLink = event => {
     const link = event.target.closest('a[href]')
     if (!link) return
-    const destination = resolveResourceHref(link.getAttribute('href'), { catalog, resource, anchors: content?.anchors || [] })
+    const destination = resolveResourceHref(link.getAttribute('href'), { catalog: viewerCatalog, resource, anchors: content?.anchors || [] })
     if (destination?.kind === 'external') return
     event.preventDefault()
     if (destination?.kind === 'resource') onSelectResource(destination.resource.id, destination.anchor)
