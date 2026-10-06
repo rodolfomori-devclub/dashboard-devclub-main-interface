@@ -181,8 +181,10 @@ export function normalizeSource(sourceId, payload) {
 export function filterSales(records, filters = {}) {
   return records.filter((row) => Object.entries(filters).every(([key, selected]) => {
     if (!selected) return true
+    const selections = key === 'product' && Array.isArray(selected) ? selected : [selected]
+    if (!selections.length) return true
     const value = UTM_FIELDS.includes(key) ? row.utm[key] : row[key]
-    return selected === UNKNOWN ? !value || value === 'Não informado' : value === selected
+    return selections.some(selection => selection === UNKNOWN ? !value || value === 'Não informado' : value === selection)
   }))
 }
 

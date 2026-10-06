@@ -47,6 +47,57 @@ test('filtros família, original, plataforma, pagamento e UTMs operam sobre a me
   assert.equal(filterSales(records, { payment: 'Cartão' })[0].platform, 'Hotmart')
 })
 
+test('selecionar vários produtos soma somente suas vendas e mantém totais dos grupos', () => {
+  const records = [...normalizeSource('guru', guru), ...normalizeSource('hotmart', hotmart), ...normalizeSource('asaas', asaas)]
+  const filtered = filterSales(records, { product: ['DevClub Vitalício', 'Seu Segundo Salário com IA'] })
+  assert.deepEqual(filtered.map(row => row.id), ['guru:g-1', 'hotmart:h-1'])
+  const summary = summarizeSales(filtered)
+  const groups = groupSales(filtered, 'product')
+  assert.equal(summary.count, 2)
+  assert.equal(summary.revenue.value, 1245)
+  assert.equal(groups.reduce((total, group) => total + group.count, 0), summary.count)
+  assert.equal(groups.reduce((total, group) => total + group.revenue.value, 0), summary.revenue.value)
+  assert.deepEqual(filterSales(records, { product: ['DevClub Vitalício'] }), filterSales(records, { product: 'DevClub Vitalício' }))
+})
+
+test('produtos selecionados continuam combinados com família, plataforma, pagamento e UTMs', () => {
+  const records = [...normalizeSource('guru', guru), ...normalizeSource('hotmart', hotmart), ...normalizeSource('asaas', asaas)]
+  const filters = { product: ['DevClub Vitalício', 'Seu Segundo Salário com IA', 'MBA em IA'], family: 'DevClub', platform: 'Guru', payment: 'Pix', source: 'comercial', campaign: 'turma-junho' }
+  assert.deepEqual(filterSales(records, filters).map(row => row.id), ['guru:g-1'])
+  assert.deepEqual(filterSales(records, { ...filters, campaign: 'outra-campanha' }), [])
+  assert.deepEqual(filterSales(records, { product: [] }), records)
+  assert.deepEqual(filterSales(records, { product: '' }), records)
+  assert.deepEqual(filterSales(records, { product: [], platform: 'Hotmart' }).map(row => row.id), ['hotmart:h-1'])
+})
+
+test('não informado pode ser selecionado junto de um produto sem atribuir os demais', () => {
+  const records = normalizeSource('guru', { data: [
+    { hash: 'known', product: { name: 'DevClub' }, calculation_details: { net_amount: 100 } },
+    { hash: 'missing', product: null, calculation_details: { net_amount: 50 } },
+    { hash: 'unknown-label', product: { name: 'Não informado' }, calculation_details: { net_amount: 25 } },
+    { hash: 'other', product: { name: 'MBA' }, calculation_details: { net_amount: 200 } },
+  ] })
+  assert.deepEqual(filterSales(records, { product: [UNKNOWN] }).map(row => row.id), ['guru:missing', 'guru:unknown-label'])
+  const filtered = filterSales(records, { product: ['DevClub', UNKNOWN] })
+  assert.deepEqual(filtered.map(row => row.id), ['guru:known', 'guru:missing', 'guru:unknown-label'])
+  assert.equal(summarizeSales(filtered).revenue.value, 175)
+  assert.deepEqual(filterSales(records, { product: UNKNOWN }), filterSales(records, { product: [UNKNOWN] }))
+})
+
+test('nomes com vírgula permanecem inteiros e opções repetidas não duplicam vendas', () => {
+  const records = normalizeSource('guru', { data: ['DevClub, Full Stack', 'DevClub', 'Full Stack'].map((name, index) => ({
+    hash: `comma-${index}`, product: { name }, calculation_details: { net_amount: 100 + index },
+  })) })
+  const filtered = filterSales(records, { product: ['DevClub, Full Stack', 'DevClub, Full Stack'] })
+  assert.deepEqual(filtered.map(row => row.id), ['guru:comma-0'])
+  assert.equal(summarizeSales(filtered).count, 1)
+  assert.equal(summarizeSales(filtered).revenue.value, 100)
+  const groups = groupSales(filtered, 'product')
+  assert.equal(groups.length, 1)
+  assert.equal(groups[0].name, 'DevClub, Full Stack')
+  assert.equal(groups[0].revenue.value, 100)
+})
+
 test('UTM ausente permanece desconhecida e pode ser filtrada, nunca vira orgânico', () => {
   const records = normalizeSource('hotmart', hotmart)
   assert.equal(records[0].utm.source, null)

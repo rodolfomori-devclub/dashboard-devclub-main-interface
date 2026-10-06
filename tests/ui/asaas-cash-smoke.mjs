@@ -132,7 +132,15 @@ try {
     assert.equal(await cash().count(), 0)
     await platform.selectOption('')
     const product = path === '/diario' ? page.getByLabel('Produto original', { exact: true }) : page.locator('#period-product')
-    await product.selectOption('DevClub')
+    const selectProduct = async value => {
+      if (path !== '/global') { await product.selectOption(value); return }
+      await product.click()
+      const products = page.getByRole('dialog', { name: 'Selecionar produtos', exact: true })
+      if (value) await products.getByRole('checkbox', { name: value, exact: true }).check()
+      else await products.getByRole('button', { name: 'Todos os produtos', exact: true }).click()
+      await products.getByRole('button', { name: 'Concluir', exact: true }).click()
+    }
+    await selectProduct('DevClub')
     if (annual) assert.match(await cash().innerText(), /Caixa sem distribuição/)
     else {
       assert.match(await cash().innerText(), /Não informado/)
@@ -145,7 +153,7 @@ try {
       assert.equal(await notifications.isVisible(), false)
     }
     assert.doesNotMatch(await cash().innerText(), /495,00|18\.315,00/)
-    await product.selectOption('')
+    await selectProduct('')
     assert.equal(calls.length, before, `${path}: filters must be local`)
     for (const dark of [false, true]) {
       await page.setViewportSize({ width: 360, height: 1000 })

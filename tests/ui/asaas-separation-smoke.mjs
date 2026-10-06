@@ -197,7 +197,12 @@ try {
     checks.push(`${path}/${width}/${theme}: R$ 2,000 one-sale contract and R$ 200 new-sale cash are separate from R$ 350 invoice receipts`)
     const before = calls.length
     const product = path === 'diario' ? page.getByLabel('Família de produto', { exact: true }) : page.locator('#period-product')
-    await product.selectOption('DevClub')
+    if (path === 'global') {
+      await product.click()
+      const products = page.getByRole('dialog', { name: 'Selecionar produtos', exact: true })
+      await products.getByRole('checkbox', { name: 'DevClub', exact: true }).check()
+      await products.getByRole('button', { name: 'Concluir', exact: true }).click()
+    } else await product.selectOption('DevClub')
     assert.match(await metric('Recebimentos de faturas').innerText(), /Não informado|Sem atribuição/)
     assert.doesNotMatch(await metric('Recebimentos de faturas').innerText(), /350,00/)
     await assertMoney(metric('Vendas novas Asaas'), '2.000,00')

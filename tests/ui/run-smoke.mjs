@@ -30,6 +30,7 @@ try {
  await run('./goal-pace-hero-smoke.mjs')
  await run('./integration-smoke.mjs')
  await run('./analytics-smoke.mjs')
+ await run('./global-products-smoke.mjs')
  await run('./refund-summary-smoke.mjs')
  await run('./payment-cards-smoke.mjs')
  await run('./financial-loading-smoke.mjs')
