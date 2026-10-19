@@ -28,9 +28,9 @@ export async function expectTvScene(container, id) {
     await pairAt('IAClub', 1000, 400)
   }
   if (id === 'sellers') { await pairAt('ana', 1555.76, 955.76); await pairAt('bruno', 277.88, 277.88) }
-  if (id === 'payment-mix') { await pairAt('card', 555.76, 555.76); await pairAt('boleto', 1000, 400); await pairAt('pix', 277.88, 277.88) }
+  if (id === 'payment-mix') { await pairAt('card', 833.64, 833.64); await pairAt('boleto', 1000, 400); await expect(container.locator('[data-tv-row-id="pix"]')).toHaveCount(0) }
   if (id === 'products') await expect(container.locator('[data-tv-row-id]').first()).toHaveAttribute('data-tv-row-id', metric === 'gross' ? 'IAClub' : 'DevClub')
   if (id === 'team-goals') await expect(container.locator('[data-tv-row-id="commercial"]')).toContainText(metric === 'count' ? '30%' : metric === 'cash' ? '47,79%' : '77,79%')
-  if (id === 'payment-mix') await expect(container.locator('[data-tv-row-id="card"]')).toContainText(metric === 'count' ? '50%' : metric === 'cash' ? '45,05%' : '30,31%')
+  if (id === 'payment-mix') await expect(container.locator('[data-tv-row-id="card"]')).toContainText(metric === 'count' ? '75%' : metric === 'cash' ? '67,58%' : '45,46%')
   if (['monthly-goal', 'pace', 'daily'].includes(id)) await expect(container.getByTestId('tv-main-value')).toHaveText(tvMoney(id === 'monthly-goal' ? 1833.64 : id === 'pace' ? 1555.76 : 277.88))
 }

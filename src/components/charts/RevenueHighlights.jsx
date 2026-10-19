@@ -58,8 +58,8 @@ export default function RevenueHighlights({ records = [], sources = [], filters 
       </article>
     </div>
     <div className="revenue-payment-grid">
-      <PaymentCard title="Cartão" detail="Somente plataformas com vendas por cartão neste recorte" data={model.payments.card} tone="card" icon={CreditCard} ready={ready} loading={loading} error={error} />
-      <PaymentCard title="Boleto" detail="Boleto à vista e parcelado · plataformas deste recorte" data={model.payments.boleto} tone="boleto" icon={ReceiptText} ready={ready} loading={loading} error={error} />
+      <PaymentCard title="Cartão" detail="Todas as vendas Guru e Hotmart, em qualquer meio de pagamento" data={model.payments.card} tone="card" icon={CreditCard} ready={ready} loading={loading} error={error} />
+      <PaymentCard title="Boleto" detail="Boleto à vista e parcelado das demais plataformas" data={model.payments.boleto} tone="boleto" icon={ReceiptText} ready={ready} loading={loading} error={error} />
     </div>
     <div className="revenue-other-payments" aria-label="Outros meios de pagamento"><Banknote size={17} aria-hidden="true" /><p>Também compõem a receita operacional</p>{[['pix', 'Pix'], ['other', 'Outros meios'], ['unknown', 'Meio não informado']].map(([key, label]) => <div key={key}><span>{label}</span><strong><FinancialValue ready={ready} loading={loading} error={error} compact>{money(model.payments[key].value)}</FinancialValue></strong></div>)}</div>
   </section>

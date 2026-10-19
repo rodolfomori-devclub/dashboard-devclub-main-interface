@@ -1,7 +1,7 @@
 /* Classic ES5 entry: keep independent of the Workspace and modern browser APIs. */
 (function () {
   'use strict';
-  var titles = { 'monthly-goal': 'Meta do mês', pace: 'Ritmo da meta', 'team-goals': 'Metas dos times', 'product-goals': 'Metas dos produtos', sellers: 'Top vendedores', products: 'Top produtos', daily: 'Vendas do dia', 'payment-mix': 'Meios de pagamento' };
+  var titles = { 'monthly-goal': 'Meta do mês', pace: 'Ritmo da meta', 'team-goals': 'Metas dos times', 'product-goals': 'Metas dos produtos', sellers: 'Top vendedores', products: 'Top produtos', daily: 'Vendas do dia', 'payment-mix': 'Categorias de venda' };
   var months = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
   var snapshot = null, panels = [], current = 0, paused = false, stale = false, lastFresh = 0, retryTimer = null, rotationTimer = null, expiryTimer = null, request = null, stopped = false, terminal = false, settingsKey = '';
   var title = document.getElementById('tv-light-title');
@@ -93,7 +93,7 @@
       if (model.attributionAvailable === false) html += note('Atribuições indisponíveis.');
     }
     if (goals) html += note('Cada atingimento usa a própria meta em ' + basis(model) + '.');
-    if (kind === 'payment-mix') html += note('Somente novas vendas. Recebimentos de faturas de vendas passadas não entram nesta composição.');
+    if (kind === 'payment-mix') html += note('Cartão inclui todas as vendas Guru e Hotmart, em qualquer meio. Faturas de vendas passadas ficam fora desta composição.');
     return html;
   }
   function daily(model) {

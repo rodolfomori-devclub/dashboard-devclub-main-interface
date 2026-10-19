@@ -2,7 +2,9 @@
 
 Os cards mostram skeleton e Carregando valor enquanto o valor do período é consultado. Atualizações do mesmo período preservam o dado anterior com Atualizando. Valores zero confirmados continuam zero; dados ausentes/erro não permanecem em um loading infinito.
 
-Cartão e Boleto listam somente plataformas que possuem registros daquele meio no recorte atual. Guru/Hotmart podem aparecer em ambos quando existem vendas reais nos dois meios. Pix e meios desconhecidos continuam separados. Plataformas sem registros naquele meio não ganham linhas vazias, mas falhas de fontes ainda sinalizam a cobertura do total. Manuais são agrupados pela plataforma declarada e respeitam o meio informado.
+Desde 19/10/2026, Cartão é uma categoria comercial: reúne todas as vendas de Guru e Hotmart, independentemente de cartão, Pix, boleto, Apple Pay ou meio não informado. Os valores líquidos e quantidades entram uma única vez; esses registros não reaparecem em Boleto, Pix ou Outros. Manuais atribuídos a Guru/Hotmart seguem a mesma regra. As demais fontes mantêm a classificação pelo meio informado.
+
+A regra é compartilhada pelos cards, gráficos, filtros e agrupamentos de Diário, Global, Mensal, Anual, Comparativos e TV autenticada/pública. O pagamento original permanece nos registros e no CSV. Fontes sem vendas não ganham linhas fictícias; fontes indisponíveis e valores ausentes continuam indicando cobertura parcial.
 
 Boleto exibe por plataforma:
 

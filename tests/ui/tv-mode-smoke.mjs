@@ -261,7 +261,7 @@ try {
   assert.equal(await editor().locator('[data-testid^="tv-config-"]').count(), 8)
   await editor().getByRole('combobox', { name: /^Tema da TV/ }).selectOption('light')
   await editor().getByLabel('Exibir Vendas do dia', { exact: true }).check()
-  await editor().getByLabel('Exibir Meios de pagamento', { exact: true }).check()
+  await editor().getByLabel('Exibir Categorias de venda', { exact: true }).check()
   await editor().getByRole('spinbutton', { name: /Tempo de Meta do mês/ }).fill('10')
   await editor().getByRole('spinbutton', { name: /Tempo de Ritmo da meta/ }).fill('11')
   await editor().getByRole('combobox', { name: /^Escopo do gráfico de pace/ }).selectOption('team')
@@ -320,7 +320,11 @@ try {
     if (id === 'sellers') { assert.match(text, /Ana/); assert.match(text, /Bruno/); assert.match(text, /955,76/) }
     if (id === 'products') { assert.match(text, /DevClub/); assert.match(text, /MBA/); assert.match(text, /IAClub/) }
     if (id === 'team-goals') { assert.match(text, /Comercial/); assert.match(text, /Marketing/) }
-    if (id === 'payment-mix') { assert.match(text, /Cartão/); assert.match(text, /Boleto/); assert.match(text, /Pix/) }
+    if (id === 'payment-mix') {
+      assert.match(text, /Cartão/); assert.match(text, /Boleto/)
+      assert.match(await player().locator('[data-tv-row-id="card"]').innerText(), /3 vendas/, 'TV Cartão includes the Hotmart Pix sale')
+      assert.equal(await player().locator('[data-tv-row-id="pix"]').count(), 0, 'Hotmart Pix is not counted twice')
+    }
     if (['pace', 'sellers', 'payment-mix'].includes(id)) await screenshot(`${id}-1920-light`)
     if (['monthly-goal', 'pace'].includes(id)) {
       const size = await player().locator('.tv-broadcast-main').evaluate(node => ({ scrollHeight: node.scrollHeight, clientHeight: node.clientHeight }))

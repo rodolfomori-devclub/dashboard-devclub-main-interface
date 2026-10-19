@@ -1,6 +1,6 @@
 import { asaasCashOnly } from './sourceAvailability.js'
 import { applyTmbCashRule } from './tmbCash.js'
-import { applyPlatformCashRule } from './platformCash.js'
+import { applyPlatformCashRule, salesPaymentLabel } from './platformCash.js'
 // Pure adapters. Monetary amounts come from the API; fee rules stay on the server.
 export const SOURCE_DEFINITIONS = [
   { id: 'guru', label: 'Guru', platform: 'Guru', kind: 'sale' },
@@ -178,18 +178,20 @@ export function normalizeSource(sourceId, payload) {
   })
 }
 
+const fieldValue = (row, key) => key === 'payment' ? salesPaymentLabel(row) : UTM_FIELDS.includes(key) ? row.utm[key] : row[key]
+
 export function filterSales(records, filters = {}) {
   return records.filter((row) => Object.entries(filters).every(([key, selected]) => {
     if (!selected) return true
     const selections = key === 'product' && Array.isArray(selected) ? selected : [selected]
     if (!selections.length) return true
-    const value = UTM_FIELDS.includes(key) ? row.utm[key] : row[key]
+    const value = fieldValue(row, key)
     return selections.some(selection => selection === UNKNOWN ? !value || value === 'Não informado' : value === selection)
   }))
 }
 
 export function filterOptions(records, key) {
-  const values = [...new Set(records.map((row) => UTM_FIELDS.includes(key) ? row.utm[key] : row[key]).filter(Boolean))]
+  const values = [...new Set(records.map((row) => fieldValue(row, key)).filter(Boolean))]
   return values.sort((a, b) => a.localeCompare(b, 'pt-BR'))
 }
 
@@ -209,7 +211,7 @@ export function summarizeSales(records) {
 export function groupSales(records, dimension) {
   const groups = new Map()
   for (const row of records) {
-    const label = UTM_FIELDS.includes(dimension) ? row.utm[dimension] : row[dimension]
+    const label = fieldValue(row, dimension)
     const name = label || 'Não informado'
     if (!groups.has(name)) groups.set(name, [])
     groups.get(name).push(row)

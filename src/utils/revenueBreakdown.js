@@ -1,4 +1,4 @@
-import { applyPlatformCashRule } from './platformCash.js'
+import { applyPlatformCashRule, salesPaymentLabel, usesPlatformNet } from './platformCash.js'
 import { amount, summarizeSales, sumAmount } from './salesData.js'
 import { asaasCashView, sourceHasSales } from './sourceAvailability.js'
 import { prepareGoalData } from './goalData.js'
@@ -13,6 +13,11 @@ export function revenuePaymentGroup(payment) {
   if (['pix', 'instantpayment'].includes(value)) return 'pix'
   if (!value || value === 'naoinformado') return 'unknown'
   return 'other'
+}
+// The business category groups every Guru/Hotmart sale under Cartão. Keep the
+// original payment method on the record for transaction details.
+export function revenueSalesGroup(row) {
+  return revenuePaymentGroup(salesPaymentLabel(row))
 }
 const numeric = (metric, available) => !available || (!metric.known && metric.missing) ? null : metric.value
 const observedSource = (source, rows) => sourceHasSales(source) && (source.id !== 'manual' || rows.length > 0)
@@ -44,8 +49,8 @@ function existingAsaasCash(sources, filters) {
     partial: source.status !== 'ready' || missing > 0 || Boolean(stale || undated) }
 }
 
-// Records are already filtered. Provider availability is kept separate from a
-// payment classification: a missing payment never becomes a card or a boleto.
+// Records are already filtered. Category and source availability stay separate;
+// Guru/Hotmart's category is known even when their payment method is absent.
 export function buildRevenueBreakdown(records = [], sources = [], filters = {}) {
   const sales = records.filter(row => row.kind === 'sale').map(applyPlatformCashRule)
   const saleSources = sources.filter(source => source.kind === 'sale' && (!filters.platform || source.platform === filters.platform || source.id === 'manual'))
@@ -60,9 +65,8 @@ export function buildRevenueBreakdown(records = [], sources = [], filters = {}) 
   const prepared = prepareGoalData({ records: sales, sources: saleSources })
   const paymentGroups = {}
   for (const key of ['card', 'boleto', 'pix', 'other', 'unknown']) {
-    const rows = sales.filter(row => revenuePaymentGroup(row.payment) === key)
-    // A platform belongs here only when a transaction identifies this method.
-    // Source availability still controls the total, independently of the list.
+    const rows = sales.filter(row => revenueSalesGroup(row) === key)
+    // Each transaction contributes to exactly one business category.
     const providerIds = [...new Set(rows.map(providerKey))].sort((a, b) => {
       const rank = id => SOURCES.includes(id) ? SOURCES.indexOf(id) : SOURCES.length
       return rank(a) - rank(b) || a.localeCompare(b)
@@ -72,9 +76,9 @@ export function buildRevenueBreakdown(records = [], sources = [], filters = {}) 
       const providerRows = sales.filter(row => providerKey(row) === id)
       const selectedSources = [...new Set(selected.map(row => row.sourceId))].map(id => saleSources.find(source => source.id === id))
       const result = summarizeSales(selected)
-      const unknownPayment = providerRows.some(row => revenuePaymentGroup(row.payment) === 'unknown')
+      const unknownPayment = providerRows.some(row => revenueSalesGroup(row) === 'unknown')
       const incomplete = selectedSources.some(source => !source || source.status !== 'ready' || source.salesAvailable === false)
-      const cashRows = prepared.cashRecords.filter(row => providerKey(row) === id && revenuePaymentGroup(row.payment) === key)
+      const cashRows = prepared.cashRecords.filter(row => providerKey(row) === id && revenueSalesGroup(row) === key)
       const entries = selected.map(row => ({ entryReceived: row.sourceId === 'asaas' && !row.isManual && !row.isReceipt ? amount(row.received) : null }))
       return { id, label: LABELS[id] || selected[0]?.platform || 'Plataforma não informada', value: numeric(result.revenue, true), count: result.count,
         partial: incomplete || unknownPayment || result.revenue.missing > 0,
@@ -83,9 +87,13 @@ export function buildRevenueBreakdown(records = [], sources = [], filters = {}) 
         entry: paymentMetric(entries, 'entryReceived', incomplete), note: entryNote(id) }
     })
     const result = summarizeSales(rows)
-    const eligibleSources = saleSources.filter(source => !boletoSources.includes(source.id) || key === 'boleto')
-    const unknownPayment = sales.some(row => revenuePaymentGroup(row.payment) === 'unknown' && eligibleSources.some(source => source.id === row.sourceId))
-    const groupAvailable = rows.length > 0 || (!unknownPayment && eligibleSources.some(source => observedSource(source, sales.filter(row => row.sourceId === source.id))))
+    const eligibleSources = saleSources.filter(source => usesPlatformNet({ sourceId: source.id, platform: source.platform })
+      ? key === 'card' : !boletoSources.includes(source.id) || key === 'boleto')
+    const unknownPayment = sales.some(row => revenueSalesGroup(row) === 'unknown' && eligibleSources.some(source => source.id === row.sourceId))
+    // A known sales view also proves an empty category when all eligible
+    // sources are ready, including categories with no eligible source at all.
+    const emptyCategoryKnown = available && eligibleSources.every(source => source.status === 'ready' && sourceHasSales(source))
+    const groupAvailable = rows.length > 0 || (!unknownPayment && (emptyCategoryKnown || eligibleSources.some(source => observedSource(source, sales.filter(row => row.sourceId === source.id)))))
     paymentGroups[key] = { key, value: numeric(result.revenue, groupAvailable),
       count: groupAvailable ? result.count : null,
       partial: providers.some(provider => provider.partial) || unknownPayment || eligibleSources.some(source => source.status !== 'ready' || source.salesAvailable === false), providers }

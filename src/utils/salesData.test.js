@@ -40,11 +40,12 @@ test('total operacional conserva fórmula dos cinco provedores e ignora Boletex 
 
 test('filtros família, original, plataforma, pagamento e UTMs operam sobre a mesma lista', () => {
   const records = [...normalizeSource('guru', guru), ...normalizeSource('hotmart', hotmart)]
-  const filtered = filterSales(records, { family: 'DevClub', product: 'DevClub Vitalício', payment: 'Pix', platform: 'Guru', source: 'comercial', campaign: 'turma-junho' })
+  const filtered = filterSales(records, { family: 'DevClub', product: 'DevClub Vitalício', payment: 'Cartão', platform: 'Guru', source: 'comercial', campaign: 'turma-junho' })
   assert.equal(filtered.length, 1)
   assert.equal(summarizeSales(filtered).revenue.value, groupSales(filtered, 'product')[0].revenue.value)
   assert.equal(hourlySales(filtered).hours.reduce((sum, row) => sum + row.value, 0), 890)
-  assert.equal(filterSales(records, { payment: 'Cartão' })[0].platform, 'Hotmart')
+  assert.deepEqual(filterSales(records, { payment: 'Cartão' }).map(row => row.platform), ['Guru', 'Hotmart'])
+  assert.deepEqual(filterSales(records, { payment: 'Pix' }), [])
 })
 
 test('selecionar vários produtos soma somente suas vendas e mantém totais dos grupos', () => {
@@ -62,7 +63,7 @@ test('selecionar vários produtos soma somente suas vendas e mantém totais dos 
 
 test('produtos selecionados continuam combinados com família, plataforma, pagamento e UTMs', () => {
   const records = [...normalizeSource('guru', guru), ...normalizeSource('hotmart', hotmart), ...normalizeSource('asaas', asaas)]
-  const filters = { product: ['DevClub Vitalício', 'Seu Segundo Salário com IA', 'MBA em IA'], family: 'DevClub', platform: 'Guru', payment: 'Pix', source: 'comercial', campaign: 'turma-junho' }
+  const filters = { product: ['DevClub Vitalício', 'Seu Segundo Salário com IA', 'MBA em IA'], family: 'DevClub', platform: 'Guru', payment: 'Cartão', source: 'comercial', campaign: 'turma-junho' }
   assert.deepEqual(filterSales(records, filters).map(row => row.id), ['guru:g-1'])
   assert.deepEqual(filterSales(records, { ...filters, campaign: 'outra-campanha' }), [])
   assert.deepEqual(filterSales(records, { product: [] }), records)

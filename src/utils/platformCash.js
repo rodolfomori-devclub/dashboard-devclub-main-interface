@@ -15,6 +15,13 @@ export function usesPlatformNet(row) {
   return isNetSalesPlatform(row?.platform)
 }
 
+// Reporting groups every Guru/Hotmart transaction under Cartão. Preserve the
+// provider's actual payment method on the row for transaction details/exports.
+export function salesPaymentLabel(row) {
+  const source = platformKey(row?.sourceId || row?.source)
+  return usesPlatformNet(row) || ['gururefunds', 'hotmartrefunds'].includes(source) ? 'Cartão' : row?.payment
+}
+
 export function applyPlatformCashRule(row) {
   if (row?.kind !== 'sale' || !usesPlatformNet(row)) return row
   const value = row.net

@@ -76,16 +76,16 @@ for(const width of [1440,360]){
     assert.match(await cashProvider('Hotmart').innerText(),/250,00/,'Hotmart contributes its complete net amount without another fee deduction')
     assert.equal(await page.evaluate(()=>Boolean(document.querySelector('.revenue-highlights').compareDocumentPosition(document.querySelector('.daily-filters'))&Node.DOCUMENT_POSITION_FOLLOWING)),true,'financial highlights must precede extensive filters')
     const paymentCard=label=>page.locator('.revenue-card').filter({has:page.getByRole('heading',{name:label,exact:true})})
-    assert.match(await paymentCard('Cartão').locator('.revenue-card-value').innerText(),/1.000,00/,'Pix must never be classified as card revenue')
+    assert.match(await paymentCard('Cartão').locator('.revenue-card-value').innerText(),/4.350,00/,'All Guru and Hotmart payments and manual sales belong to Cartão')
     assert.match(await paymentCard('Boleto').locator('.revenue-card-value').innerText(),/3.800,00/)
-    assert.match(await page.locator('.revenue-other-payments').innerText(),/2.750,00/)
+    assert.match(await page.locator('.revenue-other-payments').innerText(),/0,00/)
     const beforeInteraction=apiCalls.length
     for(const label of ['Cartão','Boleto']){
      const card=paymentCard(label), detail=card.locator('details')
      assert.equal(await detail.getAttribute('open'),null)
      await card.locator('summary').focus();await page.keyboard.press('Enter')
      assert.notEqual(await detail.getAttribute('open'),null)
-     const expectedProviders = label === 'Cartão' ? ['Guru'] : ['TMB', 'Asaas', 'Boletex']
+     const expectedProviders = label === 'Cartão' ? ['Guru', 'Hotmart'] : ['TMB', 'Asaas', 'Boletex']
      const providerRows = card.locator('.revenue-provider-row')
      assert.equal(await providerRows.count(), expectedProviders.length, 'Only observed providers for this payment method belong in its card')
      for (const [index, source] of expectedProviders.entries()) assert.match(await providerRows.nth(index).innerText(), new RegExp(source))

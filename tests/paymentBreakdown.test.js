@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildRevenueBreakdown } from '../src/utils/revenueBreakdown.js'
+import { buildRevenueBreakdown, revenueSalesGroup } from '../src/utils/revenueBreakdown.js'
 import { filterSales } from '../src/utils/salesData.js'
 
 const names = { guru: 'Guru', hotmart: 'Hotmart', tmb: 'TMB', asaas: 'Asaas', boletex: 'Boletex', manual: 'Manual' }
@@ -9,15 +9,15 @@ const row = (id, sourceId, payment, gross, net, extra = {}) => ({ id, sourceId, 
   payment, gross, net, revenue: net ?? gross, received: null, date: '2026-10-01T12:00:00Z', family: 'DevClub', utm: {}, ...extra })
 const ids = group => group.providers.map(provider => provider.id)
 
-test('each payment card lists only platforms with that method in the current filtered records', () => {
+test('sales categories include all digital-platform sales and keep the other providers classified by payment', () => {
   const rows = [row('g-card', 'guru', 'Cartão', 1000, 900), row('g-pix', 'guru', 'Pix', 400, 390), row('h-boleto', 'hotmart', 'Boleto', 2000, 1800), row('t-boleto', 'tmb', 'Boleto', 3000, null, { family: 'MBA' })]
   const sources = Object.keys(names).map(id => source(id))
   const model = buildRevenueBreakdown(rows, sources)
-  assert.deepEqual(ids(model.payments.card), ['guru'])
-  assert.deepEqual(ids(model.payments.boleto), ['hotmart', 'tmb'])
-  assert.deepEqual(ids(model.payments.pix), ['guru'])
-  assert.equal(model.payments.card.value, 900)
-  assert.equal(model.payments.boleto.value, 4800)
+  assert.deepEqual(ids(model.payments.card), ['guru', 'hotmart'])
+  assert.deepEqual(ids(model.payments.boleto), ['tmb'])
+  assert.deepEqual(ids(model.payments.pix), [])
+  assert.equal(model.payments.card.value, 3090)
+  assert.equal(model.payments.boleto.value, 3000)
   assert.equal(model.revenue.value, 6090)
   const mba = buildRevenueBreakdown(filterSales(rows, { family: 'MBA' }), sources, { family: 'MBA' })
   assert.deepEqual(ids(mba.payments.card), [])
@@ -33,13 +33,15 @@ test('boleto platform details separate gross, operational cash and confirmed dow
   const sources = ['guru', 'hotmart', 'tmb', 'boletex'].map(id => source(id)).concat(source('asaas', { cashReceipts: [{ received: 900, date: '2026-10-01' }] }))
   const model = buildRevenueBreakdown(rows, sources)
   const details = Object.fromEntries(model.payments.boleto.providers.map(provider => [provider.id, [provider.gross.value, provider.cash.value, provider.entry.value]]))
-  assert.deepEqual(details.guru, [900, 900, null])
-  assert.deepEqual(details.hotmart, [1880, 1880, null])
+  assert.equal(details.guru, undefined)
+  assert.equal(details.hotmart, undefined)
+  const digital = model.payments.card.providers
+  assert.deepEqual(digital.map(provider => [provider.id, provider.value, provider.cash.value]), [['guru', 900, 900], ['hotmart', 1880, 1880]])
   assert.deepEqual(details.tmb, [3000, 1200, null])
   assert.deepEqual(details.boletex, [5000, null, null])
   assert.deepEqual(details.asaas, [4000, 300, 300])
   assert.equal(model.cash.value, 900 + 1880 + 1200 + 300)
-  assert.equal(model.payments.boleto.value, 900 + 1880 + 3000 + 5000 + 4000)
+  assert.equal(model.payments.boleto.value, 3000 + 5000 + 4000)
   assert.equal(model.payments.boleto.providers.find(provider => provider.id === 'tmb').entry.partial, true)
 })
 
@@ -52,17 +54,18 @@ test('a cash-only Asaas statement never becomes a boleto platform, gross or entr
   assert.equal(model.cash.value, null)
 })
 
-test('manual digital platform attribution applies full net cash once in the correct payment method', () => {
+test('manual digital platform attribution applies full net cash once in the Cartão category', () => {
   const rows = [row('g', 'guru', 'Boleto', 1000, 900), row('m', 'manual', 'Boleto', 500, 450, { isManual: true, platform: 'Guru', received: 100 }),
     row('mc', 'manual', 'Cartão', 600, 550, { isManual: true, platform: 'Guru', received: 200 })]
   const model = buildRevenueBreakdown(rows, [source('guru'), source('manual')])
-  assert.deepEqual(ids(model.payments.boleto), ['guru'])
+  assert.deepEqual(ids(model.payments.boleto), [])
   assert.deepEqual(ids(model.payments.card), ['guru'])
-  const boleto = model.payments.boleto.providers[0]
-  assert.equal(boleto.gross.value, 1350)
-  assert.equal(boleto.cash.value, 1350)
-  assert.equal(boleto.value, 1350)
-  assert.equal(boleto.entry.value, null)
+  const card = model.payments.card.providers[0]
+  assert.equal(card.gross.value, 1900)
+  assert.equal(card.cash.value, 1900)
+  assert.equal(card.value, 1900)
+  assert.equal(card.entry.value, null)
+  assert.equal(card.count, 3)
   assert.equal(model.cash.value, 1900)
 })
 
@@ -74,10 +77,123 @@ test('empty, unavailable and unclassified payment states stay distinct without f
   assert.equal(failed.payments.card.value, null)
   assert.deepEqual(ids(failed.payments.card), [])
   const unknown = buildRevenueBreakdown([row('unknown', 'guru', 'Não informado', 1000, 900)], [source('guru')])
-  assert.equal(unknown.payments.card.value, null)
-  assert.equal(unknown.payments.boleto.value, null)
-  assert.equal(unknown.payments.unknown.value, 900)
-  const zero = buildRevenueBreakdown([row('zero', 'hotmart', 'Boleto', 1000, 0)], [source('hotmart')]).payments.boleto.providers[0]
+  assert.equal(unknown.payments.card.value, 900)
+  assert.equal(unknown.payments.card.partial, false)
+  assert.equal(unknown.payments.boleto.value, 0)
+  assert.equal(unknown.payments.unknown.value, 0)
+  const zero = buildRevenueBreakdown([row('zero', 'hotmart', 'Boleto', 1000, 0)], [source('hotmart')]).payments.card.providers[0]
   assert.equal(zero.cash.value, 0)
   assert.equal(zero.entry.value, null)
+})
+
+test('65 card payments plus 10 Pix payments show all 75 Guru sales once in Cartão', () => {
+  const rows = Array.from({ length: 75 }, (_, index) => row(`g-${index}`, 'guru', index < 65 ? 'Cartão' : 'Pix', 1000, 900))
+  const original = structuredClone(rows)
+  const model = buildRevenueBreakdown(rows, [source('guru')])
+  assert.equal(model.payments.card.count, 75)
+  assert.equal(model.payments.card.value, 67500)
+  assert.equal(model.payments.card.providers[0].cash.value, 67500)
+  assert.equal(model.payments.card.partial, false)
+  assert.equal(model.gross.count, 75)
+  for (const key of ['boleto', 'pix', 'unknown', 'other']) {
+    assert.equal(model.payments[key].count, 0)
+    assert.equal(model.payments[key].value, 0)
+    assert.equal(model.payments[key].partial, false)
+  }
+  assert.equal(Object.values(model.payments).reduce((total, group) => total + (group.count ?? 0), 0), 75)
+  assert.equal(Object.values(model.payments).reduce((total, group) => total + (group.value ?? 0), 0), model.revenue.value)
+  assert.deepEqual(rows, original, 'business categorization preserves source payment methods')
+  const card = buildRevenueBreakdown(filterSales(rows, { payment: 'Cartão' }), [source('guru')], { payment: 'Cartão' })
+  assert.equal(card.payments.card.count, 75)
+  assert.equal(card.payments.card.value, 67500)
+  const pix = buildRevenueBreakdown(filterSales(rows, { payment: 'Pix' }), [source('guru')], { payment: 'Pix' })
+  assert.equal(pix.payments.card.count, 0)
+  assert.equal(pix.payments.card.value, 0)
+  assert.deepEqual(pix.payments.pix.providers, [])
+})
+
+test('Guru and Hotmart categorization covers every original method and preserves native identity', () => {
+  for (const sourceId of ['guru', 'hotmart']) {
+    const rows = ['Cartão', 'Pix', 'Boleto', 'APPLE_PAY', 'Não informado', null].map((payment, index) => row(`${sourceId}-${index}`, sourceId, payment, 1000, 900))
+    const result = buildRevenueBreakdown(rows, [source(sourceId)])
+    assert.equal(result.payments.card.count, 6)
+    assert.equal(result.payments.card.value, 5400)
+    assert.equal(result.payments.card.partial, false)
+    assert.equal(result.payments.card.providers[0].partial, false)
+    assert.deepEqual(Object.values(result.payments).flatMap(group => group.providers.map(provider => provider.id)), [sourceId])
+    assert.equal(revenueSalesGroup({ sourceId, platform: 'TMB', payment: 'Pix' }), 'card')
+    assert.equal(revenueSalesGroup({ sourceId: 'manual', platform: names[sourceId], payment: null }), 'card')
+    assert.equal(revenueSalesGroup({ source: sourceId, payment: 'Boleto' }), 'card')
+  }
+  assert.equal(revenueSalesGroup({ sourceId: 'tmb', platform: 'Guru', payment: 'Boleto' }), 'boleto')
+  assert.equal(revenueSalesGroup({ sourceId: 'manual', platform: 'Pix direto', payment: 'Pix' }), 'pix')
+  assert.equal(revenueSalesGroup({ sourceId: 'manual', platform: 'Asaas', payment: null }), 'unknown')
+})
+
+test('other providers retain Pix, boleto, card, other and unknown amounts without digital duplicates', () => {
+  const rows = [row('g', 'guru', 'Pix', 1000, 900), row('h', 'hotmart', 'Boleto', 1000, 900),
+    row('t', 'tmb', 'Boleto', 2000, null), row('m-pix', 'manual', 'Pix', 100, 90, { isManual: true, platform: 'Pix direto' }),
+    row('m-card', 'manual', 'Cartão', 200, 180, { isManual: true, platform: 'Outra' }),
+    row('m-other', 'manual', 'Paypal', 300, 270, { isManual: true, platform: 'Outra' }),
+    row('m-unknown', 'manual', null, 400, 360, { isManual: true, platform: 'Outra' })]
+  const model = buildRevenueBreakdown(rows, ['guru', 'hotmart', 'tmb', 'manual'].map(id => source(id)))
+  assert.equal(model.payments.card.value, 1980)
+  assert.equal(model.payments.boleto.value, 2000)
+  assert.equal(model.payments.pix.value, 90)
+  assert.equal(model.payments.other.value, 270)
+  assert.equal(model.payments.unknown.value, 360)
+  assert.equal(Object.values(model.payments).reduce((total, group) => total + (group.count ?? 0), 0), 7)
+  assert.equal(Object.values(model.payments).reduce((total, group) => total + (group.value ?? 0), 0), model.revenue.value)
+})
+
+test('missing net, zero, unavailable sources and unknown non-digital methods preserve their meaning', () => {
+  const missing = buildRevenueBreakdown([row('g-missing', 'guru', 'Pix', 1000, null)], [source('guru')])
+  assert.equal(missing.payments.card.count, 1)
+  assert.equal(missing.payments.card.value, null)
+  assert.equal(missing.payments.card.partial, true)
+  assert.equal(missing.payments.card.providers[0].cash.value, null)
+  const zero = buildRevenueBreakdown([row('h-zero', 'hotmart', null, 1000, 0)], [source('hotmart')])
+  assert.equal(zero.payments.card.count, 1)
+  assert.equal(zero.payments.card.value, 0)
+  assert.equal(zero.payments.card.partial, false)
+  const unavailable = buildRevenueBreakdown([], [source('hotmart', { status: 'unavailable' })])
+  assert.equal(unavailable.payments.card.value, null)
+  assert.equal(unavailable.payments.card.count, null)
+  assert.equal(unavailable.payments.card.partial, true)
+  const mixed = buildRevenueBreakdown([row('g', 'guru', 'Pix', 1000, 900)], [source('guru'), source('hotmart', { status: 'unavailable' })])
+  assert.equal(mixed.payments.card.value, 900)
+  assert.equal(mixed.payments.card.partial, true)
+  const unknown = buildRevenueBreakdown([row('m', 'manual', null, 100, 90, { isManual: true, platform: 'Outra' })], [source('manual')])
+  assert.equal(unknown.payments.card.value, null)
+  assert.equal(unknown.payments.unknown.value, 90)
+})
+
+test('known empty categories remain zero without an empty manual ledger masking unavailable card sources', () => {
+  const guruRows = [row('g', 'guru', 'Pix', 1000, 900)]
+  for (const manuals of [[], [source('manual')]]) {
+    const mixed = buildRevenueBreakdown(guruRows, [source('guru'), source('hotmart', { status: 'unavailable' }), ...manuals])
+    assert.equal(mixed.payments.card.value, 900)
+    assert.equal(mixed.payments.card.partial, true)
+    for (const key of ['boleto', 'pix', 'unknown', 'other']) {
+      assert.equal(mixed.payments[key].value, 0)
+      assert.equal(mixed.payments[key].count, 0)
+      assert.equal(mixed.payments[key].partial, false)
+    }
+  }
+  const manualFailure = buildRevenueBreakdown(guruRows, [source('guru'), source('manual', { status: 'unavailable' })])
+  assert.equal(manualFailure.payments.card.value, 900)
+  assert.equal(manualFailure.payments.card.partial, true)
+  for (const key of ['boleto', 'pix', 'unknown', 'other']) {
+    assert.equal(manualFailure.payments[key].value, null)
+    assert.equal(manualFailure.payments[key].partial, true)
+  }
+  const unavailable = buildRevenueBreakdown([], [source('guru', { status: 'unavailable' }), source('manual')])
+  assert.equal(unavailable.payments.card.value, null)
+  assert.equal(unavailable.payments.card.count, null)
+  assert.equal(unavailable.payments.card.partial, true)
+  const unknownExternal = buildRevenueBreakdown([...guruRows, row('manual-unknown', 'manual', null, 100, 90,
+    { isManual: true, platform: 'Outra' })], [source('guru'), source('manual')])
+  assert.equal(unknownExternal.payments.pix.value, null)
+  assert.equal(unknownExternal.payments.boleto.value, null)
+  assert.equal(unknownExternal.payments.unknown.value, 90)
 })

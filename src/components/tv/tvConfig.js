@@ -6,7 +6,7 @@ export const TV_PANELS = [
   { id: 'sellers', title: 'Top vendedores', description: 'Ranking de vendas atribuídas aos vendedores.' },
   { id: 'products', title: 'Top produtos', description: 'Os produtos com maior resultado no mês.' },
   { id: 'daily', title: 'Vendas do dia', description: 'Resultado de hoje e distribuição por hora, no horário de Brasília.' },
-  { id: 'payment-mix', title: 'Meios de pagamento', description: 'Participação de cartão, boleto, Pix e outros meios.' },
+  { id: 'payment-mix', title: 'Categorias de venda', description: 'Cartão reúne todas as vendas Guru e Hotmart; demais fontes seguem o meio informado.' },
 ]
 export const TV_METRICS = { gross: 'Valor das vendas', cash: 'Cash collected · novas vendas', count: 'Quantidade de vendas' }
 export function defaultTvSettings() {

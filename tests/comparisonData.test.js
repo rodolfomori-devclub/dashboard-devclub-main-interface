@@ -143,3 +143,22 @@ test('unidentified products also mark product-filter results as partial without 
   assert.equal(named.allocationMissing, true)
   assert.equal(snapshot(result).metrics.revenue.value, 150)
 })
+
+
+test('comparison payment filters and groups share the Guru/Hotmart category without false missing-method warnings', () => {
+  const result = fixture()
+  const card = snapshot(result, { payment: 'Cartão' })
+  assert.equal(card.metrics.count.value, 3)
+  assert.equal(card.metrics.revenue.value, 320)
+  assert.equal(card.allocationMissing, false)
+  assert.equal(card.metrics.revenue.partial, false)
+  assert.equal(card.records.filter(row => row.kind === 'sale' && row.payment === 'Pix').length, 1)
+  const boleto = snapshot(result, { payment: 'Boleto' })
+  assert.equal(boleto.allocationMissing, false, 'Guru missing original payment is a known Cartão category')
+  assert.equal(boleto.metrics.count.partial, false)
+  const all = snapshot(result)
+  const groups = comparisonGroups(all, all, 'payment')
+  assert.equal(groups.find(group => group.name === 'Cartão').a.count.value, 3)
+  assert.equal(groups.find(group => group.name === 'Cartão').a.count.partial, false)
+  assert.equal(groups.find(group => group.name === 'Cartão').countDelta.absolute, 0)
+})

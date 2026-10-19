@@ -1,7 +1,7 @@
 import { prepareGoalData } from '../../utils/goalData.js'
 import { brazilDate, calculateGoalPace, dateForRecord, monthBounds, PACE_METRICS } from '../../utils/goalPace.js'
 import { goalScope, goalScopeName, isRankingParticipant } from '../../utils/goalScopes.js'
-import { buildRevenueBreakdown, revenuePaymentGroup } from '../../utils/revenueBreakdown.js'
+import { buildRevenueBreakdown, revenueSalesGroup } from '../../utils/revenueBreakdown.js'
 import { amount, hourlySales, productFamily, sumAmount } from '../../utils/salesData.js'
 import { sourceHasSales } from '../../utils/sourceAvailability.js'
 
@@ -114,8 +114,8 @@ export function buildTvData({ sales = {}, plans = [], directory = {}, plansError
       ...financialSubtotal(predicate, scopeAvailable) }]
   }))
   const payments = Object.entries(PAYMENT_NAMES).map(([id, name]) => ({ id, name,
-    ...subtotal(selectedRecords.filter(row => revenuePaymentGroup(row.payment) === id), info.field, available, sourcePartial),
-    ...financialSubtotal(row => revenuePaymentGroup(row.payment) === id),
+    ...subtotal(selectedRecords.filter(row => revenueSalesGroup(row) === id), info.field, available, sourcePartial),
+    ...financialSubtotal(row => revenueSalesGroup(row) === id),
   }))
   const inSelectedMonth = today.slice(0, 7) === key
   const dailyRecords = goalData.records.filter(row => dateForRecord(row) === today)

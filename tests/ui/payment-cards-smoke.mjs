@@ -19,9 +19,9 @@ const guru = ([id, product, gross, net, method]) => ({ hash: id, product: { name
 const hotmart = ([transaction, product, grossValue, netValue, paymentMethod]) => ({ transaction, product, grossValue, netValue, fee: grossValue - netValue, paymentMethod, currency: 'BRL', netCurrency: 'BRL', feeCurrency: 'BRL', orderDate: `${date}T12:00:00-03:00` })
 function payload(id, range = { startDate: date, endDate: date }) {
  if (range.startDate > date || range.endDate < date || scenario === 'empty') return emptyProviderPayload(id)
- if (id === 'guru') return { data: [['g-card', 'DevClub', 1050, 1000, 'credit_card'], ...(scenario === 'mixed' ? [['g-boleto', 'MBA', 750, 700, 'billet']] : [])].map(guru) }
+ if (id === 'guru') return { data: [['g-card', 'DevClub', 1050, 1000, 'credit_card'], ...(scenario === 'mixed' ? [['g-boleto', 'MBA', 750, 700, 'billet'], ['g-pix', 'DevClub', 220, 200, 'pix']] : [])].map(guru) }
  if (id === 'hotmart') {
-  const rows = [['h-card', 'DevClub', 300, 280, 'CREDIT_CARD'], ...(scenario === 'mixed' ? [['h-boleto', 'MBA', 1000, 940, 'BILLET']] : [])].map(hotmart)
+  const rows = [['h-card', 'DevClub', 300, 280, 'CREDIT_CARD'], ...(scenario === 'mixed' ? [['h-boleto', 'MBA', 1000, 940, 'BILLET'], ['h-apple', 'DevClub', 110, 100, 'APPLE_PAY'], ['h-unknown', 'DevClub', 90, 80, '']] : [])].map(hotmart)
   return { success: true, data: { financialSchemaVersion: 2, count: rows.length, totalGross: rows.reduce((sum, row) => sum + row.grossValue, 0), totalNet: rows.reduce((sum, row) => sum + row.netValue, 0), totalFees: rows.reduce((sum, row) => sum + row.fee, 0), transactions: rows } }
  }
  if (id === 'tmb') return { success: true, data: [{ id: 'tmb-1', raw: { pedido_id: 1, valor_entrada: 123 }, product: 'DevClub Vitalício', value: 800, timestamp: `${date}T10:00:00-03:00` }] }
@@ -118,11 +118,11 @@ try {
  for (const [path, width, theme] of layouts) {
   scenario = 'mixed'
   await navigate(path, width, theme)
-  assert.deepEqual(await providerIds(card('Cartão')), ['guru', 'hotmart'], 'Card providers require observed card sales')
-  const expectedBoleto = path === 'anual' ? ['guru', 'hotmart', 'tmb', 'boletex'] : ['guru', 'hotmart', 'tmb', 'asaas', 'boletex']
+  assert.deepEqual(await providerIds(card('Cartão')), ['guru', 'hotmart'], 'Every Guru/Hotmart sale belongs to Cartão regardless of payment')
+  const expectedBoleto = path === 'anual' ? ['tmb', 'boletex'] : ['tmb', 'asaas', 'boletex']
   assert.deepEqual(await providerIds(card('Boleto')), expectedBoleto, 'Boleto providers require observed boleto sales, with Asaas annual loaded on demand')
-  await assertMoney(card('Cartão').locator('.revenue-card-value'), '1.280,00', 'Card value contains net Guru and Hotmart only')
-  for (const [id, gross, cash] of [['guru', '700,00', '700,00'], ['hotmart', '940,00', '940,00'], ['tmb', '800,00', '320,00'], ['boletex', '2.000,00', null]]) {
+  await assertMoney(card('Cartão').locator('.revenue-card-value'), '3.300,00', 'Cartão includes Guru/Hotmart card, Pix, boleto, Apple Pay and unknown once')
+  for (const [id, gross, cash] of [['tmb', '800,00', '320,00'], ['boletex', '2.000,00', null]]) {
    const row = provider(card('Boleto'), id)
    await assertMoney(metric(row, ['guru', 'hotmart'].includes(id) ? 'Líquido após taxas' : 'Valor contratado'), gross)
    if (cash) await assertMoney(metric(row, 'Cash collected'), cash, `${id} cash must not deduct taxes a second time`)
@@ -134,7 +134,7 @@ try {
    await assertMoney(metric(row, 'Valor contratado'), '1.000,00')
    await assertMoney(metric(row, 'Entrada recebida'), '200,00')
    await assertMoney(metric(row, 'Cash collected'), '200,00', 'Only confirmed new-contract entry counts as Asaas sales cash')
-   await assertMoney(page.locator('.revenue-card--cash .revenue-card-value'), '3.440,00')
+   await assertMoney(page.locator('.revenue-card--cash .revenue-card-value'), '3.820,00')
   }
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${path}/${width}/${theme} overflow`)
   for (const row of await providers(card('Boleto')).all()) {
@@ -143,12 +143,25 @@ try {
   }
   await page.locator('.revenue-payment-grid').screenshot({ path: `${out}/${path}-${width}-${theme}.png`, animations: 'disabled' })
   checks.push(`${path}/${width}/${theme}: payment providers, net digital sales/contracted others/cash/entry semantics, no overflow`)
+  assert.match(await card('Cartão').locator('.revenue-card-subtitle').innerText(), /7 vendas identificadas/)
+  await assertMoney(provider(card('Cartão'), 'guru').locator('strong'), '1.900,00')
+  await assertMoney(provider(card('Cartão'), 'hotmart').locator('strong'), '1.400,00')
+  const categoryFilter = path === 'diario' ? page.getByLabel('Pagamento', { exact: true }) : page.locator('#period-payment')
+  const beforeCategory = calls.length
+  await categoryFilter.selectOption('Cartão')
+  await assertMoney(card('Cartão').locator('.revenue-card-value'), '3.300,00')
+  assert.match(await card('Cartão').locator('.revenue-card-subtitle').innerText(), /7 vendas identificadas/)
+  assert.equal(await providers(card('Boleto')).count(), 0, 'Digital boleto cannot be counted twice')
+  await assertMoney(page.getByTestId('revenue-gross-value'), '3.300,00')
+  assert.match(await page.locator(path === 'diario' ? '.daily-sales-table' : '.data-table').last().innerText(), /Pix|APPLE_PAY/, 'Original payment remains visible inside Cartão category')
+  assert.equal(calls.length, beforeCategory, 'Category filters operate on loaded records')
+  await categoryFilter.selectOption('')
   if (path === 'diario') {
    if (verifyLoading && !refreshChecked) {
     holdFinancial()
     await page.getByRole('button', { name: 'Atualizar dados', exact: true }).click()
     await page.locator('.revenue-card-value .financial-value[data-state="refreshing"]').nth(3).waitFor()
-    await assertMoney(card('Cartão').locator('.revenue-card-value'), '1.280,00')
+    await assertMoney(card('Cartão').locator('.revenue-card-value'), '3.300,00')
     for (const value of await page.locator('.revenue-card-value').all()) assert.match(await value.innerText(), /Atualizando/)
     finishFinancial()
     await page.waitForFunction(() => document.querySelector('.revenue-highlights')?.getAttribute('aria-busy') === 'false')

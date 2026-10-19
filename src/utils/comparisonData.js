@@ -1,3 +1,4 @@
+import { salesPaymentLabel } from './platformCash.js'
 import { sourceHasSales } from './sourceAvailability.js'
 import { filterSales, groupSales, hourlySales, summarizeSales, UNKNOWN, UTM_FIELDS } from './salesData.js'
 import { enrichPeriodRecord, localDay, periodSeries, summarizePeriod } from './periodData.js'
@@ -49,7 +50,7 @@ export function buildComparisonSnapshot(result, filters, range) {
   const fineFilter = Object.entries(filters).some(([key, value]) => key !== 'platform' && value)
   const unclassifiedForFilter = row => Object.entries(filters).some(([key, selected]) => {
     if (!selected || selected === UNKNOWN || key === 'platform') return false
-    const value = UTM_FIELDS.includes(key) ? row.utm[key] : row[key]
+    const value = key === 'payment' ? salesPaymentLabel(row) : UTM_FIELDS.includes(key) ? row.utm[key] : row[key]
     return !value || value === 'Não informado'
   })
   const omittedAggregates = allRecords.filter(row => (row.isAggregate || unclassifiedForFilter(row)) && (!filters.platform || row.platform === filters.platform) && !records.includes(row))
@@ -92,7 +93,10 @@ export function comparisonGroups(a, b, dimension = 'product') {
   const second = new Map(groupSales(b.sales, dimension).map(row => [row.name, row]))
   const empty = summarizeSales([])
   const metric = (snapshot, group) => {
-    const missingDistribution = snapshot.sales.some(row => row.isAggregate || !row[dimension] || row[dimension] === 'Não informado') || snapshot.allocationMissing
+    const missingDistribution = snapshot.sales.some(row => {
+      const label = dimension === 'payment' ? salesPaymentLabel(row) : row[dimension]
+      return row.isAggregate || !label || label === 'Não informado'
+    }) || snapshot.allocationMissing
     return { count: comparisonMetric(group.count, snapshot.saleHealth, missingDistribution), revenue: moneyMetric(group.revenue, snapshot.saleHealth, missingDistribution) }
   }
   return [...new Set([...first.keys(), ...second.keys()])].map(name => {
