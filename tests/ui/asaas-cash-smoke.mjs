@@ -79,6 +79,7 @@ try {
     else if (url.pathname === '/api/transactions') body = { data: [{ id: `g-${date}`, product: { name: 'DevClub' }, calculation_details: { net_amount: 100, total_amount: 120 }, dates: { created_at: timestamp } }] }
     else if (url.pathname === '/api/refunds') body = { data: [] }
     else if (url.pathname === '/api/hotmart/vendas') body = { success: true, data: { count: 0, totalGross: 0, totalNet: 0, totalFees: 0, transactions: [] } }
+    else if (['/api/hubla/vendas', '/api/hubla/reembolsos'].includes(url.pathname)) body = { success: true, data: { financialSchemaVersion: 2, count: 0, totalNet: 0, totalGross: 0, totalFees: 0, transactions: [] } }
     else if (url.pathname === '/api/hotmart/reembolsos') body = { success: true, data: { count: 0, totalRefundAmount: 0, transactions: [] } }
     else if (url.pathname.startsWith('/api/boleto/vendas/')) body = { success: true, data: [{ id: 'tmb-1', value: 200, product: 'MBA', timestamp }] }
     else if (url.pathname === '/api/boleto/boletex/vendas') body = { success: true, data: { sales: { count: 1, totalValue: 300, confirmedValue: 30, entries: [{ id: 'b1', productDescription: 'IAClub', totalValue: 300, entryValue: 30, createdAt: timestamp }] } } }

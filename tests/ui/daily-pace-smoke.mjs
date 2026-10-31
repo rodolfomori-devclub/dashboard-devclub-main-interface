@@ -38,6 +38,7 @@ await context.route('**/*',async route=>{
  else if(url.pathname==='/api/transactions')body={data:guruRows}
  else if(url.pathname==='/api/refunds')body={data:[]}
  else if(url.pathname==='/api/hotmart/vendas')body={success:true,data:{count:1,totalGross:300,totalNet:250,totalFees:50,transactions:[{transaction:'h1',product:'Seu segundo salário com IA',grossValue:300,netValue:250,fee:50,paymentMethod:'PIX',orderDate:`${date}T16:10:00-03:00`}]}}
+ else if (['/api/hubla/vendas', '/api/hubla/reembolsos'].includes(url.pathname)) body = { success: true, data: { financialSchemaVersion: 2, count: 0, totalNet: 0, totalGross: 0, totalFees: 0, transactions: [] } }
  else if(url.pathname==='/api/hotmart/reembolsos')body={success:true,data:{count:0,totalRefundAmount:0,transactions:[]}}
  else if(url.pathname.startsWith('/api/boleto/vendas/'))body={success:true,data:[{id:'tmb-1-0',raw:{pedido_id:1},product:'DevClub Vitalício',value:800,timestamp:`${date}T10:00:00-03:00`,utm_source:'comercial'}]}
  else if(url.pathname==='/api/boleto/asaas/vendas')body={success:true,data:{cashReceipts:[{date,received:900,count:1}],sales:{count:1,totalValue:1000,entryValue:200,entries:[{id:'a1',productDescription:'MBA em IA',totalValue:1000,entryValue:200,createdAt:`${date}T09:20:00-03:00`}]}}}
@@ -76,9 +77,9 @@ for(const width of [1440,360]){
     assert.match(await cashProvider('Hotmart').innerText(),/250,00/,'Hotmart contributes its complete net amount without another fee deduction')
     assert.equal(await page.evaluate(()=>Boolean(document.querySelector('.revenue-highlights').compareDocumentPosition(document.querySelector('.daily-filters'))&Node.DOCUMENT_POSITION_FOLLOWING)),true,'financial highlights must precede extensive filters')
     const paymentCard=label=>page.locator('.revenue-card').filter({has:page.getByRole('heading',{name:label,exact:true})})
-    assert.match(await paymentCard('Cartão').locator('.revenue-card-value').innerText(),/4.350,00/,'All Guru and Hotmart payments and manual sales belong to Cartão')
+    assert.match(await paymentCard('Cartão').locator('.revenue-card-value').innerText(),/4\.350,00/,'All Guru and Hotmart sales, including the manual Guru sale, use Cartão with their net amount')
     assert.match(await paymentCard('Boleto').locator('.revenue-card-value').innerText(),/3.800,00/)
-    assert.match(await page.locator('.revenue-other-payments').innerText(),/0,00/)
+    for (const value of await page.locator('.revenue-other-payments > div strong').all()) assert.equal((await value.innerText()).replace(/\s+/g, ' ').trim(), 'R$ 0,00', 'Raw Guru/Hotmart Pix and missing methods cannot create another commercial payment category')
     const beforeInteraction=apiCalls.length
     for(const label of ['Cartão','Boleto']){
      const card=paymentCard(label), detail=card.locator('details')
@@ -107,6 +108,18 @@ for(const width of [1440,360]){
     assert.match(await page.getByTestId('revenue-operational-value').innerText(),/250,00/)
     assert.equal(apiCalls.length,before,'Local filter unexpectedly refetched APIs')
     await page.getByRole('button',{name:/Limpar filtros/}).click()
+    await page.getByLabel('Pagamento', { exact: true }).selectOption('Cartão')
+    assert.match(await page.getByTestId('revenue-gross-value').innerText(), /4\.350,00/, 'The payment filter follows the same platform category as the summary')
+    assert.equal(await page.locator('.daily-sales-table tbody tr').count(), 5)
+    const guruPixRow = page.locator('.daily-sales-table tbody tr').filter({ has: page.locator('td > strong', { hasText: 'MBA em Inteligência Artificial' }) })
+    assert.equal(await guruPixRow.locator('td').nth(3).innerText(), 'Cartão')
+    await guruPixRow.locator('summary').click()
+    assert.equal(await guruPixRow.locator('dl > div').filter({ has: page.locator('dt').filter({ hasText: /^Pagamento original$/ }) }).locator('dd').innerText(), 'Pix', 'The original provider method remains available in the sale details')
+    await page.getByLabel('Pagamento', { exact: true }).selectOption('Boleto')
+    assert.match(await page.getByTestId('revenue-gross-value').innerText(), /2\.800,00/, 'The Boleto filter contains TMB 800 and Boletex 2,000; Asaas keeps its informed Boleto parcelado method')
+    assert.equal(await page.locator('.daily-sales-table tbody tr').count(), 2)
+    await page.getByRole('button',{name:/Limpar filtros/}).click()
+    assert.equal(apiCalls.length,before,'Payment filtering and original-method details stay local')
    } else {
     await page.getByLabel('Base financeira',{exact:true}).selectOption('operational')
     assert.match(await page.locator('.pace-stat').first().innerText(),/8.150,00/)

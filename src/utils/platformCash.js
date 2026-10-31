@@ -1,5 +1,5 @@
-// Guru and Hotmart use the platform's already calculated net amount everywhere.
-// `gross` remains a compatibility key for stored goals/clients; for these two
+// Guru, Hotmart and Hubla use the platform's already calculated net amount everywhere.
+// `gross` remains a compatibility key for stored goals/clients; for these
 // providers it carries the sales value after fees, never the provider gross.
 export const PLATFORM_NET_CASH_METADATA = Object.freeze({
   cashBasis: 'sales_rule', cashRule: 'platform_net_100_percent',
@@ -7,7 +7,7 @@ export const PLATFORM_NET_CASH_METADATA = Object.freeze({
 })
 
 const platformKey = value => typeof value === 'string' ? value.trim().toLowerCase() : ''
-export const isNetSalesPlatform = platform => ['guru', 'hotmart'].includes(platformKey(platform))
+export const isNetSalesPlatform = platform => ['guru', 'hotmart', 'hubla'].includes(platformKey(platform))
 export function usesPlatformNet(row) {
   const source = platformKey(row?.sourceId || row?.source)
   // A native provider identity wins over an incidental display label.
@@ -15,11 +15,15 @@ export function usesPlatformNet(row) {
   return isNetSalesPlatform(row?.platform)
 }
 
-// Reporting groups every Guru/Hotmart transaction under Cartão. Preserve the
-// provider's actual payment method on the row for transaction details/exports.
+// Commercial categories are shared by every dashboard. The checkout method
+// stays on the record for details/exports and is never rewritten by grouping.
 export function salesPaymentLabel(row) {
-  const source = platformKey(row?.sourceId || row?.source)
-  return usesPlatformNet(row) || ['gururefunds', 'hotmartrefunds'].includes(source) ? 'Cartão' : row?.payment
+  if (row?.kind !== 'sale') return row?.payment
+  const source = platformKey(row.sourceId || row.source)
+  const platform = source && source !== 'manual' ? source : platformKey(row.platform)
+  if (['guru', 'hotmart', 'hubla'].includes(platform)) return 'Cartão'
+  if (['tmb', 'boletex'].includes(platform)) return 'Boleto'
+  return row.payment
 }
 
 export function applyPlatformCashRule(row) {

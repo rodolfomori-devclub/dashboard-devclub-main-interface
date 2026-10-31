@@ -4,11 +4,10 @@ import { normalizeSource, SOURCE_DEFINITIONS } from '../../utils/salesData.js'
 import { getSalesLedger, mergeSalesOperations } from '../../services/salesOpsService.js'
 import { invalidateAsaasCashCache } from '../../services/asaasCashService.js'
 
-const cache = new Map()
-const inflight = new Map()
 const TTL = 60_000
 let generation = 0
-export function invalidateSalesCache() { generation++; cache.clear(); inflight.clear(); invalidateAsaasCashCache() }
+const providerRangeLoader = createProviderRangeLoader()
+export function invalidateSalesCache() { generation++; providerRangeLoader.invalidate(); invalidateAsaasCashCache() }
 export const salesCacheGeneration = () => generation
 const summaryFields = ['count', 'totalValue', 'entryValue', 'confirmedCount', 'listPriceValue', 'confirmedValue', 'pendingValue', 'expectedEntryValue', 'totalGross', 'totalNet', 'totalFees', 'totalRefundAmount']
 const curatedSummary = (data) => {
@@ -47,16 +46,11 @@ export async function mergeFreshSalesLedger(result, startDate, endDate, fetchLed
 
 export async function loadSalesRange(startDate, endDate, options = {}) {
   validateSalesRange(startDate, endDate)
-  const providers = await loadProviders(startDate, endDate, options)
+  const providers = await providerRangeLoader.load(startDate, endDate, options)
   return mergeFreshSalesLedger(providers, startDate, endDate)
 }
 
-async function loadProviders(startDate, endDate, { force = false, includeAsaas = true } = {}) {
-  const key = `${startDate}:${endDate}:asaas=${includeAsaas}`
-  if (inflight.has(key)) return inflight.get(key)
-  const previous = cache.get(key)
-  if (!force && previous && Date.now() - previous.fetchedAt < TTL) return previous
-  const requestGeneration = generation
+async function fetchProviderPayload(sourceId, startDate, endDate) {
   const base = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
   const daily = startDate === endDate
   const config = { timeout: daily ? 60_000 : 120_000, params: daily ? { date: startDate } : { data_inicio: startDate, data_final: endDate } }
@@ -69,23 +63,70 @@ async function loadProviders(startDate, endDate, { force = false, includeAsaas =
     boletex: () => axios.get(`${base}/boleto/boletex/vendas`, config),
     hotmart: () => axios.get(`${base}/hotmart/vendas`, config),
     hotmartRefunds: () => axios.get(`${base}/hotmart/reembolsos`, config),
+    hubla: () => axios.get(`${base}/hubla/vendas`, config),
+    hublaRefunds: () => axios.get(`${base}/hubla/reembolsos`, config),
   }
-  const request = (async () => {
-    const settled = await Promise.allSettled(SOURCE_DEFINITIONS.map(async (source) => {
-      if (source.id === 'asaas' && !includeAsaas) return { ...source, status: 'not_requested', salesAvailable: false, reason: 'annual_cash_on_demand', rows: [], cash: null }
-      const response = await loaders[source.id]()
-      return normalizeProviderSource(source.id, response.data)
-    }))
-    const sources = settled.map((result, index) => result.status === 'fulfilled' ? result.value : {
-      ...SOURCE_DEFINITIONS[index], status: 'unavailable', rows: [],
-    })
-    const result = { date: daily ? startDate : null, startDate, endDate, sources, fetchedAt: Date.now() }
-    if (requestGeneration === generation) {
-      if (cache.size >= 10) cache.delete(cache.keys().next().value)
-      cache.set(key, result)
-    }
-    return result
-  })()
-  inflight.set(key, request)
-  try { return await request } finally { if (inflight.get(key) === request) inflight.delete(key) }
+  return (await loaders[sourceId]()).data
+}
+
+// A missing commission can turn an existing platform net into null even with
+// HTTP 200. Preserve the observed snapshot only for that known identity. New
+// unknown sales, foreign currency, numeric corrections and removals are valid.
+function lostKnownNet(previous, current) {
+  if (!['guru', 'hotmart', 'hubla'].includes(current.id)) return false
+  const known = new Set(previous.rows.filter(row => row.externalId && Number.isFinite(row.net)).map(row => row.externalId))
+  return current.rows.some(row => {
+    // Hotmart purchase and commission currencies are independent. A USD order
+    // can have a BRL net, so only an explicit net currency can rule out fallback.
+    const currency = ['hotmart', 'hubla'].includes(current.id) ? row.netCurrency || row.original?.netCurrency
+      : row.netCurrency || row.currency || row.original?.payment?.currency || row.original?.currency
+    const unit = typeof currency === 'string' ? currency.trim().toUpperCase() : ''
+    return row.externalId && known.has(row.externalId) && row.net === null
+      && !(/^[A-Z]{3}$/.test(unit) && unit !== 'BRL')
+  })
+}
+
+/** Provider snapshots are isolated by exact range. A failed source cannot erase
+ * its last valid response while the other sources advance; the fresh ledger is
+ * still applied separately for every loadSalesRange call. */
+export function createProviderRangeLoader({ fetchProvider = fetchProviderPayload, now = Date.now } = {}) {
+  const cache = new Map(), inflight = new Map()
+  let revision = 0
+  const invalidate = () => { revision++; cache.clear(); inflight.clear() }
+  const load = async (startDate, endDate, { force = false, includeAsaas = true } = {}) => {
+    validateSalesRange(startDate, endDate)
+    const key = `${startDate}:${endDate}:asaas=${includeAsaas}`
+    if (inflight.has(key)) return inflight.get(key)
+    const previous = cache.get(key)
+    if (!force && previous && now() - previous.fetchedAt < TTL) return previous
+    const requestRevision = revision, attemptedAt = now()
+    const request = (async () => {
+      const settled = await Promise.allSettled(SOURCE_DEFINITIONS.map(async source => {
+        if (source.id === 'asaas' && !includeAsaas) return { ...source, status: 'not_requested', salesAvailable: false, reason: 'annual_cash_on_demand', rows: [], cash: null }
+        const payload = await fetchProvider(source.id, startDate, endDate)
+        return { ...normalizeProviderSource(source.id, payload), fetchedAt: now(), lastAttemptAt: attemptedAt }
+      }))
+      const sources = settled.map((result, index) => {
+        const definition = SOURCE_DEFINITIONS[index]
+        const old = previous?.sources.find(source => source.id === definition.id && ['ready', 'partial'].includes(source.status) && Array.isArray(source.rows))
+        const incomplete = result.status === 'fulfilled' && old && lostKnownNet(old, result.value)
+        if (result.status === 'fulfilled' && !incomplete) return result.value
+        if (old) return { ...old, status: 'partial', cacheStatus: 'stale', refreshing: false,
+          reason: incomplete ? 'financial_incomplete' : 'provider_unavailable', lastAttemptAt: attemptedAt,
+          error: incomplete ? `${definition.label}: o líquido de uma venda conhecida não foi informado. A última leitura válida foi preservada.`
+            : `Não foi possível atualizar ${definition.label}. A última leitura válida deste período foi preservada.` }
+        return { ...definition, status: 'unavailable', rows: [], fetchedAt: null, lastAttemptAt: attemptedAt,
+          reason: 'provider_unavailable', error: `Não foi possível consultar ${definition.label}. Não há uma leitura anterior deste período.` }
+      })
+      const result = { date: startDate === endDate ? startDate : null, startDate, endDate, sources, fetchedAt: now() }
+      if (requestRevision === revision) {
+        if (cache.size >= 10) cache.delete(cache.keys().next().value)
+        cache.set(key, result)
+      }
+      return result
+    })()
+    inflight.set(key, request)
+    try { return await request } finally { if (inflight.get(key) === request) inflight.delete(key) }
+  }
+  return { load, invalidate }
 }

@@ -2,20 +2,21 @@ import { applyPlatformCashRule } from './platformCash.js'
 import { sourceHasSales } from './sourceAvailability.js'
 import { summarizeSales } from './salesData.js'
 import { mergeAsaasReceiptOrigins } from './asaasSeparation.js'
+import { isCommercialSale } from './commercialSales.js'
 
 export function enrichPeriodRecord(row) {
   row = applyPlatformCashRule(row)
   const raw = row.original || {}
   const offer = raw.offer?.name || raw.product?.offer?.name || raw.offerName || raw.trackings?.utm_campaign || raw.trackings?.utm_content || raw.trackings?.offer_code || raw.order?.offer_code || null
-  return { ...row, offer, commercial: row.platform === 'Guru' && raw.trackings?.utm_source === 'comercial' }
+  return { ...row, offer, commercial: isCommercialSale(row) }
 }
 
 export function summarizePeriod(records) {
   const sales = records.filter(row => row.kind === 'sale').map(applyPlatformCashRule)
   const refunds = records.filter(row => row.kind === 'refund')
-  const digital = sales.filter(row => ['Guru', 'Hotmart'].includes(row.platform))
+  const digital = sales.filter(row => ['Guru', 'Hotmart', 'Hubla'].includes(row.platform))
   const boleto = sales.filter(row => ['TMB', 'Asaas', 'Boletex'].includes(row.platform))
-  const commercial = sales.filter(row => row.commercial)
+  const commercial = sales.filter(isCommercialSale)
   const base = summarizeSales(sales)
   return { sales, refunds, total: base, digital: summarizeSales(digital), boleto: summarizeSales(boleto), commercial: summarizeSales(commercial), refund: summarizeSales(refunds), ticket: base.count && base.revenue.known ? base.revenue.value / base.count : null }
 }
@@ -54,8 +55,8 @@ export function periodSeries(records, startDate, endDate, monthly = false) {
     // Affiliate value is supplied by Guru; unsupported fields on other
     // platforms do not invalidate this explicitly Guru-based series.
     if ((row.platform === 'Guru' && !row.isManual) || row.affiliate != null) add(bucket, 'affiliate', row.affiliate)
-    if (row.commercial) add(bucket, 'commercial', row.revenue)
-    if (['Guru', 'Hotmart'].includes(row.platform)) add(bucket, 'digital', row.revenue)
+    if (isCommercialSale(row)) add(bucket, 'commercial', row.revenue)
+    if (['Guru', 'Hotmart', 'Hubla'].includes(row.platform)) add(bucket, 'digital', row.revenue)
     else if (['TMB', 'Asaas', 'Boletex'].includes(row.platform)) add(bucket, 'boleto', row.revenue)
   }
   return { rows: [...buckets.values()], undated }

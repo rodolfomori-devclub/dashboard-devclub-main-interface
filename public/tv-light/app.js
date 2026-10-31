@@ -1,7 +1,7 @@
 /* Classic ES5 entry: keep independent of the Workspace and modern browser APIs. */
 (function () {
   'use strict';
-  var titles = { 'monthly-goal': 'Meta do mês', pace: 'Ritmo da meta', 'team-goals': 'Metas dos times', 'product-goals': 'Metas dos produtos', sellers: 'Top vendedores', products: 'Top produtos', daily: 'Vendas do dia', 'payment-mix': 'Categorias de venda' };
+  var titles = { 'monthly-goal': 'Meta do mês', pace: 'Ritmo da meta', 'team-goals': 'Metas dos times', 'product-goals': 'Metas dos produtos', sellers: 'Top vendedores', products: 'Top produtos', daily: 'Total do dia', 'daily-payments': 'Cartão vs boleto · hoje', 'daily-cash': 'Cash collected do dia', 'daily-sellers': 'Top vendedores do dia', 'payment-mix': 'Meios de pagamento', weekly: 'Acumulado da semana', 'weekly-payments': 'Cartão vs boleto · semana', 'weekly-cash': 'Cash collected da semana', 'weekly-sellers': 'Top vendedores da semana' };
   var months = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
   var snapshot = null, panels = [], current = 0, paused = false, stale = false, lastFresh = 0, retryTimer = null, rotationTimer = null, expiryTimer = null, request = null, stopped = false, terminal = false, settingsKey = '';
   var title = document.getElementById('tv-light-title');
@@ -16,6 +16,15 @@
   var pauseButton = document.getElementById('tv-light-pause');
   var retryButton = document.getElementById('tv-light-retry');
   var fullButton = document.getElementById('tv-light-fullscreen');
+  var soundButton = document.getElementById('tv-light-sound');
+  var testButton = document.getElementById('tv-light-test');
+  var audioStatus = document.getElementById('tv-light-audio-status');
+  var celebration = document.getElementById('tv-light-celebration');
+  var saleTracker = typeof window.createTvSaleTracker === 'function' ? window.createTvSaleTracker() : null;
+  var celebrationTransportHealthy = false, celebrationSourceTimes = Object.create(null);
+  var celebrationQueue = [], activeCelebration = null, celebrationTimer = null, celebrationFocus = null;
+  var audioContext = null, audioSession = null, audioEnabled = false, audioPending = false, audioGeneration = 0;
+
   var path = /^\/tv-light(?:\/([A-Za-z0-9_-]{16}))?\/?$/.exec(window.location.pathname);
   var api = typeof window.TV_LIGHT_API_URL === 'string' ? window.TV_LIGHT_API_URL.replace(/\/$/, '') : '';
 
@@ -27,6 +36,134 @@
     var parts = Math.abs(value).toFixed(decimals).split('.');
     var text = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.') + (decimals ? ',' + parts[1] : '');
     return (value < 0 ? '−' : '') + (unit === 'currency' ? 'R$ ' : '') + text + (unit === 'percent' ? '%' : '');
+  }
+  // Fixed, approved preset: confetti for five seconds; original Victory score
+  // at 100%; output volume is controlled on the computer. No audio object is created before a deliberate browser gesture.
+  function soundControls(message) {
+    var label = audioEnabled ? 'Silenciar som' : audioPending ? 'Ativando som…' : 'Ativar som';
+    soundButton.textContent = label; soundButton.setAttribute('aria-pressed', String(audioEnabled));
+    var overlayButton = document.getElementById('tv-light-celebration-sound');
+    if (overlayButton) { overlayButton.textContent = label; overlayButton.setAttribute('aria-pressed', String(audioEnabled)); }
+    if (message) audioStatus.textContent = message;
+  }
+  function stopSound() {
+    if (!audioSession) return;
+    var session = audioSession, now = audioContext ? audioContext.currentTime : 0;
+    audioSession = null;
+    clearTimeout(session.timer);
+    session.params.forEach(function (parameter) { try { parameter.cancelScheduledValues(now); } catch (error) { void error; } });
+    try { session.master.gain.setValueAtTime(0, now); } catch (error) { void error; }
+    session.sources.forEach(function (source) { try { source.stop(); } catch (error) { void error; } });
+    session.nodes.forEach(function (node) { try { node.disconnect(); } catch (error) { void error; } });
+  }
+  function toggleSound() {
+    audioGeneration++;
+    if (audioEnabled || audioPending) { audioEnabled = false; audioPending = false; stopSound(); soundControls('Som desativado · as comemorações continuam visuais'); return; }
+    var generation = audioGeneration;
+    function blocked() {
+      if (generation !== audioGeneration) return;
+      audioEnabled = false; audioPending = false;
+      soundControls('Som indisponível neste navegador · a comemoração visual continua');
+    }
+    function unlocked() {
+      if (generation !== audioGeneration || document.hidden || stopped) return;
+      if (!audioContext || audioContext.state !== 'running') { blocked(); return; }
+      audioEnabled = true; audioPending = false;
+      soundControls('Som ativado · Vitória · volume 100%');
+    }
+    try {
+      var AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) { blocked(); return; }
+      if (!audioContext || audioContext.state === 'closed') audioContext = new AudioContext();
+      audioPending = true; soundControls('Liberando o som neste navegador…');
+      var resumed = audioContext.state === 'running' ? null : audioContext.resume();
+      if (resumed && typeof resumed.then === 'function') resumed.then(unlocked, blocked);
+      else unlocked();
+    } catch (error) { void error; blocked(); }
+  }
+  function playVictory() {
+    stopSound();
+    if (!audioEnabled || document.hidden || stopped) return;
+    if (!audioContext || audioContext.state !== 'running') {
+      audioEnabled = false; soundControls('Clique em Ativar som para liberar o áudio novamente'); return;
+    }
+    try {
+      var session = { sources: [], nodes: [], params: [], master: audioContext.createGain(), start: audioContext.currentTime + 0.015, timer: null };
+      audioSession = session; session.nodes.push(session.master); session.params.push(session.master.gain);
+      session.master.gain.setValueAtTime(1, audioContext.currentTime); session.master.connect(audioContext.destination);
+      var tone = function (at, midi, duration, type, level) {
+        var source = audioContext.createOscillator(), envelope = audioContext.createGain(), start = session.start + at, end = start + duration;
+        session.sources.push(source); session.nodes.push(source, envelope); session.params.push(source.frequency, envelope.gain);
+        source.type = type; source.frequency.setValueAtTime(440 * Math.pow(2, (midi - 69) / 12), start);
+        envelope.gain.setValueAtTime(0, start);
+        envelope.gain.linearRampToValueAtTime(level, start + Math.min(0.008, duration / 4));
+        envelope.gain.exponentialRampToValueAtTime(0.0001, end);
+        source.connect(envelope); envelope.connect(session.master); source.start(start); source.stop(end);
+      };
+      [[0, 67, 0.15], [0.19, 72, 0.15], [0.38, 76, 0.18], [0.64, 79, 0.38], [1.08, 76, 0.16], [1.3, 79, 0.18], [1.6, 84, 1.06]].forEach(function (note) {
+        tone(note[0], note[1], note[2], 'triangle', 0.2); tone(note[0], note[1] - 12, note[2], 'sawtooth', 0.035);
+      });
+      [48, 60, 64, 67].forEach(function (midi) { tone(1.6, midi, 1.06, 'triangle', 0.08); });
+      session.timer = setTimeout(stopSound, 2800);
+    } catch (error) { void error; stopSound(); audioEnabled = false; soundControls('Não foi possível tocar o som · a comemoração visual continua'); }
+  }
+  function dismissCelebration() {
+    clearTimeout(celebrationTimer); celebrationTimer = null; stopSound();
+    var restoreFocus = celebration.contains(document.activeElement);
+    celebration.style.display = 'none'; celebration.innerHTML = ''; activeCelebration = null;
+    if (restoreFocus && celebrationFocus && typeof celebrationFocus.focus === 'function') celebrationFocus.focus();
+    celebrationFocus = null;
+  }
+  function skipCelebrations() { celebrationQueue = []; dismissCelebration(); }
+  function clearCelebrations() {
+    celebrationQueue = []; celebrationSourceTimes = Object.create(null); dismissCelebration();
+    if (saleTracker) saleTracker.reset();
+    // A resume promise must not unlock audio after the page has been hidden.
+    audioGeneration++;
+    if (audioPending) { audioPending = false; soundControls('Som desativado · ative para ouvir novas vendas'); }
+  }
+  function currentSale(event) {
+    var time = Date.parse(event.occurredAt), now = Date.now();
+    return finite(time) && time <= now + 60000 && now - time <= 600000 &&
+      new Date(time - 10800000).toISOString().slice(0, 10) === new Date(now - 10800000).toISOString().slice(0, 10);
+  }
+  function nextCelebration() {
+    if (activeCelebration || document.hidden || stopped || terminal || !celebrationTransportHealthy || !snapshot || !snapshot.model) return;
+    var event;
+    while (celebrationQueue.length) { event = celebrationQueue.shift(); if (event.preview || currentSale(event)) break; event = null; }
+    if (!event) return;
+    activeCelebration = event; celebrationFocus = document.activeElement;
+    var label = event.preview ? 'Venda de teste' : 'Nova venda!';
+    var seller = event.sellerName || 'Venda confirmada';
+    var confetti = '', colors = ['#54ead4', '#8c9cff', '#c297ff', '#f1f5ff'];
+    for (var i = 0; i < 30; i++) confetti += '<i style="left:' + ((i * 37 + 7) % 101) + '%;background:' + colors[i % 4] + ';animation-delay:' + (i % 6 * 65) + 'ms"></i>';
+    celebration.innerHTML = '<section class="tv-light-celebration" data-testid="tv-celebration" data-animation="confetti" data-preview="' + Boolean(event.preview) + '" aria-label="Comemoração de nova venda">' +
+      '<p class="tv-light-announcement" role="status" aria-live="polite" aria-atomic="true">' + esc(label + ' ' + amount(event.amount, 'currency') + '. ' + seller + (event.preview ? '. Simulação, sem registrar venda.' : '')) + '</p>' +
+      '<div class="tv-light-confetti" aria-hidden="true">' + confetti + '</div>' +
+      '<div class="tv-light-celebration-controls"><button id="tv-light-celebration-sound" type="button" aria-pressed="' + audioEnabled + '">' + (audioEnabled ? 'Silenciar som' : 'Ativar som') + '</button><button id="tv-light-celebration-dismiss" type="button" aria-label="Encerrar comemoração">×</button></div>' +
+      '<div class="tv-light-celebration-stage"><div class="tv-light-celebration-copy" aria-hidden="true"><h2>' + label + '</h2><strong data-testid="sale-celebration-amount">' + amount(event.amount, 'currency') + '</strong><p>' + esc(seller) + '</p>' +
+      (event.preview ? '<small>Simulação · nenhuma venda será registrada</small>' : '') + '</div></div></section>';
+    celebration.style.display = 'block';
+    document.getElementById('tv-light-celebration-dismiss').onclick = skipCelebrations;
+    document.getElementById('tv-light-celebration-sound').onclick = toggleSound;
+    soundControls(); playVictory();
+    celebrationTimer = setTimeout(function () { dismissCelebration(); nextCelebration(); }, 5000);
+  }
+  function consumeCelebrations(value) {
+    if (!saleTracker || !value.model || document.hidden || stopped) { clearCelebrations(); return; }
+    var feed = value.model.celebrations, today = new Date(Date.now() - 10800000).toISOString().slice(0, 10), readySources = {};
+    if (!feed || feed.day !== today || !Array.isArray(feed.groups)) { clearCelebrations(); return; }
+    feed.groups.forEach(function (group) {
+      if (!group || !Array.isArray(group.events)) return;
+      if (group.ready === true) celebrationSourceTimes[group.source] = Date.now();
+      if (group.ready === true || (group.refreshing === true && celebrationSourceTimes[group.source] && Date.now() - celebrationSourceTimes[group.source] <= 120000)) readySources[group.source] = true;
+    });
+    Object.keys(celebrationSourceTimes).forEach(function (source) { if (!readySources[source]) delete celebrationSourceTimes[source]; });
+    celebrationQueue = celebrationQueue.filter(function (event) { return event.preview || readySources[event.source]; });
+    if (activeCelebration && !activeCelebration.preview && !readySources[activeCelebration.source]) dismissCelebration();
+    var events = saleTracker.consume(feed, { now: Date.now(), active: true, healthy: true });
+    celebrationQueue = celebrationQueue.concat(events).slice(-100);
+    nextCelebration();
   }
   function basis(model) { return model.metric === 'cash' ? 'Cash collected' : model.metric === 'count' ? 'Quantidade de vendas' : 'Valor bruto'; }
   function partial(row, field) { return stale || (row && (typeof row[field + 'Partial'] === 'boolean' ? row[field + 'Partial'] : row.partial)) ? ' · parcial' : ''; }
@@ -71,6 +208,7 @@
     var people = kind === 'sellers' || kind === 'team-goals';
     var html, row, pace, i;
     if (people && model.directoryError) return empty('Participantes indisponíveis', 'Não foi possível confirmar os times e vendedores. A TV tentará novamente.');
+    if (kind === 'sellers' && model.attributionAvailable === false && !rows.length) return empty('Atribuições indisponíveis', 'Não foi possível identificar os vendedores deste período. A TV tentará novamente.');
     if (!rows.length) return empty(goals ? model.plansError ? 'Metas indisponíveis' : 'Sem metas nesta base' : 'Sem resultados neste painel', goals ? 'Confira as metas e a base selecionada na configuração da TV.' : 'Os indicadores aparecerão quando houver novas vendas identificadas.');
     html = '<table class="tv-light-table' + (goals ? ' tv-light-table-goals' : '') + '"><thead><tr><th scope="col">' + (goals ? 'Meta · ' + esc(basis(model)) : 'Ordenação · ' + esc(basis(model))) + '</th><th scope="col">Valor bruto</th><th scope="col">Cash collected</th><th scope="col">' + (goals ? 'Atingimento' : 'Vendas') + '</th></tr></thead><tbody>';
     for (i = 0; i < rows.length && i < 5; i++) {
@@ -93,15 +231,27 @@
       if (model.attributionAvailable === false) html += note('Atribuições indisponíveis.');
     }
     if (goals) html += note('Cada atingimento usa a própria meta em ' + basis(model) + '.');
-    if (kind === 'payment-mix') html += note('Cartão inclui todas as vendas Guru e Hotmart, em qualquer meio. Faturas de vendas passadas ficam fora desta composição.');
+    if (kind === 'payment-mix') html += note('Guru, Hotmart e Hubla: Cartão. TMB e Boletex: Boleto. Somente novas vendas.');
     return html;
   }
-  function daily(model) {
-    var day = model.daily;
-    if (!day.inSelectedMonth) return empty('Hoje está fora do mês selecionado', 'Selecione Mês atual na programação para acompanhar as vendas do dia.');
-    var html = hero(day, 'hoje · horário de Brasília');
-    html += '<div class="tv-light-stat-table">' + stat('Vendas realizadas hoje', day.count, 'count') + stat('Realizado · ' + basis(model), day.value, model.unit) + '</div>';
-    html += note('Dia ' + displayDate(day.date) + ' · horário de Brasília.' + (day.unknownHourCount > 0 ? ' ' + amount(day.unknownHourCount, 'count') + ' vendas com horário não informado.' : ''));
+  function daily(model, kind) {
+    var isWeekly = kind.indexOf('weekly') === 0, day = isWeekly ? model.weekly : model.daily;
+    var periodLabel = isWeekly ? 'acumulado da semana' : 'hoje';
+    var periodNote = isWeekly ? 'De ' + displayDate(day.startDate) + ' a ' + displayDate(day.endDate) + ' · segunda-feira até hoje · horário de Brasília.' : 'Dia ' + displayDate(day.date) + ' · horário de Brasília.';
+    if (!isWeekly && !day.inSelectedMonth) return empty('Hoje está fora do mês selecionado', 'Selecione Mês atual na programação para acompanhar as vendas do dia.');
+    if (kind === 'daily-payments' || kind === 'daily-sellers' || kind === 'weekly-payments' || kind === 'weekly-sellers') {
+      return table({ metric: model.metric, unit: model.unit, payments: day.payments && day.payments.filter(function (row) { return row.id === 'card' || row.id === 'boleto' || row.value !== 0 || row.count > 0; }), sellers: day.sellers,
+        unassigned: { seller: day.unassignedSeller }, directoryError: model.directoryError, attributionAvailable: isWeekly ? day.attributionAvailable : model.attributionAvailable }, kind.indexOf('payments') !== -1 ? 'payment-mix' : 'sellers')
+        + note(periodNote);
+    }
+    if (kind === 'daily-cash' || kind === 'weekly-cash') {
+      return '<div class="tv-light-hero tv-light-cash-focus"><div class="tv-light-hero-cell"><span class="tv-light-label">Cash collected · ' + periodLabel + partial(day, 'cash') + '</span><strong class="tv-light-cash" data-testid="tv-main-value"><span data-testid="tv-cash-value">' + amount(day.cash, 'currency') + '</span></strong><span class="tv-light-label">Novas vendas ' + (isWeekly ? 'da semana' : 'do dia') + '</span></div><div class="tv-light-hero-cell"><span class="tv-light-label">Valor bruto' + partial(day, 'gross') + '</span><strong class="tv-light-gross" data-testid="tv-gross-value">' + amount(day.gross, 'currency') + '</strong></div></div>'
+        + '<div class="tv-light-stat-table">' + stat('Vendas realizadas · ' + periodLabel, day.count, 'count') + '</div>'
+        + note(periodNote + ' Somente cash collected de novas vendas. Recebimentos de faturas de vendas passadas não entram neste total.');
+    }
+    var html = hero(day, periodLabel + ' · horário de Brasília');
+    html += '<div class="tv-light-stat-table">' + stat('Vendas realizadas · ' + periodLabel, day.count, 'count') + stat('Realizado · ' + basis(model), day.value, model.unit) + '</div>';
+    html += note(periodNote + (!isWeekly && day.unknownHourCount > 0 ? ' ' + amount(day.unknownHourCount, 'count') + ' vendas com horário não informado.' : ''));
     return html;
   }
   function displayDate(value) { var match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value || ''); return match ? match[3] + '/' + match[2] + '/' + match[1] : '—'; }
@@ -117,6 +267,7 @@
     var enabled = Boolean(snapshot && snapshot.model && panels.length > 1);
     previousButton.disabled = !enabled; nextButton.disabled = !enabled; pauseButton.disabled = !enabled;
     pauseButton.textContent = paused ? 'Retomar' : 'Pausar';
+    testButton.disabled = !snapshot || !snapshot.model || !celebrationTransportHealthy || terminal;
   }
   function state(heading, text, stateName) {
     document.body.setAttribute('data-tv-state', stateName);
@@ -132,9 +283,10 @@
     document.body.setAttribute('data-tv-state', stale ? 'stale' : 'ready');
     title.textContent = titles[id]; panel.setAttribute('data-panel-id', id);
     eyebrow.textContent = 'Painel ' + (current + 1) + ' de ' + panels.length + (paused ? ' · pausado' : '');
-    context.textContent = monthLabel(model.month || snapshot.settings.month) + ' · ' + basis(model);
-    panel.innerHTML = id === 'monthly-goal' || id === 'pace' ? goal(model, id === 'pace') : id === 'daily' ? daily(model) : table(model, id);
-    status.textContent = stale ? 'Última leitura · dados parciais' : model.totals.partial || snapshot.error ? 'Dados parciais · atualização automática' : snapshot.refreshing ? 'Atualizando os indicadores…' : 'Atualização automática · 30 segundos';
+    context.textContent = (id.indexOf('weekly') === 0 ? displayDate(model.weekly.startDate) + ' a ' + displayDate(model.weekly.endDate) + ' · Brasília' : id.indexOf('daily') === 0 ? displayDate(model.daily.date) + ' · Brasília' : monthLabel(model.month || snapshot.settings.month)) + ' · ' + (id === 'daily-cash' || id === 'weekly-cash' ? 'Cash collected' : basis(model));
+    panel.innerHTML = id === 'monthly-goal' || id === 'pace' ? goal(model, id === 'pace') : id.indexOf('daily') === 0 || id.indexOf('weekly') === 0 ? daily(model, id) : table(model, id);
+    var partialData = id.indexOf('weekly') === 0 ? model.weekly.partial : model.totals.partial;
+    status.textContent = stale ? 'Última leitura · dados parciais' : partialData || snapshot.error ? 'Dados parciais · atualização automática' : snapshot.refreshing ? 'Atualizando os indicadores…' : 'Atualização automática · 30 segundos';
     updated.textContent = readingTime(snapshot.updatedAt);
     noticeText(stale ? 'Atualização indisponível. Exibindo a última leitura.' : snapshot.error ? 'Alguns indicadores estão indisponíveis. A TV tentará novamente.' : '');
     controls();
@@ -147,7 +299,7 @@
   function move(direction) { if (!snapshot || !snapshot.model || panels.length < 2) return; current = (current + direction + panels.length) % panels.length; render(); rotate(); }
   function valid(value) {
     var settings = value && value.settings, seen = {}, i, item, model = value && value.model;
-    if (!settings || settings.version !== 1 || (settings.mode !== 'rotate' && settings.mode !== 'fixed') || !/^(gross|cash|count)$/.test(settings.metric) || !/^(dark|light|system)$/.test(settings.theme) || !Array.isArray(settings.panels) || !settings.panels.length || settings.panels.length > 8 || !finite(value.revision) || value.revision < 0 || Math.floor(value.revision) !== value.revision) return false;
+    if (!settings || settings.version !== 1 || (settings.mode !== 'rotate' && settings.mode !== 'fixed') || !/^(gross|cash|count)$/.test(settings.metric) || !/^(dark|light|system)$/.test(settings.theme) || !Array.isArray(settings.panels) || !settings.panels.length || settings.panels.length > 15 || !finite(value.revision) || value.revision < 0 || Math.floor(value.revision) !== value.revision) return false;
     for (i = 0; i < settings.panels.length; i++) {
       item = settings.panels[i];
       if (!item || !Object.prototype.hasOwnProperty.call(titles, item.id) || seen[item.id] || item.enabled !== true || !finite(item.durationSeconds) || Math.floor(item.durationSeconds) !== item.durationSeconds || item.durationSeconds < 10 || item.durationSeconds > 120) return false;
@@ -160,9 +312,14 @@
       item = settings.panels[i].id;
       if (item === 'monthly-goal' && (!model.overview || !Array.isArray(model.overview.rows))) return false;
       if (item === 'pace' && (!model.pace || !Array.isArray(model.pace.rows))) return false;
-      if (item === 'daily' && (!model.daily || !Array.isArray(model.daily.hours))) return false;
-      var rows = item === 'team-goals' ? model.teamGoals : item === 'product-goals' ? model.productGoals : item === 'payment-mix' ? model.payments : item === 'sellers' ? model.sellers : item === 'products' ? model.products : null;
-      if (item === 'team-goals' || item === 'product-goals' || item === 'payment-mix' || item === 'sellers' || item === 'products') {
+      if ((item === 'daily' || item === 'daily-cash') && (!model.daily || !Array.isArray(model.daily.hours))) return false;
+      if (item === 'daily-payments' && (!model.daily || !Array.isArray(model.daily.payments))) return false;
+      if (item === 'daily-sellers' && (!model.daily || !Array.isArray(model.daily.sellers) || !model.daily.unassignedSeller)) return false;
+      if (item.indexOf('weekly') === 0 && (!model.weekly || !/^\d{4}-\d{2}-\d{2}$/.test(model.weekly.startDate || '') || !/^\d{4}-\d{2}-\d{2}$/.test(model.weekly.endDate || ''))) return false;
+      if ((item === 'weekly' || item === 'weekly-cash') && !Array.isArray(model.weekly.days)) return false;
+      if (item === 'weekly-sellers' && !model.weekly.unassignedSeller) return false;
+      var rows = item === 'team-goals' ? model.teamGoals : item === 'product-goals' ? model.productGoals : item === 'payment-mix' ? model.payments : item === 'sellers' ? model.sellers : item === 'products' ? model.products : item === 'daily-payments' ? model.daily.payments : item === 'daily-sellers' ? model.daily.sellers : item === 'weekly-payments' ? model.weekly.payments : item === 'weekly-sellers' ? model.weekly.sellers : null;
+      if (item === 'team-goals' || item === 'product-goals' || item === 'payment-mix' || item === 'sellers' || item === 'products' || item === 'daily-payments' || item === 'daily-sellers' || item === 'weekly-payments' || item === 'weekly-sellers') {
         if (!Array.isArray(rows)) return false;
         for (var j = 0; j < rows.length; j++) if (!rows[j] || typeof rows[j] !== 'object' || ((item === 'team-goals' || item === 'product-goals') && !rows[j].pace)) return false;
       }
@@ -175,11 +332,11 @@
     if (!snapshot || !snapshot.model) return;
     var remaining = 300000 - (Date.now() - lastFresh);
     if (remaining > 0) { expiryTimer = setTimeout(expire, remaining); return; }
-    snapshot = null; stale = true; clearTimeout(rotationTimer); rotationTimer = null; noticeText('A última leitura expirou. A TV tentará atualizar novamente.');
+    celebrationTransportHealthy = false; clearCelebrations(); snapshot = null; stale = true; clearTimeout(rotationTimer); rotationTimer = null; noticeText('A última leitura expirou. A TV tentará atualizar novamente.');
     state('Não foi possível atualizar a TV', 'Confira a conexão. Os indicadores serão exibidos assim que a atualização for concluída.', 'unavailable');
   }
   function failed() {
-    stale = true;
+    celebrationTransportHealthy = false; clearCelebrations(); stale = true;
     if (snapshot && snapshot.model && Date.now() - lastFresh < 300000) { render(); expire(); }
     else { snapshot = null; clearTimeout(rotationTimer); rotationTimer = null; noticeText('A conexão está temporariamente indisponível.'); state('Não foi possível atualizar a TV', 'Confira a conexão e tente novamente. Uma nova tentativa será feita automaticamente.', 'unavailable'); }
     schedule(15000);
@@ -188,14 +345,16 @@
     var key = JSON.stringify(value.settings), changed = key !== settingsKey;
     var freshTimestamp = Date.parse(value.updatedAt), oldId = panels[current] && panels[current].id;
     if (value.model && finite(freshTimestamp) && Date.now() - freshTimestamp >= 300000) { failed(); return; }
+    celebrationTransportHealthy = Boolean(value.model);
     snapshot = value; panels = value.settings.panels; settingsKey = key; terminal = false;
     stale = Boolean(value.error && value.model);
     if (changed) { current = 0; for (var i = 0; i < panels.length; i++) if (panels[i].id === oldId) current = i; }
     if (value.model) {
       lastFresh = finite(freshTimestamp) ? Math.min(Date.now(), freshTimestamp) : Date.now();
       render(); expire(); if (changed || !rotationTimer) rotate();
+      consumeCelebrations(value);
     } else {
-      clearTimeout(rotationTimer); rotationTimer = null; clearTimeout(expiryTimer); noticeText('');
+      clearCelebrations(); clearTimeout(rotationTimer); rotationTimer = null; clearTimeout(expiryTimer); noticeText('');
       state(value.loading ? 'Carregando os indicadores' : 'Indicadores indisponíveis', value.loading ? 'Preparando a programação. A TV continuará tentando automaticamente.' : 'A TV tentará carregar os indicadores novamente em instantes.', value.loading ? 'loading' : 'unavailable');
     }
     schedule(value.loading || value.refreshing ? 5000 : value.model ? 30000 : 15000);
@@ -209,7 +368,7 @@
       if (finished) return; finished = true; clearTimeout(watchdog); request = null; retryButton.disabled = false;
       if (stopped) return;
       if (kind === 'response' && (xhr.status === 403 || xhr.status === 404 || xhr.status === 410)) {
-        terminal = true; snapshot = null; stale = false; clearTimeout(rotationTimer); rotationTimer = null; clearTimeout(expiryTimer); noticeText('');
+        celebrationTransportHealthy = false; clearCelebrations(); terminal = true; snapshot = null; stale = false; clearTimeout(rotationTimer); rotationTimer = null; clearTimeout(expiryTimer); noticeText('');
         state('Link da TV indisponível', 'O link foi desativado, substituído ou não existe. Solicite ao administrador que confira o acesso público da TV.', 'unavailable');
         return;
       }
@@ -228,6 +387,8 @@
       xhr.send(null);
     } catch (error) { void error; /* Older browsers can throw while opening or sending XHR. */ finish('error'); }
   }
+  soundButton.onclick = toggleSound;
+  testButton.onclick = function () { if (testButton.disabled || document.hidden || activeCelebration) return; celebrationQueue.push({ preview: true, amount: 1297 }); nextCelebration(); };
   previousButton.onclick = function () { move(-1); };
   nextButton.onclick = function () { move(1); };
   pauseButton.onclick = function () { paused = !paused; render(); rotate(); };
@@ -240,15 +401,16 @@
     } catch (error) { void error; /* The presentation also works in the browser window. */ }
   };
   document.addEventListener('keydown', function (event) {
+    if (event.keyCode === 27 && activeCelebration) { event.preventDefault(); skipCelebrations(); return; }
     var target = event.target && event.target.tagName;
     if (target === 'INPUT' || target === 'TEXTAREA' || target === 'SELECT') return;
     if (event.keyCode === 37) { event.preventDefault(); move(-1); }
     if (event.keyCode === 39) { event.preventDefault(); move(1); }
     if (event.keyCode === 32 && target !== 'BUTTON' && snapshot && panels.length > 1) { event.preventDefault(); paused = !paused; render(); rotate(); }
   });
-  document.addEventListener('visibilitychange', function () { if (!document.hidden && !terminal) { expire(); load(); } });
+  document.addEventListener('visibilitychange', function () { celebrationTransportHealthy = false; clearCelebrations(); if (!document.hidden && !terminal) { expire(); load(); } });
   window.addEventListener('online', function () { if (!terminal) load(); });
-  window.addEventListener('pagehide', function () { stopped = true; clearTimeout(retryTimer); clearTimeout(rotationTimer); clearTimeout(expiryTimer); if (request) { try { request.abort(); } catch (error) { void error; /* Page cleanup must finish even when abort is unavailable. */ } request = null; } });
+  window.addEventListener('pagehide', function () { stopped = true; celebrationTransportHealthy = false; clearCelebrations(); clearTimeout(retryTimer); clearTimeout(rotationTimer); clearTimeout(expiryTimer); if (request) { try { request.abort(); } catch (error) { void error; /* Page cleanup must finish even when abort is unavailable. */ } request = null; } });
   window.addEventListener('pageshow', function () { if (stopped) { stopped = false; expire(); if (!terminal) load(); rotate(); } });
   if (!path) { terminal = true; state('Link da TV indisponível', 'Confira o endereço do link público da TV Light.', 'unavailable'); }
   else if (!api) { state('Não foi possível iniciar a TV Light', 'A configuração da conexão não foi carregada. Recarregue esta página.', 'unavailable'); retryButton.onclick = function () { window.location.reload(); }; }

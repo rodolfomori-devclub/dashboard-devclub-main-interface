@@ -8,6 +8,7 @@
   <title>DevClub · TV Light</title>
   <link rel="stylesheet" href="/tv-light/style.css">
   <script defer src="/tv-light/config.js"></script>
+  <script defer src="/tv-light/celebration-core.js"></script>
   <script defer src="/tv-light/app.js"></script>
 </head>
 <body data-tv-state="loading" data-tv-theme="dark">
@@ -22,15 +23,18 @@
       <section id="tv-light-panel" aria-labelledby="tv-light-title"><div class="tv-light-empty"><p>Preparando os indicadores. Se esta mensagem continuar, confira a conexão e tente novamente.</p><noscript><p>Ative o JavaScript no navegador da TV para exibir os indicadores.</p></noscript></div></section>
     </main>
     <footer class="tv-light-footer">
-      <div class="tv-light-footer-info"><p id="tv-light-status" role="status">Conectando…</p><p id="tv-light-updated">Atualização automática</p></div>
+      <div class="tv-light-footer-info"><p id="tv-light-status" role="status">Conectando…</p><p id="tv-light-updated">Atualização automática</p><p id="tv-light-audio-status" role="status">Som desativado · ative para ouvir novas vendas</p></div>
       <div class="tv-light-controls" aria-label="Controles da TV">
         <button type="button" id="tv-light-prev" aria-label="Painel anterior" disabled>Anterior</button>
         <button type="button" id="tv-light-pause" disabled>Pausar</button>
         <button type="button" id="tv-light-next" aria-label="Próximo painel" disabled>Próximo</button>
         <button type="button" id="tv-light-retry">Tentar novamente</button>
         <button type="button" id="tv-light-fullscreen">Tela cheia</button>
+        <button type="button" id="tv-light-sound" aria-pressed="false">Ativar som</button>
+        <button type="button" id="tv-light-test" disabled>Testar comemoração</button>
       </div>
     </footer>
   </div>
+  <div id="tv-light-celebration" style="display:none"></div>
 </body>
 </html>

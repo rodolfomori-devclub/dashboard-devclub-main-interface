@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
 import { expect } from '@playwright/test'
 import { buildTvData } from '../../src/components/tv/tvData.js'
-import { defaultTvSettings } from '../../src/components/tv/tvConfig.js'
+import { defaultTvSettings, TV_PANELS } from '../../src/components/tv/tvConfig.js'
 import { expectTvDual, expectTvScene } from './tv-dual-metrics-assertions.mjs'
 
 const root = fileURLToPath(new URL('../../', import.meta.url))
@@ -28,6 +28,12 @@ const initialModel = buildTvData({ year: 2026, month: 10, today: '2026-10-15', m
 })
 delete initialModel.directory // Public projection does not include the internal identity directory.
 assert.equal(Math.round(initialModel.totals.cash * 100), 123364)
+assert.equal(initialModel.weekly.startDate, '2026-10-12')
+assert.equal(initialModel.weekly.endDate, '2026-10-15')
+assert.equal(initialModel.weekly.count, 1)
+assert.equal(initialModel.weekly.gross, 277.88)
+assert.equal(initialModel.weekly.cash, 277.88)
+assert.deepEqual(initialModel.weekly.days.map(day => day.date), ['2026-10-12', '2026-10-13', '2026-10-14', '2026-10-15'])
 let settings = defaultTvSettings()
 settings.theme = 'dark'
 settings.metric = 'cash' // A persisted cash goal survives the new gross default.
@@ -128,7 +134,7 @@ try {
   assert.ok(published ? base === 'https://dashboard.launchcontrol.com.br' : ['localhost', '127.0.0.1', '[::1]'].includes(new URL(base).hostname))
   if (published) {
     const html = await (await fetch(`${base}/tv`)).text()
-    const main = html.match(/src="([^" ]*\/assets\/index-[^" ]+\.js)"/)?.[1]
+    const main = html.match(/src="([^" ]*\/assets\/(?:main|index)-[^" ]+\.js)"/)?.[1]
     assert.ok(main, 'Production public route serves the application entry point')
     if (process.env.DASHBOARD_EXPECTED_ASSET) assert.equal(main, process.env.DASHBOARD_EXPECTED_ASSET)
     assets = { main }
@@ -192,7 +198,7 @@ try {
     for (const width of [1920, 360]) {
       await page.setViewportSize({ width, height: width === 1920 ? 1080 : 900 })
       const seen = new Set()
-      for (let index = 0; index < 8; index++) {
+      for (let index = 0; index < TV_PANELS.length; index++) {
         const id = await player().getAttribute('data-panel-id')
         seen.add(id)
         await expectTvScene(player(), id)
@@ -203,11 +209,47 @@ try {
         }
         await page.getByRole('button', { name: 'Próximo painel', exact: true }).click()
       }
-      assert.equal(seen.size, 8)
+      assert.equal(seen.size, TV_PANELS.length)
     }
   }
-  record('All eight public scenes preserve scoped gross and cash, gross emphasis, goal base and responsive layout in both themes')
+  record('All public scenes preserve scoped gross and cash, scene emphasis, goal base and responsive layout in both themes')
   await page.setViewportSize({ width: 1920, height: 1080 })
+
+  for (const id of ['daily', 'daily-payments', 'daily-cash', 'daily-sellers']) {
+    settings = { ...settings, mode: 'fixed', fixedPanel: id }
+    const { hours, payments, sellers, unassignedSeller, ...day } = initialModel.daily
+    model = { month: initialModel.month, today: initialModel.today, metric: 'cash', unit: 'currency', totals: { partial: false },
+      daily: id === 'daily' || id === 'daily-cash' ? { ...day, hours } : { date: day.date, inSelectedMonth: day.inSelectedMonth, partial: day.partial,
+        ...(id === 'daily-payments' ? { payments } : { sellers, unassignedSeller }) } }
+    revision++
+    await page.clock.runFor(61000)
+    await expect(player()).toHaveAttribute('data-panel-id', id)
+    await expect(player().locator('.tv-broadcast-context')).toContainText(/Hoje, 15 de outubro · Brasília/i)
+    await expectTvScene(player(), id)
+    model.daily.inSelectedMonth = false
+    revision++
+    await page.clock.runFor(61000)
+    await expect(player()).toContainText('Hoje está fora do mês selecionado')
+    assert.equal(await player().getByTestId('tv-gross-value').count(), 0)
+  }
+  record('Daily public scenes render sparse aggregates, retain the Brasília date and guard every panel against a historical selected month')
+
+  for (const id of ['weekly', 'weekly-payments', 'weekly-cash', 'weekly-sellers']) {
+    settings = { ...settings, mode: 'fixed', fixedPanel: id }
+    const { days, payments, sellers, unassignedSeller, ...week } = initialModel.weekly
+    const weekContext = { startDate: week.startDate, endDate: week.endDate, partial: week.partial }
+    model = { month: '2026-09', today: initialModel.today, metric: 'cash', unit: 'currency', totals: { partial: false },
+      weekly: id === 'weekly' || id === 'weekly-cash' ? { ...week, days } : { ...weekContext,
+        ...(id === 'weekly-payments' ? { payments } : { sellers, unassignedSeller }) } }
+    revision++
+    await page.clock.runFor(61000)
+    await expect(player()).toHaveAttribute('data-panel-id', id)
+    await expect(player().locator('.tv-broadcast-context')).toContainText('Semana, 12/10 a 15/10 · Brasília')
+    await expectTvScene(player(), id)
+    assert.doesNotMatch(await player().innerText(), /1\.833,64|1\.233,64|1\.255,36/, 'Sparse weekly projections cannot borrow monthly totals or old invoice receipts')
+    await shot(`public-sparse-${id}-1920`)
+  }
+  record('Weekly public scenes render their sparse projection alone, label Monday12 through Thursday15 in Brasília and remain independent of the selected historical month')
 
   model = structuredClone(initialModel)
   model.sellers = Array.from({ length: 8 }, (_, index) => ({ ...initialModel.sellers[0], id: `layout-${index}`, name: `Vendedor da operação ${index + 1}`, value: 800 - index * 70, gross: 16000 - index * 1000, cash: 800 - index * 70, count: 8 - index }))

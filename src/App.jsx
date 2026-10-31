@@ -3,10 +3,12 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 
 const PrivateWorkspace = lazy(() => import('./PrivateWorkspace.jsx'))
 const PublicTVPage = lazy(() => import('./pages/PublicTVPage.jsx'))
+const TVDemoPage = lazy(() => import('./pages/TVDemoPage.jsx'))
 
 // Public televisions never mount the Vault session or the private workspace.
 export default function App() {
   return <BrowserRouter><Suspense fallback={<div className="session-screen" role="status">Carregando…</div>}><Routes>
+    <Route path="/tv-demo" element={<TVDemoPage/>}/>
     <Route path="/tv" element={<PublicTVPage/>}/>
     <Route path="/tv/:token" element={<PublicTVPage/>}/>
     <Route path="/tv/*" element={<PublicTVPage/>}/>

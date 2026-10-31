@@ -3,7 +3,7 @@ import { amount } from './salesData.js'
 import { applyTmbCashRule, TMB_CASH_METADATA } from './tmbCash.js'
 import { applyPlatformCashRule, PLATFORM_NET_CASH_METADATA } from './platformCash.js'
 
-/** Cash follows the agreed platform rules: Guru/Hotmart = full net and
+/** Cash follows the agreed platform rules: Guru/Hotmart/Hubla = full net and
  * TMB = 40% of sold value, on the sale date. Asaas contributes only the
  * received entry of a new contract, also on its sale date. Its account
  * statement is a separate receivables view and never advances sales goals.
@@ -33,7 +33,7 @@ export function prepareGoalData(sales = {}, directory = {}, directoryAvailable =
       if (['ready', 'partial', 'stale'].includes(source.status)) cashRecords.push(...records.filter(row => row.sourceId === 'tmb' && row.kind === 'sale'))
       return { ...source, rows: undefined, ...TMB_CASH_METADATA, status: source.status === 'stale' ? 'partial' : source.status }
     }
-    if (['guru', 'hotmart'].includes(source.id)) {
+    if (['guru', 'hotmart', 'hubla'].includes(source.id)) {
       if (['ready', 'partial', 'stale'].includes(source.status)) cashRecords.push(...records.filter(row => row.sourceId === source.id && row.kind === 'sale' && !row.isManual))
       return { ...source, rows: undefined, ...PLATFORM_NET_CASH_METADATA, status: source.status === 'stale' ? 'partial' : source.status }
     }

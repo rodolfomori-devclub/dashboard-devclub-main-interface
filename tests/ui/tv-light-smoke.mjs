@@ -1,5 +1,5 @@
-// Run after npm run build. Only local built assets and synthetic public API data
-// are used; all other requests are blocked before they can reach the network.
+// Run after npm run build, or opt into the allowlisted published assets. Public
+// API data is always synthetic; all other requests are blocked before networking.
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { createServer } from 'node:net'
@@ -13,6 +13,7 @@ import { buildTvData } from '../../src/components/tv/tvData.js'
 import { defaultTvSettings, TV_PANELS } from '../../src/components/tv/tvConfig.js'
 
 const root = fileURLToPath(new URL('../../', import.meta.url))
+const published = process.env.DASHBOARD_SMOKE_PRODUCTION === '1'
 const out = process.env.DASHBOARD_SMOKE_OUTPUT || fileURLToPath(new URL('./artifacts/tv-light', import.meta.url))
 const now = new Date('2026-10-15T15:00:00-03:00')
 const token = 'fixtureTv0000001'
@@ -45,7 +46,7 @@ async function fixture(route) {
     const updatedAt = await request.frame().evaluate(() => new Date().toISOString())
     const body = scenario === 'revoked' ? { code: 'TV_LINK_NOT_FOUND', error: 'Link da TV indisponível.' }
       : scenario === 'unavailable' ? { error: 'Indicadores temporariamente indisponíveis.' }
-        : { settings: publicSettings, revision, model: scenario === 'warming' ? null : model, updatedAt: scenario === 'warming' ? null : updatedAt, loading: scenario === 'warming', error: null }
+        : { settings: publicSettings, revision, model: scenario === 'warming' ? null : model, updatedAt: scenario === 'warming' ? null : updatedAt, loading: scenario === 'warming', error: scenario === 'goals-error' ? 'Metas temporariamente indisponíveis.' : null }
     await route.fulfill({ status, contentType: 'application/json', headers: { 'access-control-allow-origin': base, 'cache-control': 'no-store' }, body: JSON.stringify(body) })
     return
   }
@@ -55,9 +56,9 @@ async function fixture(route) {
   await route.continue()
 }
 
-async function createContext({ javaScriptEnabled = true } = {}) {
+async function createContext({ javaScriptEnabled = true, audio = 'mock' } = {}) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 720 }, locale: 'pt-BR', timezoneId: 'America/Sao_Paulo', javaScriptEnabled })
-  if (javaScriptEnabled) await context.addInitScript(() => {
+  if (javaScriptEnabled) await context.addInitScript(({ audio }) => {
     // These browser APIs are absent in many older embedded browsers. Parsing
     // with acorn below separately guarantees that every delivered script is ES5.
     window.fetch = undefined
@@ -66,6 +67,19 @@ async function createContext({ javaScriptEnabled = true } = {}) {
     window.URL = undefined
     window.URLSearchParams = undefined
     window.fixturePublicXhrs = []
+    window.fixtureAudio = { created: 0, starts: 0, stops: 0, disconnected: 0, gains: [] }
+    if (audio === 'missing') { window.AudioContext = undefined; window.webkitAudioContext = undefined }
+    if (audio === 'mock') {
+      const ledger = window.fixtureAudio
+      const parameter = () => ({ setValueAtTime(value) { ledger.gains.push(value) }, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {}, cancelScheduledValues() {} })
+      window.AudioContext = class {
+        constructor() { ledger.created++; this.state = 'suspended'; this.currentTime = 0; this.destination = {} }
+        resume() { this.state = 'running'; return Promise.resolve() }
+        createGain() { return { gain: parameter(), connect() {}, disconnect() { ledger.disconnected++ } } }
+        createOscillator() { return { frequency: parameter(), connect() {}, disconnect() { ledger.disconnected++ }, start() { ledger.starts++ }, stop() { ledger.stops++ } } }
+      }
+      window.webkitAudioContext = undefined
+    }
     localStorage.setItem('vault_access_token', 'expired-fixture-token')
     const open = XMLHttpRequest.prototype.open
     const send = XMLHttpRequest.prototype.send
@@ -74,21 +88,28 @@ async function createContext({ javaScriptEnabled = true } = {}) {
     XMLHttpRequest.prototype.setRequestHeader = function (name) { if (this.fixtureRequest && name.toLowerCase() === 'authorization') this.fixtureRequest.authorization = true; return header.apply(this, arguments) }
     XMLHttpRequest.prototype.send = function () { window.fixturePublicXhrs.push({ ...this.fixtureRequest, withCredentials: this.withCredentials }); return send.apply(this, arguments) }
     Element.prototype.requestFullscreen = function () { throw new Error('Synthetic fullscreen refusal') }
-  })
+  }, { audio })
   if (context.routeWebSocket) await context.routeWebSocket('**/*', () => {})
   await context.route('**/*', fixture)
   const next = await context.newPage()
   next.setDefaultTimeout(10000)
   next.on('pageerror', error => errors.push(error.message))
-  if (javaScriptEnabled) await next.clock.install({ time: now })
+  if (javaScriptEnabled) {
+    await next.clock.install({ time: now })
+    await next.clock.pauseAt(new Date(now.getTime() + 1000))
+  }
   return { context, page: next }
 }
 
 async function refresh() {
   revision++
+  // Finish the prior XHR before advancing the mocked clock again: its response
+  // callback schedules the next poll, including after a simulated outage.
+  await expect(page.locator('#tv-light-retry')).toBeEnabled()
   const before = requests.length
   await page.clock.runFor(31000)
   await expect.poll(() => requests.length).toBeGreaterThan(before)
+  await expect(page.locator('#tv-light-retry')).toBeEnabled()
 }
 
 const panel = () => page.locator('#tv-light-panel')
@@ -107,16 +128,23 @@ async function checkFits(name) {
 try {
   await fs.mkdir(out, { recursive: true })
   const dist = fileURLToPath(new URL('../../dist/tv-light/', import.meta.url))
-  assert.ok(existsSync(`${dist}index.html`), 'Build first: npm run build')
-  const html = await fs.readFile(`${dist}index.html`, 'utf8')
+  if (published) assert.equal(base, 'https://dashboard.launchcontrol.com.br', 'Published verification accepts only the Dashboard production origin')
+  else assert.ok(existsSync(`${dist}index.html`), 'Build first: npm run build')
+  const readAsset = async name => {
+    if (!published) return fs.readFile(`${dist}${name}`, 'utf8')
+    const response = await fetch(`${base}/tv-light/${name === 'index.html' ? '' : name}`)
+    assert.equal(response.ok, true, `Published TV Light asset: ${name}`)
+    return response.text()
+  }
+  const html = await readAsset('index.html')
   assert.doesNotMatch(html, /type\s*=\s*["']module["']|modulepreload|\/assets\//i, 'TV Light is independent of the React/module entry point')
-  for (const name of ['app.js', 'config.js']) parse(await fs.readFile(`${dist}${name}`, 'utf8'), { ecmaVersion: 5, sourceType: 'script' })
-  const css = postcss.parse(await fs.readFile(`${dist}style.css`, 'utf8'))
+  for (const name of ['app.js', 'config.js', 'celebration-core.js']) parse(await readAsset(name), { ecmaVersion: 5, sourceType: 'script' })
+  const css = postcss.parse(await readAsset('style.css'))
   css.walkDecls(declaration => {
     assert.doesNotMatch(declaration.prop, /^(--|(?:grid|gap|row-gap|column-gap|inset|aspect-ratio|backdrop-filter)(?:-|$))/i, `Legacy CSS property: ${declaration.prop}`)
     assert.doesNotMatch(declaration.value, /\b(?:var|clamp|min|max|color-mix|oklch)\s*\(|\b(?:grid|subgrid)\b/i, `Legacy CSS value: ${declaration.value}`)
   })
-  record('Built HTML has classic scripts only; app/config parse as ES5 and CSS avoids modern-only layout/color features')
+  record('Delivered HTML has classic scripts only; app/config/celebration core parse as ES5 and CSS avoids modern-only layout/color features')
 
   if (!base) {
     let port = Number(process.env.DASHBOARD_SMOKE_PORT || 0)
@@ -140,7 +168,7 @@ try {
     assert.equal(ready, true, serverOutput)
   }
   base = base.replace(/\/$/, '')
-  assert.ok(['localhost', '127.0.0.1', '[::1]'].includes(new URL(base).hostname), 'This smoke only runs against local built assets')
+  assert.ok(published ? base === 'https://dashboard.launchcontrol.com.br' : ['localhost', '127.0.0.1', '[::1]'].includes(new URL(base).hostname), 'Use local built assets or the allowlisted published origin')
   const chrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
   browser = await chromium.launch({ headless: true, executablePath: process.env.CHROME_EXECUTABLE || (existsSync(chrome) ? chrome : undefined) })
   const first = await createContext()
@@ -153,6 +181,166 @@ try {
   assert.equal(await page.getByRole('button', { name: /Entrar pelo Vault|Configurar TV/ }).count(), 0)
   record('Canonical light route shows precise gross/cash anonymously without fetch, AbortController, Intl or URL APIs')
 
+  const celebration = () => page.getByTestId('tv-celebration')
+  async function pull() {
+    revision++
+    await Promise.all([
+      page.waitForResponse(response => /\/tv\/public(?:\/[^/]*)?$/.test(new URL(response.url()).pathname)),
+      page.locator('#tv-light-retry').evaluate(button => button.click()),
+    ])
+    await expect(page.locator('#tv-light-retry')).toBeEnabled()
+  }
+  async function sale(id, extra = {}) {
+    return { id, occurredAt: await page.evaluate(() => new Date().toISOString()), amount: 1297, ...extra }
+  }
+  const feed = (events, ready = true) => ({ day: '2026-10-15', groups: [{ source: 'asaas', ready, events }] })
+  assert.equal(await page.evaluate(() => window.fixtureAudio.created), 0, 'Page load must not create an AudioContext')
+  await expect(celebration()).toHaveCount(0)
+  const baseline = await sale('baseline')
+  model.celebrations = feed([baseline])
+  await pull()
+  await expect(celebration()).toHaveCount(0)
+  await page.clock.runFor(1000)
+  const firstSale = await sale('first-live', { sellerName: 'Ana <script>teste</script>', amount: 1900.12 })
+  model.celebrations = feed([baseline, firstSale])
+  scenario = 'goals-error'
+  await pull()
+  await expect(celebration()).toHaveAttribute('data-animation', 'confetti')
+  await expect(celebration()).toHaveAttribute('data-preview', 'false')
+  await expect(celebration().getByTestId('sale-celebration-amount')).toHaveText('R$ 1.900,12')
+  await expect(celebration()).toContainText('Ana <script>teste</script>')
+  assert.equal(await celebration().locator('script').count(), 0, 'Seller names are rendered as text')
+  assert.equal(await page.evaluate(() => window.fixtureAudio.created), 0, 'Live sales remain silent before the gesture')
+  await pull()
+  await page.clock.runFor(4999)
+  await expect(celebration()).toBeVisible()
+  await page.clock.runFor(1)
+  await expect(celebration()).toHaveCount(0)
+  await pull()
+  await expect(celebration()).toHaveCount(0)
+  scenario = 'ready'
+  await pull()
+  record('Goal-only warnings allow healthy source events; live celebration has a silent first baseline, escaped seller, exact amount, one five-second overlay and deduplication')
+
+  await page.locator('#tv-light-sound').click()
+  await expect(page.locator('#tv-light-sound')).toHaveText('Silenciar som')
+  assert.equal(await page.evaluate(() => window.fixtureAudio.created), 1)
+  assert.equal(await page.evaluate(() => window.fixtureAudio.starts), 0, 'Enabling audio alone is silent')
+  model.celebrations = { day: '2026-10-15', groups: [{ source: 'asaas', ready: false, refreshing: true, events: [] }] }
+  await pull()
+  await expect(celebration()).toHaveCount(0)
+  const queuedOne = await sale('queue-one', { sellerName: 'Bia sintética', amount: 500 })
+  await page.clock.runFor(1)
+  const queuedTwo = await sale('queue-two', { amount: 700 })
+  await page.clock.runFor(1)
+  model.celebrations = feed([baseline, firstSale, queuedOne, queuedTwo, await sale('queue-three', { amount: 900 })])
+  await pull()
+  await expect(celebration()).toContainText('Bia sintética')
+  assert.equal(await page.evaluate(() => window.fixtureAudio.starts), 18, 'Original Victory score uses eighteen oscillators')
+  assert.ok(await page.evaluate(() => window.fixtureAudio.gains.includes(1)), 'Master volume is fixed at 100%')
+  await page.waitForTimeout(900)
+  await checkFits('celebration-live-confetti-1280')
+  await page.clock.runFor(5000)
+  await expect(celebration().getByTestId('sale-celebration-amount')).toHaveText('R$ 700,00')
+  await expect(celebration()).toContainText('Venda confirmada')
+  assert.equal(await page.evaluate(() => window.fixtureAudio.starts), 36)
+  await page.locator('#tv-light-celebration-sound').click()
+  assert.equal(await page.evaluate(() => window.fixtureAudio.stops), 72, 'Mute cleans scheduled and playing sources immediately')
+  await page.keyboard.press('Escape')
+  await expect(celebration()).toHaveCount(0)
+  await pull()
+  await expect(celebration()).toHaveCount(0)
+  record('Ready → refreshing → ready preserves the baseline; consecutive real sales queue sequentially; opt-in plays Victory at 100%, missing seller is neutral and mute/Escape stop playback')
+
+  const requestsBeforeTest = requests.length
+  await page.locator('#tv-light-test').click()
+  await expect(celebration()).toHaveAttribute('data-preview', 'true')
+  await expect(celebration()).toContainText('Venda de teste')
+  await expect(celebration()).toContainText('nenhuma venda será registrada')
+  assert.equal(requests.length, requestsBeforeTest, 'Testing celebration never sends an API request')
+  assert.equal(await page.evaluate(() => window.fixtureAudio.starts), 36, 'A muted synthetic test stays silent')
+  await page.setViewportSize({ width: 360, height: 780 })
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await expect(page.locator('.tv-light-confetti')).toBeHidden()
+  const overlaySize = await celebration().evaluate(node => ({ width: node.scrollWidth, height: node.scrollHeight, availableWidth: innerWidth, availableHeight: innerHeight }))
+  assert.ok(overlaySize.width <= overlaySize.availableWidth && overlaySize.height <= overlaySize.availableHeight, JSON.stringify(overlaySize))
+  await page.screenshot({ path: `${out}/celebration-test-reduced-360.png`, fullPage: false })
+  await page.getByRole('button', { name: 'Encerrar comemoração' }).click()
+  await page.setViewportSize({ width: 1280, height: 720 })
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+  record('Synthetic test is explicitly marked, silent while muted, read-only, responsive and static with reduced motion')
+
+  const old = await sale('backfilled-old', { occurredAt: '2026-10-15T13:00:00Z' })
+  model.celebrations = feed([baseline, firstSale, queuedOne, queuedTwo, old, { id: 'date-only', occurredAt: null, amount: 300 }])
+  await pull()
+  await expect(celebration()).toHaveCount(0)
+  model.celebrations.groups[0].ready = false
+  await pull()
+  model.celebrations = feed([await sale('recovered-sale')])
+  await pull()
+  await expect(celebration()).toHaveCount(0)
+  await page.clock.runFor(1000)
+  model.celebrations.groups[0].events.push(await sale('after-recovery'), await sale('queued-before-hidden'))
+  await pull()
+  await expect(celebration()).toBeVisible()
+  await page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, value: true }); document.dispatchEvent(new Event('visibilitychange')) })
+  await expect(celebration()).toHaveCount(0)
+  model.celebrations.groups[0].events.push(await sale('during-hidden'))
+  await pull()
+  await expect(celebration()).toHaveCount(0)
+  await Promise.all([
+    page.waitForResponse(response => /\/tv\/public$/.test(new URL(response.url()).pathname)),
+    page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, value: false }); document.dispatchEvent(new Event('visibilitychange')) }),
+  ])
+  await expect(celebration()).toHaveCount(0)
+  await page.clock.runFor(1000)
+  model.celebrations.groups[0].events.push(await sale('after-visible'))
+  await pull()
+  await expect(celebration()).toBeVisible()
+  model.celebrations.groups[0].ready = false
+  await pull()
+  await expect(celebration()).toHaveCount(0)
+  model.celebrations = feed([await sale('another-baseline')])
+  await pull()
+  await expect(celebration()).toHaveCount(0)
+  await page.clock.runFor(1000)
+  model.celebrations.groups[0].events.push(await sale('before-error'), await sale('queued-before-error'))
+  await pull()
+  await expect(celebration()).toBeVisible()
+  scenario = 'unavailable'
+  await pull()
+  await expect(celebration()).toHaveCount(0)
+  scenario = 'ready'
+  await pull()
+  await expect(celebration()).toHaveCount(0)
+  await page.clock.runFor(1000)
+  model.celebrations.groups[0].events.push(await sale('before-revoke'), await sale('queued-before-revoke'))
+  await pull()
+  await expect(celebration()).toBeVisible()
+  scenario = 'revoked'
+  await pull()
+  await expect(celebration()).toHaveCount(0)
+  await expect(page.locator('#tv-light-test')).toBeDisabled()
+  scenario = 'ready'
+  await page.reload({ waitUntil: 'networkidle' })
+  await expect(celebration()).toHaveCount(0)
+  assert.equal(await page.evaluate(() => window.fixtureAudio.created), 0, 'Reload requires a new audio gesture')
+  record('Old/undated imports stay silent; recovered sources and visibility restore silently; hidden, degraded, failed and revoked feeds cancel active/queued effects')
+
+  const noAudio = await createContext({ audio: 'missing' })
+  const previousPage = page
+  page = noAudio.page
+  await page.goto(`${base}/tv-light`, { waitUntil: 'networkidle' })
+  await page.locator('#tv-light-sound').click()
+  await expect(page.locator('#tv-light-audio-status')).toContainText('Som indisponível')
+  await page.locator('#tv-light-test').click()
+  await expect(celebration()).toBeVisible()
+  await expect(celebration()).toContainText('Venda de teste')
+  await noAudio.context.close()
+  page = previousPage
+  model = structuredClone(initialModel)
+  record('Browsers without AudioContext retain the visual celebration and explain that audio is unavailable')
+
   for (const theme of ['dark', 'light']) {
     for (const { id } of TV_PANELS) {
       settings = { ...settings, theme, mode: 'fixed', fixedPanel: id }
@@ -164,7 +352,69 @@ try {
       await checkFits(`${id}-${theme}-1280`)
     }
   }
-  record('All eight configured panels render in both themes and fit a 1280x720 television')
+  record('All configured panels, including daily and weekly scenes, render in both themes and fit a 1280x720 television')
+
+  for (const id of ['daily', 'daily-payments', 'daily-cash', 'daily-sellers']) {
+    settings = { ...settings, mode: 'fixed', fixedPanel: id }
+    const { hours, payments, sellers, unassignedSeller, ...day } = initialModel.daily
+    model = { month: initialModel.month, metric: 'cash', unit: 'currency', totals: { partial: false },
+      daily: id === 'daily' || id === 'daily-cash' ? { ...day, hours } : { date: day.date, inSelectedMonth: day.inSelectedMonth, partial: day.partial,
+        ...(id === 'daily-payments' ? { payments } : { sellers, unassignedSeller }) } }
+    await refresh()
+    await expect(panel()).toHaveAttribute('data-panel-id', id)
+    await expect(page.locator('#tv-light-context')).toContainText('15/10/2026 · Brasília')
+    await dual(1900.12, 1233.64)
+    if (id === 'daily-cash') {
+      const cashSize = await panel().getByTestId('tv-cash-value').first().evaluate(node => parseFloat(getComputedStyle(node).fontSize))
+      const grossSize = await panel().getByTestId('tv-gross-value').first().evaluate(node => parseFloat(getComputedStyle(node).fontSize))
+      assert.ok(cashSize > grossSize, 'The daily cash scene emphasizes cash collected')
+    }
+    model.daily.inSelectedMonth = false
+    await refresh()
+    await expect(panel()).toContainText('Hoje está fora do mês selecionado')
+    assert.equal(await panel().getByTestId('tv-gross-value').count(), 0)
+  }
+  record('Every daily scene accepts sparse public projections, identifies the Brasília date and hides values outside the selected month')
+
+  for (const id of ['weekly', 'weekly-payments', 'weekly-cash', 'weekly-sellers']) {
+    settings = { ...settings, mode: 'fixed', fixedPanel: id }
+    const { days, payments, sellers, unassignedSeller, ...week } = initialModel.weekly
+    model = { month: '2026-09', metric: 'cash', unit: 'currency', totals: { partial: false },
+      weekly: id === 'weekly' || id === 'weekly-cash' ? { ...week, days } : { startDate: week.startDate, endDate: week.endDate, partial: week.partial,
+        ...(id === 'weekly-payments' ? { payments } : { sellers, unassignedSeller }) } }
+    await refresh()
+    await expect(panel()).toHaveAttribute('data-panel-id', id)
+    await expect(page.locator('#tv-light-context')).toContainText('12/10/2026 a 15/10/2026 · Brasília')
+    await expect(panel()).toContainText('segunda-feira até hoje')
+    await dual(1900.12, 1233.64)
+    if (id === 'weekly-cash') {
+      const cashSize = await panel().getByTestId('tv-cash-value').first().evaluate(node => parseFloat(getComputedStyle(node).fontSize))
+      const grossSize = await panel().getByTestId('tv-gross-value').first().evaluate(node => parseFloat(getComputedStyle(node).fontSize))
+      assert.ok(cashSize > grossSize, 'The weekly cash scene emphasizes cash collected')
+    }
+    model.weekly.partial = true
+    await refresh()
+    await expect(page.locator('#tv-light-status')).toContainText('Dados parciais')
+    if (id === 'weekly-sellers') {
+      model.weekly.attributionAvailable = false
+      model.weekly.sellers = []
+      await refresh()
+      await expect(panel()).toContainText('Atribuições indisponíveis')
+      await expect(panel()).not.toContainText('Sem resultados')
+    }
+  }
+  record('Weekly scenes accept sparse projections, show Monday through today in Brasília independently of selected month and retain partial coverage warnings')
+
+  model = structuredClone(initialModel)
+  settings = { ...settings, fixedPanel: 'daily-sellers' }
+  model.directoryError = true
+  await refresh()
+  await expect(panel()).toContainText('Participantes indisponíveis')
+  model.directoryError = false
+  model.daily.sellers = []
+  await refresh()
+  await expect(panel()).toContainText('Sem resultados neste painel')
+  record('Daily rankings distinguish a directory outage from an empty day')
 
   for (const [id, field] of [['sellers', 'sellers'], ['team-goals', 'teamGoals'], ['product-goals', 'productGoals']]) {
     settings = { ...settings, mode: 'fixed', fixedPanel: id }
@@ -277,11 +527,11 @@ try {
   record('Static HTML remains readable when JavaScript is unavailable')
 
   assert.ok(assetPaths.size > 0)
-  assert.ok([...assetPaths].every(path => /^\/tv-light\/(?:app|config)\.js$/.test(path)), 'No React, module or private application scripts are loaded')
+  assert.ok([...assetPaths].every(path => /^\/tv-light\/(?:app|config|celebration-core)\.js$/.test(path)), 'No React, module or private application scripts are loaded')
   assert.deepEqual(blocked, [], 'The light page should not attempt private/external assets or APIs')
   assert.deepEqual(errors, [])
   complete = true
-  console.log(JSON.stringify({ passed: true, checks: checks.length, apiCalls: requests.length, assets: [...assetPaths], realApiRequests: 0 }))
+  console.log(JSON.stringify({ passed: true, published, checks: checks.length, apiCalls: requests.length, assets: [...assetPaths], realApiRequests: 0 }))
 } catch (error) {
   if (page && !page.isClosed()) {
     await page.screenshot({ path: `${out}/failure.png`, fullPage: true }).catch(() => {})
@@ -290,7 +540,7 @@ try {
   throw error
 } finally {
   await fs.mkdir(out, { recursive: true })
-  await fs.writeFile(`${out}/results.json`, JSON.stringify({ passed: complete, checks, requests, blocked, errors, xhrOptions, assets: [...assetPaths], realApiRequests: 0, realWrites: 0 }, null, 2))
+  await fs.writeFile(`${out}/results.json`, JSON.stringify({ passed: complete, published, checks, requests, blocked, errors, xhrOptions, assets: [...assetPaths], realApiRequests: 0, realWrites: 0 }, null, 2))
   if (browser) await browser.close()
   if (server) server.kill('SIGTERM')
 }

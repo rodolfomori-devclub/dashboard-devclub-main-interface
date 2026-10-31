@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { requestApi } from '../../../lib/api';
 import { toast } from 'sonner';
 
-const PLATFORM_IDS = ['guru', 'hotmart', 'tmb', 'asaas', 'boletex', 'manual'] as const;
+const PLATFORM_IDS = ['guru', 'hotmart', 'hubla', 'tmb', 'asaas', 'boletex', 'manual'] as const;
 type Platform = typeof PLATFORM_IDS[number];
 type Rates = Record<Platform, number | null>;
 interface CommissionRule { sellerId: string; sellerName: string; month: string; rates: Rates; revision: number; updatedAt: string; basis: 'cash_collected' }

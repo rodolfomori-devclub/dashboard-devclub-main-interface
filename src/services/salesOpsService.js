@@ -52,19 +52,24 @@ export function mergeSalesOperations(records, ledger = {}) {
       for (const field of ['sellerId', 'sellerName', 'attributionId', 'attributionMethod', 'attributionUtmSource', 'note', 'syncPending']) delete row[field];
       if (Object.hasOwn(row, 'attributionOriginalStatus')) row.status = row.attributionOriginalStatus;
     }
+    const link = row.kind === 'sale' && row.canAttribute !== false && !row.isAggregate && row.externalId
+      ? links.get(normalizeUtmSource(row.utm?.source)) : null;
     const assigned = row.kind === 'sale' && row.externalId ? assignments.get(key(row.source || row.sourceId, row.externalId)) : null;
     if (assigned) return {
       ...row, attributionId: assigned.id, sellerId: assigned.sellerId, sellerName: assigned.sellerName,
       attributionOriginalStatus: row.status, attributionMethod: 'manual',
+      ...(link ? { attributionUtmSource: link.utmSource } : {}),
       status: assigned.status, note: assigned.note, syncPending: assigned.syncPending,
     };
-    const link = row.kind === 'sale' && row.canAttribute !== false && !row.isAggregate && row.externalId
-      ? links.get(normalizeUtmSource(row.utm?.source)) : null;
     if (link) return { ...row, sellerId: link.sellerId, sellerName: link.sellerName,
       attributionOriginalStatus: row.status, attributionMethod: 'utm', attributionUtmSource: link.utmSource };
     return { ...row, attributionMethod: 'unassigned' };
   });
-  const manuals = (ledger.manualSales || []).filter((sale) => !sale.linkedExternalId).map(manualSaleRecord);
+  const manuals = (ledger.manualSales || []).filter((sale) => !sale.linkedExternalId).map(sale => {
+    const row = manualSaleRecord(sale);
+    const link = links.get(normalizeUtmSource(row.utm?.source));
+    return link ? { ...row, attributionUtmSource: link.utmSource } : row;
+  });
   return [...sourceRecords, ...manuals];
 }
 

@@ -75,7 +75,7 @@ export default function PublicTVPage() {
   const rawSettings = saved?.settings
   const settings = useMemo(() => rawSettings ? { ...rawSettings, theme: rawSettings.theme === 'system' ? prefersDark ? 'dark' : 'light' : rawSettings.theme } : null, [rawSettings, prefersDark])
   const model = useMemo(() => current.error ? stalePublicTvModel(saved?.model) : saved?.model, [current.error, saved?.model])
-  if (saved && settings && (model || saved.loading)) return <TvPlayer settings={settings} data={{ model, loading: saved.loading, refreshing: saved.refreshing, updatedAt: saved.updatedAt, error: current.error || saved.error }} publicView onFullscreen={onFullscreen} fullscreen={fullscreen}/>
+  if (saved && settings && (model || saved.loading)) return <TvPlayer settings={settings} data={{ model, loading: saved.loading, refreshing: saved.refreshing, updatedAt: saved.updatedAt, error: current.error || saved.error, celebrationsHealthy: !current.error }} publicView onFullscreen={onFullscreen} fullscreen={fullscreen}/>
   const unavailable = !validLink || current.unavailable
   return <main className="tv-public-state tv-surface" data-tv-theme={prefersDark ? 'dark' : 'light'}><div className="tv-empty"><Monitor size={40}/><span className="tv-eyebrow">DevClub · TV</span><h1>{unavailable ? 'Link da TV indisponível' : current.loading ? 'Abrindo a TV' : 'Não foi possível abrir a TV'}</h1><p>{unavailable ? 'Este link foi desativado, substituído ou não existe. Solicite o link atual ao administrador.' : current.loading ? 'Preparando a programação e os indicadores.' : 'A conexão está temporariamente indisponível. Tentaremos novamente automaticamente.'}</p>{!current.loading && validLink && <button onClick={() => retry.current()}>Tentar novamente</button>}</div></main>
 }

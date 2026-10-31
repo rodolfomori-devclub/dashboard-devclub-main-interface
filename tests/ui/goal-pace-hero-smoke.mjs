@@ -31,6 +31,7 @@ const providerResponse = path => {
   if (path === '/api/transactions') return { data: unknown ? [receipt('unknown', '07', 'DevClub', null)] : [receipt('guru-1', '01', 'DevClub', 1000), receipt('guru-2', '07', 'MBA em IA', 2000), receipt('guru-3', '15', 'IAClub', 500)] }
   if (path === '/api/refunds') return { data: [] }
   if (path === '/api/hotmart/vendas') return { success: true, data: { count: 0, transactions: [] } }
+  if (['/api/hubla/vendas', '/api/hubla/reembolsos'].includes(path)) return { success: true, data: { financialSchemaVersion: 2, count: 0, totalNet: 0, totalGross: 0, totalFees: 0, transactions: [] } }
   if (path === '/api/hotmart/reembolsos') return { success: true, data: { count: 0, transactions: [] } }
   if (path.startsWith('/api/boleto/vendas/')) return { success: true, data: unknown ? [] : [{ id: 'tmb-1-0', raw: { pedido_id: 1 }, product: 'DevClub Vitalício', value: 800, timestamp: '2026-09-10T12:00:00-03:00' }] }
   if (path === '/api/boleto/asaas/vendas') return { success: true, data: { sales: null, totalGross: unknown ? 0 : 900, totalNet: unknown ? 0 : 850, totalFees: unknown ? 0 : 50, count: unknown ? 0 : 1, availability: { sales: 'unavailable', cash: 'ready', reason: 'checkout_disabled' }, cashReceipts: unknown ? [] : [{ date: '2026-09-08', received: 900, count: 1 }] } }

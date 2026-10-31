@@ -9,6 +9,7 @@ export const NAVIGATION = [
     { path: '/reembolsos', label: 'Reembolsos', permission: 'refunds', icon: 'Undo2' },
     { path: '/pace', label: 'Ritmo das metas', permission: 'goal-pace', icon: 'Gauge' },
     { path: '/atribuicao', label: 'Atribuição e conciliação', permission: 'attribution', icon: 'GitCompareArrows' },
+    { path: '/compradores', label: 'Compradores', accessLabel: 'Atribuição, conciliação e compradores', permission: 'attribution', icon: 'Database' },
     { path: '/metas', label: 'Metas', permission: 'goals', icon: 'Target' },
   ] },
   { group: 'Operação', items: [

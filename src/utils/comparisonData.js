@@ -1,7 +1,7 @@
-import { salesPaymentLabel } from './platformCash.js'
 import { sourceHasSales } from './sourceAvailability.js'
 import { filterSales, groupSales, hourlySales, summarizeSales, UNKNOWN, UTM_FIELDS } from './salesData.js'
 import { enrichPeriodRecord, localDay, periodSeries, summarizePeriod } from './periodData.js'
+import { salesPaymentLabel } from './platformCash.js'
 
 const DAY = 86_400_000
 const validDate = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(`${value}T12:00:00Z`)) && new Date(`${value}T12:00:00Z`).toISOString().slice(0, 10) === value
@@ -46,14 +46,19 @@ export function buildComparisonSnapshot(result, filters, range) {
   const sources = (result.sources || []).filter(source => !filters.platform || source.platform === filters.platform || source.id === 'manual').map(source => ({ ...source, rows: records.filter(row => row.sourceId === source.id) }))
   const summary = summarizePeriod(records)
   const saleHealth = sourceHealth(sources.filter(source => source.kind === 'sale'))
+  const commercialHealth = { ...saleHealth, complete: saleHealth.complete
+    && result.operationsStatus !== 'unavailable' && result.ledger?.attributionMappingsStatus !== 'unavailable' }
   const refundHealth = sourceHealth(sources.filter(source => source.kind === 'refund'))
   const fineFilter = Object.entries(filters).some(([key, value]) => key !== 'platform' && value)
   const unclassifiedForFilter = row => Object.entries(filters).some(([key, selected]) => {
     if (!selected || selected === UNKNOWN || key === 'platform') return false
-    const value = key === 'payment' ? salesPaymentLabel(row) : UTM_FIELDS.includes(key) ? row.utm[key] : row[key]
+    const value = UTM_FIELDS.includes(key) ? row.utm[key] : key === 'payment' ? salesPaymentLabel(row) : row[key]
     return !value || value === 'Não informado'
   })
-  const omittedAggregates = allRecords.filter(row => (row.isAggregate || unclassifiedForFilter(row)) && (!filters.platform || row.platform === filters.platform) && !records.includes(row))
+  // An aggregate still has a known commercial payment category when its
+  // platform establishes it. Excluding that category does not omit unknowns.
+  const aggregateAllocationUnknown = row => row.isAggregate && Object.entries(filters).some(([key, selected]) => selected && key !== 'platform' && key !== 'payment')
+  const omittedAggregates = allRecords.filter(row => (aggregateAllocationUnknown(row) || unclassifiedForFilter(row)) && (!filters.platform || row.platform === filters.platform) && !records.includes(row))
   const allocationMissing = fineFilter && omittedAggregates.some(row => row.kind === 'sale')
   const refundAllocationMissing = fineFilter && omittedAggregates.some(row => row.kind === 'refund')
   const days = comparisonRangeLength(range)
@@ -65,12 +70,12 @@ export function buildComparisonSnapshot(result, filters, range) {
     count, revenue,
     ...Object.fromEntries(['gross', 'net', 'received', 'fees', 'affiliate', 'pending', 'listPrice'].map(key => [key, moneyMetric(total[key], saleHealth, allocationMissing)])),
     ticket: comparisonMetric(count.value > 0 && revenue.value !== null ? revenue.value / count.value : null, saleHealth, revenue.partial || count.partial),
-    digital: subgroup(['Guru', 'Hotmart'], summary.digital),
-    digitalCount: comparisonMetric(summary.digital.count, sourceHealth(sources.filter(source => source.kind === 'sale' && (['Guru', 'Hotmart'].includes(source.platform) || source.id === 'manual'))), allocationMissing),
+    digital: subgroup(['Guru', 'Hotmart', 'Hubla'], summary.digital),
+    digitalCount: comparisonMetric(summary.digital.count, sourceHealth(sources.filter(source => source.kind === 'sale' && (['Guru', 'Hotmart', 'Hubla'].includes(source.platform) || source.id === 'manual'))), allocationMissing),
     boleto: subgroup(['TMB', 'Asaas', 'Boletex'], summary.boleto),
     boletoCount: comparisonMetric(summary.boleto.count, sourceHealth(sources.filter(source => source.kind === 'sale' && (['TMB', 'Asaas', 'Boletex'].includes(source.platform) || source.id === 'manual'))), allocationMissing),
-    commercial: subgroup(['Guru'], summary.commercial),
-    commercialCount: comparisonMetric(summary.commercial.count, sourceHealth(sources.filter(source => source.kind === 'sale' && (source.platform === 'Guru' || source.id === 'manual'))), allocationMissing),
+    commercial: moneyMetric(summary.commercial.revenue, commercialHealth, allocationMissing),
+    commercialCount: comparisonMetric(summary.commercial.count, commercialHealth, allocationMissing),
     refund: moneyMetric(summary.refund.revenue, refundHealth, refundAllocationMissing),
     refundCount: comparisonMetric(summary.refund.count, refundHealth, refundAllocationMissing),
     dailyRevenue: { ...revenue, value: revenue.value === null ? null : revenue.value / days },
@@ -94,8 +99,8 @@ export function comparisonGroups(a, b, dimension = 'product') {
   const empty = summarizeSales([])
   const metric = (snapshot, group) => {
     const missingDistribution = snapshot.sales.some(row => {
-      const label = dimension === 'payment' ? salesPaymentLabel(row) : row[dimension]
-      return row.isAggregate || !label || label === 'Não informado'
+      const value = dimension === 'payment' ? salesPaymentLabel(row) : row[dimension]
+      return (row.isAggregate && dimension !== 'payment') || !value || value === 'Não informado'
     }) || snapshot.allocationMissing
     return { count: comparisonMetric(group.count, snapshot.saleHealth, missingDistribution), revenue: moneyMetric(group.revenue, snapshot.saleHealth, missingDistribution) }
   }

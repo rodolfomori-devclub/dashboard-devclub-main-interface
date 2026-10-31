@@ -28,7 +28,7 @@ const utm = { source, medium: 'whatsapp', campaign: 'turma-qa', content: hostile
 const mappings = [{ utmSource: source, sellerId: emanuelId, sellerName: emanuel.name, enabled: true, revision: 1 }]
 const ledger = { attributions: [], manualSales: [], utmMappings: mappings, attributionMappingsStatus: 'ready' }
 const ruleRows = []
-const platforms = ['guru', 'hotmart', 'tmb', 'asaas', 'boletex', 'manual'].map(id => ({ id, label: ({ guru: 'Guru', hotmart: 'Hotmart', tmb: 'TMB', asaas: 'Asaas', boletex: 'Boletex', manual: 'Manual' })[id] }))
+const platforms = ['guru', 'hotmart', 'hubla', 'tmb', 'asaas', 'boletex', 'manual'].map(id => ({ id, label: ({ guru: 'Guru', hotmart: 'Hotmart', hubla: 'Hubla', tmb: 'TMB', asaas: 'Asaas', boletex: 'Boletex', manual: 'Manual' })[id] }))
 const rawGuru = [{ hash: 'g-utm', product: { name: 'DevClub UTM QA' }, payment: { method: 'credit_card', total: 1000 },
   calculation_details: { net_amount: 900, total_amount: 1000, discounts: { fee: 100 }, net_affiliate_value: 0 },
   dates: { created_at: Math.floor(Date.parse(`${date}T12:00:00-03:00`) / 1000) }, contact: { name: 'Cliente QA', email: 'buyer@example.test' },
@@ -137,6 +137,7 @@ async function fixture(route) {
   else if (path === '/api/refunds') body = { data: [] }
   else if (path.startsWith('/api/boleto/vendas/')) body = tmbPayload
   else if (path === '/api/hotmart/vendas') body = emptyProviderPayload('hotmart')
+  else if (['/api/hubla/vendas', '/api/hubla/reembolsos'].includes(path)) body = { success: true, data: { financialSchemaVersion: 2, count: 0, totalNet: 0, totalGross: 0, totalFees: 0, transactions: [] } }
   else if (path === '/api/hotmart/reembolsos') body = emptyProviderPayload('hotmartRefunds')
   else if (path === '/api/boleto/asaas/vendas') body = { ...emptyProviderPayload('asaas'), data: { ...emptyProviderPayload('asaas').data, count: 1, totalGross: 1255.36, totalNet: 1255.36 } }
   else if (path === '/api/boleto/boletex/vendas') body = emptyProviderPayload('boletex')
@@ -183,8 +184,16 @@ try {
   const mappingRow = value => page.getByTestId(`utm-mapping-${encodeURIComponent(value)}`)
   const shot = async name => {
     // Chromium resolves setViewportSize before responsive layout necessarily
-    // catches up. Wait for paint before measuring, including open dialogs.
+    // catches up. Open dialogs can keep a transition alive beyond two paints.
+    // Keep the strict no-overflow check after the responsive layout settles.
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+    const readLayout = () => page.evaluate(() => ({ width: innerWidth, scrollWidth: document.documentElement.scrollWidth,
+      overflowing: [...document.querySelectorAll('body *')].map(node => { const rect = node.getBoundingClientRect(); return { tag: node.tagName, class: String(node.className), left: rect.left, right: rect.right, width: rect.width } }).filter(node => node.right > innerWidth + 1 || node.left < -1).slice(0, 30) }))
+    const before = await readLayout()
+    if (before.scrollWidth > before.width) {
+      try { await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), { timeout: 2000, message: `${name}: responsive layout settles without page overflow` }).toBe(true) }
+      finally { await fs.writeFile(`${out}/${name}-layout.json`, JSON.stringify({ before, after: await readLayout() }, null, 2)) }
+    }
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${name}: no page overflow`)
     await page.screenshot({ path: `${out}/${name}.png`, fullPage: !name.startsWith('rule-dialog'), animations: 'disabled' })
   }
@@ -273,7 +282,7 @@ try {
   await ruleDialog().getByRole('spinbutton', { name: 'Percentual TMB', exact: true }).fill('0')
   await ruleDialog().getByRole('button', { name: 'Salvar regra', exact: true }).click()
   await expect(ruleDialog()).toBeHidden()
-  assert.deepEqual(writes.at(-1).input, { month, rates: { guru: 0.05, hotmart: null, tmb: 0, asaas: null, boletex: null, manual: null }, expectedRevision: 0 })
+  assert.deepEqual(writes.at(-1).input, { month, rates: { guru: 0.05, hotmart: null, hubla: null, tmb: 0, asaas: null, boletex: null, manual: null }, expectedRevision: 0 })
   record('Only an explicit admin rule converts 5% to 0.05; blank platforms stay pending and a typed zero remains zero')
   await page.getByRole('button', { name: 'Configurar comissões', exact: true }).click()
   await ruleDialog().getByRole('combobox', { name: 'Vendedor da regra', exact: true }).selectOption(emanuelId)

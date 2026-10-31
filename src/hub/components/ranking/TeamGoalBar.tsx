@@ -29,7 +29,7 @@ export function TeamGoalBar({ totalTeamSales, gross, grossPartial, cashPartial, 
         <div><p className="text-sm text-muted-foreground">Valor das vendas{grossPartial ? ' · parcial' : ''}</p><p className="text-3xl sm:text-4xl font-bold text-primary mt-1" data-testid="legacy-gross">{rankingMoney(gross)}</p></div>
         <div><p className="text-sm text-muted-foreground">Cash collected{cashPartial ? ' · parcial' : ''}</p><p className="text-xl sm:text-2xl font-semibold text-foreground mt-1" data-testid="legacy-cash">{rankingMoney(cashCollected)}</p>{cashCollectedPct !== null && cashCollectedPct !== undefined && <p className="text-xs text-muted-foreground mt-1">{cashCollectedPct}% do valor das vendas</p>}</div>
       </div>
-      <p className="text-xs text-muted-foreground -mt-3 mb-4">Guru e Hotmart: líquido após taxas; demais: valor contratado.</p>
+      <p className="text-xs text-muted-foreground -mt-3 mb-4">Guru, Hotmart e Hubla: líquido após taxas; demais: valor contratado.</p>
       <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
         <div>
           <p className={`text-sm uppercase tracking-wider font-semibold ${isHyperStage ? 'text-yellow-400/80' : 'text-muted-foreground'}`}>

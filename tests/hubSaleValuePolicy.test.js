@@ -5,7 +5,7 @@ import { rankingAmounts } from '../src/hub/lib/rankingAmounts.ts'
 import { getCashCollected, getPendingValue } from '../src/hub/lib/utils.ts'
 
 test('Hub reports, sales totals, ranking and cash use the authorized net without another fee deduction', () => {
-  for (const platform of ['Guru', 'Hotmart', ' HOTMART ']) {
+  for (const platform of ['Guru', 'Hotmart', 'Hubla', ' HOTMART ', ' HUBLA ']) {
     const raw = { platform, dashboard_financial_policy: 'net_after_fees', dashboard_net_known: true,
       dashboard_gross: 1877.18, dashboard_value: 1997, total_sale_value: 2397.24,
       amount: 1997, cash_collected: 1997, real_collected_this_month: 1997,
@@ -49,7 +49,7 @@ test('legacy reports retain known subtotal and visibly mark missing digital net 
   assert.ok(Math.abs(summary.value - 2077.18) < .00001)
   assert.deepEqual([summary.knownCount, summary.unknownNetCount, summary.partial], [2, 1, true])
   assert.equal(formatHubFinancial(summary.value, summary, value => value.toFixed(2)), '2077.18 · Parcial')
-  assert.match(hubFinancialNote(summary), /1 venda de Guru\/Hotmart sem líquido informado/)
+  assert.match(hubFinancialNote(summary), /1 venda de Guru\/Hotmart\/Hubla sem líquido informado/)
 })
 
 test('fully unknown report is not displayed as zero while explicit digital zero and empty report remain valid', () => {

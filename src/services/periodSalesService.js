@@ -51,7 +51,8 @@ export function normalizePeriodSnapshot(snapshot, { annual = false } = {}) {
       if (!cached?.payload || !['ready', 'stale'].includes(cached.status)) return { ...definition, status: 'unavailable', rows: [], cacheStatus: cached?.status || 'unavailable' }
       try {
         const source = normalizeProviderSource(definition.id, cached.payload)
-        return { ...source, status: cached.status === 'stale' ? 'partial' : source.status, cacheStatus: cached.status, snapshotAt: cached.fetchedAt, refreshing: cached.refreshing }
+        return { ...source, status: cached.status === 'stale' ? 'partial' : source.status, cacheStatus: cached.status,
+          snapshotComplete: source.status === 'ready', snapshotAt: cached.fetchedAt, refreshing: cached.refreshing }
       } catch { return { ...definition, status: 'unavailable', rows: [], cacheStatus: 'unavailable' } }
     })
     return { ...segment, result: { sources, records: sources.flatMap(source => source.rows) } }
@@ -60,7 +61,10 @@ export function normalizePeriodSnapshot(snapshot, { annual = false } = {}) {
   for (const source of sources) source.snapshots = snapshot.segments.map(segment => {
     const cached = segment.sources.find(item => item.id === source.id)
     const normalized = batches.find(batch => batch.startDate === segment.startDate).result.sources.find(item => item.id === source.id)
-    return { startDate: segment.startDate, endDate: segment.endDate, kind: segment.kind, status: cached?.status || 'not_requested', salesAvailable: sourceHasSales(normalized), fetchedAt: cached?.fetchedAt || null, lastAttemptAt: cached?.lastAttemptAt || null }
+    return { startDate: segment.startDate, endDate: segment.endDate, kind: segment.kind, status: cached?.status || 'not_requested',
+      salesAvailable: sourceHasSales(normalized), complete: normalized?.snapshotComplete === true,
+      refreshing: cached?.refreshing === true, error: cached?.error || null,
+      fetchedAt: cached?.fetchedAt || null, lastAttemptAt: cached?.lastAttemptAt || null }
   })
   return { ...snapshot.requested, sources, records: sources.flatMap(source => source.rows), fetchedAt: Date.now(), cache: periodCacheStatus(snapshot) }
 }
@@ -127,5 +131,5 @@ export async function loadPeriodSales(startDate, endDate, options = {}) {
   if (options.isCancelled?.()) throw cancelledError()
   options.onProgress?.({ current: 1, total: 1 })
   const sources = mergePeriodSources([{ startDate, endDate, result }])
-  return { startDate, endDate, sources, records: sources.flatMap(source => source.rows), fetchedAt: result.fetchedAt }
+  return { ...result, startDate, endDate, sources, records: sources.flatMap(source => source.rows) }
 }

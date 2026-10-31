@@ -47,7 +47,7 @@ function payload(id, range = { startDate: today, endDate: today }) {
   if (!includes(range, today)) return emptyProviderPayload(id)
   if (id === 'hotmart') return { success: true, data: {
     financialSchemaVersion: 2, count: 3, totalGross: 900, totalNet: 833.64, totalFees: 66.36,
-    transactions: [1, 2, 3].map(index => ({ transaction: `h${index}`, product: 'DevClub', grossValue: 300, netValue: 277.88, fee: 22.12, paymentMethod: 'CREDIT_CARD', currency: 'BRL', netCurrency: 'BRL', feeCurrency: 'BRL', orderDate: `${today}T12:00:00-03:00` })),
+    transactions: ['CREDIT_CARD', 'PIX', 'BILLET'].map((paymentMethod, index) => ({ transaction: `h${index + 1}`, product: 'DevClub', grossValue: 300, netValue: 277.88, fee: 22.12, paymentMethod, currency: 'BRL', netCurrency: 'BRL', feeCurrency: 'BRL', orderDate: `${today}T12:00:00-03:00` })),
   } }
   if (id === 'asaas') {
     const newSale = scenario === 'new-sale'
@@ -117,6 +117,7 @@ try {
     else if (url.pathname === '/api/transactions') body = payload('guru', range)
     else if (url.pathname === '/api/refunds') body = payload('guruRefunds', range)
     else if (url.pathname === '/api/hotmart/vendas') body = payload('hotmart', range)
+    else if (['/api/hubla/vendas', '/api/hubla/reembolsos'].includes(url.pathname)) body = { success: true, data: { financialSchemaVersion: 2, count: 0, totalNet: 0, totalGross: 0, totalFees: 0, transactions: [] } }
     else if (url.pathname === '/api/hotmart/reembolsos') body = payload('hotmartRefunds', range)
     else if (url.pathname.startsWith('/api/boleto/vendas/')) body = payload('tmb', range)
     else if (url.pathname === '/api/boleto/asaas/vendas') body = payload('asaas', range)
@@ -225,14 +226,22 @@ try {
       await page.getByRole('button', { name: 'Exportar', exact: true }).click();
       const download = await downloaded;
       const csv = await fs.readFile(await download.path(), 'utf8');
-      const rows = csv.replace(/^\uFEFF/, '').trim().split('\r\n').slice(1).map(line => line.split(';').map(value => value.slice(1, -1)));
+      const [headers, ...cells] = csv.replace(/^\uFEFF/, '').trim().split(/\r?\n/).map(line => line.split(';').map(value => value.slice(1, -1).replace(/""/g, '"')));
+      for (const name of ['Fonte', 'Categoria de pagamento', 'Pagamento original', 'Tipo', 'Valor operacional', 'Recebido']) assert.ok(headers.includes(name), `CSV must identify its ${name} column`);
+      const rows = cells.map(values => {
+        assert.equal(values.length, headers.length, 'CSV rows retain the complete named schema');
+        return Object.fromEntries(headers.map((name, index) => [name, values[index]]));
+      });
       assert.equal(rows.length, 3);
       for (const row of rows) {
-        assert.equal(row[1], 'Hotmart');
-        assert.equal(row[8], '277.88', 'Exported sales value must use net, never purchase price300');
-        assert.equal(row[9], '277.88', 'Exported cash must use the same net without subtracting fees again');
+        assert.equal(row.Fonte, 'Hotmart');
+        assert.equal(row['Categoria de pagamento'], 'Cartão', 'All Hotmart methods export the agreed commercial category');
+        assert.equal(row.Tipo, 'sale');
+        assert.equal(row['Valor operacional'], '277.88', 'Exported sales value must use net, never purchase price300');
+        assert.equal(row.Recebido, '277.88', 'Exported cash must use the same net without subtracting fees again');
       }
-      checks.push(`Monthly CSV/${width}: every Hotmart row exports net277.88 for sales and cash`);
+      assert.deepEqual(rows.map(row => row['Pagamento original']).sort(), ['Boleto', 'Cartão', 'Pix'], 'CSV preserves the original provider method independently of its commercial category');
+      checks.push(`Monthly CSV/${width}: named columns preserve Cartão category, original methods and net277.88 for sales and cash`);
     }
   }
 

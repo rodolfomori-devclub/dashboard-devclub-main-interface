@@ -5,7 +5,7 @@ const API_URL = import.meta.env.VITE_API_URL;
 
 export const revenueService = {
   /**
-   * Busca faturamento por período usando as APIs do Guru (cartão) e TMB (boleto)
+   * Busca faturamento por período usando as APIs de Guru, Hotmart e Hubla (cartão), TMB e Asaas (boleto)
    * @param {string} startDate - Data de início (YYYY-MM-DD)
    * @param {string} endDate - Data de fim (YYYY-MM-DD)
    * @returns {Object} Dados de faturamento consolidados
@@ -27,22 +27,21 @@ export const revenueService = {
         console.error('Erro ao buscar transações de cartão (Guru):', error);
       }
 
-      // 1b. Buscar vendas Hotmart (cartão)
-      let hotmartTotalNet = 0;
-      let hotmartTotalCount = 0;
-      try {
-        const hotmartResponse = await axios.get(`${API_URL}/hotmart/vendas`, {
-          params: { data_inicio: startDate, data_final: endDate },
-          timeout: 30000,
-        });
-        if (hotmartResponse.data?.success) {
-          const hotmartData = hotmartResponse.data.data;
-          hotmartTotalNet = hotmartData?.totalNet || 0;
-          hotmartTotalCount = hotmartData?.count || 0;
+      // Hotmart e Hubla compartilham a base líquida e a categoria Cartão.
+      const platformSales = await Promise.all(['hotmart', 'hubla'].map(async platform => {
+        try {
+          const response = await axios.get(`${API_URL}/${platform}/vendas`, {
+            params: { data_inicio: startDate, data_final: endDate },
+            timeout: 30000,
+          });
+          return response.data?.success ? response.data.data : null;
+        } catch (error) {
+          console.error(`Erro ao buscar vendas ${platform}:`, error);
+          return null;
         }
-      } catch (error) {
-        console.error('Erro ao buscar vendas Hotmart:', error);
-      }
+      }));
+      const platformNet = platformSales.reduce((total, data) => total + (Number(data?.totalNet) || 0), 0);
+      const platformCount = platformSales.reduce((total, data) => total + (Number(data?.count) || 0), 0);
 
       // 2. Buscar vendas de boleto (TMB)
       let boletoSales = [];
@@ -107,6 +106,18 @@ export const revenueService = {
         cardRevenueByDay[dateStr].sales += 1;
       });
 
+      for (const data of platformSales) {
+        for (const sale of data?.transactions || []) {
+          const date = new Date(sale.orderDate);
+          if (Number.isNaN(date.getTime())) continue;
+          const dateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
+          const currency = sale.netCurrency ?? (data.financialSchemaVersion === 2 ? null : sale.currency || 'BRL');
+          if (!cardRevenueByDay[dateStr]) cardRevenueByDay[dateStr] = { revenue: 0, sales: 0 };
+          cardRevenueByDay[dateStr].revenue += currency === 'BRL' ? Number(sale.netValue) || 0 : 0;
+          cardRevenueByDay[dateStr].sales += 1;
+        }
+      }
+
       // 4. Processar dados de boleto
       let totalBoletoRevenue = 0;
       let totalBoletoSales = 0;
@@ -145,9 +156,9 @@ export const revenueService = {
         totalSales: (cardRevenueByDay[date]?.sales || 0) + (boletoRevenueByDay[date]?.sales || 0)
       })).sort((a, b) => a.date.localeCompare(b.date));
 
-      // Incluir Hotmart no total de cartão (Guru + Hotmart)
-      const combinedCardRevenue = totalCardRevenue + hotmartTotalNet;
-      const combinedCardSales = totalCardSales + hotmartTotalCount;
+      // Incluir Hotmart e Hubla no total de cartão
+      const combinedCardRevenue = totalCardRevenue + platformNet;
+      const combinedCardSales = totalCardSales + platformCount;
 
       // Incluir Asaas no total de boleto (TMB + Asaas)
       const combinedBoletoRevenue = totalBoletoRevenue + asaasTotalValue;

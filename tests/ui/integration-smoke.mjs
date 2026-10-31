@@ -100,6 +100,7 @@ await context.route('**/*',async route=>{
  else if(url.pathname==='/api/transactions')body={data:guruRows}
  else if(url.pathname==='/api/refunds')body={data:[]}
  else if(url.pathname==='/api/hotmart/vendas')body={success:true,data:{count:1,totalGross:300,totalNet:250,totalFees:50,transactions:[{transaction:'h1',product:'Seu segundo salário com IA',grossValue:300,netValue:250,fee:50,paymentMethod:'PIX',orderDate:`${date}T16:10:00-03:00`}]}}
+ else if (['/api/hubla/vendas', '/api/hubla/reembolsos'].includes(url.pathname)) body = { success: true, data: { financialSchemaVersion: 2, count: 0, totalNet: 0, totalGross: 0, totalFees: 0, transactions: [] } }
  else if(url.pathname==='/api/hotmart/reembolsos')body={success:true,data:{count:0,totalRefundAmount:0,transactions:[]}}
  else if(url.pathname.startsWith('/api/boleto/vendas/'))body={success:true,data:[{id:'tmb-1-0',raw:{pedido_id:1},product:'DevClub Vitalício',value:800,timestamp:`${date}T10:00:00-03:00`,utm_source:'comercial'}]}
  else if(url.pathname==='/api/boleto/asaas/vendas')body={success:true,data:{sales:{count:1,totalValue:1000,entryValue:200,entries:[{id:'a1',productDescription:'MBA em IA',totalValue:1000,entryValue:200,createdAt:`${date}T09:20:00-03:00`}]}}}

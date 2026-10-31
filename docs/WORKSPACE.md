@@ -6,6 +6,7 @@ O aplicativo unificado fica em `dashboard-devclub-main-interface`. O código mig
 
 - Diário, global, mensal, anual e comparativos compartilham normalização e filtros de vendas. Famílias: MBA, DevClub, IAClub e **Seu segundo salário com IA**. Produtos desconhecidos continuam identificados, sem classificação arbitrária.
 - UTMs ausentes ficam como “Não informado”. O valor operacional mantém o critério das integrações existentes. Bruto, líquido e caixa são separados; ausência de informação difere de zero.
+- A categoria de vendas é definida pela plataforma em todas as telas, filtros e gráficos: Guru/Hotmart = Cartão; TMB/Boletex = Boleto, qualquer que seja o meio original. Cada venda entra uma vez, mantendo a regra de valor líquido das plataformas. O pagamento original permanece nos detalhes e na exportação, separado da categoria.
 - Metas por produto/indicador, supermeta/ultrameta, observações e ritmo por dias corridos ou segunda a sexta (sem calendário de feriados). O dia atual conta como transcorrido. Meses futuros não recebem vendas presumidas.
 - Meta geral operacional mensal é sincronizada com a meta mensal antiga. Meta anual continua independente; não há rateio automático entre meses. Metas comerciais do Hub ficam na aba Time comercial.
 - Atribuição, conciliação e lançamento manual exigem a permissão `attribution` ou admin. Operações são auditadas e repetição do mesmo envio é idempotente. Um lançamento conciliado fica no histórico e deixa de somar ao financeiro.
@@ -23,6 +24,10 @@ No Vault atualizado, abra Sistemas → Dashboard → Roles/Permissões → Atual
 
 ## Verificação e carregamento
 
+TVs com navegadores antigos podem usar `/tv-light`, uma página independente com
+os mesmos indicadores públicos e visual simplificado. Os botões ficam no
+compartilhamento da TV. Implementação e validação: [TV-LIGHT.md](./TV-LIGHT.md).
+
 `npm test` executa testes financeiros, de filtros, metas e conciliação. `npm run build` gera o aplicativo. `npm run test:ui` executa testes de navegação responsiva com dados artificiais e rede externa bloqueada; requer Chromium/Chrome disponível. Esses testes não confirmam credenciais das plataformas ou latência de produção.
 
 As telas são carregadas sob demanda. Bibliotecas de gráficos antigos, editor e exportação não são pré-carregadas na entrada. Consultas simultâneas do mesmo período compartilham requisição, há cache curto por sessão e a mudança de filtros atua em memória. A atualização manual invalida o cache. Histórico comercial pagina os dados para evitar o limite de 1.000 linhas do Supabase.
@@ -36,6 +41,8 @@ Dependência SheetJS instalada na versão oficial distribuída pelo fornecedor, 
 Hotmart retorna compras com status de reembolso nesta integração; isso não informa a data exata nem o caixa devolvido. TMB retorna cancelamentos, que não comprovam devolução. Solicitações Typeform/planilha permanecem separadas dos eventos financeiros.
 
 Se uma fonte falhar, a tela sinaliza dados parciais. O sistema não transforma falha em zero nem deduz UTMs. A previsão de meta é linear e não uma garantia de resultado.
+
+No Diário, uma atualização que falha preserva a última leitura válida de cada plataforma para o mesmo período, quando disponível na sessão. O aviso acima dos indicadores identifica a fonte e o horário da leitura preservada; a hora da consulta não é apresentada como uma nova coleta completa. Uma resposta válida com correção para menos ou zero continua substituindo os dados anteriores. Sem leitura anterior, a fonte permanece indisponível e os valores são identificados como incompletos.
 
 Os testes unitários e a suíte de navegação local usam dados simulados. O runner separado `tests/ui/vault-production-smoke.mjs` valida login real pelo Vault, permissões e navegação de três perfis em contextos de navegador isolados. Ele exige contas temporárias em arquivos JSON 0600 fora do repositório, não registra tokens ou dados comerciais e deve ser executado apenas durante a validação de produção autorizada.
 

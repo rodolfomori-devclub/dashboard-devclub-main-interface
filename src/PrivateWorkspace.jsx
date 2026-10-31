@@ -20,6 +20,7 @@ const Refunds = lazy(() => import('./pages/RefundsPage'))
 const Goals = lazy(() => import('./pages/GoalsPage'))
 const Pace = lazy(() => import('./pages/GoalPacePage'))
 const Attribution = lazy(() => import('./pages/AttributionPage'))
+const BuyerIntelligence = lazy(() => import('./pages/BuyerIntelligencePage'))
 const Sources = lazy(() => import('./pages/DataSourcesPage'))
 const HubHome = lazy(() => import('./pages/HubHome'))
 const Admin = lazy(() => import('./pages/AdminPage'))
@@ -100,6 +101,7 @@ function AppRouter() {
     ['/diario', 'today', Today], ['/global', 'daily', Global], ['/mensal', 'monthly', Monthly], ['/anual', 'yearly', Yearly],
     ['/comparativo', 'comparativo', Comparativo], ['/reembolsos', 'refunds', Refunds], ['/metas', 'goals', Goals],
     ['/pace', 'goal-pace', Pace], ['/atribuicao', 'attribution', Attribution], ['/data-sources', 'data-sources', Sources],
+    ['/compradores', 'attribution', BuyerIntelligence],
     ['/hub', 'hub-home', HubHome], ['/admin', 'admin', Admin],
     ['/onboarding/mba', 'onboarding-mba', Onboarding], ['/onboarding/devclub', 'onboarding-devclub', Onboarding],
     ['/materials', 'materials', Materials, true], ['/settings', 'settings', Settings, true],

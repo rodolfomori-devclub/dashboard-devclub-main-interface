@@ -38,6 +38,7 @@ test('filters use actual transactions by product/family/platform/payment, never 
   assert.equal(summarizePeriod(filterSales(records, { family: 'DevClub' })).total.revenue.value, 1270)
   assert.equal(summarizePeriod(filterSales(records, { platform: 'Asaas' })).total.revenue.value, 1000)
   assert.equal(summarizePeriod(filterSales(records, { payment: 'Cartão' })).total.revenue.value, 270)
+  assert.equal(summarizePeriod(filterSales(records, { payment: 'Pix' })).total.revenue.value, 0)
   assert.equal(summarizePeriod(filterSales(records, { product: 'MBA' })).total.received.value, 200)
 })
 

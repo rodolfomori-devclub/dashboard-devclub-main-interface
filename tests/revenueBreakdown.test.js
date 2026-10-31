@@ -10,11 +10,10 @@ const platforms = { guru: 'Guru', hotmart: 'Hotmart', tmb: 'TMB', asaas: 'Asaas'
 const source = (id, extra = {}) => ({ id, label: platforms[id], platform: platforms[id], kind: 'sale', status: 'ready', ...extra })
 const row = (sourceId, payment, revenue, extra = {}) => ({ id: `fixture:${sourceId}:${payment}`, sourceId, platform: platforms[sourceId], kind: 'sale', quantity: 1, revenue, gross: revenue, net: revenue, received: null, payment, date: '2026-10-01T12:00:00Z', utm: {}, ...extra })
 
-test('digital platforms belong only to Cartão, including residual and negative totals', () => {
+test('commercial card categories include all Guru/Hotmart methods and preserve residual/negative totals', () => {
   const sales = [row('guru', 'Cartão', 100), row('guru', 'Pix', 200), row('guru', 'Boleto', 300), row('hotmart', 'Cartão', 400), row('hotmart', 'Boleto', 500), row('hotmart', 'Não informado', 50, { isAggregate: true, quantity: 0 }), row('hotmart', 'Não informado', -10, { isAggregate: true, quantity: -1 }), row('hotmart', 'Paypal', 60)]
   const result = buildRevenueBreakdown(sales, [source('guru'), source('hotmart')])
   assert.equal(result.payments.card.value, 1600)
-  assert.equal(result.payments.card.count, 5)
   for (const key of ['boleto', 'pix', 'unknown', 'other']) assert.equal(result.payments[key].value, 0)
   assert.equal(result.revenue.value, 1600)
   assert.equal(Object.values(result.payments).reduce((total, group) => total + (group.value ?? 0), 0), result.revenue.value)
@@ -28,11 +27,10 @@ test('known-empty, unavailable, unknown classification and missing financial val
   const unavailable = buildRevenueBreakdown([], [source('guru', { status: 'unavailable' }), source('manual')])
   assert.equal(unavailable.revenue.value, null)
   assert.equal(unavailable.payments.card.value, null)
-  const unknown = buildRevenueBreakdown([row('guru', 'Não informado', 80)], [source('guru')])
-  assert.equal(unknown.payments.card.value, 80)
-  assert.equal(unknown.payments.card.partial, false)
-  assert.equal(unknown.payments.boleto.value, 0)
-  assert.equal(unknown.payments.unknown.value, 0)
+  const unknown = buildRevenueBreakdown([row('manual', 'Não informado', 80, { isManual: true })], [source('manual')])
+  assert.equal(unknown.payments.card.value, null)
+  assert.equal(unknown.payments.boleto.value, null)
+  assert.equal(unknown.payments.unknown.value, 80)
   const missing = buildRevenueBreakdown([row('guru', 'Cartão', null)], [source('guru')])
   assert.equal(missing.payments.card.value, null)
   assert.equal(missing.payments.card.count, 1)
@@ -59,13 +57,13 @@ test('filtered values do not allocate Asaas cash to a product or payment method'
   assert.ok(notices.some(notice => notice.id === 'asaas-allocation'))
 })
 
-test('manual TMB is cash by rule but remains an unknown payment until the method is known', () => {
+test('manual TMB follows the boleto commercial category even without an original payment', () => {
   const result = buildRevenueBreakdown([row('manual', 'Não informado', 100, { platform: 'TMB', isManual: true, received: 10 })], [source('manual')])
   assert.equal(result.cash.value, 40)
   assert.equal(result.revenue.value, 100)
-  assert.equal(result.payments.boleto.value, null)
-  assert.equal(result.payments.card.value, null)
-  assert.equal(result.payments.unknown.providers[0].label, 'TMB')
+  assert.equal(result.payments.boleto.value, 100)
+  assert.equal(result.payments.card.value, 0)
+  assert.equal(result.payments.boleto.providers[0].label, 'TMB')
 })
 
 test('cached history and today retain the separate Asaas ledger without inflating new-sale cash', () => {

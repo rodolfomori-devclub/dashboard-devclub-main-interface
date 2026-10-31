@@ -1,0 +1,63 @@
+.buyers-intelligence-page { --buyers-line: var(--accent); }
+.buyers-intelligence-page .page-heading > div:first-child { max-width: 720px; }
+.buyers-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.buyers-period { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px; }
+.buyers-period label { display: grid; gap: 6px; font-size: 12px; min-width: 160px; }
+.buyers-period p { max-width: 390px; font-size: 12px; color: var(--muted); line-height: 1.6; margin: 0 0 3px auto; }
+.buyers-period-caption { color: var(--muted); font-size: 12px; }
+.buyers-coverage { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 32px; align-items: center; }
+.buyers-coverage h2,.buyers-distribution h2,.buyers-reading h2,.buyers-error h2 { font-size: 18px; }
+.buyers-coverage-main > p { display: flex; align-items: baseline; flex-wrap: wrap; gap: 12px; margin: 18px 0 14px; }
+.buyers-coverage-main strong { font-size: 38px; line-height: 1.15; font-weight: 650; letter-spacing: -1px; font-variant-numeric: tabular-nums; }
+.buyers-coverage-main span { font-size: 13px; max-width: 270px; color: var(--muted); }
+.buyers-coverage-track { height: 10px; border-radius: 6px; background: var(--surface-subtle); border: 1px solid var(--border); overflow: hidden; }
+.buyers-coverage-track i { display: block; height: 100%; background: var(--buyers-line); }
+.buyers-coverage-main small { display: block; color: var(--muted); font-size: 11px; margin-top: 10px; }
+.buyers-coverage dl { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding-left: 30px; border-left: 1px solid var(--border); }
+.buyers-coverage dt { font-size: 12px; color: var(--muted); }
+.buyers-coverage dd { font-size: 23px; font-weight: 600; margin: 6px 0 0; font-variant-numeric: tabular-nums; }
+.buyers-metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-block: 1px solid var(--border); }
+.buyers-metric { min-width: 0; padding: 22px 20px; }
+.buyers-metric + .buyers-metric { border-left: 1px solid var(--border); }
+.buyers-metric h2 { font-size: 13px; font-weight: 600; min-height: 36px; }
+.buyers-metric > strong { display: block; margin: 12px 0; font-size: 28px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.buyers-metric p { font-size: 12px; line-height: 1.6; }
+.buyers-metric small { display: block; margin-top: 10px; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.buyers-distribution-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.buyers-distribution { min-width: 0; }
+.buyers-distribution header p,.buyers-reading > p,.buyers-error > p { color: var(--muted); font-size: 13px; line-height: 1.7; margin: 8px 0 20px; max-width: 80ch; }
+.buyers-distribution .data-table { width: 100%; table-layout: fixed; }
+.buyers-distribution .data-table th:first-child { width: 54%; }
+.buyers-distribution .data-table th,.buyers-distribution .data-table td { padding-inline: 8px; font-size: 12px; white-space: normal; overflow-wrap: anywhere; }
+.buyers-distribution tbody th { font-weight: 400; text-align: left; }
+.buyers-distribution .data-table td { text-align: right; font-variant-numeric: tabular-nums; }
+.buyers-bar { display: block; height: 4px; max-width: 100%; margin-top: 9px; background: var(--surface-subtle); border-radius: 3px; overflow: hidden; }
+.buyers-bar i { display: block; height: 100%; background: var(--buyers-line); }
+.buyers-denominator,.buyers-empty { color: var(--muted); font-size: 12px; line-height: 1.7; margin-top: 18px; }
+.buyers-reading-footer { border-top: 1px solid var(--border); padding-top: 15px; display: flex; justify-content: space-between; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+.buyers-reading-footer a { display: inline-flex; gap: 6px; align-items: center; color: var(--accent); }
+.buyers-history,.buyers-catalog { min-width: 0; }
+.buyers-history h2,.buyers-catalog h2 { font-size: 18px; }
+.buyers-history header > p,.buyers-catalog header > p,.buyers-history-signals > p { color: var(--muted); font-size: 13px; line-height: 1.7; max-width: 92ch; margin: 8px 0 20px; }
+.buyers-history-totals { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 20px; padding-block: 20px; margin-block: 0 20px; border-block: 1px solid var(--border); }
+.buyers-history-totals dt { font-size: 12px; color: var(--muted); }
+.buyers-history-totals dd { margin: 8px 0; font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.buyers-history-totals small { display: block; font-size: 11px; line-height: 1.6; color: var(--muted); }
+.buyers-history-signals { margin-top: 30px; }
+.buyers-history-signals h3 { font-size: 15px; font-weight: 600; }
+.buyers-history-signals h4 { font-size: 13px; font-weight: 600; min-height: 36px; }
+.buyers-history-table,.buyers-product-table { width: 100%; table-layout: fixed; }
+.buyers-history-table caption,.buyers-product-table caption { text-align: left; color: var(--muted); font-size: 11px; line-height: 1.6; padding-bottom: 12px; }
+.buyers-history-table th,.buyers-history-table td,.buyers-product-table th,.buyers-product-table td { white-space: normal; overflow-wrap: anywhere; font-size: 12px; padding-inline: 8px; }
+.buyers-history-table th:first-child { width: 40%; }
+.buyers-product-table th:first-child { width: 46%; }
+.buyers-history-table tbody th,.buyers-product-table tbody th { text-align: left; font-weight: 400; }
+.buyers-history-table td,.buyers-product-table td { text-align: right; font-variant-numeric: tabular-nums; }
+.buyers-product-table small { display: block; font-size: 11px; color: var(--muted); line-height: 1.5; margin-top: 5px; }
+.buyers-product-pending { background: var(--surface-subtle); }
+.buyers-catalog-coverage { display: flex; flex-wrap: wrap; align-items: baseline; gap: 12px; padding-block: 16px; border-block: 1px solid var(--border); margin-bottom: 24px; }
+.buyers-catalog-coverage strong { font-size: 28px; font-variant-numeric: tabular-nums; }
+.buyers-catalog-coverage span { font-size: 13px; color: var(--muted); }
+@media (max-width: 1100px) { .buyers-history-totals { grid-template-columns: repeat(2,minmax(0,1fr)); } }
+@media (max-width: 1100px) { .buyers-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .buyers-metric:nth-child(3) { border-left: 0; } .buyers-metric:nth-child(n+3) { border-top: 1px solid var(--border); } .buyers-period p { margin-left: 0; max-width: none; flex-basis: 100%; } }
+@media (max-width: 700px) { .buyers-coverage,.buyers-distribution-grid { grid-template-columns: minmax(0, 1fr); } .buyers-coverage dl { border-left: 0; border-top: 1px solid var(--border); padding: 20px 0 0; } .buyers-coverage { gap: 20px; } .buyers-period label { min-width: 0; flex: 1 1 120px; } .buyers-period .ds-input { min-width: 0; width: 100%; } .buyers-metric { padding: 18px 10px; } .buyers-actions .button { font-size: 12px; } .buyers-coverage-main strong { font-size: 34px; } }
