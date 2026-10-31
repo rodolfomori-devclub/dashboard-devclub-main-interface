@@ -1,4 +1,4 @@
-import { applyPlatformCashRule, salesPaymentLabel } from './platformCash.js'
+import { applyPlatformCashRule, salesPaymentLabel, usesPlatformNet } from './platformCash.js'
 import { amount, summarizeSales, sumAmount } from './salesData.js'
 import { asaasCashView, sourceHasSales } from './sourceAvailability.js'
 import { prepareGoalData } from './goalData.js'
@@ -83,9 +83,13 @@ export function buildRevenueBreakdown(records = [], sources = [], filters = {}) 
         entry: paymentMetric(entries, 'entryReceived', incomplete), note: entryNote(id) }
     })
     const result = summarizeSales(rows)
-    const eligibleSources = saleSources.filter(source => !boletoSources.includes(source.id) || key === 'boleto')
+    const eligibleSources = saleSources.filter(source => usesPlatformNet({ sourceId: source.id, platform: source.platform })
+      ? key === 'card' : !boletoSources.includes(source.id) || key === 'boleto')
     const unknownPayment = sales.some(row => revenuePaymentGroup(salesPaymentLabel(row)) === 'unknown' && eligibleSources.some(source => source.id === row.sourceId))
-    const groupAvailable = rows.length > 0 || (!unknownPayment && eligibleSources.some(source => observedSource(source, sales.filter(row => row.sourceId === source.id))))
+    // A known sales view also proves an empty category when all eligible
+    // sources are ready, including categories with no eligible source at all.
+    const emptyCategoryKnown = available && eligibleSources.every(source => source.status === 'ready' && sourceHasSales(source))
+    const groupAvailable = rows.length > 0 || (!unknownPayment && (emptyCategoryKnown || eligibleSources.some(source => observedSource(source, sales.filter(row => row.sourceId === source.id)))))
     paymentGroups[key] = { key, value: numeric(result.revenue, groupAvailable),
       count: groupAvailable ? result.count : null,
       partial: providers.some(provider => provider.partial) || unknownPayment || eligibleSources.some(source => source.status !== 'ready' || source.salesAvailable === false), providers }

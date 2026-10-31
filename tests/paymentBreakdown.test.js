@@ -166,3 +166,33 @@ test('missing net, zero, unavailable sources and unknown non-digital methods pre
   assert.equal(unknown.payments.card.value, null)
   assert.equal(unknown.payments.unknown.value, 90)
 })
+
+test('known empty categories remain zero without an empty manual ledger masking unavailable card sources', () => {
+  const guruRows = [row('g', 'guru', 'Pix', 1000, 900)]
+  for (const manuals of [[], [source('manual')]]) {
+    const mixed = buildRevenueBreakdown(guruRows, [source('guru'), source('hotmart', { status: 'unavailable' }), ...manuals])
+    assert.equal(mixed.payments.card.value, 900)
+    assert.equal(mixed.payments.card.partial, true)
+    for (const key of ['boleto', 'pix', 'unknown', 'other']) {
+      assert.equal(mixed.payments[key].value, 0)
+      assert.equal(mixed.payments[key].count, 0)
+      assert.equal(mixed.payments[key].partial, false)
+    }
+  }
+  const manualFailure = buildRevenueBreakdown(guruRows, [source('guru'), source('manual', { status: 'unavailable' })])
+  assert.equal(manualFailure.payments.card.value, 900)
+  assert.equal(manualFailure.payments.card.partial, true)
+  for (const key of ['boleto', 'pix', 'unknown', 'other']) {
+    assert.equal(manualFailure.payments[key].value, null)
+    assert.equal(manualFailure.payments[key].partial, true)
+  }
+  const unavailable = buildRevenueBreakdown([], [source('guru', { status: 'unavailable' }), source('manual')])
+  assert.equal(unavailable.payments.card.value, null)
+  assert.equal(unavailable.payments.card.count, null)
+  assert.equal(unavailable.payments.card.partial, true)
+  const unknownExternal = buildRevenueBreakdown([...guruRows, row('manual-unknown', 'manual', null, 100, 90,
+    { isManual: true, platform: 'Outra' })], [source('guru'), source('manual')])
+  assert.equal(unknownExternal.payments.pix.value, null)
+  assert.equal(unknownExternal.payments.boleto.value, null)
+  assert.equal(unknownExternal.payments.unknown.value, 90)
+})
