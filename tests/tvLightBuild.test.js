@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { runInNewContext } from 'node:vm'
-import { tvLightConfigSource, tvLightPlugin } from '../src/lib/tvLightBuild.js'
+import { tvLightConfigSource, tvLightPlugin, tvLightCelebrationSource } from '../src/lib/tvLightBuild.js'
 
 test('TV Light config carries only the public API base and remains a classic script', () => {
   const apiUrl = 'https://api.example.com/api?test="</script>\u2028'
@@ -18,12 +18,19 @@ test('TV Light config carries only the public API base and remains a classic scr
 })
 
 test('production build emits config inside the independently served TV Light directory', () => {
-  let asset
-  tvLightPlugin('/api').generateBundle.call({ emitFile(value) { asset = value } })
+  const assets = []
+  tvLightPlugin('/api').generateBundle.call({ emitFile(value) { assets.push(value) } })
+  const asset = assets.find(value => value.fileName === 'tv-light/config.js')
   assert.equal(asset.fileName, 'tv-light/config.js')
   const context = { window: {} }
   runInNewContext(asset.source, context)
   assert.equal(context.window.TV_LIGHT_API_URL, '/api')
+  const core = assets.find(value => value.fileName === 'tv-light/celebration-core.js')
+  assert.equal(core.source, tvLightCelebrationSource())
+  assert.doesNotMatch(core.source, /\b(?:const|let|class|import|export)\b|=>/)
+  runInNewContext(core.source, context)
+  assert.equal(typeof context.window.createTvSaleTracker, 'function')
+  assert.equal(typeof context.window.createTvSaleTracker().consume, 'function')
 })
 
 test('dev and preview routes load the standalone document while retaining real assets', () => {

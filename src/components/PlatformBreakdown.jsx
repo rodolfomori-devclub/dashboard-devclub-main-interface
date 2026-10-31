@@ -5,7 +5,7 @@ import React from 'react';
  * Mostra contagem e percentual de cada plataforma em cards
  */
 const PlatformBreakdown = ({ platforms = {} }) => {
-  const { asaas = {}, hotmart = {}, guru = {}, tmb = {}, outros = {} } = platforms;
+  const { asaas = {}, hotmart = {}, hubla = {}, guru = {}, tmb = {}, outros = {} } = platforms;
 
   // Plataformas com configuração visual
   const platformsConfig = [
@@ -21,6 +21,14 @@ const PlatformBreakdown = ({ platforms = {} }) => {
       key: 'hotmart',
       name: 'Hotmart',
       data: hotmart,
+      color: 'from-blue-500 to-blue-600',
+      bgColor: 'bg-blue-500/5 dark:bg-blue-500/10',
+      accentColor: 'text-blue-500'
+    },
+    {
+      key: 'hubla',
+      name: 'Hubla',
+      data: hubla,
       color: 'from-blue-500 to-blue-600',
       bgColor: 'bg-blue-500/5 dark:bg-blue-500/10',
       accentColor: 'text-blue-500'
@@ -57,7 +65,7 @@ const PlatformBreakdown = ({ platforms = {} }) => {
         Distribuição por Plataforma
       </h3>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {platformsConfig.map(({ key, name, data, color, bgColor, accentColor }) => {
           const count = data.count || 0;
           const percentage = data.percentage || 0;

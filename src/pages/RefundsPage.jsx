@@ -3,7 +3,7 @@ import { ArrowDownLeft, ArrowUpRight, ChevronDown, ChevronUp, ChevronLeft, Chevr
 import { refundsService } from '../services/refundsService'
 import RefundSummary from '../components/charts/RefundSummary'
 
-const SOURCES = { guru: 'Guru', hotmart: 'Hotmart', tmb: 'TMB', typeform: 'Typeform', spreadsheet: 'Planilha' }
+const SOURCES = { guru: 'Guru', hotmart: 'Hotmart', hubla: 'Hubla', tmb: 'TMB', typeform: 'Typeform', spreadsheet: 'Planilha' }
 const STATUSES = { refunded: 'Reembolso confirmado', partially_refunded: 'Reembolso parcial', requested: 'Solicitado', retained: 'Retido no atendimento', reported_refunded: 'Informado na planilha', chargeback: 'Chargeback', dispute: 'Em contestação', rejected: 'Venda rejeitada', cancelled: 'Pedido cancelado' }
 const COVERAGE = { available: 'Disponível', limited: 'Cobertura limitada', partial: 'Dados parciais', unavailable: 'Indisponível' }
 const BASIS = { refund: 'Cancelamento / estorno', purchase: 'Compra / efetivação', request: 'Solicitação', unknown: 'Não informada' }
@@ -129,7 +129,7 @@ export default function RefundsPage() {
     <section className="surface-panel ds-card overflow-hidden" aria-labelledby="refund-list-title">
       <div className="p-5 border-b border-slate-200 dark:border-slate-800">
         <div className="flex items-center justify-between flex-wrap gap-2"><h2 id="refund-list-title" className="text-base font-semibold">Histórico de registros</h2><span className="text-xs text-slate-500">{loading ? 'Carregando…' : `${filtered.length} registros encontrados`}</span></div>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">O período considera cancelamento na Guru, compra/efetivação na Hotmart e TMB, e abertura nas solicitações. Guru e Hotmart: valor líquido após taxas; demais: valor contratado. O valor da venda não representa o total devolvido.</p>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">O período considera cancelamento na Guru, compra/efetivação na Hotmart, Hubla e TMB, e abertura nas solicitações. Guru, Hotmart e Hubla: valor líquido após taxas; demais: valor contratado. O valor da venda não representa o total devolvido.</p>
         <div className="flex flex-wrap gap-2 mt-5" role="group" aria-label="Tipo de registro">{[['all', 'Todos'], ['confirmed', 'Confirmados'], ['requests', 'Atendimento'], ['exceptions', 'Contestações e cancelamentos']].map(([key, label]) => <button key={key} type="button" aria-pressed={view === key} onClick={() => setFilter(setView, key)} className={`btn btn-sm ${view === key ? 'btn-primary' : 'btn-ghost'}`}>{label}</button>)}</div>
         <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-3 mt-4">
           <div><label htmlFor="refund-search" className="ds-label">Buscar</label><div className="relative"><Search size={16} aria-hidden="true" className="absolute left-3 top-3 text-slate-400" /><input id="refund-search" type="search" className="ds-input pl-9" placeholder="Nome, e-mail, compra ou motivo" value={search} onChange={e => setFilter(setSearch, e.target.value)} /></div></div>

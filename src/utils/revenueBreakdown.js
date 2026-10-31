@@ -1,10 +1,10 @@
-import { applyPlatformCashRule, salesPaymentLabel, usesPlatformNet } from './platformCash.js'
+import { applyPlatformCashRule, salesPaymentLabel } from './platformCash.js'
 import { amount, summarizeSales, sumAmount } from './salesData.js'
 import { asaasCashView, sourceHasSales } from './sourceAvailability.js'
 import { prepareGoalData } from './goalData.js'
 
-const SOURCES = ['guru', 'hotmart', 'tmb', 'asaas', 'boletex', 'manual']
-const LABELS = { guru: 'Guru', hotmart: 'Hotmart', tmb: 'TMB', asaas: 'Asaas', boletex: 'Boletex', manual: 'Vendas manuais' }
+const SOURCES = ['guru', 'hotmart', 'hubla', 'tmb', 'asaas', 'boletex', 'manual']
+const LABELS = { guru: 'Guru', hotmart: 'Hotmart', hubla: 'Hubla', tmb: 'TMB', asaas: 'Asaas', boletex: 'Boletex', manual: 'Vendas manuais' }
 const fold = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[ _-]/g, '')
 export function revenuePaymentGroup(payment) {
   const value = fold(payment)
@@ -13,11 +13,6 @@ export function revenuePaymentGroup(payment) {
   if (['pix', 'instantpayment'].includes(value)) return 'pix'
   if (!value || value === 'naoinformado') return 'unknown'
   return 'other'
-}
-// The business category groups every Guru/Hotmart sale under Cartão. Keep the
-// original payment method on the record for transaction details.
-export function revenueSalesGroup(row) {
-  return revenuePaymentGroup(salesPaymentLabel(row))
 }
 const numeric = (metric, available) => !available || (!metric.known && metric.missing) ? null : metric.value
 const observedSource = (source, rows) => sourceHasSales(source) && (source.id !== 'manual' || rows.length > 0)
@@ -49,15 +44,15 @@ function existingAsaasCash(sources, filters) {
     partial: source.status !== 'ready' || missing > 0 || Boolean(stale || undated) }
 }
 
-// Records are already filtered. Category and source availability stay separate;
-// Guru/Hotmart's category is known even when their payment method is absent.
+// Records are already filtered. The commercial category follows the platform
+// rule; other platforms retain their informed method, including missing ones.
 export function buildRevenueBreakdown(records = [], sources = [], filters = {}) {
   const sales = records.filter(row => row.kind === 'sale').map(applyPlatformCashRule)
   const saleSources = sources.filter(source => source.kind === 'sale' && (!filters.platform || source.platform === filters.platform || source.id === 'manual'))
   const available = saleSources.some(source => observedSource(source, sales.filter(row => row.sourceId === source.id))) || sales.some(row => amount(row.revenue) !== null)
   const summary = summarizeSales(sales)
   // Compatibility key `gross` now follows each provider's sales-value rule:
-  // Guru/Hotmart net after fees; contracted value for the other providers.
+  // Guru/Hotmart/Hubla net after fees; contracted value for the other providers.
   const grossAvailable = saleSources.some(source => observedSource(source, sales.filter(row => row.sourceId === source.id)))
     || sales.some(row => amount(row.gross) !== null)
   const grossPartial = !grossAvailable || saleSources.some(source => source.status !== 'ready' || source.salesAvailable === false) || summary.gross.missing > 0
@@ -65,8 +60,9 @@ export function buildRevenueBreakdown(records = [], sources = [], filters = {}) 
   const prepared = prepareGoalData({ records: sales, sources: saleSources })
   const paymentGroups = {}
   for (const key of ['card', 'boleto', 'pix', 'other', 'unknown']) {
-    const rows = sales.filter(row => revenueSalesGroup(row) === key)
-    // Each transaction contributes to exactly one business category.
+    const rows = sales.filter(row => revenuePaymentGroup(salesPaymentLabel(row)) === key)
+    // A platform belongs here only when a transaction identifies this method.
+    // Source availability still controls the total, independently of the list.
     const providerIds = [...new Set(rows.map(providerKey))].sort((a, b) => {
       const rank = id => SOURCES.includes(id) ? SOURCES.indexOf(id) : SOURCES.length
       return rank(a) - rank(b) || a.localeCompare(b)
@@ -76,9 +72,9 @@ export function buildRevenueBreakdown(records = [], sources = [], filters = {}) 
       const providerRows = sales.filter(row => providerKey(row) === id)
       const selectedSources = [...new Set(selected.map(row => row.sourceId))].map(id => saleSources.find(source => source.id === id))
       const result = summarizeSales(selected)
-      const unknownPayment = providerRows.some(row => revenueSalesGroup(row) === 'unknown')
+      const unknownPayment = providerRows.some(row => revenuePaymentGroup(salesPaymentLabel(row)) === 'unknown')
       const incomplete = selectedSources.some(source => !source || source.status !== 'ready' || source.salesAvailable === false)
-      const cashRows = prepared.cashRecords.filter(row => providerKey(row) === id && revenueSalesGroup(row) === key)
+      const cashRows = prepared.cashRecords.filter(row => providerKey(row) === id && revenuePaymentGroup(salesPaymentLabel(row)) === key)
       const entries = selected.map(row => ({ entryReceived: row.sourceId === 'asaas' && !row.isManual && !row.isReceipt ? amount(row.received) : null }))
       return { id, label: LABELS[id] || selected[0]?.platform || 'Plataforma não informada', value: numeric(result.revenue, true), count: result.count,
         partial: incomplete || unknownPayment || result.revenue.missing > 0,
@@ -87,13 +83,9 @@ export function buildRevenueBreakdown(records = [], sources = [], filters = {}) 
         entry: paymentMetric(entries, 'entryReceived', incomplete), note: entryNote(id) }
     })
     const result = summarizeSales(rows)
-    const eligibleSources = saleSources.filter(source => usesPlatformNet({ sourceId: source.id, platform: source.platform })
-      ? key === 'card' : !boletoSources.includes(source.id) || key === 'boleto')
-    const unknownPayment = sales.some(row => revenueSalesGroup(row) === 'unknown' && eligibleSources.some(source => source.id === row.sourceId))
-    // A known sales view also proves an empty category when all eligible
-    // sources are ready, including categories with no eligible source at all.
-    const emptyCategoryKnown = available && eligibleSources.every(source => source.status === 'ready' && sourceHasSales(source))
-    const groupAvailable = rows.length > 0 || (!unknownPayment && (emptyCategoryKnown || eligibleSources.some(source => observedSource(source, sales.filter(row => row.sourceId === source.id)))))
+    const eligibleSources = saleSources.filter(source => !boletoSources.includes(source.id) || key === 'boleto')
+    const unknownPayment = sales.some(row => revenuePaymentGroup(salesPaymentLabel(row)) === 'unknown' && eligibleSources.some(source => source.id === row.sourceId))
+    const groupAvailable = rows.length > 0 || (!unknownPayment && eligibleSources.some(source => observedSource(source, sales.filter(row => row.sourceId === source.id))))
     paymentGroups[key] = { key, value: numeric(result.revenue, groupAvailable),
       count: groupAvailable ? result.count : null,
       partial: providers.some(provider => provider.partial) || unknownPayment || eligibleSources.some(source => source.status !== 'ready' || source.salesAvailable === false), providers }
@@ -107,7 +99,7 @@ export function buildRevenueBreakdown(records = [], sources = [], filters = {}) 
   const asaasKnown = asaasRows.some(row => amount(row.received) !== null) || (asaasRows.length === 0 && asaasSource && sourceHasSales(asaasSource))
   const manuals = prepared.cashRecords.filter(row => row.isManual && fold(row.platform) !== 'tmb')
   const manualKnown = manuals.some(row => amount(row.received) !== null)
-  const platformCash = ['guru', 'hotmart'].map(id => {
+  const platformCash = ['guru', 'hotmart', 'hubla'].map(id => {
     const rows = prepared.cashRecords.filter(row => row.sourceId === id && !row.isManual)
     const source = prepared.cashSources.find(source => source.id === id)
     const known = rows.some(row => amount(row.received) !== null) || (rows.length === 0 && source && sourceHasSales(source))
@@ -143,7 +135,7 @@ export function buildRevenueNotices(sources = [], filters = {}, { partial = fals
   if (asaas?.partial) notices.push({ id: 'asaas-partial-cash', title: 'Caixa Asaas parcial', tone: 'warning', message: 'Há recebimentos sem data ou consultas incompletas/em atualização. O subtotal conhecido foi preservado.' })
   if (relevant.some(source => source.id === 'asaas')) notices.push({ id: 'asaas-new-sales-cash', title: 'Asaas: novas vendas e faturas separadas', tone: 'info', message: 'O cash collected principal e as metas incluem somente entradas confirmadas de novas vendas Asaas. Recebimentos do extrato, incluindo faturas de vendas anteriores, ficam apenas no painel separado.' })
   if (relevant.some(source => source.id === 'tmb')) notices.push({ id: 'tmb-cash-rule', title: 'Regra de cash collected da TMB', tone: 'info', message: 'O cash collected considera 40% do valor bruto de cada nova venda TMB, na data da venda. O bruto e a receita contratada permanecem integrais.' })
-  if (relevant.some(source => ['guru', 'hotmart'].includes(source.id))) notices.push({ id: 'platform-net-cash', title: 'Cash collected Guru e Hotmart', tone: 'info', message: 'Guru e Hotmart entram com 100% do líquido de cada venda, na data da venda. As taxas e comissões já consideradas pela fonte não são descontadas novamente. O indicador não representa a data de saque ou de repasse bancário.' })
+  if (relevant.some(source => ['guru', 'hotmart', 'hubla'].includes(source.id))) notices.push({ id: 'platform-net-cash', title: 'Cash collected Guru, Hotmart e Hubla', tone: 'info', message: 'Guru, Hotmart e Hubla entram com 100% do líquido de cada venda, na data da venda. As taxas e comissões já consideradas pela fonte não são descontadas novamente. O indicador não representa a data de saque ou de repasse bancário.' })
   const foreign = records.filter(row => row.excludedCurrencies?.length)
   if (foreign.length) notices.push({ id: 'foreign-currency', title: 'Vendas em outras moedas', tone: 'warning', message: `${foreign.length} registros têm valores em ${[...new Set(foreign.flatMap(row => row.excludedCurrencies))].join(', ')}. Somente os campos informados em BRL entram nos totais em reais; valores em outras moedas ficam fora, sem conversão estimada.` })
   if (relevant.some(source => source.id === 'boletex')) notices.push({ id: 'cash-coverage', title: 'Cobertura do cash collected', tone: 'info', message: 'Recebimentos acumulados de contratos Boletex não identificam o caixa deste período e não são somados ao cash collected. Lançamentos manuais não conciliados usam o caixa declarado.' })

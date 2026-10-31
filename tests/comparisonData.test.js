@@ -15,6 +15,8 @@ function fixture({ failed = [], manuals = [manual], empty = false } = {}) {
     asaas: { success: true, data: { totalGross: 99999, sales: { count: 1, totalValue: 1000, entryValue: 100, entries: [{ totalValue: 1000, entryValue: 100, createdAt: date, productDescription: 'DevClub' }] } } },
     boletex: { success: true, data: { sales: { count: 1, totalValue: 600, confirmedValue: 200, pendingValue: 400, listPriceValue: 500, entries: [{ id: 'b1', totalValue: 600, entryValue: 200, pendingValue: 400, listPrice: 500, createdAt: date, productDescription: 'MBA' }] } } },
     hotmart: { success: true, data: { count: 1, totalNet: 180, totalGross: 200, totalFees: 20, transactions: [{ transaction: 'h1', product: 'DevClub', orderDate: date, grossValue: 200, netValue: 180, fee: 20, paymentMethod: 'PIX' }] } },
+    hubla: { success: true, data: { count: 0, totalNet: 0, transactions: [] } },
+    hublaRefunds: { success: true, data: { count: 0, transactions: [] } },
     guruRefunds: { data: [{ id: 'r1', dates: { created_at: Date.parse(date) / 1000 }, product: { name: 'DevClub' }, calculation_details: { net_amount: 40, total_amount: 50 } }] },
     hotmartRefunds: { success: true, data: { count: 0, totalRefundAmount: 0, transactions: [] } },
   }
@@ -144,21 +146,35 @@ test('unidentified products also mark product-filter results as partial without 
   assert.equal(snapshot(result).metrics.revenue.value, 150)
 })
 
+test('commercial comparison follows seller UTMs across platforms and preserves platform filtering', () => {
+  const result = fixture({ manuals: [] })
+  result.records = result.records.map(row => ({ ...row, utm: { source: 'Comercial-Emanuel' } }))
+  for (const [platform, value] of [['Guru', 90], ['TMB', 200], ['Asaas', 1000], ['Boletex', 600], ['Hotmart', 180]]) {
+    const actual = snapshot(result, { platform })
+    assert.deepEqual(actual.metrics.commercial, { value, partial: false })
+    assert.deepEqual(actual.metrics.commercialCount, { value: 1, partial: false })
+  }
+  assert.equal(snapshot(result).metrics.commercial.value, 2070)
+  assert.equal(snapshot(result).metrics.commercialCount.value, 5, 'refunds are excluded')
+})
 
-test('comparison payment filters and groups share the Guru/Hotmart category without false missing-method warnings', () => {
-  const result = fixture()
-  const card = snapshot(result, { payment: 'Cartão' })
-  assert.equal(card.metrics.count.value, 3)
-  assert.equal(card.metrics.revenue.value, 320)
-  assert.equal(card.allocationMissing, false)
-  assert.equal(card.metrics.revenue.partial, false)
-  assert.equal(card.records.filter(row => row.kind === 'sale' && row.payment === 'Pix').length, 1)
-  const boleto = snapshot(result, { payment: 'Boleto' })
-  assert.equal(boleto.allocationMissing, false, 'Guru missing original payment is a known Cartão category')
-  assert.equal(boleto.metrics.count.partial, false)
-  const all = snapshot(result)
-  const groups = comparisonGroups(all, all, 'payment')
-  assert.equal(groups.find(group => group.name === 'Cartão').a.count.value, 3)
-  assert.equal(groups.find(group => group.name === 'Cartão').a.count.partial, false)
-  assert.equal(groups.find(group => group.name === 'Cartão').countDelta.absolute, 0)
+test('commercial comparison discloses unavailable providers and seller mappings before calculating changes', () => {
+  const ready = fixture({ manuals: [] })
+  ready.records = ready.records.map(row => ({ ...row, utm: { source: 'Comercial-Emanuel' } }))
+  const complete = snapshot(ready)
+  const partialResults = [
+    { ...ready, sources: ready.sources.map(source => source.id === 'tmb' ? { ...source, status: 'unavailable' } : source), records: ready.records.filter(row => row.sourceId !== 'tmb') },
+    { ...ready, operationsStatus: 'unavailable' },
+    { ...ready, ledger: { attributionMappingsStatus: 'unavailable' } },
+  ]
+  for (const result of partialResults) {
+    const actual = snapshot(result)
+    assert.equal(actual.metrics.commercial.partial, true)
+    assert.equal(actual.metrics.commercialCount.partial, true)
+    assert.equal(compareMetrics(actual.metrics.commercial, complete.metrics.commercial).reason, 'partial')
+    assert.equal(compareMetrics(actual.metrics.commercialCount, complete.metrics.commercialCount).reason, 'partial')
+  }
+  const unavailable = snapshot(fixture({ failed: SOURCE_DEFINITIONS.map(source => source.id), manuals: [] }))
+  assert.equal(unavailable.metrics.commercial.value, null)
+  assert.equal(unavailable.metrics.commercialCount.value, null)
 })

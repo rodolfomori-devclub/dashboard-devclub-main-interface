@@ -40,6 +40,7 @@ await context.route('**/*', async route => {
  else if (url.pathname === '/api/refunds/overview') body = overview
  else if (url.pathname === '/api/transactions') body = payload('guru')
  else if (url.pathname === '/api/hotmart/vendas') body = payload('hotmart')
+ else if (['/api/hubla/vendas', '/api/hubla/reembolsos'].includes(url.pathname)) body = { success: true, data: { financialSchemaVersion: 2, count: 0, totalNet: 0, totalGross: 0, totalFees: 0, transactions: [] } }
  else if (url.pathname.startsWith('/api/boleto/vendas/')) body = payload('tmb')
  else if (url.pathname === '/api/boleto/asaas/vendas') body = payload('asaas')
  else if (url.pathname === '/api/boleto/boletex/vendas') body = payload('boletex')

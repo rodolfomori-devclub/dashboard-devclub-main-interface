@@ -2,6 +2,7 @@
 import { ArrowUpRight, Target, Trophy } from 'lucide-react'
 import { ReferenceChart } from '../charts/ReferenceChart.jsx'
 import { formatValue } from '../charts/chartFormatters.js'
+import { WEEKLY_TV_PANELS, tvWeekLabel } from './tvConfig.js'
 
 const value = (number, unit) => number == null ? '—' : formatValue(number, unit)
 const percent = number => number == null ? '—' : formatValue(number, 'percent')
@@ -69,12 +70,13 @@ function GoalComparison({ items, model, kind }) {
   const basis = metricName(model)
   return <div className="tv-comparison"><div className="tv-table-caption"><span>Base da meta: {basis}</span><span>Atingimento</span></div>{items.slice(0, 8).map((item, index) => <div className="tv-goal-row" data-tv-row-id={item.id} key={item.id} style={{ '--row-color': `var(--chart-${index % 6 + 1})` }}><div className="tv-row-name"><h3>{item.name}</h3><span className="tv-goal-context">{!item.pace.definitive ? 'Parcial · ' : ''}{basis}: {value(item.pace.actual, model.unit)} <small>/ {value(item.pace.target, model.unit)} de meta</small></span></div><DualAmount metrics={item}/><strong>{item.pace.validTarget ? percent(item.pace.attainment) : 'Sem meta'}</strong><div className="tv-track"><i style={{ width: fill(item.pace.attainment) }}/></div></div>)}<p className="tv-footnote">{items.length > 8 ? `Exibindo os 8 maiores atingimentos entre ${items.length} metas. ` : ''}Cada barra representa o avanço da própria meta em {basis.toLocaleLowerCase('pt-BR')}.{model.directoryError ? ' Cadastro de times e vendedores indisponível.' : ''}</p></div>
 }
-function Ranking({ rows, model, sellers = false }) {
-  const unassigned = model.unassigned[sellers ? 'seller' : 'product']
+function Ranking({ rows, model, sellers = false, daily = false, weekly = false }) {
+  const unassigned = weekly ? model.weekly.unassignedSeller : daily ? model.daily.unassignedSeller : model.unassigned[sellers ? 'seller' : 'product']
   if (sellers && model.directoryError) return <Empty title="Ranking indisponível">Não foi possível confirmar os participantes. Os indicadores financeiros gerais continuam disponíveis.</Empty>
+  if (sellers && model.attributionAvailable === false && !rows.length) return <Empty title="Atribuições indisponíveis">Não foi possível confirmar os vendedores das vendas. O ranking será atualizado quando as atribuições estiverem disponíveis.</Empty>
   if (!rows.length) return <Empty title={sellers ? 'Sem vendas atribuídas a vendedores' : 'Sem vendas por produto neste mês'}>{sellers ? 'As vendas sem atribuição ficam fora do ranking. O head pode atribuí-las na tela de Atribuição.' : 'O ranking será preenchido conforme as vendas forem identificadas.'}{unassigned?.count > 0 && ` ${unassigned.count} vendas sem identificação.`}</Empty>
   const max = Math.max(1, ...rows.map(row => row.value || 0))
-  return <div className="tv-ranking"><p className="tv-order-basis">Ordenação: {metricName(model)}</p>{rows[0].value > 0 && <div className="tv-ranking-leader"><Trophy size={34}/><div className="tv-ranking-leader-name"><span className="tv-eyebrow">{sellers ? 'Destaque do mês' : 'Produto em destaque'}</span><h3>{rows[0].name}</h3></div><DualAmount metrics={rows[0]}/></div>}
+  return <div className="tv-ranking"><p className="tv-order-basis">{weekly ? 'De segunda-feira até hoje · ' : daily ? 'Somente hoje · ' : ''}Ordenação: {metricName(model)}</p>{rows[0].value > 0 && <div className="tv-ranking-leader"><Trophy size={34}/><div className="tv-ranking-leader-name"><span className="tv-eyebrow">{sellers ? weekly ? 'Destaque da semana' : daily ? 'Destaque do dia' : 'Destaque do mês' : 'Produto em destaque'}</span><h3>{rows[0].name}</h3></div><DualAmount metrics={rows[0]}/></div>}
     <div className="tv-ranking-rows">{rows.slice(0, 8).map((row, index) => <div className="tv-ranking-row" data-tv-row-id={row.id} key={row.id} style={{ '--row-color': `var(--chart-${index % 6 + 1})` }}><span className="tv-position">{String(index + 1).padStart(2, '0')}</span><div className="tv-ranking-name"><strong>{row.name}</strong><div className="tv-track"><i style={{ width: fill((row.value || 0) / max * 100) }}/></div><span>{value(row.count, 'count')} vendas{row.partial ? ' · parcial' : ''}</span></div><div className="tv-ranking-result"><DualAmount metrics={row}/></div></div>)}</div>
     <p className="tv-footnote">{rows.length > 8 ? `Top 8 de ${rows.length}. ` : ''}{unassigned?.count > 0 ? `${value(unassigned.count, 'count')} vendas sem ${sellers ? 'vendedor' : 'produto'}: valor das vendas ${value(unassigned.gross, 'currency')} · cash collected ${value(unassigned.cash, 'currency')}. ` : ''}Somente novas vendas identificadas{model.attributionAvailable === false ? ' · atribuições indisponíveis' : ''}.</p>
   </div>
@@ -88,14 +90,38 @@ function Daily({ model, chartHeight }) {
     {day.unknownHourCount > 0 && <p className="tv-footnote">{day.unknownHourCount} vendas com horário não informado, fora do gráfico por hora.</p>}
   </div>
 }
-function PaymentMix({ model }) {
-  const rows = model.payments.filter(row => row.value !== 0 || row.count > 0)
+function PaymentMix({ model, daily = false, weekly = false }) {
+  const rows = (weekly ? model.weekly.payments : daily ? model.daily.payments : model.payments).filter(row => row.value !== 0 || row.count > 0 || ((daily || weekly) && ['card', 'boleto'].includes(row.id)))
   const total = rows.reduce((sum, row) => sum + (row.value || 0), 0)
-  if (!rows.length) return <Empty title="Sem categorias de venda neste mês">Os valores aparecerão quando houver novas vendas no período.</Empty>
-  return <div className="tv-payments"><p className="tv-order-basis">Participação em {metricName(model).toLocaleLowerCase('pt-BR')}</p><div className="tv-payment-strip" aria-hidden="true">{rows.filter(row => row.value > 0).map((row, index) => <i key={row.id} style={{ width: `${row.value / total * 100}%`, background: `var(--chart-${index % 6 + 1})` }}/>)}</div>{rows.map((row, index) => <div className="tv-payment-row" data-tv-row-id={row.id} key={row.id}><i style={{ background: `var(--chart-${index % 6 + 1})` }}/><div><h3>{row.name}</h3><span>{value(row.count, 'count')} vendas{row.partial && ' · parcial'}</span></div><DualAmount metrics={row}/><b>{total > 0 && row.value != null ? percent(row.value / total * 100) : '—'}</b></div>)}<p className="tv-footnote">Cartão inclui todas as vendas Guru e Hotmart, em qualquer meio. Participação sobre os valores conhecidos; faturas de vendas passadas ficam fora.</p></div>
+  if (!rows.length) return <Empty title={weekly ? 'Sem meios de pagamento nesta semana' : daily ? 'Sem meios de pagamento hoje' : 'Sem meios de pagamento neste mês'}>Os valores aparecerão quando houver novas vendas no período.</Empty>
+  return <div className="tv-payments"><p className="tv-order-basis">{weekly ? 'De segunda-feira até hoje · ' : daily ? 'Somente hoje · ' : ''}Participação em {metricName(model).toLocaleLowerCase('pt-BR')}</p><div className="tv-payment-strip" aria-hidden="true">{rows.filter(row => row.value > 0).map((row, index) => <i key={row.id} style={{ width: `${row.value / total * 100}%`, background: `var(--chart-${index % 6 + 1})` }}/>)}</div>{rows.map((row, index) => <div className="tv-payment-row" data-tv-row-id={row.id} key={row.id}><i style={{ background: `var(--chart-${index % 6 + 1})` }}/><div><h3>{row.name}</h3><span>{value(row.count, 'count')} vendas{row.partial && ' · parcial'}</span></div><DualAmount metrics={row}/><b>{total > 0 && row.value != null ? percent(row.value / total * 100) : '—'}</b></div>)}<p className="tv-footnote">Guru, Hotmart e Hubla: Cartão. TMB e Boletex: Boleto. Participação sobre os valores conhecidos de novas vendas.</p></div>
+}
+function DailyCash({ model, chartHeight, weekly = false }) {
+  const day = weekly ? model.weekly : model.daily
+  const periodLabel = weekly ? 'semana' : 'hoje'
+  const chartRows = weekly ? day.days : day.hours.map(hour => ({ ...hour, label: hour.hour }))
+  return <div className="tv-daily-cash">
+    <div className="tv-financial-hero"><span className="tv-eyebrow">Cash collected · {periodLabel}{isPartial(day, 'cash') ? ' · parcial' : ''}</span>
+      <strong className="tv-hero-value" data-testid="tv-main-value"><span data-testid="tv-cash-value">{value(day.cash, 'currency')}</span></strong>
+      <div className="tv-cash-secondary"><span>Valor das vendas{isPartial(day, 'gross') ? ' · parcial' : ''}</span><strong data-testid="tv-gross-value">{value(day.gross, 'currency')}</strong><small>{weekly ? tvWeekLabel(day.startDate, day.endDate) : 'Hoje · horário de Brasília'}</small></div>
+    </div>
+    <p className="tv-footnote">Somente cash collected de novas vendas. Recebimentos de faturas de vendas passadas ficam fora.</p>
+    <ReferenceChart rows={chartRows} title={weekly ? 'Cash collected da semana por dia' : 'Cash collected de hoje por hora'} height={Math.max(210, chartHeight - 70)} mode="bar" series={[{ key: 'cash', label: 'Cash collected', unit: 'currency', color: 'var(--accent)' }]}/>
+    {day.unknownHourCount > 0 && <p className="tv-footnote">{day.unknownHourCount} vendas com horário não informado, fora do gráfico por hora.</p>}
+  </div>
+}
+function Weekly({ model, chartHeight }) {
+  const week = model.weekly
+  return <div><div className="tv-daily-lead"><FinancialHero metrics={week} context="acumulado da semana"/><ArrowUpRight size={64}/></div>
+    <p className="tv-footnote">{tvWeekLabel(week.startDate, week.endDate)} · De segunda-feira até hoje.</p>
+    <div className="tv-stat-row"><Stat label="Vendas realizadas na semana" amount={week.count} unit="count"/></div>
+    <ReferenceChart rows={week.days} title="Vendas da semana por dia" height={Math.max(210, chartHeight - 160)} mode="bar" series={[{ key: 'gross', label: 'Valor das vendas', unit: 'currency', color: 'var(--chart-1)' }, { key: 'cash', label: 'Cash collected', unit: 'currency', color: 'var(--accent)' }]}/>
+  </div>
 }
 export function TvPanel({ panelId, model, loading, chartHeight = 370 }) {
-  if (!model || loading) return <div className="tv-empty" role="status"><div className="tv-loading-line"/><h3>Carregando os indicadores</h3><p>Buscando o mês em cache e atualizando as vendas de hoje.</p></div>
+  if (!model || loading) return <div className="tv-empty" role="status"><div className="tv-loading-line"/><h3>Carregando os indicadores</h3><p>Carregando os resultados do período e atualizando as vendas de hoje.</p></div>
+  if (['daily-payments', 'daily-cash', 'daily-sellers'].includes(panelId) && !model.daily?.inSelectedMonth) return <Empty title="Hoje está fora do mês selecionado">Use o período Mês atual para acompanhar as vendas do dia nesta programação.</Empty>
+  if (WEEKLY_TV_PANELS.includes(panelId) && !model.weekly) return <Empty title="Semana indisponível">Aguarde a próxima atualização dos indicadores.</Empty>
   switch (panelId) {
     case 'monthly-goal': return <MonthlyGoal model={model} chartHeight={chartHeight}/>
     case 'pace': return <PacePanel model={model} chartHeight={Math.max(230, chartHeight - 180)}/>
@@ -104,7 +130,14 @@ export function TvPanel({ panelId, model, loading, chartHeight = 370 }) {
     case 'sellers': return <Ranking rows={model.sellers} model={model} sellers/>
     case 'products': return <Ranking rows={model.products} model={model}/>
     case 'daily': return <Daily model={model} chartHeight={chartHeight}/>
+    case 'daily-payments': return <PaymentMix model={model} daily/>
+    case 'daily-cash': return <DailyCash model={model} chartHeight={chartHeight}/>
+    case 'daily-sellers': return <Ranking rows={model.daily.sellers} model={model} sellers daily/>
     case 'payment-mix': return <PaymentMix model={model}/>
+    case 'weekly': return <Weekly model={model} chartHeight={chartHeight}/>
+    case 'weekly-payments': return <PaymentMix model={model} weekly/>
+    case 'weekly-cash': return <DailyCash model={model} chartHeight={chartHeight} weekly/>
+    case 'weekly-sellers': return <Ranking rows={model.weekly.sellers} model={{ ...model, attributionAvailable: model.weekly.attributionAvailable }} sellers weekly/>
     default: return <Empty title="Selecione um painel">Escolha um painel na programação da TV.</Empty>
   }
 }

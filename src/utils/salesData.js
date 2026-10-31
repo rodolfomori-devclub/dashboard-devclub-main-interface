@@ -8,8 +8,10 @@ export const SOURCE_DEFINITIONS = [
   { id: 'asaas', label: 'Asaas', platform: 'Asaas', kind: 'sale' },
   { id: 'boletex', label: 'Boletex', platform: 'Boletex', kind: 'sale' },
   { id: 'hotmart', label: 'Hotmart', platform: 'Hotmart', kind: 'sale' },
+  { id: 'hubla', label: 'Hubla', platform: 'Hubla', kind: 'sale' },
   { id: 'guruRefunds', label: 'Reembolsos Guru', platform: 'Guru', kind: 'refund' },
   { id: 'hotmartRefunds', label: 'Reembolsos Hotmart', platform: 'Hotmart', kind: 'refund' },
+  { id: 'hublaRefunds', label: 'Reembolsos Hubla', platform: 'Hubla', kind: 'refund' },
 ]
 
 export const PRODUCT_FAMILIES = ['MBA', 'DevClub', 'IAClub', 'Seu segundo salário com IA', 'Operação 50K', 'Outros', 'Não informado']
@@ -135,7 +137,7 @@ export function normalizeSource(sourceId, payload) {
     })
   }
   if (!data || typeof data !== 'object') throw new Error('Consolidado indisponível')
-  if (source.platform === 'Hotmart') {
+  if (['Hotmart', 'Hubla'].includes(source.platform)) {
     if (!Array.isArray(data.transactions) && amount(data.count) === null) throw new Error('Transações indisponíveis')
     const isRefund = source.kind === 'refund'
     const currency = (raw, field) => raw[field] ?? (data.financialSchemaVersion === 2 ? null : raw.currency || 'BRL')
@@ -178,20 +180,18 @@ export function normalizeSource(sourceId, payload) {
   })
 }
 
-const fieldValue = (row, key) => key === 'payment' ? salesPaymentLabel(row) : UTM_FIELDS.includes(key) ? row.utm[key] : row[key]
-
 export function filterSales(records, filters = {}) {
   return records.filter((row) => Object.entries(filters).every(([key, selected]) => {
     if (!selected) return true
     const selections = key === 'product' && Array.isArray(selected) ? selected : [selected]
     if (!selections.length) return true
-    const value = fieldValue(row, key)
+    const value = UTM_FIELDS.includes(key) ? row.utm[key] : key === 'payment' ? salesPaymentLabel(row) : row[key]
     return selections.some(selection => selection === UNKNOWN ? !value || value === 'Não informado' : value === selection)
   }))
 }
 
 export function filterOptions(records, key) {
-  const values = [...new Set(records.map((row) => fieldValue(row, key)).filter(Boolean))]
+  const values = [...new Set(records.map((row) => UTM_FIELDS.includes(key) ? row.utm[key] : key === 'payment' ? salesPaymentLabel(row) : row[key]).filter(Boolean))]
   return values.sort((a, b) => a.localeCompare(b, 'pt-BR'))
 }
 
@@ -211,7 +211,7 @@ export function summarizeSales(records) {
 export function groupSales(records, dimension) {
   const groups = new Map()
   for (const row of records) {
-    const label = fieldValue(row, dimension)
+    const label = UTM_FIELDS.includes(dimension) ? row.utm[dimension] : dimension === 'payment' ? salesPaymentLabel(row) : row[dimension]
     const name = label || 'Não informado'
     if (!groups.has(name)) groups.set(name, [])
     groups.get(name).push(row)

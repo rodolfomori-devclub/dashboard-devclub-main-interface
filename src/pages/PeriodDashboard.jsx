@@ -1,7 +1,7 @@
 import AsaasCashPanel from '../components/daily/AsaasCashPanel'
 import AnnualAsaasCashPanel from '../components/daily/AnnualAsaasCashPanel'
 import { sourceHasSales } from '../utils/sourceAvailability'
-import { usesPlatformNet } from '../utils/platformCash'
+import { salesPaymentLabel, usesPlatformNet } from '../utils/platformCash'
 import { useEffect, useMemo, useState, Fragment } from 'react'
 import { Link } from 'react-router-dom'
 import axios from 'axios'
@@ -11,6 +11,7 @@ import { ChartPanel, RankedBars, MixChart } from '../components/charts/Analytics
 import RevenueHighlights from '../components/charts/RevenueHighlights'
 import RefundSummary from '../components/charts/RefundSummary'
 import RevenueNotifications from '../components/charts/RevenueNotifications'
+import CommercialSalesPanel from '../components/charts/CommercialSalesPanel'
 import { buildRevenueNotices } from '../utils/revenueBreakdown'
 import '../components/charts/periodAnalytics.css'
 import WeekSelector from '../components/WeekSelector'
@@ -20,6 +21,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { localDateKey } from '../components/daily/dailyData'
 import { EMPTY_FILTERS, UNKNOWN, filterSales, filterOptions, groupSales } from '../utils/salesData'
 import { summarizePeriod, periodSeries, goalProgress, localDay } from '../utils/periodData'
+import { commercialSellerLabel, summarizeCommercialSales } from '../utils/commercialSales'
 
 const BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
 const currency = (value, currencyCode = 'BRL') => value === null || value === undefined ? '—' : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: currencyCode, maximumFractionDigits: 2 }).format(value)
@@ -29,7 +31,7 @@ const dateBR = value => value ? value.slice(0, 10).split('-').reverse().join('/'
 const snapshotDate = value => value && Number.isFinite(Date.parse(value)) ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' }).format(new Date(value)) : 'Não informada'
 const TITLE = { global: 'Visão global', month: 'Visão mensal', year: 'Visão anual' }
 const GOALS = { meta: 'Meta', superMeta: 'Super meta', ultraMeta: 'Ultra meta' }
-const GROUP_NAMES = { product: 'Produtos', family: 'Famílias', offer: 'Ofertas', payment: 'Categorias de venda' }
+const GROUP_NAMES = { product: 'Produtos', family: 'Famílias', offer: 'Ofertas', payment: 'Meios de pagamento' }
 const REVENUE_KEYS = ['revenue', 'digital', 'boleto']
 
 // An unknown bucket makes every later accumulated value unknown for that series.
@@ -93,6 +95,8 @@ export default function PeriodDashboard({ mode = 'global' }) {
   const [detailKind, setDetailKind] = useState('sale')
   const [detailPage, setDetailPage] = useState(1)
   const [expanded, setExpanded] = useState(null)
+  const [exporting, setExporting] = useState('')
+  const [exportError, setExportError] = useState('')
 
   useEffect(() => {
     let active = true
@@ -125,10 +129,13 @@ export default function PeriodDashboard({ mode = 'global' }) {
   const allRecords = useMemo(() => data?.records || [], [data])
   const filtered = useMemo(() => filterSales(allRecords, filters).filter(row => !offer || (offer === UNKNOWN ? !row.offer : row.offer === offer)), [allRecords, filters, offer])
   const summary = useMemo(() => summarizePeriod(filtered), [filtered])
+  const commercial = useMemo(() => summarizeCommercialSales(filtered), [filtered])
+  const sellers = useMemo(() => [...new Map(allRecords.filter(row => row.kind === 'sale' && row.sellerId).map(row => [row.sellerId, { id: row.sellerId, name: commercialSellerLabel(row) }])).values()].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')), [allRecords])
+  const attributionUnavailable = data?.operationsStatus === 'unavailable' || data?.ledger?.attributionMappingsStatus === 'unavailable'
   const relevantSources = data?.sources.filter(source => !filters.platform || source.platform === filters.platform || source.id === 'manual') || []
   const availableSales = relevantSources.some(source => source.kind === 'sale' && sourceHasSales(source) && (source.id !== 'manual' || filtered.some(row => row.sourceId === 'manual' && row.kind === 'sale')))
   const sourceAvailable = ids => relevantSources.some(source => ids.includes(source.id) && sourceHasSales(source))
-  const digitalAvailable = sourceAvailable(['guru', 'hotmart']) || summary.digital.count > 0
+  const digitalAvailable = sourceAvailable(['guru', 'hotmart', 'hubla']) || summary.digital.count > 0
   const boletoAvailable = sourceAvailable(['tmb', 'asaas', 'boletex']) || summary.boleto.count > 0
   const chart = useMemo(() => {
     const values = periodSeries(filtered, range.startDate, range.endDate, mode === 'year')
@@ -145,12 +152,12 @@ export default function PeriodDashboard({ mode = 'global' }) {
       const end = mode === 'year' ? new Date(Date.UTC(Number(row.date.slice(0, 4)), Number(row.date.slice(5, 7)), 0, 12)).toISOString().slice(0, 10) : row.date
       const observed = observedByBucket.get(mode === 'year' ? row.date.slice(0, 7) : row.date) || []
       const hasSource = ids => bucketHasSalesSource(sources, ids, row.date, end)
-      const sales = hasSource(['guru', 'hotmart', 'tmb', 'asaas', 'boletex']) || observed.some(record => record.kind === 'sale')
-      const digital = hasSource(['guru', 'hotmart']) || observed.some(record => record.kind === 'sale' && ['Guru', 'Hotmart'].includes(record.platform))
+      const sales = hasSource(['guru', 'hotmart', 'hubla', 'tmb', 'asaas', 'boletex']) || observed.some(record => record.kind === 'sale')
+      const digital = hasSource(['guru', 'hotmart', 'hubla']) || observed.some(record => record.kind === 'sale' && ['Guru', 'Hotmart', 'Hubla'].includes(record.platform))
       const boleto = hasSource(['tmb', 'asaas', 'boletex']) || observed.some(record => record.kind === 'sale' && ['TMB', 'Asaas', 'Boletex'].includes(record.platform))
       const guru = hasSource(['guru']) || observed.some(record => record.kind === 'sale' && record.platform === 'Guru' && !record.isManual)
-      const refund = hasSource(['guruRefunds', 'hotmartRefunds']) || observed.some(record => record.kind === 'refund')
-      return { ...row, revenue: sales ? row.revenue : null, count: sales ? row.count : null, digital: digital ? row.digital : null, boleto: boleto ? row.boleto : null, affiliate: guru ? row.affiliate : null, commercial: guru ? row.commercial : null, refund: refund ? row.refund : null }
+      const refund = hasSource(['guruRefunds', 'hotmartRefunds', 'hublaRefunds']) || observed.some(record => record.kind === 'refund')
+      return { ...row, revenue: sales ? row.revenue : null, count: sales ? row.count : null, digital: digital ? row.digital : null, boleto: boleto ? row.boleto : null, affiliate: guru ? row.affiliate : null, commercial: sales ? row.commercial : null, refund: refund ? row.refund : null }
     })
     return values
   }, [filtered, range, mode, data, filters.platform])
@@ -206,15 +213,20 @@ export default function PeriodDashboard({ mode = 'global' }) {
     } catch (error) { setGoalError(error.response?.data?.error || 'Não foi possível salvar a meta. O valor anterior foi mantido.') }
     finally { setSavingGoal(null) }
   }
-  function exportRows() {
-    const safeCell = value => { let text = String(value ?? ''); if (/^[=+@\-\t\r]/.test(text)) text = `'${text}`; return `"${text.replaceAll('"', '""')}"` }
-    const rows = [['Data', 'Fonte', 'Cliente', 'Email', 'Produto', 'Família', 'Pagamento original', 'Tipo', 'Valor operacional', 'Recebido', 'Oferta'], ...filtered.map(row => [row.date, row.platform, row.buyerName, row.buyerEmail, row.product, row.family, row.payment, row.kind, row.revenue, row.received, row.offer])]
-    const url = URL.createObjectURL(new Blob(['\ufeff' + rows.map(row => row.map(safeCell).join(';')).join('\r\n')], { type: 'text/csv;charset=utf-8;' }))
-    const anchor = document.createElement('a'); anchor.href = url; anchor.download = `vendas-${range.startDate}-${range.endDate}.csv`; anchor.click(); URL.revokeObjectURL(url)
+  async function exportRows(scope = 'all') {
+    const records = scope === 'commercial' ? commercial.records : filtered
+    if (loading || exporting || !records.length) return
+    setExporting(scope); setExportError('')
+    try {
+      const { exportPeriodSalesExcel } = await import('../utils/periodSalesExport')
+      await exportPeriodSalesExcel(records, { ...range, filters, offer, sources: relevantSources, availableSales, operationsStatus: data?.operationsStatus, attributionMappingsStatus: data?.ledger?.attributionMappingsStatus, scope })
+    } catch { setExportError('Não foi possível gerar o Excel. Tente exportar novamente.') }
+    finally { setExporting('') }
   }
 
   return <div className="hub-page period-analytics space-y-6">
-    <header className="page-heading flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[.16em] text-slate-500 mb-2">Performance comercial</p><h1 className="text-3xl font-semibold">{TITLE[mode]}</h1><p className="text-sm text-slate-500 mt-2">Receita, produtos e meios de pagamento. Do consolidado a cada venda.</p></div><div className="period-heading-actions"><RevenueNotifications items={notifications} /><button type="button" className="btn btn-ghost disabled:opacity-40" onClick={exportRows} disabled={!filtered.length || loading}><Download size={16} />Exportar</button><button type="button" className="btn btn-ghost disabled:opacity-40" disabled={loading} title={mode === 'global' ? 'Atualizar fontes' : 'Atualizar histórico e hoje'} onClick={() => setRange(previous => ({ ...previous, force: true }))}><RefreshCw size={16} className={loading ? 'animate-spin' : ''} />Atualizar</button></div></header>
+    <header className="page-heading flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[.16em] text-slate-500 mb-2">Performance comercial</p><h1 className="text-3xl font-semibold">{TITLE[mode]}</h1><p className="text-sm text-slate-500 mt-2">Receita, produtos e meios de pagamento. Do consolidado a cada venda.</p></div><div className="period-heading-actions"><RevenueNotifications items={notifications} /><button type="button" className="btn btn-ghost disabled:opacity-40" onClick={() => exportRows()} disabled={!filtered.length || loading || Boolean(exporting)}><Download size={16} />{exporting === 'all' ? 'Gerando Excel…' : 'Exportar Excel'}</button><button type="button" className="btn btn-ghost disabled:opacity-40" disabled={loading} title={mode === 'global' ? 'Atualizar fontes' : 'Atualizar histórico e hoje'} onClick={() => setRange(previous => ({ ...previous, force: true }))}><RefreshCw size={16} className={loading ? 'animate-spin' : ''} />Atualizar</button></div></header>
+    {exportError && <p role="alert" className="daily-notice is-warning">{exportError}</p>}
     <RevenueHighlights records={filtered} sources={relevantSources} filters={{ ...filters, offer }} loading={loading} ready={Boolean(data)} error={Boolean(error)} />
     <RefundSummary records={filtered} sources={relevantSources} platform={filters.platform} ready={Boolean(data)} loading={loading} error={Boolean(error)} startDate={range.startDate} endDate={range.endDate > localDateKey() ? localDateKey() : range.endDate} />
     <form onSubmit={applyRange} className="filter-bar ds-card p-4 flex flex-wrap items-end gap-3">
@@ -229,6 +241,7 @@ export default function PeriodDashboard({ mode = 'global' }) {
     {loading && <div role="status" className="ds-card p-5 text-sm flex items-center gap-3"><RefreshCw size={18} className="animate-spin text-blue-600 shrink-0" /><span>{mode === 'global' ? 'Consultando as plataformas' : data ? 'Atualizando o período' : 'Preparando o período'}{progress.total > 0 && mode !== 'global' ? ` · ${progress.current} de ${progress.total} consultas concluídas` : ''}. {data ? 'Os valores anteriores permanecem disponíveis.' : 'Os valores aparecem após a consolidação.'}</span></div>}
     {mode !== 'global' && <section className="period-cache-summary" aria-label="Atualização do histórico"><p>Histórico atualizado diariamente às 04h (Brasília). Somente hoje permanece em atualização durante o dia.</p>{cacheStatus?.oldestSnapshotAt && <p>Histórico coletado: {snapshotDate(cacheStatus.oldestSnapshotAt)}{cacheStatus.newestSnapshotAt !== cacheStatus.oldestSnapshotAt ? ` a ${snapshotDate(cacheStatus.newestSnapshotAt)}` : ''} (Brasília).</p>}{cacheStatus?.todaySnapshotAt && <p>Dados de hoje coletados em {snapshotDate(cacheStatus.todaySnapshotAt)}{cacheStatus.todayNewestSnapshotAt !== cacheStatus.todaySnapshotAt ? ` a ${snapshotDate(cacheStatus.todayNewestSnapshotAt)}` : ''} (Brasília).</p>}<p>Vendas manuais e atribuições são consultadas novamente a cada carregamento. Use Atualizar para consultar novamente o período completo.</p></section>}
     {data && <>
+      {mode === 'global' && <CommercialSalesPanel report={commercial} sellers={sellers} sellerId={filters.sellerId || ''} onSellerChange={value => changeFilter('sellerId', value)} onExport={() => exportRows('commercial')} exporting={Boolean(exporting)} loading={loading} available={availableSales} partial={salesPartial || attributionUnavailable} attributionUnavailable={attributionUnavailable} />}
       <ChartPanel
         className="analytics-feature period-revenue"
         title={`Evolução ${mode === 'year' ? 'mensal' : 'diária'}`}
@@ -242,7 +255,7 @@ export default function PeriodDashboard({ mode = 'global' }) {
           </div>
         </div>}
         footer={<div className="period-chart-notes">
-          <p>Receita operacional mantém a regra do dashboard: líquido calculado Guru + líquido Hotmart + valor contratado TMB/Asaas/Boletex. Entradas e parcelas recebidas são apresentadas separadamente. {summary.total.revenue.missing > 0 && `${summary.total.revenue.missing} registros sem valor disponível.`}</p>
+          <p>Receita operacional mantém a regra do dashboard: líquido calculado Guru + líquido Hotmart + líquido Hubla + valor contratado TMB/Asaas/Boletex. Entradas e parcelas recebidas são apresentadas separadamente. {summary.total.revenue.missing > 0 && `${summary.total.revenue.missing} registros sem valor disponível.`}</p>
           {chart.undated > 0 && <p className="period-data-note">{count(chart.undated)} registros sem data neste eixo. Permanecem no consolidado, sem distribuição proporcional inventada.</p>}
           {accumulated && <p>Quando um intervalo não informa valor, o acumulado dessa série permanece indisponível a partir dele. Datas futuras não são projetadas.</p>}
         </div>}
@@ -250,7 +263,7 @@ export default function PeriodDashboard({ mode = 'global' }) {
         <div className="period-revenue-layout">
           <div className="period-revenue-plot">
             <div className="period-plot-context"><span className="period-observed-range">{dateBR(range.startDate)} a {dateBR(range.endDate)} · {mode === 'year' ? 'mês a mês' : 'dia a dia'}</span><span className={salesPartial ? 'period-coverage period-coverage--partial' : 'period-coverage'}>{salesPartial ? 'Consolidado parcial' : 'Fontes de vendas disponíveis'}</span></div>
-            <ReferenceChart rows={availableSales ? revenueRows : []} series={[{ key: 'revenue', label: 'Receita operacional', unit: 'currency' }, { key: 'digital', label: 'Guru + Hotmart', unit: 'currency' }, { key: 'boleto', label: 'Boletos', unit: 'currency' }]} title="Evolução da receita" mode={chartMode} daily={mode !== 'year'} height={410} />
+            <ReferenceChart rows={availableSales ? revenueRows : []} series={[{ key: 'revenue', label: 'Receita operacional', unit: 'currency' }, { key: 'digital', label: 'Guru + Hotmart + Hubla', unit: 'currency' }, { key: 'boleto', label: 'Boletos', unit: 'currency' }]} title="Evolução da receita" mode={chartMode} daily={mode !== 'year'} height={410} />
           </div>
         </div>
       </ChartPanel>
@@ -258,19 +271,19 @@ export default function PeriodDashboard({ mode = 'global' }) {
         <ChartPanel title="Volume de vendas" description={mode === 'year' ? 'Quantidade observada em cada mês.' : 'Quantidade observada em cada dia.'} footer={salesPartial ? 'Contagem parcial das fontes disponíveis. Dados ausentes não equivalem a zero.' : 'A contagem acompanha o mesmo período e os mesmos filtros da receita.'}>
           <ReferenceChart rows={availableSales ? chart.rows : []} series={[{ key: 'count', label: 'Vendas', unit: 'count', color: 'var(--chart-2)' }]} title="Volume de vendas" mode="bar" daily={mode !== 'year'} height={285} pointLabels />
         </ChartPanel>
-        <ChartPanel title="Categorias de venda" description="Cartão reúne todas as vendas Guru e Hotmart, incluindo Pix, boleto e outros meios." footer={<>{salesPartial ? 'Mix parcial das vendas recebidas. ' : ''}Nas demais plataformas, meios não identificados aparecem como “Não informado”.{payments.some(group => group.count < 0) && ' Ajustes negativos de contagem permanecem no consolidado e não formam fatias.'}</>}>
+        <ChartPanel title="Mix de pagamentos" description="Guru, Hotmart e Hubla: Cartão. TMB e Boletex: Boleto." footer={<>{salesPartial ? 'Mix parcial das vendas recebidas. ' : ''}O meio original fica nos detalhes da venda.{payments.some(group => group.count < 0) && ' Ajustes negativos de contagem permanecem no consolidado e não formam fatias.'}</>}>
           <MixChart items={payments.filter(group => Number.isFinite(group.count) && group.count >= 0).map(group => ({ key: group.name, label: group.name, value: group.count }))} totalLabel="vendas no mix" emptyLabel="Sem contagem de vendas neste recorte" />
         </ChartPanel>
       </div>
       <section className="period-secondary-metrics" aria-label="Indicadores complementares">{[
-        ['Guru + Hotmart', sourceAvailable(['guru', 'hotmart']) || summary.digital.count ? displayAmount(summary.digital.revenue) : '—', digitalAvailable ? `${count(summary.digital.count)} vendas digitais` : 'Vendas digitais indisponíveis'],
+        ['Guru + Hotmart + Hubla', sourceAvailable(['guru', 'hotmart', 'hubla']) || summary.digital.count ? displayAmount(summary.digital.revenue) : '—', digitalAvailable ? `${count(summary.digital.count)} vendas digitais` : 'Vendas digitais indisponíveis'],
         ['TMB + Asaas + Boletex', sourceAvailable(['tmb', 'asaas', 'boletex']) || summary.boleto.count ? displayAmount(summary.boleto.revenue) : '—', boletoAvailable ? `${count(summary.boleto.count)} vendas contratadas${boletoPartial ? ' · parcial' : ''}` : 'Contratos indisponíveis'],
         ['Afiliações', sourceAvailable(['guru']) ? displayAmount(summary.total.affiliate) : '—', 'Líquido informado pela Guru'],
-        ['Vendas do comercial', sourceAvailable(['guru']) ? displayAmount(summary.commercial.revenue) : '—', `${count(summary.commercial.count)} vendas · UTM comercial na Guru`],
+        ['Vendas do comercial', availableSales ? displayAmount(summary.commercial.revenue) : '—', `${count(summary.commercial.count)} vendas · UTMs do Comercial${salesPartial || attributionUnavailable ? ' · parcial' : ''}`],
         ['Entradas e recebimentos', sourceAvailable(['asaas', 'boletex']) || summary.total.received.known ? displayAmount(summary.total.received) : '—', 'Recebimentos associados às vendas disponíveis'],
       ].map(([label, value, detail]) => <article className="ds-card p-5" key={label}><h2 className="text-xs font-medium text-slate-500">{label}</h2><p className="text-xl font-semibold mt-3 tabular-nums">{value}</p><p className="text-xs text-slate-500 mt-2">{detail}</p></article>)}</section>
       <>{mode === 'year' ? <AnnualAsaasCashPanel key={`${range.startDate}:${range.endDate}`} startDate={range.startDate} endDate={range.endDate > localDateKey() ? localDateKey() : range.endDate} filters={{ ...filters, offer }} /> : <AsaasCashPanel sources={data.sources} records={filtered} filters={{ ...filters, offer }} startDate={range.startDate} endDate={range.endDate} loading={loading} error={Boolean(error)} />}</>
-      <section className="ds-card p-5"><h2 className="font-semibold mb-4">Resultado por fonte</h2><div className="overflow-x-auto"><table className="data-table w-full text-sm min-w-[750px]"><thead><tr>{['Fonte', 'Vendas', 'Receita operacional', 'Valor das vendas', 'Líquido', 'Recebido', 'Pendente'].map(label => <th key={label} className="text-left text-xs font-medium text-slate-500 py-3 pr-4">{label}</th>)}</tr></thead><tbody>{platforms.map(group => <tr className="border-t border-slate-100 dark:border-slate-800" key={group.name}><td className="py-4 font-medium">{data.sources.find(source => source.id === group.name)?.label || group.name}</td><td>{count(group.count)}</td>{['revenue', 'gross', 'net', 'received', 'pending'].map(key => <td key={key} className="tabular-nums pr-4">{displayAmount(group[key])}</td>)}</tr>)}{relevantSources.filter(source => (source.reason === 'checkout_disabled' || source.status === 'not_requested') && !platforms.some(group => group.name === source.id)).map(source => <tr key={source.id}><td className="py-4 font-medium">{source.label}</td><td>—</td><td colSpan={5} className="text-slate-500">Vendas e valores contratados não informados; caixa exibido separadamente.</td></tr>)}</tbody></table></div><p className="text-xs text-slate-500 mt-4">— significa valor não disponibilizado pela fonte. Guru e Hotmart usam sempre o líquido após taxas; demais plataformas usam o valor contratado. Valor das vendas e cash collected não são somados entre si.</p></section>
+      <section className="ds-card p-5"><h2 className="font-semibold mb-4">Resultado por fonte</h2><div className="overflow-x-auto"><table className="data-table w-full text-sm min-w-[750px]"><thead><tr>{['Fonte', 'Vendas', 'Receita operacional', 'Valor das vendas', 'Líquido', 'Recebido', 'Pendente'].map(label => <th key={label} className="text-left text-xs font-medium text-slate-500 py-3 pr-4">{label}</th>)}</tr></thead><tbody>{platforms.map(group => <tr className="border-t border-slate-100 dark:border-slate-800" key={group.name}><td className="py-4 font-medium">{data.sources.find(source => source.id === group.name)?.label || group.name}</td><td>{count(group.count)}</td>{['revenue', 'gross', 'net', 'received', 'pending'].map(key => <td key={key} className="tabular-nums pr-4">{displayAmount(group[key])}</td>)}</tr>)}{relevantSources.filter(source => (source.reason === 'checkout_disabled' || source.status === 'not_requested') && !platforms.some(group => group.name === source.id)).map(source => <tr key={source.id}><td className="py-4 font-medium">{source.label}</td><td>—</td><td colSpan={5} className="text-slate-500">Vendas e valores contratados não informados; caixa exibido separadamente.</td></tr>)}</tbody></table></div><p className="text-xs text-slate-500 mt-4">— significa valor não disponibilizado pela fonte. Guru, Hotmart e Hubla usam sempre o líquido após taxas; demais plataformas usam o valor contratado. Valor das vendas e cash collected não são somados entre si.</p></section>
       <div className="analytics-grid">
         <ChartPanel title="Famílias de produtos" description="Receita operacional por família, no recorte selecionado." footer={salesPartial ? 'Comparação parcial das fontes recebidas. Valores não informados permanecem indisponíveis.' : 'Sem distribuir valores de produtos não identificados entre as famílias.'}>
           <RankedBars items={families.map(group => rankedGroup(group, salesPartial))} limit={7} onSelect={item => changeFilter('family', item.key === 'Não informado' ? UNKNOWN : item.key)} />
@@ -290,12 +303,12 @@ export default function PeriodDashboard({ mode = 'global' }) {
           <div className="period-distribution-table overflow-x-auto"><table className="data-table w-full text-sm min-w-[650px]"><thead><tr>{['Grupo', 'Vendas', 'Receita operacional', 'Participação', 'Ticket médio'].map(label => <th className="py-3 text-left text-xs font-medium text-slate-500 pr-4" key={label}>{label}</th>)}</tr></thead><tbody>{groups.map(group => <tr className="border-t border-slate-100 dark:border-slate-800" key={group.name}><td className="py-4 pr-4 max-w-sm"><button type="button" className="text-left hover:underline" onClick={() => selectGroup(group.name)}>{group.name}</button></td><td>{count(group.count)}</td><td className="tabular-nums">{displayAmount(group.revenue)}</td><td>{summary.total.revenue.value ? `${(group.revenue.value / summary.total.revenue.value * 100).toFixed(1)}%` : '—'}</td><td className="tabular-nums">{group.count && group.revenue.known ? currency(group.revenue.value / group.count) : '—'}</td></tr>)}</tbody></table>{!groups.length && <p className="py-8 text-center text-sm text-slate-500">Nenhuma venda encontrada com estes filtros.</p>}</div>
         </div>
       </ChartPanel>
-      <ChartPanel title="Comercial e afiliações" description="Séries informadas pela Guru, dentro do mesmo recorte." footer="Comercial considera vendas com UTM comercial; afiliações preservam o líquido informado pela fonte.">
+      <ChartPanel title="Comercial e afiliações" description="Vendas por UTMs do Comercial e afiliações da Guru, dentro do mesmo recorte." footer={`Comercial inclui origens comerciais e UTMs vinculadas aos vendedores; afiliações preservam o líquido informado pela Guru.${salesPartial || attributionUnavailable ? ' Resultado parcial das fontes e vínculos disponíveis.' : ''}`}>
         <ReferenceChart rows={availableSales ? chart.rows : []} series={[{ key: 'commercial', label: 'Comercial', unit: 'currency', color: 'var(--chart-2)' }, { key: 'affiliate', label: 'Afiliação', unit: 'currency', color: 'var(--chart-3)' }]} title="Comercial e afiliações" daily={mode !== 'year'} height={255} />
       </ChartPanel>
-      <section className="ds-card p-5"><div className="flex flex-wrap justify-between gap-3 items-center mb-4"><h2 className="font-semibold">Detalhamento</h2><select aria-label="Tipo de registro" className="ds-input !w-auto" value={detailKind} onChange={e => { setDetailKind(e.target.value); setDetailPage(1) }}><option value="sale">Vendas</option><option value="refund">Estornos / contestações</option></select></div><div className="overflow-x-auto"><table className="data-table w-full text-sm min-w-[800px]"><thead><tr>{['Cliente / produto', 'Data', 'Plataforma', 'Pagamento original', 'Valor operacional', 'Detalhes'].map(label => <th className="text-left py-3 text-xs text-slate-500 pr-4" key={label}>{label}</th>)}</tr></thead><tbody>{visibleDetails.map((row, index) => {
+      <section className="ds-card p-5"><div className="flex flex-wrap justify-between gap-3 items-center mb-4"><h2 className="font-semibold">Detalhamento</h2><select aria-label="Tipo de registro" className="ds-input !w-auto" value={detailKind} onChange={e => { setDetailKind(e.target.value); setDetailPage(1) }}><option value="sale">Vendas</option><option value="refund">Estornos / contestações</option></select></div><div className="overflow-x-auto"><table className="data-table w-full text-sm min-w-[800px]"><thead><tr>{['Cliente / produto', 'Data', 'Plataforma', 'Pagamento', 'Valor operacional', 'Detalhes'].map(label => <th className="text-left py-3 text-xs text-slate-500 pr-4" key={label}>{label}</th>)}</tr></thead><tbody>{visibleDetails.map((row, index) => {
         const id = `${row.id}-${index}`
-        return <Fragment key={id}><tr className="border-t border-slate-100 dark:border-slate-800"><td className="py-4 pr-4 max-w-xs"><p className="font-medium">{row.buyerName || (row.isAggregate ? 'Saldo sem detalhamento' : 'Cliente não informado')}</p><p className="text-xs text-slate-500 mt-1">{row.product || 'Produto não informado'}</p></td><td className="whitespace-nowrap pr-4">{dateBR(localDay(row.date))}</td><td className="pr-4">{row.platform}{row.sourceId === 'manual' ? ' · Manual' : ''}</td><td className="pr-4">{row.payment}</td><td className="tabular-nums pr-4">{currency(row.revenue)}</td><td><button type="button" className="btn btn-ghost btn-sm" aria-label={`Detalhes de ${row.buyerName || 'registro'}`} aria-expanded={expanded === id} onClick={() => setExpanded(expanded === id ? null : id)}>{expanded === id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</button></td></tr>{expanded === id && <tr><td colSpan={6} className="p-4 bg-slate-50 dark:bg-slate-900"><dl className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">{[['E-mail', row.buyerEmail || 'Não informado'], ['Oferta', row.offer || 'Não informada'], ['Identificador', row.externalId || 'Não informado'], ['Valor da venda', currency(row.gross)], ['Líquido', currency(row.net)], ['Taxas', currency(row.fees)], ['Afiliação', currency(row.affiliate)], ['Recebido', currency(row.received)], ...(!usesPlatformNet(row) ? [['Preço de tabela', currency(row.listPrice)]] : []), ['Pendente', currency(row.pending)], ['Origem UTM', row.utm.source || 'Não informada'], ['Campanha', row.utm.campaign || 'Não informada']].map(([label, value]) => <div key={label}><dt className="text-slate-500 mb-1">{label}</dt><dd className="font-medium break-words">{value}</dd></div>)}</dl>{row.isAggregate && <p className="text-xs text-amber-700 mt-4">Saldo consolidado sem transações individualizadas. Não foi distribuído entre produtos, famílias ou dias.</p>}</td></tr>}</Fragment>
+        return <Fragment key={id}><tr className="border-t border-slate-100 dark:border-slate-800"><td className="py-4 pr-4 max-w-xs"><p className="font-medium">{row.buyerName || (row.isAggregate ? 'Saldo sem detalhamento' : 'Cliente não informado')}</p><p className="text-xs text-slate-500 mt-1">{row.product || 'Produto não informado'}</p></td><td className="whitespace-nowrap pr-4">{dateBR(localDay(row.date))}</td><td className="pr-4">{row.platform}{row.sourceId === 'manual' ? ' · Manual' : ''}</td><td className="pr-4">{salesPaymentLabel(row)}</td><td className="tabular-nums pr-4">{currency(row.revenue)}</td><td><button type="button" className="btn btn-ghost btn-sm" aria-label={`Detalhes de ${row.buyerName || 'registro'}`} aria-expanded={expanded === id} onClick={() => setExpanded(expanded === id ? null : id)}>{expanded === id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</button></td></tr>{expanded === id && <tr><td colSpan={6} className="p-4 bg-slate-50 dark:bg-slate-900"><dl className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">{[['Pagamento original', row.payment], ['E-mail', row.buyerEmail || 'Não informado'], ['Oferta', row.offer || 'Não informada'], ['Identificador', row.externalId || 'Não informado'], ['Valor da venda', currency(row.gross)], ['Líquido', currency(row.net)], ['Taxas', currency(row.fees)], ['Afiliação', currency(row.affiliate)], ['Recebido', currency(row.received)], ...(!usesPlatformNet(row) ? [['Preço de tabela', currency(row.listPrice)]] : []), ['Pendente', currency(row.pending)], ['Vendedor', commercialSellerLabel(row)], ['Identificação do vendedor', row.attributionMethod === 'utm' ? 'UTM vinculada' : row.attributionMethod === 'manual' ? 'Atribuição manual' : 'Sem vínculo'], ['UTM Source', row.utm?.source || 'Não informada'], ['UTM Medium', row.utm?.medium || 'Não informada'], ['UTM Campaign', row.utm?.campaign || 'Não informada'], ['UTM Content', row.utm?.content || 'Não informado'], ['UTM Term', row.utm?.term || 'Não informado']].map(([label, value]) => <div key={label}><dt className="text-slate-500 mb-1">{label}</dt><dd className="font-medium break-words">{value}</dd></div>)}</dl>{row.isAggregate && <p className="text-xs text-amber-700 mt-4">Saldo consolidado sem transações individualizadas. Não foi distribuído entre produtos, famílias ou dias.</p>}</td></tr>}</Fragment>
       })}</tbody></table></div>{!details.length && <p className="text-center text-sm text-slate-500 py-8">Nenhum registro neste recorte.</p>}<div className="flex justify-between items-center mt-4 text-xs text-slate-500"><span>{count(details.length)} registros</span><div className="flex gap-3 items-center"><button type="button" className="btn btn-ghost btn-sm disabled:opacity-40" disabled={currentPage === 1} onClick={() => setDetailPage(currentPage - 1)}>Anterior</button>{currentPage} / {detailPages}<button type="button" className="btn btn-ghost btn-sm disabled:opacity-40" disabled={currentPage === detailPages} onClick={() => setDetailPage(currentPage + 1)}>Próxima</button></div></div></section>
     </>}
     {mode !== 'global' && <section className="ds-card p-5"><div className="flex flex-wrap justify-between items-center gap-3 mb-5"><div><h2 className="font-semibold">Metas do período</h2><p className="text-xs text-slate-500 mt-1">{hasFilters ? 'Progresso do recorte filtrado diante da meta geral.' : salesPartial ? 'Progresso parcial da receita operacional diante da meta geral.' : 'Progresso da receita operacional diante da meta geral.'}</p></div>{hasPermission('goals') && <Link to="/metas" className="text-sm text-blue-600 dark:text-blue-300">Gerenciar metas</Link>}</div>{goalError && <p role="alert" className="text-sm text-amber-700 mb-3">{goalError}</p>}{goalNotice && <p role="status" className="text-sm text-blue-600 mb-3">{goalNotice}</p>}{goals && <div className="grid lg:grid-cols-3 gap-5">{Object.entries(GOALS).map(([key, label]) => {

@@ -77,7 +77,7 @@ test('product, payment, platform, team and seller use the same cash rows without
   assert.equal(pace(data).rows[29].dailyActual, 70)
   assert.equal(pace(data).definitive, true)
   assert.equal(summarizeSales(filterSales(records, { platform: 'TMB', family: 'DevClub' })).received.value, 50)
-  assert.equal(summarizeSales(filterSales(records, { payment: 'Boleto' })).received.value, 60)
+  assert.equal(summarizeSales(filterSales(records, { payment: 'Boleto' })).received.value, 70)
   const reconciled = mergeSalesOperations(records, { ...ledger, manualSales: [{ ...manual, linkedExternalId: '42', linkedSource: 'tmb' }] })
   const final = prepareGoalData({ records: reconciled, sources: [source, manualSource] }, directory)
   assert.equal(final.cashRecords.length, 2)

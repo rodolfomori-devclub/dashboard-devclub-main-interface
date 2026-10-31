@@ -9,7 +9,7 @@ import { NAVIGATION, SCREENS } from '../../lib/navigation'
 import './userManagement.css'
 
 const SELLER_SCREENS = ['hub-home', 'daily-kpis', 'daily-checklist', 'commissions', 'materials', 'sales-links', 'ranking']
-const screenCatalog = new Map(NAVIGATION.flatMap(({ group, items }) => items.map(item => [item.permission, { id: item.permission, label: item.label, group }])))
+const screenCatalog = new Map(NAVIGATION.flatMap(({ group, items }) => items.map(item => [item.permission, { id: item.permission, label: item.accessLabel || item.label, group }])))
 const knownScreens = new Set(SCREENS.filter(screen => screen.permission !== 'admin').map(screen => screen.permission))
 const validUser = user => user && typeof user.id === 'string' && typeof user.name === 'string'
   && typeof user.email === 'string' && typeof user.isAdmin === 'boolean'

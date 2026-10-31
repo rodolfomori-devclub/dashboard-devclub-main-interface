@@ -4,6 +4,7 @@ import { existsSync } from 'node:fs'
 import fs from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import assert from 'node:assert/strict'
+import * as XLSX from 'xlsx'
 import { periodCacheFixture, emptyProviderPayload } from './period-cache-fixture.mjs'
 
 const base = process.env.DASHBOARD_SMOKE_URL || 'http://127.0.0.1:4317'
@@ -67,6 +68,7 @@ try {
     else if (url.pathname === '/api/refunds') body = payloadForSource('guruRefunds', range)
     else if (url.pathname === '/api/hotmart/vendas') body = payloadForSource('hotmart', range)
     else if (url.pathname === '/api/hotmart/reembolsos') body = payloadForSource('hotmartRefunds', range)
+    else if (['/api/hubla/vendas', '/api/hubla/reembolsos'].includes(url.pathname)) body = { success: true, data: { financialSchemaVersion: 2, count: 0, totalNet: 0, totalGross: 0, totalFees: 0, transactions: [] } }
     else if (url.pathname.startsWith('/api/boleto/vendas/')) body = payloadForSource('tmb', range)
     else if (url.pathname === '/api/boleto/asaas/vendas') body = payloadForSource('asaas', range)
     else if (url.pathname === '/api/boleto/boletex/vendas') body = payloadForSource('boletex', range)
@@ -97,17 +99,18 @@ try {
     assert.deepEqual((await detailSection.locator('tbody tr td:first-child p:first-child').allTextContents()).sort(), expected.map(row => row.id).sort())
     const groups = [...new Set(expected.map(row => row.product || 'Não informado'))].sort()
     assert.deepEqual((await page.locator('.period-distribution-table tbody tr td:first-child button').allTextContents()).sort(), groups)
-    assert.equal(await page.getByRole('button', { name: 'Exportar', exact: true }).isEnabled(), expected.length > 0)
+    assert.equal(await page.getByRole('button', { name: 'Exportar Excel', exact: true }).isEnabled(), expected.length > 0)
   }
-  async function assertExport(expected) {
+  async function assertExport(expected, products) {
     const downloaded = page.waitForEvent('download')
-    await page.getByRole('button', { name: 'Exportar', exact: true }).click()
+    await page.getByRole('button', { name: 'Exportar Excel', exact: true }).click()
     const download = await downloaded
-    const csv = await fs.readFile(await download.path(), 'utf8')
-    const rows = csv.replace(/^\uFEFF/, '').trim().split('\r\n').slice(1).map(line => line.split(';').map(cell => cell.slice(1, -1).replaceAll('""', '"')))
-    assert.deepEqual(rows.map(row => row[2]).sort(), expected.map(row => row.id).sort(), 'CSV exports the same filtered transactions')
-    assert.deepEqual(rows.map(row => row[4]).sort(), expected.map(row => row.product || '').sort(), 'CSV preserves products, including unidentified rows')
-    assert.equal(rows.reduce((sum, row) => sum + Number(row[8]), 0), expected.reduce((sum, row) => sum + row.value, 0), 'CSV and financial cards agree')
+    const workbook = XLSX.read(await fs.readFile(await download.path()), { type: 'buffer' })
+    const rows = XLSX.utils.sheet_to_json(workbook.Sheets.Vendas, { defval: null })
+    assert.deepEqual(rows.map(row => row['ID na plataforma']).sort(), expected.map(row => row.id).sort(), 'Excel exports the same filtered transactions')
+    assert.deepEqual(rows.map(row => row.Produto ?? '').sort(), expected.map(row => row.product || '').sort(), 'Excel preserves products, including unidentified rows')
+    assert.equal(rows.reduce((sum, row) => sum + row['Valor das vendas'], 0), expected.reduce((sum, row) => sum + row.value, 0), 'Excel and financial cards agree')
+    assert.ok(workbook.Sheets.Comercial.B5.v.includes(`Produto: ${products.join('; ')}`), 'Excel names every selected product')
   }
   async function openProducts() { await trigger.click(); await menu.waitFor() }
   async function closeProducts() { await menu.getByRole('button', { name: 'Concluir', exact: true }).click(); await menu.waitFor({ state: 'hidden' }) }
@@ -155,8 +158,10 @@ try {
     await page.screenshot({ path: `${out}/products-${width}-${theme}.png`, animations: 'disabled' })
     await page.keyboard.press('Escape')
     await menu.waitFor({ state: 'hidden' })
+    // Radix returns focus asynchronously after the close; the first heavy render can take a few frames.
+    await page.waitForFunction(() => document.activeElement?.id === 'period-product')
     assert.equal(await trigger.evaluate(node => node === document.activeElement), true, 'Escape restores focus to the product button')
-    await assertExport(bothProducts)
+    await assertExport(bothProducts, [productB, productA])
 
     await openProducts()
     assert.equal(await search.inputValue(), '', 'Reopening resets search')
@@ -174,26 +179,27 @@ try {
     await closeProducts()
     const unidentifiedAndA = sales.filter(row => !row.product || row.product === productA)
     await assertResults(unidentifiedAndA)
-    await assertExport(unidentifiedAndA)
+    await assertExport(unidentifiedAndA, ['Não informado', productA])
     await clearProducts()
 
     await selectBoth()
     await page.locator('#period-platform').selectOption('Guru')
     await assertResults(bothProducts.filter(row => row.platform === 'Guru'))
-    await page.locator('#period-payment').selectOption('Pix')
-    await assertResults([sales[0]])
+    // Guru and Hotmart payments are all counted under Cartão.
+    await page.locator('#period-payment').selectOption('Cartão')
+    await assertResults(bothProducts.filter(row => row.platform === 'Guru'))
     await page.getByText('Origem e campanhas', { exact: true }).click()
-    await page.locator('#period-utm-source').selectOption('comercial')
+    await page.locator('#period-utm-source').selectOption('youtube')
     await assertResults([])
     await page.locator('#period-utm-source').selectOption('meta')
     await assertResults([sales[0]])
-    await assertExport([sales[0]])
+    await assertExport([sales[0]], [productA, productB])
     await page.getByRole('button', { name: 'Limpar filtros', exact: true }).click()
     await assertResults(sales)
     assert.match(await trigger.innerText(), /Todos os produtos/)
     for (const id of ['period-platform', 'period-payment', 'period-utm-source']) assert.equal(await page.locator(`#${id}`).inputValue(), '')
     assert.equal(calls.length, beforeFilters, 'Product selection, export, and combined filters must never refetch APIs')
-    checks.push({ width, theme, multipleProducts: true, keyboard: true, unknownProduct: true, csv: true, combinedFilters: true, localFilters: true, overflow: false })
+    checks.push({ width, theme, multipleProducts: true, keyboard: true, unknownProduct: true, excel: true, combinedFilters: true, localFilters: true, overflow: false })
   }
 
   for (const [path, title] of [['mensal', 'Visão mensal'], ['anual', 'Visão anual']]) {

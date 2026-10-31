@@ -122,7 +122,7 @@ async function fixture(route) {
   else if (path === '/api/sales-ops/ledger') body = { data: { manualSales: [], attributions: [1, 2, 3].map(index => ({ source: 'hotmart', externalId: `h${index}`, sellerId: index === 3 ? 'bruno' : 'ana', sellerName: index === 3 ? 'Bruno' : 'Ana' })).concat({ source: 'tmb', externalId: '1', sellerId: 'ana', sellerName: 'Ana' }) } }
   else if (path.startsWith('/api/goals/')) body = { success: true, data: { meta: 5000, superMeta: 7000, ultraMeta: 9000 } }
   else {
-    const source = path === '/api/transactions' ? 'guru' : path === '/api/refunds' ? 'guruRefunds' : path === '/api/hotmart/vendas' ? 'hotmart' : path === '/api/hotmart/reembolsos' ? 'hotmartRefunds' : path === '/api/boleto/asaas/vendas' ? 'asaas' : path === '/api/boleto/boletex/vendas' ? 'boletex' : path.startsWith('/api/boleto/vendas/') ? 'tmb' : null
+    const source = path === '/api/transactions' ? 'guru' : path === '/api/refunds' ? 'guruRefunds' : path === '/api/hotmart/vendas' ? 'hotmart' : path === '/api/hotmart/reembolsos' ? 'hotmartRefunds' : path === '/api/hubla/vendas' ? 'hubla' : path === '/api/hubla/reembolsos' ? 'hublaRefunds' : path === '/api/boleto/asaas/vendas' ? 'asaas' : path === '/api/boleto/boletex/vendas' ? 'boletex' : path.startsWith('/api/boleto/vendas/') ? 'tmb' : null
     if (!source) { unexpected.push(`${method} ${path}`); await route.abort(); return }
     const date = (url.searchParams.get('date') || today).slice(0, 10)
     body = provider(source, { startDate: url.searchParams.get('data_inicio') || date, endDate: url.searchParams.get('data_final') || date })
@@ -158,7 +158,7 @@ try {
   let vault = { vaultUrl: base, clientId: 'local-fixture-client' }
   if (published) {
     const html = await (await fetch(`${base}/ranking`)).text()
-    const main = html.match(/src="([^" ]*\/assets\/index-[^" ]+\.js)"/)?.[1]
+    const main = html.match(/src="([^" ]*\/assets\/(?:index|main)-[^" ]+\.js)"/)?.[1]
     assert.ok(main, 'Published entry asset exists')
     if (process.env.DASHBOARD_EXPECTED_ASSET) assert.equal(main, process.env.DASHBOARD_EXPECTED_ASSET)
     const config = await readPublishedVault({ base, main })
@@ -202,7 +202,13 @@ try {
   const configure = async () => { await page.getByRole('button', { name: 'Configurar TV', exact: true }).click(); await editor().waitFor() }
   const save = async () => { await editor().getByRole('button', { name: 'Salvar programação', exact: true }).click(); await editor().waitFor({ state: 'hidden' }) }
   const start = async () => { await page.getByRole('button', { name: 'Iniciar TV', exact: true }).click(); await player().waitFor() }
-  const noOverflow = async name => { if (controlledClock) await page.clock.runFor(35); else await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))); assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${name}: viewport fits`) }
+  const noOverflow = async name => {
+    if (controlledClock) await page.clock.runFor(35)
+    else await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+    const layout = await page.evaluate(() => ({ fits: document.documentElement.scrollWidth <= innerWidth,
+      overflow: [...document.querySelectorAll('body *')].filter(node => { const rect = node.getBoundingClientRect(); return rect.right > innerWidth + 1 && rect.width > 0 }).slice(0, 10).map(node => ({ tag: node.tagName, className: node.className, width: node.getBoundingClientRect().width, right: node.getBoundingClientRect().right })) }))
+    assert.equal(layout.fits, true, `${name}: viewport fits ${JSON.stringify(layout.overflow)}`)
+  }
   const screenshot = async name => { await noOverflow(name); await page.screenshot({ path: `${out}/${name}.png`, fullPage: await player().count() === 0, animations: 'disabled' }) }
 
   await visit()
@@ -258,10 +264,10 @@ try {
 
   await configure()
   assert.equal(await editor().getByTestId('tv-config-monthly-goal').count(), 1)
-  assert.equal(await editor().locator('[data-testid^="tv-config-"]').count(), 8)
+  assert.equal(await editor().locator('[data-testid^="tv-config-"]').count(), 15)
   await editor().getByRole('combobox', { name: /^Tema da TV/ }).selectOption('light')
   await editor().getByLabel('Exibir Vendas do dia', { exact: true }).check()
-  await editor().getByLabel('Exibir Categorias de venda', { exact: true }).check()
+  await editor().getByLabel('Exibir Meios de pagamento', { exact: true }).check()
   await editor().getByRole('spinbutton', { name: /Tempo de Meta do mês/ }).fill('10')
   await editor().getByRole('spinbutton', { name: /Tempo de Ritmo da meta/ }).fill('11')
   await editor().getByRole('combobox', { name: /^Escopo do gráfico de pace/ }).selectOption('team')
@@ -269,8 +275,8 @@ try {
   await editor().getByRole('button', { name: 'Subir Top produtos', exact: true }).click()
   await save()
   assert.equal(settingsWrites, 1)
-  assert.equal(savedSettings.panels.every(panel => panel.enabled), true)
-  assert.deepEqual(savedSettings.panels.map(panel => panel.id), ['monthly-goal', 'pace', 'team-goals', 'product-goals', 'products', 'sellers', 'daily', 'payment-mix'])
+  assert.equal(savedSettings.panels.filter(panel => panel.enabled).length, 8)
+  assert.deepEqual(savedSettings.panels.filter(panel => panel.enabled).map(panel => panel.id), ['monthly-goal', 'pace', 'team-goals', 'product-goals', 'products', 'sellers', 'daily', 'payment-mix'])
   assert.equal(savedSettings.panels[0].durationSeconds, 10)
   assert.equal(savedSettings.panels[1].durationSeconds, 11)
   assert.equal(savedSettings.paceScope, 'team')
@@ -320,11 +326,7 @@ try {
     if (id === 'sellers') { assert.match(text, /Ana/); assert.match(text, /Bruno/); assert.match(text, /955,76/) }
     if (id === 'products') { assert.match(text, /DevClub/); assert.match(text, /MBA/); assert.match(text, /IAClub/) }
     if (id === 'team-goals') { assert.match(text, /Comercial/); assert.match(text, /Marketing/) }
-    if (id === 'payment-mix') {
-      assert.match(text, /Cartão/); assert.match(text, /Boleto/)
-      assert.match(await player().locator('[data-tv-row-id="card"]').innerText(), /3 vendas/, 'TV Cartão includes the Hotmart Pix sale')
-      assert.equal(await player().locator('[data-tv-row-id="pix"]').count(), 0, 'Hotmart Pix is not counted twice')
-    }
+    if (id === 'payment-mix') { assert.match(text, /Cartão/); assert.match(text, /Boleto/); assert.doesNotMatch(text, /Pix/) }
     if (['pace', 'sellers', 'payment-mix'].includes(id)) await screenshot(`${id}-1920-light`)
     if (['monthly-goal', 'pace'].includes(id)) {
       const size = await player().locator('.tv-broadcast-main').evaluate(node => ({ scrollHeight: node.scrollHeight, clientHeight: node.clientHeight }))
@@ -377,6 +379,115 @@ try {
   await expect(preview()).toContainText('Base da meta: Valor das vendas')
   await expect(preview().locator('.tv-goal-dial')).toContainText('36,67%')
   record('Fixed September selection preserves both revenues; goal attainment follows the saved gross base')
+  // The daily preset must reset a fixed historical program and persist a daily-only rotation.
+  const beforeDailySettings = structuredClone(savedSettings)
+  const beforeDailyWrites = settingsWrites
+  await configure()
+  await editor().getByRole('button', { name: 'Modo diário', exact: true }).click()
+  await expect(editor().getByRole('combobox', { name: /^Exibição/ })).toHaveValue('rotate')
+  await expect(editor().getByRole('combobox', { name: /^Período/ })).toHaveValue('current')
+  assert.equal(await editor().locator('input[type="checkbox"]:checked').count(), 4)
+  await editor().getByRole('button', { name: 'Cancelar', exact: true }).click()
+  assert.equal(settingsWrites, beforeDailyWrites)
+  assert.deepEqual(savedSettings, beforeDailySettings)
+  await configure()
+  await editor().getByRole('button', { name: 'Modo diário', exact: true }).click()
+  await save()
+  const dailyIds = ['daily', 'daily-payments', 'daily-cash', 'daily-sellers']
+  assert.deepEqual(savedSettings.panels.filter(panel => panel.enabled).map(panel => panel.id), dailyIds)
+  assert.ok(savedSettings.panels.filter(panel => panel.enabled).every(panel => panel.durationSeconds === 20))
+  assert.equal(savedSettings.metric, 'gross')
+  assert.equal(savedSettings.month, '')
+  await page.clock.resume()
+  controlledClock = false
+  await visit()
+  await expectMain(preview(), '277,88')
+  await page.clock.pauseAt(new Date(await page.evaluate(() => Date.now() + 1000)))
+  controlledClock = true
+  await start()
+  await expect(player()).toContainText('Hoje, 15 de outubro · Brasília')
+  for (const id of dailyIds) {
+    await expect(player()).toHaveAttribute('data-panel-id', id)
+    await expectTvScene(player(), id)
+    assert.doesNotMatch(await player().innerText(), /1\.833,64|1\.233,64|1\.255,36/, 'Daily scenes exclude prior days and old invoice receipts')
+    await screenshot(`${id}-daily-preset-1920-dark`)
+    const size = await player().locator('.tv-broadcast-main').evaluate(node => ({ scrollHeight: node.scrollHeight, clientHeight: node.clientHeight }))
+    if (size.scrollHeight > size.clientHeight + 1) layoutIssues.push({ panel: id, viewport: '1920x1080', ...size })
+    await page.clock.runFor(20000)
+  }
+  await expect(player()).toHaveAttribute('data-panel-id', 'daily')
+  await player().getByRole('button', { name: 'Pausar apresentação', exact: true }).click()
+  await page.setViewportSize({ width: 360, height: 900 })
+  await page.clock.runFor(500)
+  await page.waitForTimeout(100) // Let ResizeObserver deliver the viewport change before inspecting the underlying workspace.
+  for (const id of dailyIds) {
+    await expectTvScene(player(), id)
+    await screenshot(`${id}-daily-preset-360-dark`)
+    await player().getByRole('button', { name: 'Próximo painel', exact: true }).click()
+  }
+  await page.keyboard.press('Escape')
+  record('Daily preset cancels safely, resets historical/fixed settings, persists four20s scenes, stays daily-only through polling and fits desktop/mobile')
+  savedSettings = beforeDailySettings
+  revision++
+  await page.setViewportSize({ width: 1920, height: 1080 })
+  await page.clock.resume()
+  controlledClock = false
+
+  // The weekly preset must replace a historical fixed program with Monday-to-today data.
+  await visit()
+  await expectMain(preview(), '1.833,64')
+  const beforeWeeklyWrites = settingsWrites
+  await configure()
+  await editor().getByRole('button', { name: 'Modo semanal', exact: true }).click()
+  await expect(editor().getByRole('combobox', { name: /^Exibição/ })).toHaveValue('rotate')
+  await expect(editor().getByRole('combobox', { name: /^Período/ })).toHaveValue('current')
+  assert.equal(await editor().locator('input[type="checkbox"]:checked').count(), 4)
+  await editor().getByRole('button', { name: 'Cancelar', exact: true }).click()
+  assert.equal(settingsWrites, beforeWeeklyWrites)
+  assert.deepEqual(savedSettings, beforeDailySettings)
+  await configure()
+  await editor().getByRole('button', { name: 'Modo semanal', exact: true }).click()
+  await save()
+  const weeklyIds = ['weekly', 'weekly-payments', 'weekly-cash', 'weekly-sellers']
+  assert.deepEqual(savedSettings.panels.filter(panel => panel.enabled).map(panel => panel.id), weeklyIds)
+  assert.ok(savedSettings.panels.filter(panel => panel.enabled).every(panel => panel.durationSeconds === 20))
+  assert.equal(savedSettings.metric, 'gross')
+  assert.equal(savedSettings.monthMode, 'current')
+  assert.equal(savedSettings.month, '')
+  assert.equal(savedSettings.mode, 'rotate')
+  assert.equal(settingsWrites, beforeWeeklyWrites + 1)
+  await visit()
+  await expectMain(preview(), '277,88')
+  await expect(page.locator('.tv-program-summary')).toContainText('Semana, 12/10 a 15/10 · Brasília')
+  await page.clock.pauseAt(new Date(await page.evaluate(() => Date.now() + 1000)))
+  controlledClock = true
+  await start()
+  for (const id of weeklyIds) {
+    await expect(player()).toHaveAttribute('data-panel-id', id)
+    await expect(player().locator('.tv-broadcast-context')).toContainText('Semana, 12/10 a 15/10 · Brasília')
+    await expectTvScene(player(), id)
+    assert.doesNotMatch(await player().innerText(), /1\.833,64|1\.233,64|1\.255,36/, 'Weekly scenes exclude prior weeks and old invoice receipts')
+    await screenshot(`${id}-weekly-preset-1920-dark`)
+    const size = await player().locator('.tv-broadcast-main').evaluate(node => ({ scrollHeight: node.scrollHeight, clientHeight: node.clientHeight }))
+    if (size.scrollHeight > size.clientHeight + 1) layoutIssues.push({ panel: id, viewport: '1920x1080', ...size })
+    await page.clock.runFor(20000)
+  }
+  await expect(player()).toHaveAttribute('data-panel-id', 'weekly')
+  await player().getByRole('button', { name: 'Pausar apresentação', exact: true }).click()
+  await page.setViewportSize({ width: 360, height: 900 })
+  await page.clock.runFor(500)
+  await page.waitForTimeout(100)
+  for (const id of weeklyIds) {
+    await expect(player()).toHaveAttribute('data-panel-id', id)
+    await expectTvScene(player(), id)
+    await screenshot(`${id}-weekly-preset-360-dark`)
+    await player().getByRole('button', { name: 'Próximo painel', exact: true }).click()
+  }
+  await page.keyboard.press('Escape')
+  record('Weekly preset cancels safely, resets historical/fixed settings, persists four20s Monday-to-today scenes, excludes prior weeks and fits desktop/mobile')
+  savedSettings = beforeDailySettings
+  revision++
+  await page.setViewportSize({ width: 1920, height: 1080 })
   await page.clock.resume()
   controlledClock = false
 
@@ -519,7 +630,7 @@ try {
   assert.deepEqual(unexpected, [])
   assert.ok(blocked.every(item => published && !item.external && item.method === 'GET' && item.resource === 'script' && item.opaqueScript), 'Only optional same-origin opaque scripts may be blocked')
   assert.ok([...applicationAssets.values()].every(asset => asset.status === 200), 'All requested application assets succeeded')
-  assert.deepEqual(layoutIssues, [], 'The 1080p TV must fit its monthly and pace panels without scrolling')
+  assert.deepEqual(layoutIssues, [], 'The 1080p TV must fit its monthly, pace, daily and weekly panels without scrolling')
   completed = true
   console.log(JSON.stringify({ passed: true, published, assets, checks: checks.length, apiCalls: calls.length, settingsWrites, shareWrites: shareWrites.length, errors, unexpected, blocked }))
 } catch (error) {

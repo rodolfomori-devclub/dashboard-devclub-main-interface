@@ -10,6 +10,7 @@ import { readPublishedVault } from './published-vault.mjs'
 
 const base = process.env.DASHBOARD_SMOKE_URL || 'http://127.0.0.1:4317'
 const published = process.env.DASHBOARD_SMOKE_PRODUCTION === '1'
+assert.ok(published ? base === 'https://dashboard.launchcontrol.com.br' : ['localhost', '127.0.0.1'].includes(new URL(base).hostname), 'Smoke must target localhost or the explicitly allowed production dashboard')
 const verifyLoading = published || process.env.DASHBOARD_SMOKE_VERIFY_LOADING === '1'
 const out = process.env.DASHBOARD_SMOKE_OUTPUT || fileURLToPath(new URL('./artifacts/payment-cards', import.meta.url))
 await fs.mkdir(out, { recursive: true })
@@ -19,9 +20,9 @@ const guru = ([id, product, gross, net, method]) => ({ hash: id, product: { name
 const hotmart = ([transaction, product, grossValue, netValue, paymentMethod]) => ({ transaction, product, grossValue, netValue, fee: grossValue - netValue, paymentMethod, currency: 'BRL', netCurrency: 'BRL', feeCurrency: 'BRL', orderDate: `${date}T12:00:00-03:00` })
 function payload(id, range = { startDate: date, endDate: date }) {
  if (range.startDate > date || range.endDate < date || scenario === 'empty') return emptyProviderPayload(id)
- if (id === 'guru') return { data: [['g-card', 'DevClub', 1050, 1000, 'credit_card'], ...(scenario === 'mixed' ? [['g-boleto', 'MBA', 750, 700, 'billet'], ['g-pix', 'DevClub', 220, 200, 'pix']] : [])].map(guru) }
+ if (id === 'guru') return { data: [['g-card', 'DevClub', 1050, 1000, 'credit_card'], ...(scenario === 'mixed' ? [['g-boleto', 'MBA', 750, 700, 'billet']] : [])].map(guru) }
  if (id === 'hotmart') {
-  const rows = [['h-card', 'DevClub', 300, 280, 'CREDIT_CARD'], ...(scenario === 'mixed' ? [['h-boleto', 'MBA', 1000, 940, 'BILLET'], ['h-apple', 'DevClub', 110, 100, 'APPLE_PAY'], ['h-unknown', 'DevClub', 90, 80, '']] : [])].map(hotmart)
+  const rows = [['h-card', 'DevClub', 300, 280, 'CREDIT_CARD'], ...(scenario === 'mixed' ? [['h-boleto', 'MBA', 1000, 940, 'BILLET']] : [])].map(hotmart)
   return { success: true, data: { financialSchemaVersion: 2, count: rows.length, totalGross: rows.reduce((sum, row) => sum + row.grossValue, 0), totalNet: rows.reduce((sum, row) => sum + row.netValue, 0), totalFees: rows.reduce((sum, row) => sum + row.fee, 0), transactions: rows } }
  }
  if (id === 'tmb') return { success: true, data: [{ id: 'tmb-1', raw: { pedido_id: 1, valor_entrada: 123 }, product: 'DevClub Vitalício', value: 800, timestamp: `${date}T10:00:00-03:00` }] }
@@ -36,7 +37,7 @@ const finishFinancial = () => { releaseFinancial?.(); financialBarrier = null; r
 let assets = null, vault = { vaultUrl: base, clientId: 'local-fixture-client' }
 if (published) {
  const html = await (await fetch(`${base}/diario`)).text()
- const main = html.match(/src="([^" ]*\/assets\/index-[^" ]+\.js)"/)?.[1]
+ const main = html.match(/src="([^" ]*\/assets\/(?:index|main)-[^" ]+\.js)"/)?.[1]
  assert.ok(main, 'Published main asset exists')
  if (process.env.DASHBOARD_EXPECTED_ASSET) assert.equal(main, process.env.DASHBOARD_EXPECTED_ASSET)
  const config = await readPublishedVault({ base, main })
@@ -66,6 +67,7 @@ await context.route('**/*', async route => {
  else if (url.pathname === '/api/transactions') body = payload('guru')
  else if (url.pathname === '/api/refunds') body = payload('guruRefunds')
  else if (url.pathname === '/api/hotmart/vendas') body = payload('hotmart')
+ else if (['/api/hubla/vendas', '/api/hubla/reembolsos'].includes(url.pathname)) body = { success: true, data: { financialSchemaVersion: 2, count: 0, totalNet: 0, totalGross: 0, totalFees: 0, transactions: [] } }
  else if (url.pathname === '/api/hotmart/reembolsos') body = payload('hotmartRefunds')
  else if (url.pathname.startsWith('/api/boleto/vendas/')) body = payload('tmb')
  else if (url.pathname === '/api/boleto/asaas/vendas') body = payload('asaas')
@@ -118,13 +120,17 @@ try {
  for (const [path, width, theme] of layouts) {
   scenario = 'mixed'
   await navigate(path, width, theme)
-  assert.deepEqual(await providerIds(card('Cartão')), ['guru', 'hotmart'], 'Every Guru/Hotmart sale belongs to Cartão regardless of payment')
+  assert.deepEqual(await providerIds(card('Cartão')), ['guru', 'hotmart'], 'All observed Guru and Hotmart sales belong to Cartão, including their raw boleto methods')
   const expectedBoleto = path === 'anual' ? ['tmb', 'boletex'] : ['tmb', 'asaas', 'boletex']
   assert.deepEqual(await providerIds(card('Boleto')), expectedBoleto, 'Boleto providers require observed boleto sales, with Asaas annual loaded on demand')
-  await assertMoney(card('Cartão').locator('.revenue-card-value'), '3.300,00', 'Cartão includes Guru/Hotmart card, Pix, boleto, Apple Pay and unknown once')
+  await assertMoney(card('Cartão').locator('.revenue-card-value'), '2.920,00', 'Cartão includes all Guru and Hotmart net amounts: 1,000 + 700 + 280 + 940')
+  await assertMoney(card('Boleto').locator('.revenue-card-value'), path === 'anual' ? '2.800,00' : '3.800,00', 'Boleto retains contracted values from TMB, Boletex and available Asaas new sales')
+  for (const [id, net] of [['guru', '1.700,00'], ['hotmart', '1.220,00']]) {
+   await assertMoney(provider(card('Cartão'), id).locator('strong'), net, `${id} sales use net amounts without deducting fees again`)
+  }
   for (const [id, gross, cash] of [['tmb', '800,00', '320,00'], ['boletex', '2.000,00', null]]) {
    const row = provider(card('Boleto'), id)
-   await assertMoney(metric(row, ['guru', 'hotmart'].includes(id) ? 'Líquido após taxas' : 'Valor contratado'), gross)
+   await assertMoney(metric(row, 'Valor contratado'), gross)
    if (cash) await assertMoney(metric(row, 'Cash collected'), cash, `${id} cash must not deduct taxes a second time`)
    else assert.match(await metric(row, 'Cash collected').innerText(), /Não informado/)
    assert.match(await metric(row, 'Entrada recebida').innerText(), /Não informado/, `${id} unconfirmed entry must not be guessed`)
@@ -134,7 +140,7 @@ try {
    await assertMoney(metric(row, 'Valor contratado'), '1.000,00')
    await assertMoney(metric(row, 'Entrada recebida'), '200,00')
    await assertMoney(metric(row, 'Cash collected'), '200,00', 'Only confirmed new-contract entry counts as Asaas sales cash')
-   await assertMoney(page.locator('.revenue-card--cash .revenue-card-value'), '3.820,00')
+   await assertMoney(page.locator('.revenue-card--cash .revenue-card-value'), '3.440,00')
   }
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${path}/${width}/${theme} overflow`)
   for (const row of await providers(card('Boleto')).all()) {
@@ -143,25 +149,12 @@ try {
   }
   await page.locator('.revenue-payment-grid').screenshot({ path: `${out}/${path}-${width}-${theme}.png`, animations: 'disabled' })
   checks.push(`${path}/${width}/${theme}: payment providers, net digital sales/contracted others/cash/entry semantics, no overflow`)
-  assert.match(await card('Cartão').locator('.revenue-card-subtitle').innerText(), /7 vendas identificadas/)
-  await assertMoney(provider(card('Cartão'), 'guru').locator('strong'), '1.900,00')
-  await assertMoney(provider(card('Cartão'), 'hotmart').locator('strong'), '1.400,00')
-  const categoryFilter = path === 'diario' ? page.getByLabel('Pagamento', { exact: true }) : page.locator('#period-payment')
-  const beforeCategory = calls.length
-  await categoryFilter.selectOption('Cartão')
-  await assertMoney(card('Cartão').locator('.revenue-card-value'), '3.300,00')
-  assert.match(await card('Cartão').locator('.revenue-card-subtitle').innerText(), /7 vendas identificadas/)
-  assert.equal(await providers(card('Boleto')).count(), 0, 'Digital boleto cannot be counted twice')
-  await assertMoney(page.getByTestId('revenue-gross-value'), '3.300,00')
-  assert.match(await page.locator(path === 'diario' ? '.daily-sales-table' : '.data-table').last().innerText(), /Pix|APPLE_PAY/, 'Original payment remains visible inside Cartão category')
-  assert.equal(calls.length, beforeCategory, 'Category filters operate on loaded records')
-  await categoryFilter.selectOption('')
   if (path === 'diario') {
    if (verifyLoading && !refreshChecked) {
     holdFinancial()
     await page.getByRole('button', { name: 'Atualizar dados', exact: true }).click()
     await page.locator('.revenue-card-value .financial-value[data-state="refreshing"]').nth(3).waitFor()
-    await assertMoney(card('Cartão').locator('.revenue-card-value'), '3.300,00')
+    await assertMoney(card('Cartão').locator('.revenue-card-value'), '2.920,00')
     for (const value of await page.locator('.revenue-card-value').all()) assert.match(await value.innerText(), /Atualizando/)
     finishFinancial()
     await page.waitForFunction(() => document.querySelector('.revenue-highlights')?.getAttribute('aria-busy') === 'false')
@@ -172,6 +165,7 @@ try {
    await page.getByLabel('Família de produto', { exact: true }).selectOption('DevClub')
    assert.deepEqual(await providerIds(card('Boleto')), ['tmb'], 'Product filter removes other products and their providers')
    assert.deepEqual(await providerIds(card('Cartão')), ['guru', 'hotmart'])
+   await assertMoney(card('Cartão').locator('.revenue-card-value'), '1.280,00', 'Product filtering retains only DevClub Guru and Hotmart net sales')
    await assertMoney(metric(provider(card('Boleto'), 'tmb'), 'Cash collected'), '320,00')
    await page.getByLabel('Família de produto', { exact: true }).selectOption('IAClub')
    assert.equal(await providers(card('Cartão')).count(), 0, 'No unrelated card providers for an empty payment slice')

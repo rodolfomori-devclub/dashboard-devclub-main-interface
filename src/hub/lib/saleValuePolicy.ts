@@ -57,5 +57,5 @@ export function formatHubFinancial(
 
 export function hubFinancialNote(summary: Pick<HubFinancialSummary, 'unknownNetCount'>): string {
   const count = summary.unknownNetCount;
-  return `Dados financeiros parciais: ${count} ${count === 1 ? 'venda de Guru/Hotmart sem líquido informado' : 'vendas de Guru/Hotmart sem líquido informado'}. Valores e indicadores financeiros consideram somente os valores conhecidos.`;
+  return `Dados financeiros parciais: ${count} ${count === 1 ? 'venda de Guru/Hotmart/Hubla sem líquido informado' : 'vendas de Guru/Hotmart/Hubla sem líquido informado'}. Valores e indicadores financeiros consideram somente os valores conhecidos.`;
 }

@@ -3,7 +3,7 @@ import { NAVIGATION } from '../../src/lib/navigation.js'
 // Side-panel fixture for suites that open Admin to exercise another feature.
 // This metadata is public configuration; all account API requests stay mocked.
 export const adminUsersCatalogFixture = {
-  permissions: NAVIGATION.flatMap(group => group.items.filter(item => item.permission !== 'admin').map(item => ({ id: item.permission, label: item.label, group: group.group }))),
+  permissions: [...new Map(NAVIGATION.flatMap(group => group.items.filter(item => item.permission !== 'admin').map(item => [item.permission, { id: item.permission, label: item.accessLabel || item.label, group: group.group }]))).values()],
   profiles: [{ id: 'user', label: 'Usuário' }, { id: 'admin', label: 'Administrador do Dashboard' }],
   loginUrl: 'https://auth.example.test',
   teams: [{ id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', name: 'Comercial QA' }],

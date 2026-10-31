@@ -79,7 +79,7 @@ try {
     await page.goto(`${base}/results`, { waitUntil: 'networkidle' })
     await page.getByRole('button', { name: /Setembro 2026/ }).click()
     await page.getByTestId('report-financial-partial').waitFor()
-    assert.match(await page.getByTestId('report-financial-partial').innerText(), /2 vendas de Guru\/Hotmart sem líquido informado/)
+    assert.match(await page.getByTestId('report-financial-partial').innerText(), /2 vendas de Guru\/Hotmart\/Hubla sem líquido informado/)
     const revenue = page.locator('p').getByText('Receita Total', { exact: true }).first().locator('..')
     assert.match(await revenue.innerText(), scenario === 'unknown' ? /Não informado/ : /1\.000,00 · Parcial/)
     assert.doesNotMatch(await page.locator('main').innerText(), /1\.997,00|2\.397,24/)

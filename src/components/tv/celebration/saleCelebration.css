@@ -1,0 +1,87 @@
+.sale-celebration {
+  --sale-celebration-ink: #f1f5ff;
+  --sale-celebration-muted: #b8c8df;
+  --sale-celebration-accent: #54ead4;
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  isolation: isolate;
+  container-type: size;
+  overflow: hidden;
+  border-radius: inherit;
+  background: rgb(11 18 34 / 96%);
+  color: var(--sale-celebration-ink);
+  font-family: 'Plus Jakarta Sans Variable', sans-serif;
+  font-variant-numeric: tabular-nums;
+  opacity: 1;
+  transition: opacity 220ms ease-out;
+}
+.sale-celebration[data-leaving] { opacity: 0; }
+.sale-celebration *, .sale-celebration *::before, .sale-celebration *::after { box-sizing: border-box; }
+.sale-celebration ::selection { color: #0b1222; background: #54ead4; }
+.sale-celebration__announcement { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.sale-celebration__surface { position: relative; z-index: 2; display: grid; place-items: center; width: 100%; height: 100%; padding: 7%; }
+.sale-celebration__content { display: flex; align-items: center; justify-content: center; gap: 5cqw; min-width: 0; width: 100%; }
+.sale-celebration__copy { min-width: 0; max-width: 100%; }
+.sale-celebration h2, .sale-celebration p { margin: 0; }
+.sale-celebration__title, .sale-celebration__amount, .sale-celebration__seller { font-family: 'Outfit Variable', sans-serif; letter-spacing: -.025em; line-height: 1.08; }
+.sale-celebration__title { display: flex; align-items: center; justify-content: center; gap: .45em; color: var(--sale-celebration-ink); font-size: clamp(18px, 4.4cqw, 66px); font-weight: 500; }
+.sale-celebration__title svg { flex-shrink: 0; width: .9em; height: .9em; color: #c297ff; }
+.sale-celebration__amount { display: block; margin: .13em 0 .15em; color: var(--sale-celebration-accent); font-size: clamp(30px, 9.8cqw, 168px); font-weight: 600; overflow-wrap: anywhere; }
+.sale-celebration__seller { color: var(--sale-celebration-ink); font-size: clamp(16px, 3.1cqw, 48px); font-weight: 450; overflow-wrap: anywhere; text-wrap: balance; }
+.sale-celebration__product { margin-top: .6em !important; color: var(--sale-celebration-muted); font-size: clamp(11px, 1.7cqw, 27px); line-height: 1.4; overflow-wrap: anywhere; }
+.sale-celebration .sale-celebration__dismiss { position: absolute; top: clamp(8px, 2cqh, 28px); right: clamp(8px, 1.7cqw, 30px); z-index: 3; display: grid; place-items: center; width: 44px; height: 44px; min-height: 44px; padding: 0; border: 1px solid #425571; border-radius: 50%; background: #17263e; color: #f1f5ff; cursor: pointer; transition: background 150ms ease-out, border-color 150ms ease-out; }
+.sale-celebration .sale-celebration__dismiss:hover { background: #293b57; border-color: #8c9cff; }
+.sale-celebration .sale-celebration__dismiss:focus-visible { outline: 3px solid #54ead4; outline-offset: 3px; }
+.sale-celebration--confetti .sale-celebration__copy { text-align: center; animation: sale-celebration-confirm 620ms cubic-bezier(.16, 1, .3, 1) both; }
+.sale-celebration__confetti { position: absolute; inset: 0; z-index: 1; overflow: hidden; pointer-events: none; }
+.sale-celebration__confetti i { position: absolute; top: -12%; display: block; width: clamp(4px, .65cqw, 11px); height: clamp(8px, 1.3cqw, 22px); border-radius: 1px; background: var(--sale-celebration-particle-color); animation: sale-celebration-fall 2.7s var(--sale-celebration-delay) cubic-bezier(.2, .55, .65, 1) both; }
+.sale-celebration__confetti i:nth-child(3n) { height: clamp(5px, .7cqw, 12px); border-radius: 50%; }
+.sale-celebration--spotlight { background: radial-gradient(ellipse at 24% 53%, #233448 0, #0b1222 66%); }
+.sale-celebration--spotlight .sale-celebration__content { max-width: 94%; animation: sale-celebration-stage 680ms cubic-bezier(.16, 1, .3, 1) both; }
+.sale-celebration--spotlight .sale-celebration__title { justify-content: flex-start; color: #c297ff; font-size: clamp(16px, 2.5cqw, 38px); margin-bottom: .55em; }
+.sale-celebration--spotlight .sale-celebration__seller { font-size: clamp(22px, 5.2cqw, 84px); font-weight: 550; }
+.sale-celebration--spotlight .sale-celebration__amount { font-size: clamp(23px, 5cqw, 80px); margin-top: .4em; }
+.sale-celebration__award { position: relative; display: grid; place-items: center; flex: 0 0 25cqw; width: 25cqw; height: 25cqw; max-width: 360px; max-height: 360px; color: #c297ff; }
+.sale-celebration__rings { position: absolute; inset: 0; width: 100%; height: 100%; stroke: #657698; stroke-width: 1; animation: sale-celebration-ring 900ms cubic-bezier(.16, 1, .3, 1) both; }
+.sale-celebration__rings circle + circle { stroke: #c297ff; stroke-width: 2; stroke-linecap: round; }
+.sale-celebration__trophy { position: relative; width: 48%; height: 48%; }
+.sale-celebration--ticker { background: transparent; pointer-events: none; }
+.sale-celebration--ticker .sale-celebration__surface { position: absolute; inset: auto clamp(12px, 2.5cqw, 48px) clamp(12px, 4cqh, 48px) auto; display: block; width: min(66%, 840px); height: auto; padding: clamp(14px, 2cqw, 32px) clamp(56px, 5cqw, 78px) clamp(16px, 2.2cqw, 36px) clamp(16px, 2.5cqw, 40px); border: 1px solid #526b8e; border-radius: 14px; background: #111d32; pointer-events: auto; overflow: hidden; animation: sale-celebration-broadcast 550ms cubic-bezier(.16, 1, .3, 1) both; }
+.sale-celebration--ticker .sale-celebration__content { justify-content: flex-start; gap: clamp(12px, 2cqw, 28px); }
+.sale-celebration--ticker .sale-celebration__title { justify-content: flex-start; color: #f1f5ff; font-size: clamp(13px, 1.6cqw, 25px); }
+.sale-celebration--ticker .sale-celebration__amount { margin: .16em 0; font-size: clamp(22px, 3.8cqw, 60px); }
+.sale-celebration--ticker .sale-celebration__seller { font-size: clamp(12px, 1.6cqw, 25px); }
+.sale-celebration--ticker .sale-celebration__product { font-size: clamp(10px, 1.1cqw, 18px); }
+.sale-celebration__check { flex-shrink: 0; width: clamp(25px, 4.5cqw, 68px); height: clamp(25px, 4.5cqw, 68px); color: #54ead4; }
+.sale-celebration--ticker .sale-celebration__dismiss { top: 5px; right: 5px; border-color: transparent; background: transparent; }
+.sale-celebration__countdown { position: absolute; bottom: 0; left: 0; width: 100%; height: 2px; background: #54ead4; transform-origin: left; animation: sale-celebration-countdown var(--sale-celebration-duration) linear both; }
+@keyframes sale-celebration-confirm { from { opacity: .25; transform: scale(.93); } to { opacity: 1; transform: scale(1); } }
+@keyframes sale-celebration-fall { 0% { opacity: 0; transform: translate3d(0, 0, 0) rotate(0deg); } 12%, 82% { opacity: 1; } 100% { opacity: 0; transform: translate3d(var(--sale-celebration-drift), 118cqh, 0) rotate(var(--sale-celebration-spin)); } }
+@keyframes sale-celebration-stage { from { opacity: .25; transform: translateX(2%); } to { opacity: 1; transform: translateX(0); } }
+@keyframes sale-celebration-ring { from { opacity: 0; transform: rotate(-20deg) scale(.88); } to { opacity: 1; transform: rotate(0) scale(1); } }
+@keyframes sale-celebration-broadcast { from { opacity: .2; transform: translateY(30%); clip-path: inset(0 0 20% 0 round 14px); } to { opacity: 1; transform: translateY(0); clip-path: inset(0 round 14px); } }
+@keyframes sale-celebration-countdown { to { transform: scaleX(0); } }
+@container (max-width: 500px) {
+  .sale-celebration__surface { padding: 10% 7%; }
+  .sale-celebration__title { font-size: 4.7cqw; }
+  .sale-celebration__amount { font-size: 9.2cqw; }
+  .sale-celebration__seller { font-size: 4.2cqw; }
+  .sale-celebration__product { font-size: 3cqw; }
+  .sale-celebration--spotlight .sale-celebration__content { gap: 4cqw; max-width: 100%; }
+  .sale-celebration--spotlight .sale-celebration__title { font-size: 4cqw; }
+  .sale-celebration--spotlight .sale-celebration__seller { font-size: 5.6cqw; }
+  .sale-celebration--spotlight .sale-celebration__amount { font-size: 5.3cqw; }
+  .sale-celebration--ticker .sale-celebration__surface { width: calc(100% - 24px); padding: 13px 56px 15px 14px; }
+  .sale-celebration--ticker .sale-celebration__content { gap: 12px; }
+  .sale-celebration--ticker .sale-celebration__title { font-size: 12px; }
+  .sale-celebration--ticker .sale-celebration__amount { font-size: 25px; }
+  .sale-celebration--ticker .sale-celebration__seller { font-size: 12px; }
+  .sale-celebration--ticker .sale-celebration__product { font-size: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sale-celebration, .sale-celebration * { animation: none !important; transition: none !important; }
+  .sale-celebration[data-leaving] { opacity: 1; }
+  .sale-celebration__confetti { display: none; }
+  .sale-celebration__countdown { display: none; }
+}

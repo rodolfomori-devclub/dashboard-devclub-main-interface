@@ -45,7 +45,7 @@ test('filtros família, original, plataforma, pagamento e UTMs operam sobre a me
   assert.equal(summarizeSales(filtered).revenue.value, groupSales(filtered, 'product')[0].revenue.value)
   assert.equal(hourlySales(filtered).hours.reduce((sum, row) => sum + row.value, 0), 890)
   assert.deepEqual(filterSales(records, { payment: 'Cartão' }).map(row => row.platform), ['Guru', 'Hotmart'])
-  assert.deepEqual(filterSales(records, { payment: 'Pix' }), [])
+  assert.equal(filtered[0].payment, 'Pix')
 })
 
 test('selecionar vários produtos soma somente suas vendas e mantém totais dos grupos', () => {

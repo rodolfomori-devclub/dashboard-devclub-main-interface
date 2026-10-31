@@ -4,7 +4,7 @@ import { hubNetSaleValue, isHubNetSale } from './saleValuePolicy.ts';
 const money = (value: unknown): number | null => value !== null && value !== undefined && value !== '' && typeof value !== 'boolean'
   && Number.isFinite(Number(value)) && Number(value) >= 0 ? Number(value) : null;
 
-/** Compatibility name: Guru/Hotmart use net; other platforms retain contracted value. */
+/** Compatibility name: Guru/Hotmart/Hubla use net; other platforms retain contracted value. */
 export function rankingGross(sale: any): number | null {
   if (isHubNetSale(sale)) return hubNetSaleValue(sale);
   if (sale.dashboard_ledger_id || sale.dashboard_value != null) return money(sale.dashboard_gross);

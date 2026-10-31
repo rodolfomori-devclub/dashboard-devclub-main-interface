@@ -20,9 +20,9 @@
 	encode gzip zstd
 	respond /health 200
 	# Canonical and legacy public TV addresses share privacy/cache headers.
-	@publicTv path /tv /tv/*
+	@publicTv path /tv /tv/* /tv-demo
 	@publicTvLight path /tv-light /tv-light/*
-	@tvVisits path /tv /tv/* /tv-light /tv-light/*
+	@tvVisits path /tv /tv/* /tv-light /tv-light/* /tv-demo
 	log_skip @tvVisits
 
 	header {

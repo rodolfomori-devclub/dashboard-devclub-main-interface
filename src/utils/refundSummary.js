@@ -1,13 +1,13 @@
 import { isNetSalesPlatform } from './platformCash.js'
 // Refund status and purchase price are distinct from the amount actually returned.
-const PROVIDERS = [{ id: 'guru', label: 'Guru' }, { id: 'hotmart', label: 'Hotmart' }, { id: 'tmb', label: 'TMB' }, { id: 'asaas', label: 'Asaas' }]
+const PROVIDERS = [{ id: 'guru', label: 'Guru' }, { id: 'hotmart', label: 'Hotmart' }, { id: 'hubla', label: 'Hubla' }, { id: 'tmb', label: 'TMB' }, { id: 'asaas', label: 'Asaas' }]
 const value = number => number !== null && number !== undefined && number !== '' && Number.isFinite(Number(number)) && Number(number) >= 0 ? Number(number) : null
 const currency = input => typeof input === 'string' && /^[A-Z]{3}$/.test(input.toUpperCase()) ? input.toUpperCase() : null
 const statusKey = input => String(input || '').toLowerCase().trim()
 
 export function refundKind(status) {
   if (['refunded', 'partially_refunded'].includes(statusKey(status))) return 'confirmed'
-  if (['chargeback', 'dispute'].includes(statusKey(status))) return 'dispute'
+  if (['chargeback', 'dispute', 'in_protest'].includes(statusKey(status))) return 'dispute'
   if (['rejected', 'cancelled', 'canceled', 'cancelado'].includes(statusKey(status))) return 'cancelled'
   return 'unknown'
 }
@@ -16,15 +16,15 @@ function normalizedRecord(row, overview) {
   const raw = row.original || {}
   const status = overview ? row.status : raw.status
   const digital = isNetSalesPlatform(row.platform)
-  const hotmart = String(row.platform || '').toLowerCase() === 'hotmart'
-  const netPurchase = overview ? value(row.saleNetAmount) : hotmart ? value(raw.netValue) : value(row.net)
+  const invoiceProvider = ['hotmart', 'hubla'].includes(String(row.platform || '').toLowerCase())
+  const netPurchase = overview ? value(row.saleNetAmount) : invoiceProvider ? value(raw.netValue) : value(row.net)
   return {
     platform: String(row.platform || '').toLowerCase(),
     kind: overview ? row.kind : refundKind(status), status: statusKey(status),
     quantity: overview ? 1 : value(row.quantity) ?? 1,
     purchase: digital ? netPurchase : value(overview ? row.saleAmount : raw.payment?.total ?? row.gross),
     refunded: overview ? value(row.refundAmount) : value(row.refundAmount ?? raw.refundAmount),
-    currency: currency(overview ? row.currency : hotmart ? raw.netCurrency : raw.payment?.currency || raw.currency),
+    currency: currency(overview ? row.currency : invoiceProvider ? raw.netCurrency : raw.payment?.currency || raw.currency),
     refundCurrency: currency(overview ? row.refundCurrency || row.currency : row.refundCurrency || raw.refundCurrency || raw.payment?.currency || raw.currency),
   }
 }

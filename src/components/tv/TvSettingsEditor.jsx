@@ -2,18 +2,11 @@ import { isRankingParticipant } from '../../utils/goalScopes.js'
 /* eslint-disable react/prop-types -- Internal TV configuration form. */
 import { useState } from 'react'
 import { ArrowDown, ArrowUp, Check, X } from 'lucide-react'
-import { TV_METRICS, TV_PANELS } from './tvConfig.js'
+import { applyTvPreset, isDailyTvProgram, TV_METRICS, TV_PANELS, TV_PRESETS, withAvailableTvPanels } from './tvConfig.js'
 import { PRODUCT_FAMILIES } from '../../utils/salesData.js'
 
-const PRESETS = {
-  'Visão da operação': ['monthly-goal', 'pace', 'team-goals', 'product-goals', 'sellers', 'products'],
-  'Comercial': ['daily', 'sellers', 'team-goals', 'monthly-goal'],
-  'Metas': ['monthly-goal', 'pace', 'team-goals', 'product-goals'],
-  'Produtos': ['products', 'product-goals', 'payment-mix'],
-}
-
 export function TvSettingsEditor({ initial, directory, saving, error, conflict, onSave, onCancel, onReload }) {
-  const [draft, setDraft] = useState(() => structuredClone(initial))
+  const [draft, setDraft] = useState(() => withAvailableTvPanels(structuredClone(initial)))
   const change = (key, value) => setDraft(old => ({ ...old, [key]: value }))
   const selected = draft.panels.filter(panel => panel.enabled)
   const options = draft.paceScope === 'team' ? directory?.teams || [] : draft.paceScope === 'individual' ? (directory?.individuals || []).filter(isRankingParticipant) : PRODUCT_FAMILIES.filter(id => id !== 'Não informado').map(id => ({ id, name: id }))
@@ -26,14 +19,13 @@ export function TvSettingsEditor({ initial, directory, saving, error, conflict, 
     const panels = [...old.panels]; [panels[index], panels[index + direction]] = [panels[index + direction], panels[index]]
     return { ...old, panels }
   })
-  const preset = name => setDraft(old => {
-    const ids = PRESETS[name]
-    return { ...old, fixedPanel: ids[0], panels: [...ids, ...TV_PANELS.map(p => p.id).filter(id => !ids.includes(id))].map(id => ({ ...old.panels.find(p => p.id === id), enabled: ids.includes(id) })) }
-  })
+  const preset = name => setDraft(old => applyTvPreset(old, name))
   return <form className="tv-editor" aria-label="Programação da TV" onSubmit={event => { event.preventDefault(); onSave(draft) }}>
     <div className="tv-section-heading"><div><span className="tv-eyebrow">Controle de exibição</span><h2>Programe a sua TV</h2><p>Valor das vendas em destaque e cash collected sempre visível. A base escolhida define as metas e a ordenação dos rankings. Esta programação vale para todas as TVs.</p></div><button type="button" className="tv-icon-button" aria-label="Fechar configuração" onClick={onCancel} disabled={saving}><X size={20}/></button></div>
     <fieldset disabled={saving}>
-      <div className="tv-presets"><span>Começar com</span>{Object.keys(PRESETS).map(name => <button type="button" key={name} onClick={() => preset(name)}>{name}</button>)}</div>
+      <div className="tv-presets"><span>Começar com</span>{Object.keys(TV_PRESETS).map(name => <button type="button" key={name} onClick={() => preset(name)}>{name}</button>)}</div>
+      <p className="tv-preset-help">Modo diário: resultados de hoje. Modo semanal: acumulado de segunda-feira até hoje. Cada modo inclui vendas, cartão vs. boleto, cash collected e top vendedores, em quatro telas de 20 segundos, no horário de Brasília.</p>
+      {isDailyTvProgram(draft) && draft.monthMode === 'fixed' && <p className="tv-notice" role="status">Os painéis diários mostram hoje somente quando ele pertence ao mês escolhido. Selecione Mês atual para acompanhar a operação todos os dias.</p>}
       <div className="tv-form-grid">
         <label>Exibição<select value={draft.mode} onChange={e => change('mode', e.target.value)}><option value="rotate">Alternar entre painéis</option><option value="fixed">Manter um painel fixo</option></select></label>
         {draft.mode === 'fixed' && <label>Painel fixo<select value={draft.fixedPanel} onChange={e => change('fixedPanel', e.target.value)}>{selected.map(panel => <option key={panel.id} value={panel.id}>{TV_PANELS.find(p => p.id === panel.id)?.title}</option>)}</select></label>}
@@ -44,6 +36,7 @@ export function TvSettingsEditor({ initial, directory, saving, error, conflict, 
         <label>Escopo do gráfico de pace<select value={draft.paceScope} onChange={e => setDraft(old => ({ ...old, paceScope: e.target.value, paceScopeId: '' }))}><option value="overall">Geral</option><option value="team">Time</option><option value="product">Produto</option><option value="individual">Vendedor</option></select></label>
         {draft.paceScope !== 'overall' && <label>Alvo do gráfico de pace<select required value={draft.paceScopeId} onChange={e => change('paceScopeId', e.target.value)}><option value="">Selecione</option>{draft.paceScopeId && !currentKnown && <option value={draft.paceScopeId}>Seleção salva · indisponível no cadastro</option>}{options.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>}
       </div>
+      <p className="tv-preset-help">Os painéis semanais sempre acompanham a semana atual, de segunda-feira até hoje, mesmo quando outro mês estiver selecionado.</p>
       <div className="tv-panel-list-heading"><h3>Painéis e ordem de exibição</h3><span>{selected.length} selecionados · tempo em segundos</span></div>
       <div className="tv-config-panels">{draft.panels.map((panel, index) => { const info = TV_PANELS.find(p => p.id === panel.id); return <div className="tv-config-panel" data-testid={`tv-config-${panel.id}`} key={panel.id}>
         <span className="tv-sequence">{String(index + 1).padStart(2, '0')}</span>

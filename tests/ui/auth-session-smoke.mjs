@@ -21,7 +21,7 @@ const encode = value => Buffer.from(JSON.stringify(value)).toString('base64url')
 const token = generation => `${encode({alg:'RS256',kid:'ui-fixture-only'})}.${encode({sub:'fixture-user',iss:'fixture-vault',aud:'local-fixture-client',token_use:'access',exp:generation === 'refreshed' ? 7258118400 : 4102444800,generation})}.fixture-signature-not-valid`
 const originalToken = token('original'), refreshedToken = token('refreshed')
 const user = { sub:'fixture-user', name:'Fixture', email:'fixture@example.test', permissions:['today'], isAdmin:false }
-const financialPaths = new Set(['/api/transactions','/api/refunds','/api/hotmart/vendas','/api/hotmart/reembolsos','/api/boleto/vendas/data','/api/boleto/asaas/vendas','/api/boleto/boletex/vendas','/api/sales-ops/ledger'])
+const financialPaths = new Set(['/api/transactions','/api/refunds','/api/hotmart/vendas','/api/hotmart/reembolsos','/api/hubla/vendas','/api/hubla/reembolsos','/api/boleto/vendas/data','/api/boleto/asaas/vendas','/api/boleto/boletex/vendas','/api/sales-ops/ledger'])
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms))
 const results = []
 
@@ -61,7 +61,7 @@ async function scenario(name, seed, check) {
     }
     let body = {data:[],plans:[]}
     if(url.pathname === '/api/sales-ops/ledger') body = {data:{attributions:[],manualSales:[]}}
-    else if(url.pathname === '/api/hotmart/vendas' || url.pathname === '/api/hotmart/reembolsos') body = {success:true,data:{count:0,totalGross:0,totalNet:0,totalFees:0,totalRefundAmount:0,transactions:[]}}
+    else if(['/api/hotmart/vendas', '/api/hotmart/reembolsos', '/api/hubla/vendas', '/api/hubla/reembolsos'].includes(url.pathname)) body = {success:true,data:{count:0,totalGross:0,totalNet:0,totalFees:0,totalRefundAmount:0,transactions:[]}}
     else if(url.pathname === '/api/boleto/asaas/vendas') body = {success:true,data:{totalGross:0,totalNet:0,totalFees:0,count:0,sales:null,totalPurchaseValue:null,cashReceipts:[],availability:{cash:'ready',sales:'unavailable',reason:'checkout_disabled'}}}
     else if(url.pathname === '/api/boleto/boletex/vendas') body = {success:true,data:{sales:{count:0,totalValue:0,entries:[]}}}
     else if(url.pathname.startsWith('/api/goals/')) body = {success:true,data:{meta:0,superMeta:0,ultraMeta:0}}
