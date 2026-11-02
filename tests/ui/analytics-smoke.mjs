@@ -144,7 +144,7 @@ try{
  cacheScenario='cold'
  await page.getByLabel('Mês',{exact:true}).fill('2026-07')
  await page.getByRole('button',{name:/Aplicar período/}).click()
- await page.getByText(/0 de 7 consultas concluídas/).waitFor()
+ await page.getByText(/0 de 9 consultas concluídas/).waitFor()
  const beforeLeaving=cacheCalls.length
  await page.goto(`${base}/global`,{waitUntil:'networkidle'})
  await page.waitForTimeout(2200)

@@ -2,9 +2,9 @@
 
 Os cards mostram skeleton e Carregando valor enquanto o valor do período é consultado. Atualizações do mesmo período preservam o dado anterior com Atualizando. Valores zero confirmados continuam zero; dados ausentes/erro não permanecem em um loading infinito.
 
-Por instrução de Rodolfo, em todas as telas (Diário, mensal, anual, comparativos e TV), toda venda Guru/Hotmart entra em Cartão e toda venda TMB/Boletex entra em Boleto, independentemente do pagamento original, inclusive Pix, Apple Pay, outros ou não informado. Lançamentos manuais dessas plataformas seguem a mesma categoria. As demais fontes, inclusive Asaas, preservam o meio informado; não são excluídas.
+Por instrução de Rodolfo, em todas as telas (Diário, mensal, anual, comparativos e TV), toda venda Guru/Hotmart/Hubla entra em Cartão e toda venda TMB/Boletex entra em Boleto, independentemente do pagamento original, inclusive Pix, Apple Pay, outros ou não informado. Lançamentos manuais dessas plataformas seguem a mesma categoria. A regra vale só para vendas: reembolsos mantêm o meio original nos filtros, agrupamentos e gráficos. As demais fontes, inclusive Asaas, preservam o meio informado; não são excluídas.
 
-`salesPaymentLabel` em `platformCash.js` centraliza a categoria usada por filtros, opções, gráficos, breakdowns e TV. O campo `payment` e o payload original permanecem intactos nos registros, detalhes e exportações. Quantidade e valor entram uma única vez. O líquido Guru/Hotmart e as demais regras financeiras não mudam. Plataformas sem registros naquela categoria não ganham linhas vazias; falhas de fontes continuam sinalizando cobertura incompleta.
+`salesPaymentLabel` em `platformCash.js` centraliza a categoria usada por filtros, opções, gráficos, breakdowns e TV. O campo `payment` e o payload original permanecem intactos nos registros, detalhes e exportações. Quantidade e valor entram uma única vez. O líquido Guru/Hotmart/Hubla e as demais regras financeiras não mudam. Plataformas sem registros naquela categoria não ganham linhas vazias; falhas de fontes continuam sinalizando cobertura incompleta.
 
 Boleto exibe por plataforma:
 
