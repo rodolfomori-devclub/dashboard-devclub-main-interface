@@ -45,4 +45,5 @@ try {
  await run('./admin-users-smoke.mjs')
  await run('./commissions-attribution-smoke.mjs')
  await run('./chart-primitives-smoke.mjs')
+ await run('./agent-smoke.mjs')
 } finally { server.kill('SIGTERM') }

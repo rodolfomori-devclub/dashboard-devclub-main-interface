@@ -8,7 +8,7 @@ import { Toaster as Sonner } from './hub/components/ui/sonner'
 import { TooltipProvider } from './hub/components/ui/tooltip'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import WorkspaceLayout, { PageSkeleton } from './components/WorkspaceLayout'
-import { SCREENS } from './lib/navigation'
+import { FINANCIAL_READ, SCREENS } from './lib/navigation'
 import { queryClient } from './lib/queryClient'
 
 const Today = lazy(() => import('./pages/Today'))
@@ -16,6 +16,7 @@ const Global = lazy(() => import('./pages/DailyDashboard'))
 const Monthly = lazy(() => import('./pages/MonthlyDashboard'))
 const Yearly = lazy(() => import('./pages/YearlyDashboard'))
 const Comparativo = lazy(() => import('./pages/ComparativoPage'))
+const Agent = lazy(() => import('./pages/AgentPage'))
 const Refunds = lazy(() => import('./pages/RefundsPage'))
 const Goals = lazy(() => import('./pages/GoalsPage'))
 const Pace = lazy(() => import('./pages/GoalPacePage'))
@@ -101,7 +102,7 @@ function AppRouter() {
     ['/diario', 'today', Today], ['/global', 'daily', Global], ['/mensal', 'monthly', Monthly], ['/anual', 'yearly', Yearly],
     ['/comparativo', 'comparativo', Comparativo], ['/reembolsos', 'refunds', Refunds], ['/metas', 'goals', Goals],
     ['/pace', 'goal-pace', Pace], ['/atribuicao', 'attribution', Attribution], ['/data-sources', 'data-sources', Sources],
-    ['/compradores', 'attribution', BuyerIntelligence],
+    ['/compradores', 'attribution', BuyerIntelligence], ['/agente', FINANCIAL_READ, Agent],
     ['/hub', 'hub-home', HubHome], ['/admin', 'admin', Admin],
     ['/onboarding/mba', 'onboarding-mba', Onboarding], ['/onboarding/devclub', 'onboarding-devclub', Onboarding],
     ['/materials', 'materials', Materials, true], ['/settings', 'settings', Settings, true],

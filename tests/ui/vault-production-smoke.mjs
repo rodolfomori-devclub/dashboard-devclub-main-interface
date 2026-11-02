@@ -8,7 +8,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import os from 'node:os'
 import assert from 'node:assert/strict'
-import { SCREENS } from '../../src/lib/navigation.js'
+import { SCREENS, isAssignable } from '../../src/lib/navigation.js'
 
 const dashboard = 'https://dashboard.launchcontrol.com.br'
 const vault = 'https://auth.clubeducacao.com.br'
@@ -19,8 +19,8 @@ const directory = process.env.VAULT_SMOKE_CREDENTIALS_DIR
 assert.ok(directory, 'Set VAULT_SMOKE_CREDENTIALS_DIR to the private test account directory')
 assert.equal((await fs.stat(directory)).mode & 0o077, 0, 'Credentials directory must be private')
 const profiles = {
-  admin: { entry: '/admin', heading: 'Administração', permissions: SCREENS.map(screen => screen.permission).sort(), menuCount: SCREENS.length },
-  user: { entry: '/diario', heading: 'Diário de vendas', permissions: ['daily', 'today'], menus: ['/diario', '/global'] },
+  admin: { entry: '/admin', heading: 'Administração', permissions: SCREENS.filter(isAssignable).map(screen => screen.permission).sort(), menuCount: SCREENS.length },
+  user: { entry: '/diario', heading: 'Diário de vendas', permissions: ['daily', 'today'], menus: ['/diario', '/global', '/agente'] },
   seller: { entry: '/daily-kpis', heading: 'KPIs Diários', permissions: ['commissions', 'daily-kpis'], menus: ['/daily-kpis', '/commissions'] },
 }
 const selected = (process.env.VAULT_SMOKE_PROFILES || 'admin,user,seller').split(',')
