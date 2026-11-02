@@ -149,6 +149,19 @@ try {
   }
   await page.locator('.revenue-payment-grid').screenshot({ path: `${out}/${path}-${width}-${theme}.png`, animations: 'disabled' })
   checks.push(`${path}/${width}/${theme}: payment providers, net digital sales/contracted others/cash/entry semantics, no overflow`)
+  const categoryFilter = path === 'diario' ? page.getByLabel('Pagamento', { exact: true }) : page.locator('#period-payment')
+  const beforeCategory = calls.length
+  await categoryFilter.selectOption('Cartão')
+  await assertMoney(card('Cartão').locator('.revenue-card-value'), '2.920,00')
+  assert.equal(await providers(card('Boleto')).count(), 0, 'Digital boleto cannot be counted twice')
+  await assertMoney(page.getByTestId('revenue-gross-value'), '2.920,00')
+  await categoryFilter.selectOption('Boleto')
+  assert.equal(await providers(card('Cartão')).count(), 0, 'The Boleto category leaves Guru and Hotmart out')
+  assert.deepEqual(await providerIds(card('Boleto')), ['tmb', 'boletex'], 'Asaas keeps its informed method, so the Boleto category lists only the platforms classified by rule')
+  await assertMoney(page.getByTestId('revenue-gross-value'), '2.800,00')
+  assert.equal(calls.length, beforeCategory, 'Category filters operate on loaded records')
+  await categoryFilter.selectOption('')
+  checks.push(`${path}/${width}/${theme}: Cartão and Boleto filters narrow the cards to their own platforms without new requests`)
   if (path === 'diario') {
    if (verifyLoading && !refreshChecked) {
     holdFinancial()

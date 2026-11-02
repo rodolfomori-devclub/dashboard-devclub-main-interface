@@ -7,6 +7,7 @@ import { existsSync } from 'node:fs'
 import fs from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import assert from 'node:assert/strict'
+import * as XLSX from 'xlsx'
 import { periodCacheFixture, emptyProviderPayload } from './period-cache-fixture.mjs'
 import { readPublishedVault } from './published-vault.mjs'
 
@@ -223,25 +224,26 @@ try {
     assert.equal(calls.length, beforeFilter, 'Platform filtering remains local')
     if (path === 'mensal') {
       const downloaded = page.waitForEvent('download');
-      await page.getByRole('button', { name: 'Exportar', exact: true }).click();
+      await page.getByRole('button', { name: 'Exportar Excel', exact: true }).click();
       const download = await downloaded;
-      const csv = await fs.readFile(await download.path(), 'utf8');
-      const [headers, ...cells] = csv.replace(/^\uFEFF/, '').trim().split(/\r?\n/).map(line => line.split(';').map(value => value.slice(1, -1).replace(/""/g, '"')));
-      for (const name of ['Fonte', 'Categoria de pagamento', 'Pagamento original', 'Tipo', 'Valor operacional', 'Recebido']) assert.ok(headers.includes(name), `CSV must identify its ${name} column`);
+      const sheet = XLSX.read(await fs.readFile(await download.path()), { type: 'buffer' }).Sheets.Vendas;
+      const [headers, ...cells] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
+      for (const name of ['Plataforma', 'Categoria de pagamento', 'Pagamento original', 'Tipo', 'Receita operacional', 'Valor das vendas', 'Recebido']) assert.ok(headers.includes(name), `Excel must identify its ${name} column`);
       const rows = cells.map(values => {
-        assert.equal(values.length, headers.length, 'CSV rows retain the complete named schema');
+        assert.equal(values.length, headers.length, 'Excel rows retain the complete named schema');
         return Object.fromEntries(headers.map((name, index) => [name, values[index]]));
       });
       assert.equal(rows.length, 3);
       for (const row of rows) {
-        assert.equal(row.Fonte, 'Hotmart');
+        assert.equal(row.Plataforma, 'Hotmart');
         assert.equal(row['Categoria de pagamento'], 'Cartão', 'All Hotmart methods export the agreed commercial category');
-        assert.equal(row.Tipo, 'sale');
-        assert.equal(row['Valor operacional'], '277.88', 'Exported sales value must use net, never purchase price300');
-        assert.equal(row.Recebido, '277.88', 'Exported cash must use the same net without subtracting fees again');
+        assert.equal(row.Tipo, 'Venda');
+        assert.equal(row['Receita operacional'], 277.88, 'Exported operational value must use net, never the purchase price of 300');
+        assert.equal(row['Valor das vendas'], 277.88, 'Exported sales value must use net, never the purchase price of 300');
+        assert.equal(row.Recebido, 277.88, 'Exported cash must use the same net without subtracting fees again');
       }
-      assert.deepEqual(rows.map(row => row['Pagamento original']).sort(), ['Boleto', 'Cartão', 'Pix'], 'CSV preserves the original provider method independently of its commercial category');
-      checks.push(`Monthly CSV/${width}: named columns preserve Cartão category, original methods and net277.88 for sales and cash`);
+      assert.deepEqual(rows.map(row => row['Pagamento original']).sort(), ['Boleto', 'Cartão', 'Pix'], 'Excel preserves the original provider method independently of its commercial category');
+      checks.push(`Monthly Excel/${width}: named columns preserve Cartão category, original methods and net 277.88 for sales and cash`);
     }
   }
 

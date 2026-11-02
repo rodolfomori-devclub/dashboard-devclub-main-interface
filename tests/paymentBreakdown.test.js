@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildRevenueBreakdown } from '../src/utils/revenueBreakdown.js'
+import { buildRevenueBreakdown, revenuePaymentGroup } from '../src/utils/revenueBreakdown.js'
+import { salesPaymentLabel } from '../src/utils/platformCash.js'
 import { filterSales } from '../src/utils/salesData.js'
 
 const names = { guru: 'Guru', hotmart: 'Hotmart', tmb: 'TMB', asaas: 'Asaas', boletex: 'Boletex', manual: 'Manual' }
@@ -8,6 +9,8 @@ const source = (id, extra = {}) => ({ id, platform: names[id], label: names[id],
 const row = (id, sourceId, payment, gross, net, extra = {}) => ({ id, sourceId, platform: names[sourceId], kind: 'sale', quantity: 1,
   payment, gross, net, revenue: net ?? gross, received: null, date: '2026-10-01T12:00:00Z', family: 'DevClub', utm: {}, ...extra })
 const ids = group => group.providers.map(provider => provider.id)
+// The commercial category applies to sales, so the probes below are sale rows.
+const salesGroup = probe => revenuePaymentGroup(salesPaymentLabel({ kind: 'sale', ...probe }))
 
 test('each payment card lists only platforms in that commercial category in the filtered records', () => {
   const rows = [row('g-card', 'guru', 'Cartão', 1000, 900), row('g-pix', 'guru', 'Pix', 400, 390), row('h-boleto', 'hotmart', 'Boleto', 2000, 1800), row('t-boleto', 'tmb', 'Boleto', 3000, null, { family: 'MBA' })]
@@ -165,6 +168,24 @@ test('missing net, zero, unavailable sources and unknown non-digital methods pre
   const unknown = buildRevenueBreakdown([row('m', 'manual', null, 100, 90, { isManual: true, platform: 'Outra' })], [source('manual')])
   assert.equal(unknown.payments.card.value, null)
   assert.equal(unknown.payments.unknown.value, 90)
+})
+
+test('Guru and Hotmart categorization covers every original method and preserves native identity', () => {
+  for (const sourceId of ['guru', 'hotmart']) {
+    const rows = ['Cartão', 'Pix', 'Boleto', 'APPLE_PAY', 'Não informado', null].map((payment, index) => row(`${sourceId}-${index}`, sourceId, payment, 1000, 900))
+    const result = buildRevenueBreakdown(rows, [source(sourceId)])
+    assert.equal(result.payments.card.count, 6)
+    assert.equal(result.payments.card.value, 5400)
+    assert.equal(result.payments.card.partial, false)
+    assert.equal(result.payments.card.providers[0].partial, false)
+    assert.deepEqual(Object.values(result.payments).flatMap(group => group.providers.map(provider => provider.id)), [sourceId])
+    assert.equal(salesGroup({ sourceId, platform: 'TMB', payment: 'Pix' }), 'card')
+    assert.equal(salesGroup({ sourceId: 'manual', platform: names[sourceId], payment: null }), 'card')
+    assert.equal(salesGroup({ source: sourceId, payment: 'Boleto' }), 'card')
+  }
+  assert.equal(salesGroup({ sourceId: 'tmb', platform: 'Guru', payment: 'Boleto' }), 'boleto')
+  assert.equal(salesGroup({ sourceId: 'manual', platform: 'Pix direto', payment: 'Pix' }), 'pix')
+  assert.equal(salesGroup({ sourceId: 'manual', platform: 'Asaas', payment: null }), 'unknown')
 })
 
 test('known empty categories remain zero without an empty manual ledger masking unavailable card sources', () => {

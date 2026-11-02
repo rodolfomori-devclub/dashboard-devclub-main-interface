@@ -109,7 +109,8 @@ async function fixture(route) {
     else if (table === 'sales') body = [
       { id: 'legacy-a', date: today, seller_id: 'ana', amount: 500, total_sale_value: 900, dashboard_ledger_id: 'mirror-a', dashboard_value: 900, dashboard_gross: 900, dashboard_financial_policy: 'net_after_fees', dashboard_net_known: true, real_collected_this_month: 200, cash_collected: 250, platform: 'Hotmart' },
       { id: 'legacy-b', date: today, seller_id: 'bruno', amount: 300, total_sale_value: 700, real_collected_this_month: 0, cash_collected: 300, platform: 'TMB' },
-      { id: 'legacy-head', date: today, seller_id: profile.id, amount: 100, total_sale_value: 1000, real_collected_this_month: 100, cash_collected: 100, platform: 'Hubla' },
+      // A contracted-value platform: Guru, Hotmart and Hubla count only an authorized net mirror.
+      { id: 'legacy-head', date: today, seller_id: profile.id, amount: 100, total_sale_value: 1000, real_collected_this_month: 100, cash_collected: 100, platform: 'Asaas' },
     ]
     else if (table === 'team_settings') body = { id: 'setting', team_goal: 5000, origins: [] }
     else if (table === 'monthly_goals') body = { month: 10, year: 2026, team_goal: 5000, monthly_hyper_goal: 7000 }
