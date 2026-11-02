@@ -5,7 +5,7 @@ import { dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { JSDOM } from 'jsdom'
 import { build } from 'esbuild'
-import { SCREENS } from '../src/lib/navigation.js'
+import { SCREENS, isAssignable } from '../src/lib/navigation.js'
 
 let runtime, directory, dom, root, queryClient, requestHandler
 let requests = []
@@ -107,7 +107,7 @@ const permissionBox = label => [...document.querySelectorAll('.admin-user-menu-g
 function adminFixture(permissions) {
   let current = user(permissions)
   requestHandler = async (path, options) => {
-    if (path === '/admin/users/catalog') return { permissions: SCREENS.filter(screen => screen.permission !== 'admin').map(screen => ({ id: screen.permission, label: screen.label })), teams: [] }
+    if (path === '/admin/users/catalog') return { permissions: SCREENS.filter(screen => isAssignable(screen) && screen.permission !== 'admin').map(screen => ({ id: screen.permission, label: screen.label })), teams: [] }
     if (path.startsWith('/admin/users?')) return { users: [current], total: 1, totalPages: 1 }
     if (path === '/admin/users/seller/access' && options.method === 'PUT') {
       const input = JSON.parse(options.body)

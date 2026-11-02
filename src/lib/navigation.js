@@ -1,3 +1,7 @@
+// The agent reads the data of the financial screens, so any of them opens it.
+// Mirrors financialRead in the API, which is what actually enforces this.
+export const FINANCIAL_READ = ['today', 'daily', 'monthly', 'yearly', 'comparativo', 'goal-pace', 'goals', 'refunds', 'attribution']
+
 // Shared catalog for navigation and guards; assignment belongs to Vault.
 export const NAVIGATION = [
   { group: 'Visão do negócio', items: [
@@ -11,6 +15,7 @@ export const NAVIGATION = [
     { path: '/atribuicao', label: 'Atribuição e conciliação', permission: 'attribution', icon: 'GitCompareArrows' },
     { path: '/compradores', label: 'Compradores', accessLabel: 'Atribuição, conciliação e compradores', permission: 'attribution', icon: 'Database' },
     { path: '/metas', label: 'Metas', permission: 'goals', icon: 'Target' },
+    { path: '/agente', label: 'Agente', permission: FINANCIAL_READ, icon: 'Bot' },
   ] },
   { group: 'Operação', items: [
     { path: '/hub', label: 'Meu espaço', permission: 'hub-home', icon: 'House' },
@@ -40,6 +45,9 @@ export const NAVIGATION = [
   ] },
 ]
 export const SCREENS = NAVIGATION.flatMap(group => group.items)
+// A screen opened by a list has no id of its own to assign to a user.
+export const isAssignable = screen => typeof screen.permission === 'string'
+export const hasAnyPermission = (granted, permission) => [].concat(permission).some(id => granted[id] === true)
 export function permissionsFromUser(user) {
   const raw = user?.roles?.dashboard || []
   const permissions = Array.isArray(raw) ? raw : Object.keys(raw).filter(key => raw[key] === true)

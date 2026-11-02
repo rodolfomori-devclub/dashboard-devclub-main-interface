@@ -5,12 +5,12 @@ import { Check, Copy, LoaderCircle, Pencil, RefreshCw, ShieldCheck, UserPlus, Us
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../contexts/AuthContext'
 import { requestApi } from '../../lib/api'
-import { NAVIGATION, SCREENS } from '../../lib/navigation'
+import { NAVIGATION, SCREENS, isAssignable } from '../../lib/navigation'
 import './userManagement.css'
 
 const SELLER_SCREENS = ['hub-home', 'daily-kpis', 'daily-checklist', 'commissions', 'materials', 'sales-links', 'ranking']
-const screenCatalog = new Map(NAVIGATION.flatMap(({ group, items }) => items.map(item => [item.permission, { id: item.permission, label: item.accessLabel || item.label, group }])))
-const knownScreens = new Set(SCREENS.filter(screen => screen.permission !== 'admin').map(screen => screen.permission))
+const screenCatalog = new Map(NAVIGATION.flatMap(({ group, items }) => items.filter(isAssignable).map(item => [item.permission, { id: item.permission, label: item.accessLabel || item.label, group }])))
+const knownScreens = new Set(SCREENS.filter(screen => isAssignable(screen) && screen.permission !== 'admin').map(screen => screen.permission))
 const validUser = user => user && typeof user.id === 'string' && typeof user.name === 'string'
   && typeof user.email === 'string' && typeof user.isAdmin === 'boolean'
   && Array.isArray(user.permissions) && typeof user.revision === 'string'

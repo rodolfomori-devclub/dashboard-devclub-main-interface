@@ -1,6 +1,7 @@
 /* eslint-disable react/prop-types, react-refresh/only-export-components -- Shared authentication provider and hook. */
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
 import { vault, requestApi, refreshSession, accessToken } from '../lib/api'
+import { hasAnyPermission } from '../lib/navigation'
 import { queryClient } from '../lib/queryClient'
 const AuthContext = createContext(null)
 export function AuthProvider({ children }) {
@@ -81,7 +82,7 @@ export function AuthProvider({ children }) {
     setCurrentUser(null); setUserRoles(null)
     window.location.assign(import.meta.env.VITE_VAULT_HUB_URL || vault.vaultUrl)
   }, [clearPrivateData])
-  const hasPermission = useCallback(permission => !!userRoles && (userRoles.isAdmin || userRoles[permission] === true), [userRoles])
+  const hasPermission = useCallback(permission => !!userRoles && (userRoles.isAdmin || hasAnyPermission(userRoles, permission)), [userRoles])
   return <AuthContext.Provider value={{ currentUser, userRoles, loading, error, errorCode, errorStatus, login, logout, hasPermission, vault, reload }}>{children}</AuthContext.Provider>
 }
 export const useAuth = () => useContext(AuthContext)
