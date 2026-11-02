@@ -4,21 +4,12 @@ import { ReferenceChart } from '../components/charts/ReferenceChart'
 import RefundSummary from '../components/charts/RefundSummary'
 import { loadSalesRange, localDateKey } from '../components/daily/dailyData'
 import { EMPTY_FILTERS, UNKNOWN, filterOptions } from '../utils/salesData'
+import { COMPARISON_COLORS as COLORS, DETAIL_METRICS, PRIMARY_METRICS, dateLabel, format, rangeLabel, sourceStatus } from '../components/charts/comparisonFormat'
+import { deltaView, metricDisplay } from '../components/charts/comparisonValues'
 import { buildComparisonSnapshot, compareMetrics, comparisonGroups, comparisonSeries, validateComparisonRanges } from '../utils/comparisonData'
 
-const COLORS = { a: '#335cff', b: '#8a72ba' }
-const dateLabel = value => value.split('-').reverse().join('/')
-const rangeLabel = range => range.startDate === range.endDate ? dateLabel(range.startDate) : `${dateLabel(range.startDate)} a ${dateLabel(range.endDate)}`
-const format = (value, unit = 'currency') => value == null ? '—' : new Intl.NumberFormat('pt-BR', unit === 'currency' ? { style: 'currency', currency: 'BRL' } : { maximumFractionDigits: 1 }).format(value)
-const signed = (value, unit) => value == null ? '—' : `${value > 0 ? '+' : ''}${format(value, unit)}`
 const addDays = (day, offset) => new Date(Date.parse(`${day}T12:00:00Z`) + offset * 86_400_000).toISOString().slice(0, 10)
-const sourceStatus = value => ({ ready: 'Disponível', partial: 'Parcial', unavailable: 'Indisponível' })[value] || 'Indisponível'
-const metricDisplay = (metric, unit = 'currency') => <span className="tabular-nums">{format(metric?.value, unit)}{metric?.partial && <span className="block text-[11px] font-normal text-amber-700 dark:text-amber-300 mt-1">Parcial</span>}</span>
-const deltaDisplay = (a, b, unit = 'currency') => {
-  const delta = compareMetrics(a, b)
-  if (delta.absolute === null) return <span className="text-xs text-slate-500">{delta.reason === 'partial' ? 'Dados parciais' : 'Sem dados comparáveis'}</span>
-  return <span className="tabular-nums">{signed(delta.absolute, unit)}<span className="block text-xs text-slate-500 mt-1">{delta.percent === null ? 'Base B igual a zero · % indisponível' : `${delta.percent > 0 ? '+' : ''}${format(delta.percent, 'count')}%`}</span></span>
-}
+const deltaDisplay = (a, b, unit = 'currency') => deltaView(compareMetrics(a, b), unit)
 function initialDates() {
   const today = localDateKey()
   return {
@@ -26,19 +17,6 @@ function initialDates() {
     periods: { a: { startDate: addDays(today, -6), endDate: today }, b: { startDate: addDays(today, -13), endDate: addDays(today, -7) } },
   }
 }
-const PRIMARY_METRICS = [
-  ['revenue', 'Receita operacional', 'currency'], ['count', 'Vendas', 'count'], ['ticket', 'Ticket médio', 'currency'],
-  ['gross', 'Valor das vendas', 'currency'], ['net', 'Líquido informado', 'currency'], ['received', 'Recebimentos das vendas', 'currency'],
-]
-const DETAIL_METRICS = [
-  ['digital', 'Receita digital (Guru + Hotmart + Hubla)', 'currency'], ['digitalCount', 'Vendas digitais', 'count'],
-  ['boleto', 'Receita de boleto (TMB, Asaas e Boletex)', 'currency'], ['boletoCount', 'Vendas de boleto', 'count'],
-  ['commercial', 'Receita do comercial identificado', 'currency'], ['commercialCount', 'Vendas do comercial identificado', 'count'],
-  ['affiliate', 'Afiliação informada', 'currency'], ['fees', 'Taxas informadas', 'currency'],
-  ['listPrice', 'Preço de tabela · demais plataformas', 'currency'], ['pending', 'Pendente informado', 'currency'],
-  ['dailyRevenue', 'Receita média por dia', 'currency'], ['dailyCount', 'Vendas médias por dia', 'count'],
-  ['dailyBoleto', 'Receita de boleto média por dia', 'currency'], ['dailyBoletoCount', 'Vendas de boleto médias por dia', 'count'],
-]
 
 export default function ComparativoPage() {
   const [drafts, setDrafts] = useState(initialDates)
