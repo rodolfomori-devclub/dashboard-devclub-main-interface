@@ -1,6 +1,7 @@
 // The tested contract with POST /api/agent/messages. No React and no session here.
 export const MAX_MESSAGE = 2000
-// The API accepts 24 items of 4000 characters, inside its 100 kB JSON limit.
+// The API accepts 24 items of 4000 characters. Its 100 kB JSON limit counts bytes, so accented
+// text can pass it at those sizes: the byte cap is what keeps a long history under the limit.
 const MAX_HISTORY_TEXT = 4000, MAX_HISTORY_ITEMS = 24, MAX_HISTORY_BYTES = 80_000
 const END_MESSAGES = {
   cancelled: 'Interrompido. O que já chegou foi mantido.',
