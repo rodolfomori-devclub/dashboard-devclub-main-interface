@@ -10,8 +10,11 @@ export const PACE_METRICS = {
   count: { label: 'Quantidade de vendas', field: 'quantity', unit: 'count' },
 }
 
+// Building a formatter costs far more than using one, and dateForRecord runs once per sale.
+const BRAZIL_DAY = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' })
+
 export function brazilDate(date = new Date()) {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date)
+  return BRAZIL_DAY.format(date)
 }
 
 export function monthBounds(year, month) {
