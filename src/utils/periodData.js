@@ -21,10 +21,13 @@ export function summarizePeriod(records) {
   return { sales, refunds, total: base, digital: summarizeSales(digital), boleto: summarizeSales(boleto), commercial: summarizeSales(commercial), refund: summarizeSales(refunds), ticket: base.count && base.revenue.known ? base.revenue.value / base.count : null }
 }
 
+// Building a formatter costs far more than using one, and this runs once per sale.
+const BRAZIL_DAY = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' })
+
 export function localDay(value) {
   if (!value) return null
   const parsed = new Date(value)
-  return Number.isNaN(parsed.getTime()) ? null : new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(parsed)
+  return Number.isNaN(parsed.getTime()) ? null : BRAZIL_DAY.format(parsed)
 }
 
 export function periodSeries(records, startDate, endDate, monthly = false) {

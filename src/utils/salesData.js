@@ -195,16 +195,21 @@ export function filterOptions(records, key) {
   return values.sort((a, b) => a.localeCompare(b, 'pt-BR'))
 }
 
-export function sumAmount(records, key) {
-  records = records.map(applyPlatformCashRule)
+function sumRuled(records, key) {
   const known = records.filter((row) => amount(row[key]) !== null)
   return { value: known.reduce((sum, row) => sum + amount(row[key]), 0), known: known.length, missing: records.length - known.length }
 }
 
+export function sumAmount(records, key) {
+  return sumRuled(records.map(applyPlatformCashRule), key)
+}
+
 export function summarizeSales(records) {
+  // The rule copies every row, so one pass serves all the keys.
+  const ruled = records.map(applyPlatformCashRule)
   return {
     count: records.reduce((sum, row) => sum + (amount(row.quantity) ?? 0), 0),
-    ...Object.fromEntries(['revenue', 'gross', 'net', 'fees', 'affiliate', 'received', 'listPrice', 'pending'].map((key) => [key, sumAmount(records, key)])),
+    ...Object.fromEntries(['revenue', 'gross', 'net', 'fees', 'affiliate', 'received', 'listPrice', 'pending'].map((key) => [key, sumRuled(ruled, key)])),
   }
 }
 
