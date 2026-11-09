@@ -1,9 +1,9 @@
 import { isRankingParticipant } from '../../utils/goalScopes.js'
 
-export const GOAL_PRODUCTS = ['MBA', 'DevClub', 'IAClub', 'Seu segundo salário com IA', 'Operação 50K', 'Outros']
+export const GOAL_PRODUCTS = ['MBA', 'DevClub', 'Vitalício', 'IAClub', 'Seu segundo salário com IA', 'Operação 50K', 'Outros']
 export const GOAL_SCOPES = [
   { id: 'overall', label: 'Geral', description: 'Resultado de toda a operação' },
-  { id: 'product', label: 'Produto', description: 'Resultado de uma família de produtos' },
+  { id: 'product', label: 'Produto', description: 'Resultado de um produto ou grupo de produtos' },
   { id: 'team', label: 'Time', description: 'Resultado de uma equipe' },
   { id: 'individual', label: 'Indivíduo', description: 'Resultado de uma pessoa' },
 ]
@@ -22,7 +22,7 @@ export const emptyGoalBreakdown = () => GOAL_AREAS.map(({ key }) => ({ key, targ
 function goalAmount(input, metric, strictCents = false) {
   const value = Number(input)
   if (!['number', 'string'].includes(typeof input) || String(input).trim() === '' || !Number.isFinite(value) || value < 0 || value > MAX_GOAL || (metric === 'count' && !Number.isInteger(value))) throw new Error(metric === 'count' ? 'Preencha as três faixas com quantidades inteiras, maiores ou iguais a zero.' : 'Preencha as três faixas com valores maiores ou iguais a zero.')
-  if (strictCents && metric !== 'count' && Number(value.toFixed(2)) !== value) throw new Error('Use no máximo duas casas decimais nos valores de Marketing e Vendas.')
+  if (strictCents && metric !== 'count' && Number(value.toFixed(2)) !== value) throw new Error('Use no máximo duas casas decimais nos valores das metas.')
   return value
 }
 
@@ -64,6 +64,15 @@ export function normalizeGoalPlan(plan) {
   const scope = plan.scope || (plan.product && plan.product !== 'all' ? 'product' : 'overall')
   return { ...plan, scope, scopeId: scope === 'overall' ? '' : plan.scopeId ?? (scope === 'product' ? plan.product : ''), product: scope === 'product' ? plan.scopeId || plan.product : 'all' }
 }
+export function goalProductPreview(plans, metric) {
+  const products = plans.map(normalizeGoalPlan).filter(plan => plan.scope === 'product' && plan.metric === metric)
+    .map(plan => ({ ...plan, ...tierValues(plan, metric, true) }))
+  if (!products.length) return { products, totals: null }
+  const scale = metric === 'count' ? 1 : 100
+  const totals = Object.fromEntries(GOAL_TIERS.map(([field]) => [field, products.reduce((sum, product) => sum + Math.round(product[field] * scale), 0) / scale]))
+  if (GOAL_TIERS.some(([field]) => totals[field] > MAX_GOAL)) throw new Error('A soma das metas dos produtos ultrapassa o limite permitido para a meta geral.')
+  return { products, totals }
+}
 export const goalPlanKey = plan => JSON.stringify([plan.scope, plan.scopeId, plan.metric])
 export const goalDraft = plan => ({
   target: plan?.target ?? '', superTarget: plan?.superTarget ?? '', ultraTarget: plan?.ultraTarget ?? '',
@@ -89,9 +98,12 @@ export function buildGoalPayload({ scope, scopeId, metric, draft }) {
   if (scope === 'product' && !GOAL_PRODUCTS.includes(scopeId)) throw new Error('Escolha uma família de produtos válida.')
   if (['team', 'individual'].includes(scope) && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(scopeId)) throw new Error('Selecione um cadastro válido.')
   const divided = draft.breakdown !== null && draft.breakdown !== undefined
+  const clearBreakdown = draft.clearBreakdown === true
+  if (clearBreakdown && scope !== 'overall') throw new Error('Somente a meta geral permite remover a divisão entre Marketing e Vendas.')
+  if (clearBreakdown && divided) throw new Error('Confirme o total manual sem uma divisão entre Marketing e Vendas.')
   if (divided && scope !== 'overall') throw new Error('Marketing e Vendas compõem somente a meta geral.')
   const breakdown = divided ? normalizeGoalBreakdown(draft.breakdown, metric) : null
   const values = divided ? goalBreakdownTotals(breakdown, metric) : tierValues(draft, metric)
   if (!['calendar', 'business'].includes(draft.paceBasis)) throw new Error('Escolha como distribuir o ritmo da meta.')
-  return { scope, scopeId, product: scope === 'product' ? scopeId : 'all', metric, ...values, ...(divided ? { breakdown } : {}), paceBasis: draft.paceBasis, notes: String(draft.notes || '').slice(0, 2000) }
+  return { scope, scopeId, product: scope === 'product' ? scopeId : 'all', metric, ...values, ...(divided ? { breakdown } : {}), ...(clearBreakdown ? { clearBreakdown: true } : {}), paceBasis: draft.paceBasis, notes: String(draft.notes || '').slice(0, 2000) }
 }

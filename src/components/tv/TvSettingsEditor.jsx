@@ -3,13 +3,13 @@ import { isRankingParticipant } from '../../utils/goalScopes.js'
 import { useState } from 'react'
 import { ArrowDown, ArrowUp, Check, X } from 'lucide-react'
 import { applyTvPreset, isDailyTvProgram, TV_METRICS, TV_PANELS, TV_PRESETS, withAvailableTvPanels } from './tvConfig.js'
-import { PRODUCT_FAMILIES } from '../../utils/salesData.js'
+import { GOAL_PRODUCTS } from '../goals/goalConfig.js'
 
 export function TvSettingsEditor({ initial, directory, saving, error, conflict, onSave, onCancel, onReload }) {
   const [draft, setDraft] = useState(() => withAvailableTvPanels(structuredClone(initial)))
   const change = (key, value) => setDraft(old => ({ ...old, [key]: value }))
   const selected = draft.panels.filter(panel => panel.enabled)
-  const options = draft.paceScope === 'team' ? directory?.teams || [] : draft.paceScope === 'individual' ? (directory?.individuals || []).filter(isRankingParticipant) : PRODUCT_FAMILIES.filter(id => id !== 'Não informado').map(id => ({ id, name: id }))
+  const options = draft.paceScope === 'team' ? directory?.teams || [] : draft.paceScope === 'individual' ? (directory?.individuals || []).filter(isRankingParticipant) : GOAL_PRODUCTS.map(id => ({ id, name: id }))
   const currentKnown = options.some(item => item.id === draft.paceScopeId)
   const patchPanel = (id, patch) => setDraft(old => {
     const panels = old.panels.map(panel => panel.id === id ? { ...panel, ...patch } : panel)

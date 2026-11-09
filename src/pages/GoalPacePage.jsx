@@ -9,7 +9,7 @@ import MonthlyPaceChart from '../components/goals/MonthlyPaceChart'
 import { ChartPanel, RankedBars } from '../components/charts/AnalyticsVisuals'
 import { formatValue } from '../components/charts/chartFormatters'
 import { loadSalesRange } from '../components/daily/dailyData'
-import { PRODUCT_FAMILIES } from '../utils/salesData'
+import { GOAL_PRODUCTS } from '../components/goals/goalConfig'
 import { GOAL_SCOPES, goalScope, goalScopeKey, goalScopeName, isRankingParticipant } from '../utils/goalScopes'
 import { prepareGoalData } from '../utils/goalData'
 import { brazilDate, calculateGoalPace, monthBounds, PACE_METRICS } from '../utils/goalPace'
@@ -71,7 +71,7 @@ export default function GoalPacePage() {
   const directory = current?.directory || {}
   const targetOptions = useMemo(() => {
     const list = scope === 'overall' ? [] : scope === 'product'
-      ? PRODUCT_FAMILIES.filter(family => family !== 'Não informado').map(id => ({ id, name: id, active: true }))
+      ? GOAL_PRODUCTS.map(id => ({ id, name: id, active: true }))
       : (scope === 'team' ? directory.teams : directory.individuals) || []
     const options = new Map(list.filter(item => scope !== 'individual' || isRankingParticipant(item)).map(item => [item.id, item]))
     const excludedIds = new Set((directory.individuals || []).filter(item => !isRankingParticipant(item)).map(item => item.id))

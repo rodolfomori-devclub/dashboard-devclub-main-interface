@@ -29,7 +29,7 @@ const profile={id:'seller-1',name:'Consultor QA',email:'qa@example.test',role:'g
 const ledger={attributions:[],manualSales:[]}
 const goalTeamId='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', goalIndividualId='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
 const goalOptions={teams:[{id:goalTeamId,name:'Time comercial QA',active:true,archived:false},{id:'cccccccc-cccc-4ccc-8ccc-cccccccccccc',name:'Time anterior',active:false,archived:true}],individuals:[{id:goalIndividualId,name:'Pessoa QA',teamId:goalTeamId,active:true},{id:'dddddddd-dddd-4ddd-8ddd-dddddddddddd',name:'Pessoa anterior',teamId:goalTeamId,active:false}]}
-const goalPlans=[{id:1,updatedAt:date+'T12:00:00Z',notes:'',product:'all',metric:'operational',target:30000,superTarget:35000,ultraTarget:40000,paceBasis:'calendar'},{id:2,updatedAt:date+'T12:00:00Z',notes:'',product:'DevClub',metric:'operational',target:10000,superTarget:12000,ultraTarget:15000,paceBasis:'business'}]
+const goalPlans=[{id:1,revision:1,updatedAt:date+'T12:00:00Z',notes:'',product:'all',metric:'operational',target:30000,superTarget:35000,ultraTarget:40000,paceBasis:'calendar'},{id:2,revision:1,updatedAt:date+'T12:00:00Z',notes:'',product:'DevClub',metric:'operational',target:10000,superTarget:12000,ultraTarget:15000,paceBasis:'business'}]
 const checks=[]
 const errors=[]
 const localChrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
@@ -88,12 +88,14 @@ await context.route('**/*',async route=>{
  else if(url.pathname.startsWith('/api/sales-ops/audit/'))body={data:[]}
  else if(url.pathname==='/api/refunds/overview')body={data:[{id:'refund-1',name:'Cliente Reembolso QA',email:'refund@example.test',product:'DevClub',sources:['guru'],platform:'guru',kind:'confirmed',status:'refunded',referenceDate:date,dateBasis:'refund',saleAmount:1000,refundAmount:1000,currency:'BRL',transactionId:'refund-source-1',refundedAt:date,purchasedAt:date,note:'Fixture local'}],sources:[{id:'guru',status:'available',recordCount:1,message:'Consulta concluída'}],incomplete:false,deduplication:{removed:0},excludedUndated:0,generatedAt:date+'T12:00:00Z'}
  else if(url.pathname.startsWith('/api/goals/revenue/'))body={data:{faturamentoCartao:{base:1000,super:2000,ultra:3000},faturamentoBoleto:{base:1000,super:2000,ultra:3000},investimentoTrafego:{base:100,super:200,ultra:300}}}
- else if(url.pathname.startsWith('/api/goals/'))body={success:true,data:{meta:30000,superMeta:35000,ultraMeta:40000}}
+ else if(url.pathname.startsWith('/api/goals/'))body={success:true,data:{meta:30000,superMeta:35000,ultraMeta:40000,revision:1}}
+ else if(url.pathname==='/api/mcp/status')body={enabled:false,writesEnabled:false}
  else if(url.pathname==='/api/goal-plans/options')body=goalOptions
  else if(url.pathname.startsWith('/api/goal-plans/')&&method==='PUT'){
   const input=request.postDataJSON()
   const previous=goalPlans.findIndex(plan=>(plan.scope||(plan.product==='all'?'overall':'product'))===input.scope&&(plan.scopeId||(plan.product==='all'?'':plan.product))===input.scopeId&&plan.metric===input.metric)
-  const plan={...input,id:previous>=0?goalPlans[previous].id:`plan-${goalPlans.length+1}`,updatedAt:date+'T18:00:00Z',scopeName:input.scope==='overall'?'Meta geral':input.scope==='product'?input.scopeId:input.scope==='team'?'Time comercial QA':'Pessoa QA'}
+  assert.equal(input.expectedRevision,previous>=0?goalPlans[previous].revision:0,'Goal saves carry the version that was read')
+  const plan={...input,revision:input.expectedRevision+1,id:previous>=0?goalPlans[previous].id:`plan-${goalPlans.length+1}`,updatedAt:date+'T18:00:00Z',scopeName:input.scope==='overall'?'Meta geral':input.scope==='product'?input.scopeId:input.scope==='team'?'Time comercial QA':'Pessoa QA'}
   if(previous>=0)goalPlans[previous]=plan;else goalPlans.push(plan)
   body={plan}
  }
@@ -131,9 +133,14 @@ async function visit(path,heading){
  assert.equal(await page.getByRole('heading',{name:'Esta tela não pôde ser aberta'}).count(),0,`${path} crashed`)
  assert.deepEqual(errors,[],`${path} page errors`)
 }
-async function shot(name){
- await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}))
- await page.screenshot({path:`${out}/${name}.png`,fullPage:true,animations:'disabled'})
+async function shot(name,element){
+ if(element){
+  await element.scrollIntoViewIfNeeded()
+  await element.screenshot({path:`${out}/${name}.png`,animations:'disabled'})
+ }else{
+  await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}))
+  await page.screenshot({path:`${out}/${name}.png`,fullPage:true,animations:'disabled'})
+ }
  const fits=await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)
  if(!fits) console.log('OVERFLOW',name,JSON.stringify(await page.evaluate(()=>[...document.querySelectorAll('body *')].filter(n=>n.getBoundingClientRect().right>window.innerWidth+1).map(n=>({tag:n.tagName,class:n.className,right:n.getBoundingClientRect().right,position:getComputedStyle(n).position,overflow:getComputedStyle(n).overflow})).slice(0,18))))
  assert.equal(fits,true,`${name} horizontal overflow`)
