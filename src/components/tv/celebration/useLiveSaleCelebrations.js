@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { createTvSaleTracker } from './liveSaleTracker.js'
 import { createCelebrationAudio } from './celebrationAudio.js'
 
-export const TV_CELEBRATION = Object.freeze({ animation: 'confetti', sound: 'victory', volume: 1, durationSeconds: 5 })
+export const TV_CELEBRATION = Object.freeze({ animation: 'confetti', sound: 'sale', volume: 1, durationSeconds: 5 })
 
 export function useLiveSaleCelebrations(feed, healthy) {
   const [run, setRun] = useState(null)

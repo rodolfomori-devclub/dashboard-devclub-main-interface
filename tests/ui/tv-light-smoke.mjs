@@ -29,7 +29,7 @@ const initialModel = buildTvData({ year: 2026, month: 10, today: '2026-10-15', m
 delete initialModel.directory
 let settings = { ...defaultTvSettings(), theme: 'dark', metric: 'cash', panels: TV_PANELS.map(panel => ({ id: panel.id, enabled: true, durationSeconds: 10 })) }
 let model = structuredClone(initialModel), scenario = 'ready', revision = 1
-let base = process.env.DASHBOARD_SMOKE_URL, server, serverOutput = '', browser, page, complete = false
+let base = process.env.DASHBOARD_SMOKE_URL, server, serverOutput = '', browser, page, complete = false, saleFileAvailable = true
 const checks = [], requests = [], blocked = [], errors = [], xhrOptions = [], assetPaths = new Set()
 const record = name => checks.push(name)
 
@@ -51,6 +51,7 @@ async function fixture(route) {
     await route.fulfill({ status, contentType: 'application/json', headers: { 'access-control-allow-origin': base, 'cache-control': 'no-store' }, body: JSON.stringify(body) })
     return
   }
+  if (url.pathname === '/tv-light/sale.mp3' && !saleFileAvailable) { await route.abort('failed'); return }
   const asset = url.origin === base && request.method() === 'GET' && (/^\/tv-light(?:\/.*)?$/.test(url.pathname) || url.pathname === '/favicon.ico')
   if (!asset) { blocked.push({ path: url.pathname, origin: url.origin, type: request.resourceType() }); await route.abort(); return }
   if (request.resourceType() === 'script') assetPaths.add(url.pathname)
@@ -68,7 +69,7 @@ async function createContext({ javaScriptEnabled = true, audio = 'mock' } = {}) 
     window.URL = undefined
     window.URLSearchParams = undefined
     window.fixturePublicXhrs = []
-    window.fixtureAudio = { created: 0, starts: 0, stops: 0, disconnected: 0, gains: [] }
+    window.fixtureAudio = { created: 0, decoded: 0, starts: 0, stops: 0, disconnected: 0, gains: [] }
     if (audio === 'missing') { window.AudioContext = undefined; window.webkitAudioContext = undefined }
     if (audio === 'mock') {
       const ledger = window.fixtureAudio
@@ -78,6 +79,8 @@ async function createContext({ javaScriptEnabled = true, audio = 'mock' } = {}) 
         resume() { this.state = 'running'; return Promise.resolve() }
         createGain() { return { gain: parameter(), connect() {}, disconnect() { ledger.disconnected++ } } }
         createOscillator() { return { frequency: parameter(), connect() {}, disconnect() { ledger.disconnected++ }, start() { ledger.starts++ }, stop() { ledger.stops++ } } }
+        createBufferSource() { return { connect() {}, disconnect() { ledger.disconnected++ }, start() { ledger.starts++ }, stop() { ledger.stops++ } } }
+        decodeAudioData(data, done) { ledger.decoded++; done({ duration: 1.645 }) }
       }
       window.webkitAudioContext = undefined
     }
@@ -227,6 +230,7 @@ try {
   await expect(page.locator('#tv-light-sound')).toHaveText('Silenciar som')
   assert.equal(await page.evaluate(() => window.fixtureAudio.created), 1)
   assert.equal(await page.evaluate(() => window.fixtureAudio.starts), 0, 'Enabling audio alone is silent')
+  await expect.poll(() => page.evaluate(() => window.fixtureAudio.decoded)).toBe(1)
   model.celebrations = { day: '2026-10-15', groups: [{ source: 'asaas', ready: false, refreshing: true, events: [] }] }
   await pull()
   await expect(celebration()).toHaveCount(0)
@@ -237,21 +241,21 @@ try {
   model.celebrations = feed([baseline, firstSale, queuedOne, queuedTwo, await sale('queue-three', { amount: 900 })])
   await pull()
   await expect(celebration()).toContainText('Bia sintética')
-  assert.equal(await page.evaluate(() => window.fixtureAudio.starts), 18, 'Original Victory score uses eighteen oscillators')
+  assert.equal(await page.evaluate(() => window.fixtureAudio.starts), 1, 'A sale plays the one decoded recording')
   assert.ok(await page.evaluate(() => window.fixtureAudio.gains.includes(1)), 'Master volume is fixed at 100%')
   await page.waitForTimeout(900)
   await checkFits('celebration-live-confetti-1280')
   await page.clock.runFor(5000)
   await expect(celebration().getByTestId('sale-celebration-amount')).toHaveText('R$ 700,00')
   await expect(celebration()).toContainText('Venda confirmada')
-  assert.equal(await page.evaluate(() => window.fixtureAudio.starts), 36)
+  assert.equal(await page.evaluate(() => window.fixtureAudio.starts), 2)
   await page.locator('#tv-light-celebration-sound').click()
-  assert.equal(await page.evaluate(() => window.fixtureAudio.stops), 72, 'Mute cleans scheduled and playing sources immediately')
+  assert.equal(await page.evaluate(() => window.fixtureAudio.stops), 2, 'The recording ends on its own timer and mute stops the next one immediately')
   await page.keyboard.press('Escape')
   await expect(celebration()).toHaveCount(0)
   await pull()
   await expect(celebration()).toHaveCount(0)
-  record('Ready → refreshing → ready preserves the baseline; consecutive real sales queue sequentially; opt-in plays Victory at 100%, missing seller is neutral and mute/Escape stop playback')
+  record('Ready → refreshing → ready preserves the baseline; consecutive real sales queue sequentially; opt-in plays the sale recording at 100%, missing seller is neutral and mute/Escape stop playback')
 
   const requestsBeforeTest = requests.length
   await page.locator('#tv-light-test').click()
@@ -259,7 +263,7 @@ try {
   await expect(celebration()).toContainText('Venda de teste')
   await expect(celebration()).toContainText('nenhuma venda será registrada')
   assert.equal(requests.length, requestsBeforeTest, 'Testing celebration never sends an API request')
-  assert.equal(await page.evaluate(() => window.fixtureAudio.starts), 36, 'A muted synthetic test stays silent')
+  assert.equal(await page.evaluate(() => window.fixtureAudio.starts), 2, 'A muted synthetic test stays silent')
   await page.setViewportSize({ width: 360, height: 780 })
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await expect(page.locator('.tv-light-confetti')).toBeHidden()
@@ -338,9 +342,22 @@ try {
   await expect(celebration()).toBeVisible()
   await expect(celebration()).toContainText('Venda de teste')
   await noAudio.context.close()
+  record('Browsers without AudioContext retain the visual celebration and explain that audio is unavailable')
+
+  saleFileAvailable = false
+  const noRecording = await createContext()
+  page = noRecording.page
+  await page.goto(`${base}/tv-light`, { waitUntil: 'networkidle' })
+  await page.locator('#tv-light-sound').click()
+  await expect(page.locator('#tv-light-sound')).toHaveText('Silenciar som')
+  await page.locator('#tv-light-test').click()
+  await expect(celebration()).toBeVisible()
+  assert.equal(await page.evaluate(() => window.fixtureAudio.starts), 18, 'The Victory score uses eighteen oscillators')
+  await noRecording.context.close()
+  saleFileAvailable = true
   page = previousPage
   model = structuredClone(initialModel)
-  record('Browsers without AudioContext retain the visual celebration and explain that audio is unavailable')
+  record('A TV that cannot download the sale recording plays the Victory score instead of staying silent')
 
   for (const theme of ['dark', 'light']) {
     for (const { id } of TV_PANELS) {

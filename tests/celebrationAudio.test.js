@@ -46,6 +46,8 @@ function installAudio(t, { webkit = false, resume } = {}) {
       assert.equal(sampleRate, this.sampleRate)
       return { getChannelData: () => new Float32Array(frames) }
     }
+    decodeCalls = 0
+    decodeAudioData(data, resolve) { this.decodeCalls++; resolve({ decodedFrom: data }) }
   }
   Object.defineProperty(globalThis, 'AudioContext', { value: webkit ? undefined : Context, configurable: true, writable: true })
   Object.defineProperty(globalThis, 'webkitAudioContext', { value: webkit ? Context : undefined, configurable: true, writable: true })
@@ -64,6 +66,72 @@ const finish = context => {
   assert.ok(final, 'A source completion event settles playback without timers')
   final.onended()
 }
+
+const settle = () => new Promise(resolve => setTimeout(resolve))
+const recordingFile = { ok: true, arrayBuffer: async () => 'mp3-bytes' }
+
+test('the sale sound plays the decoded recording through the master gain and downloads it once', async t => {
+  const instances = installAudio(t)
+  const download = t.mock.method(globalThis, 'fetch', async () => recordingFile)
+  const audio = createCelebrationAudio()
+  const first = audio.play('sale', { volume: 1 })
+  await settle()
+  const context = instances[0]
+  const [source] = context.sources
+  const master = context.nodes.find(node => node.type === 'gain')
+  assert.equal(context.sources.length, 1)
+  assert.equal(source.type, 'buffer')
+  assert.deepEqual(source.buffer, { decodedFrom: 'mp3-bytes' })
+  assert.equal(source.connected[0], master)
+  assert.deepEqual(master.gain.events[0], ['set', 1, context.currentTime])
+  assert.ok(source.starts[0] > context.currentTime)
+  finish(context)
+  assert.deepEqual(await first, { id: 'sale', status: 'ended' })
+  assert.ok(context.nodes.every(node => node.disconnected === 1))
+  const second = audio.play('sale', { volume: 1 })
+  await settle()
+  finish(context)
+  await second
+  assert.equal(download.mock.callCount(), 1)
+  assert.equal(context.decodeCalls, 1)
+  audio.dispose()
+})
+
+test('a recording that fails to load plays the Victory score and is retried on the next sale', async t => {
+  const instances = installAudio(t)
+  const download = t.mock.method(globalThis, 'fetch', async () => ({ ok: false }))
+  const audio = createCelebrationAudio()
+  const fallback = audio.play('sale', { volume: 1 })
+  await settle()
+  const context = instances[0]
+  assert.equal(context.sources.length, 18)
+  assert.ok(context.sources.every(source => source.frequency))
+  finish(context)
+  assert.deepEqual(await fallback, { id: 'sale', status: 'ended' })
+  download.mock.mockImplementation(async () => recordingFile)
+  const recovered = audio.play('sale', { volume: 1 })
+  await settle()
+  assert.equal(download.mock.callCount(), 2)
+  assert.equal(context.sources.at(-1).type, 'buffer')
+  finish(context)
+  await recovered
+  audio.dispose()
+})
+
+test('stopping during the download never starts the recording', async t => {
+  let deliver
+  const instances = installAudio(t)
+  t.mock.method(globalThis, 'fetch', () => new Promise(resolve => { deliver = resolve }))
+  const audio = createCelebrationAudio()
+  const canceled = audio.play('sale')
+  await settle()
+  audio.stop()
+  assert.deepEqual(await canceled, { id: 'sale', status: 'stopped' })
+  deliver(recordingFile)
+  await settle()
+  assert.equal(instances[0].sources.length, 0)
+  audio.dispose()
+})
 
 test('audio can be unlocked by a gesture without producing any sale sound', async t => {
   const instances = installAudio(t)

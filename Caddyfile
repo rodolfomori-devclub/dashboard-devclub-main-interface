@@ -46,7 +46,7 @@
 	}
 
 	# TV Light is a separate HTML document, runnable without ES modules/React.
-	@tvLightAssets path /tv-light/*.js /tv-light/*.css
+	@tvLightAssets path /tv-light/*.js /tv-light/*.css /tv-light/*.mp3
 	handle @tvLightAssets {
 		header Cache-Control "no-store"
 		header Referrer-Policy "no-referrer"

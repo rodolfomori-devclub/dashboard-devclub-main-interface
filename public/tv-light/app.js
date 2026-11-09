@@ -24,6 +24,7 @@
   var celebrationTransportHealthy = false, celebrationSourceTimes = Object.create(null);
   var celebrationQueue = [], activeCelebration = null, celebrationTimer = null, celebrationFocus = null;
   var audioContext = null, audioSession = null, audioEnabled = false, audioPending = false, audioGeneration = 0;
+  var saleBuffer = null, saleLoading = false;
 
   var path = /^\/tv-light(?:\/([A-Za-z0-9_-]{16}))?\/?$/.exec(window.location.pathname);
   var api = typeof window.TV_LIGHT_API_URL === 'string' ? window.TV_LIGHT_API_URL.replace(/\/$/, '') : '';
@@ -37,8 +38,8 @@
     var text = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.') + (decimals ? ',' + parts[1] : '');
     return (value < 0 ? '−' : '') + (unit === 'currency' ? 'R$ ' : '') + text + (unit === 'percent' ? '%' : '');
   }
-  // Fixed, approved preset: confetti for five seconds; original Victory score
-  // at 100%; output volume is controlled on the computer. No audio object is created before a deliberate browser gesture.
+  // Fixed, approved preset: confetti for five seconds; recorded sale sound at
+  // 100%, or the original Victory score until the recording loads; output volume is controlled on the computer. No audio object is created before a deliberate browser gesture.
   function soundControls(message) {
     var label = audioEnabled ? 'Silenciar som' : audioPending ? 'Ativando som…' : 'Ativar som';
     soundButton.textContent = label; soundButton.setAttribute('aria-pressed', String(audioEnabled));
@@ -69,7 +70,8 @@
       if (generation !== audioGeneration || document.hidden || stopped) return;
       if (!audioContext || audioContext.state !== 'running') { blocked(); return; }
       audioEnabled = true; audioPending = false;
-      soundControls('Som ativado · Vitória · volume 100%');
+      loadSaleSound();
+      soundControls('Som ativado · som de venda · volume 100%');
     }
     try {
       var AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -81,6 +83,22 @@
       else unlocked();
     } catch (error) { void error; blocked(); }
   }
+  function loadSaleSound() {
+    if (saleBuffer || saleLoading) return;
+    saleLoading = true;
+    function failed() { saleLoading = false; }
+    var request = new XMLHttpRequest();
+    request.open('GET', '/tv-light/sale.mp3');
+    request.responseType = 'arraybuffer';
+    request.onerror = failed;
+    request.onload = function () {
+      if (request.status !== 200) { failed(); return; }
+      try {
+        audioContext.decodeAudioData(request.response, function (buffer) { saleBuffer = buffer; saleLoading = false; }, failed);
+      } catch (error) { void error; failed(); }
+    };
+    request.send();
+  }
   function playVictory() {
     stopSound();
     if (!audioEnabled || document.hidden || stopped) return;
@@ -91,6 +109,15 @@
       var session = { sources: [], nodes: [], params: [], master: audioContext.createGain(), start: audioContext.currentTime + 0.015, timer: null };
       audioSession = session; session.nodes.push(session.master); session.params.push(session.master.gain);
       session.master.gain.setValueAtTime(1, audioContext.currentTime); session.master.connect(audioContext.destination);
+      if (saleBuffer) {
+        var recording = audioContext.createBufferSource();
+        session.sources.push(recording); session.nodes.push(recording);
+        recording.buffer = saleBuffer; recording.connect(session.master); recording.start(session.start);
+        session.timer = setTimeout(stopSound, Math.ceil(saleBuffer.duration * 1000) + 100);
+        return;
+      }
+      // A wall TV has nobody to press retry: play the score and try the file again.
+      loadSaleSound();
       var tone = function (at, midi, duration, type, level) {
         var source = audioContext.createOscillator(), envelope = audioContext.createGain(), start = session.start + at, end = start + duration;
         session.sources.push(source); session.nodes.push(source, envelope); session.params.push(source.frequency, envelope.gain);

@@ -62,7 +62,7 @@ async function fixture(route, label) {
       || /\/assets\/(?:PrivateWorkspace|AuthContext)-/.test(path)
     if (label === 'public' && privateModule) privateScripts.push(path)
     const allowed = path === '/tv' || path === '/ranking' || path.startsWith('/assets/')
-      || /^\/(?:devclub-favicon\.svg|devclub-apple-touch-icon\.png|favicon\.ico)$/.test(path)
+      || /^\/(?:devclub-favicon\.svg|devclub-apple-touch-icon\.png|favicon\.ico|tv-light\/sale\.mp3)$/.test(path)
     if (url.origin !== base || method !== 'GET' || (label === 'public' && privateModule) || (published && !allowed)) {
       blocked.push({ context: label, path, method, external: url.origin !== base }); await route.abort(); return
     }
@@ -346,6 +346,7 @@ try {
   await show(audible)
   await expect.poll(async () => (await probe()).sourceStarts).toBeGreaterThan(enabled.sourceStarts)
   const playing = await probe()
+  assert.equal(playing.sourceStarts - enabled.sourceStarts, 1, 'Chrome decodes the real file; the fallback score would start 18 sources')
   await page.getByRole('button', { name: 'Silenciar som', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Ativar som', exact: true })).toBeVisible()
   assert.ok((await probe()).sourceCancels > playing.sourceCancels, 'Muting stops current scheduled audio immediately')
