@@ -234,14 +234,60 @@
     if (kind === 'payment-mix') html += note('Guru, Hotmart e Hubla: Cartão. TMB e Boletex: Boleto. Somente novas vendas.');
     return html;
   }
+  function compactTable(rows) {
+    var html = '<table class="tv-light-table tv-light-compact-table"><thead><tr><th scope="col">Nome</th><th scope="col">Valor das vendas</th><th scope="col">Cash collected</th></tr></thead><tbody>';
+    var i, row;
+    for (i = 0; i < rows.length && i < 5; i++) {
+      row = rows[i];
+      html += '<tr><td title="' + esc(row.name) + '">' + esc(row.name) + '</td>' + financialCell(row, 'gross') + financialCell(row, 'cash') + '</tr>';
+    }
+    html += '</tbody></table>';
+    if (rows.length > 5) html += note('Exibindo os 5 primeiros de ' + rows.length + ' resultados recebidos.');
+    return html;
+  }
+  function paymentSplit(period, unassignedProduct) {
+    var payments = period.payments.filter(function (row) { return row.id === 'card' || row.id === 'boleto' || row.value !== 0 || row.count > 0; });
+    var products = period.products, html;
+    html = '<div class="tv-light-split"><section class="tv-light-split-column" data-testid="tv-payment-methods"><h2>Cartão vs boleto</h2>';
+    html += compactTable(payments) + note('Somente novas vendas. Categorias comerciais do Dashboard.') + '</section>';
+    html += '<section class="tv-light-split-column" data-testid="tv-payment-products"><h2>Faturamento por produto</h2>';
+    html += Array.isArray(products) ? products.length ? compactTable(products) : note('Nenhuma venda por produto neste período.') : note('Produtos indisponíveis para este período.');
+    if (unassignedProduct && unassignedProduct.count > 0) html += note(amount(unassignedProduct.count, 'count') + ' vendas sem produto: valor das vendas ' + amount(unassignedProduct.gross, 'currency') + ' · cash collected ' + amount(unassignedProduct.cash, 'currency') + '.');
+    return html + '</section></div>';
+  }
+  function weeklySellers(model) {
+    var week = model.weekly, teams = week.sellerTeams, commercial = week.commercial || {};
+    var html, team, sellers, i;
+    if (!Array.isArray(teams) || teams.length !== 2) return table({ metric: model.metric, unit: model.unit, sellers: week.sellers,
+      unassigned: { seller: week.unassignedSeller }, directoryError: model.directoryError, attributionAvailable: week.attributionAvailable }, 'sellers') + note('Divisão dos times indisponível nesta leitura.');
+    html = '<div class="tv-light-weekly-overview" data-testid="tv-weekly-overview"><section><span class="tv-light-label">Total geral da semana' + partial(week, 'gross') + '</span>';
+    html += '<strong class="tv-light-weekly-amount" data-testid="tv-gross-value">' + amount(week.gross, 'currency') + '</strong><span class="tv-light-weekly-cash">Cash collected <strong data-testid="tv-cash-value">' + amount(week.cash, 'currency') + '</strong>' + partial(week, 'cash') + '</span></section>';
+    html += '<section><span class="tv-light-label">Comercial' + partial(commercial, 'gross') + '</span><strong class="tv-light-weekly-amount" data-testid="tv-gross-value">' + amount(commercial.gross, 'currency') + '</strong>';
+    html += '<span class="tv-light-weekly-cash">Cash collected <strong data-testid="tv-cash-value">' + amount(commercial.cash, 'currency') + '</strong>' + partial(commercial, 'cash') + '</span><span class="tv-light-commercial-share">' + amount(stale ? null : week.commercialSharePercent, 'percent') + ' do total geral</span></section></div>';
+    html += '<div class="tv-light-split tv-light-team-rankings">';
+    for (i = 0; i < teams.length; i++) {
+      team = teams[i];
+      html += '<section class="tv-light-split-column" data-testid="tv-weekly-team"><h2>' + esc(team.name) + '</h2>';
+      if (stale || model.directoryError || week.attributionAvailable === false || team.available === false) html += note('Time indisponível. Aguarde uma leitura confirmada.');
+      else {
+        html += '<p class="tv-light-team-total"><span>Valor das vendas <strong data-testid="tv-gross-value">' + amount(team.gross, 'currency') + '</strong>' + partial(team, 'gross') + '</span><span>Cash collected <strong data-testid="tv-cash-value">' + amount(team.cash, 'currency') + '</strong>' + partial(team, 'cash') + '</span></p>';
+        sellers = Array.isArray(team.sellers) ? team.sellers : [];
+        html += sellers.length ? compactTable(sellers) : note('Nenhuma venda atribuída a este time na semana.');
+      }
+      html += '</section>';
+    }
+    return html + '</div>';
+  }
   function daily(model, kind) {
     var isWeekly = kind.indexOf('weekly') === 0, day = isWeekly ? model.weekly : model.daily;
     var periodLabel = isWeekly ? 'acumulado da semana' : 'hoje';
     var periodNote = isWeekly ? 'De ' + displayDate(day.startDate) + ' a ' + displayDate(day.endDate) + ' · segunda-feira até hoje · horário de Brasília.' : 'Dia ' + displayDate(day.date) + ' · horário de Brasília.';
     if (!isWeekly && !day.inSelectedMonth) return empty('Hoje está fora do mês selecionado', 'Selecione Mês atual na programação para acompanhar as vendas do dia.');
-    if (kind === 'daily-payments' || kind === 'daily-sellers' || kind === 'weekly-payments' || kind === 'weekly-sellers') {
-      return table({ metric: model.metric, unit: model.unit, payments: day.payments && day.payments.filter(function (row) { return row.id === 'card' || row.id === 'boleto' || row.value !== 0 || row.count > 0; }), sellers: day.sellers,
-        unassigned: { seller: day.unassignedSeller }, directoryError: model.directoryError, attributionAvailable: isWeekly ? day.attributionAvailable : model.attributionAvailable }, kind.indexOf('payments') !== -1 ? 'payment-mix' : 'sellers')
+    if (kind === 'daily-payments' || kind === 'weekly-payments') return paymentSplit(day) + note(periodNote);
+    if (kind === 'weekly-sellers') return weeklySellers(model) + note(periodNote);
+    if (kind === 'daily-sellers') {
+      return table({ metric: model.metric, unit: model.unit, sellers: day.sellers,
+        unassigned: { seller: day.unassignedSeller }, directoryError: model.directoryError, attributionAvailable: model.attributionAvailable }, 'sellers')
         + note(periodNote);
     }
     if (kind === 'daily-cash' || kind === 'weekly-cash') {
@@ -284,7 +330,7 @@
     title.textContent = titles[id]; panel.setAttribute('data-panel-id', id);
     eyebrow.textContent = 'Painel ' + (current + 1) + ' de ' + panels.length + (paused ? ' · pausado' : '');
     context.textContent = (id.indexOf('weekly') === 0 ? displayDate(model.weekly.startDate) + ' a ' + displayDate(model.weekly.endDate) + ' · Brasília' : id.indexOf('daily') === 0 ? displayDate(model.daily.date) + ' · Brasília' : monthLabel(model.month || snapshot.settings.month)) + ' · ' + (id === 'daily-cash' || id === 'weekly-cash' ? 'Cash collected' : basis(model));
-    panel.innerHTML = id === 'monthly-goal' || id === 'pace' ? goal(model, id === 'pace') : id.indexOf('daily') === 0 || id.indexOf('weekly') === 0 ? daily(model, id) : table(model, id);
+    panel.innerHTML = id === 'monthly-goal' || id === 'pace' ? goal(model, id === 'pace') : id === 'payment-mix' ? paymentSplit(model, model.unassigned && model.unassigned.product) : id.indexOf('daily') === 0 || id.indexOf('weekly') === 0 ? daily(model, id) : table(model, id);
     var partialData = id.indexOf('weekly') === 0 ? model.weekly.partial : model.totals.partial;
     status.textContent = stale ? 'Última leitura · dados parciais' : partialData || snapshot.error ? 'Dados parciais · atualização automática' : snapshot.refreshing ? 'Atualizando os indicadores…' : 'Atualização automática · 30 segundos';
     updated.textContent = readingTime(snapshot.updatedAt);

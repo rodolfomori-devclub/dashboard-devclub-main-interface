@@ -5,6 +5,7 @@ import { salesPaymentLabel } from '../../utils/platformCash.js'
 import { buildRevenueBreakdown, revenuePaymentGroup } from '../../utils/revenueBreakdown.js'
 import { amount, hourlySales, productFamily, sumAmount } from '../../utils/salesData.js'
 import { sourceHasSales } from '../../utils/sourceAvailability.js'
+import { isCommercialSale } from '../../utils/commercialSales.js'
 import { buildTvCelebrations } from './tvCelebrations.js'
 
 const PAYMENT_NAMES = { card: 'Cartão', boleto: 'Boleto', pix: 'Pix', other: 'Outros', unknown: 'Não informado' }
@@ -12,6 +13,14 @@ const STATUS_NAMES = { ready: 'Disponível', partial: 'Parcial', stale: 'Último
 const hasIdentity = value => typeof value === 'string' && Boolean(value.trim())
 const isNewSale = row => row.kind === 'sale' && !row.isReceipt && !(row.isManual && (row.linkedExternalId || row.original?.linkedExternalId))
 const tvPaymentGroup = row => revenuePaymentGroup(salesPaymentLabel(row))
+const rankingOrder = (a, b) => (b.value ?? -Infinity) - (a.value ?? -Infinity) || (b.count ?? 0) - (a.count ?? 0) || a.name.localeCompare(b.name, 'pt-BR')
+const grossSharePercent = (part, total) => typeof part.gross === 'number' && Number.isFinite(part.gross)
+  && typeof total.gross === 'number' && Number.isFinite(total.gross) && total.gross > 0
+  && part.grossPartial === false && total.grossPartial === false ? part.gross / total.gross * 100 : null
+const SELLER_TEAMS = [{ id: 'mba', name: 'MBA', pattern: /\bmba\b/ }, { id: 'devclub', name: 'DevClub', pattern: /\bdev\s*club\b/ }]
+const normalizedTeamName = name => String(name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ')
+const productSubtotals = (records, summarize) => [...new Set(records.map(row => hasIdentity(row.family) ? row.family : 'Não informado'))]
+  .map(id => ({ id, name: id, ...summarize(row => (hasIdentity(row.family) ? row.family : 'Não informado') === id) })).sort(rankingOrder)
 
 /** Resolve the television calendar in Brasília, including unattended midnight rollover. */
 export function resolveTvPeriod(selectedMonth = 'current', now = new Date()) {
@@ -92,9 +101,22 @@ function buildWeeklyData({ sales, today, metric, directory, directoryError, sale
   const sellers = directoryError ? [] : ids.map(id => ({ id,
     name: people.get(id)?.name || data.records.find(row => row.sellerId === id && row.sellerName)?.sellerName || 'Vendedor identificado',
     ...summarize(row => row.sellerId === id && isRankingParticipant(row)),
-  })).sort((a, b) => (b.value ?? -Infinity) - (a.value ?? -Infinity) || (b.count ?? 0) - (a.count ?? 0) || a.name.localeCompare(b.name, 'pt-BR'))
+  })).sort(rankingOrder)
   const total = summarize()
+  const commercial = summarize(isCommercialSale)
+  const teams = (directory.teams || []).filter(team => team.archived !== true && team.active !== false).map(team => ({ id: team.id,
+    matches: SELLER_TEAMS.filter(group => group.pattern.test(normalizedTeamName(team.name))).map(group => group.id) }))
+  const sellerTeams = SELLER_TEAMS.map(({ id, name }) => {
+    const matches = teams.filter(team => team.matches.includes(id))
+    const membershipAvailable = !directoryError && matches.length === 1 && matches[0].matches.length === 1
+    const teamId = membershipAvailable ? matches[0].id : null
+    const totals = summarize(row => row.teamId === teamId && isRankingParticipant(row), week.dates, membershipAvailable)
+    return { id, name, ...totals, available: membershipAvailable && [totals.gross, totals.cash, totals.count].some(value => value !== null),
+      sellers: membershipAvailable ? sellers.filter(seller => people.get(seller.id)?.teamId === teamId) : [] }
+  })
   return { startDate: week.startDate, endDate: today, ...total, attributionAvailable,
+    commercial, commercialSharePercent: grossSharePercent(commercial, total), sellerTeams,
+    products: productSubtotals(data.records, predicate => summarize(predicate)),
     days: week.dates.map(date => ({ date, label: `${date.slice(8)}/${date.slice(5, 7)}`, ...summarize(() => true, [date]) })),
     payments: Object.entries(PAYMENT_NAMES).map(([id, name]) => ({ id, name, ...summarize(row => tvPaymentGroup(row) === id) })),
     sellers, unassignedSeller: summarize(row => isRankingParticipant(row) && (!hasIdentity(row.sellerId) || row.sellerId === 'Não informado'), week.dates, !directoryError) }
@@ -186,7 +208,7 @@ export function buildTvData({ sales = {}, weeklySales, weeklySalesError = false,
       const name = scope === 'individual' ? people.get(id)?.name || rows.find(row => row.sellerName)?.sellerName || planFor(scope, id)?.scopeName || 'Vendedor identificado' : id
       return { id, name, value: pace.actual, count: summary.count, partial: summary.partial || !pace.definitive,
         goal: planFor(scope, id), pace, ...scopeFinancials(scope, id) }
-    }).sort((a, b) => (b.value ?? -Infinity) - (a.value ?? -Infinity) || (b.count ?? 0) - (a.count ?? 0) || a.name.localeCompare(b.name, 'pt-BR'))
+    }).sort(rankingOrder)
   }
   const unassigned = Object.fromEntries([['seller', 'sellerId'], ['team', 'teamId'], ['product', 'family']].map(([name, dimension]) => {
     const predicate = row => (name === 'product' || isRankingParticipant(row)) && (!hasIdentity(row[dimension]) || row[dimension] === 'Não informado')
@@ -225,6 +247,7 @@ export function buildTvData({ sales = {}, weeklySales, weeklySalesError = false,
   }
   const dailyPayments = Object.entries(PAYMENT_NAMES).map(([id, name]) => ({ id, name,
     ...dailySubtotal(row => tvPaymentGroup(row) === id) }))
+  const dailyProducts = productSubtotals(dailyRecords, dailySubtotal)
   const dailySellerIds = [...new Set([...dailyRecords, ...dailySelectedRecords].filter(isRankingParticipant)
     .map(row => row.sellerId).filter(value => hasIdentity(value) && value !== 'Não informado'))]
   const dailySellers = !inSelectedMonth || directoryError ? [] : dailySellerIds.map(id => {
@@ -233,7 +256,7 @@ export function buildTvData({ sales = {}, weeklySales, weeklySalesError = false,
     return { id, name: people.get(id)?.name || rows.find(row => row.sellerName)?.sellerName || 'Vendedor identificado',
       ...dailySubtotal(row => row.sellerId === id && isRankingParticipant(row)), value: pace.actual,
       partial: !pace.definitive || !attributionAvailable }
-  }).sort((a, b) => (b.value ?? -Infinity) - (a.value ?? -Infinity) || (b.count ?? 0) - (a.count ?? 0) || a.name.localeCompare(b.name, 'pt-BR'))
+  }).sort(rankingOrder)
   const dailyUnassignedSeller = dailySubtotal(row => isRankingParticipant(row) && (!hasIdentity(row.sellerId) || row.sellerId === 'Não informado'), !directoryError)
   const grossHours = hourlySales(dailyRecords, { valueField: 'gross' })
   const cashHours = hourlySales(dailyCashRecords.map(row => ({ ...row, date: row.cashDateBasis === 'sale_date' ? row.date : row.cashDate || row.date })), { valueField: 'received' })
@@ -260,7 +283,7 @@ export function buildTvData({ sales = {}, weeklySales, weeklySalesError = false,
       grossPartial: !dailyGross?.definitive, cashPartial: !dailyCash?.definitive,
       count: inSelectedMonth ? dailyPace('count').actual : null, revenue: inSelectedMonth ? dailyRevenue.revenue.value : null,
       partial: !dayMetric?.definitive, hours: hourly.hours, unknownHourCount: Math.max(hourly.unknown, grossHours.unknown, cashHours.unknown),
-      payments: dailyPayments, sellers: dailySellers, unassignedSeller: dailyUnassignedSeller },
+      payments: dailyPayments, products: dailyProducts, sellers: dailySellers, unassignedSeller: dailyUnassignedSeller },
     weekly: buildWeeklyData({ sales: weeklySales ?? (resolveTvWeek(today).startDate >= bounds.start && today <= bounds.end ? sales : {}), today, metric: selectedMetric, directory, directoryError,
       salesError: weeklySales === undefined ? salesError : weeklySalesError }),
     payments, coverage: selectedSources.filter(source => source.kind === 'sale').map(source => ({ id: source.id, name: source.label || source.id,

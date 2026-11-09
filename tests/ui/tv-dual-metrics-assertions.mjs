@@ -35,14 +35,14 @@ export async function expectTvScene(container, id) {
     await expect(container.getByRole('group', { name: /^Explorar Cash collected da semana por dia/ })).toBeVisible()
   }
   if (id === 'weekly-sellers') {
-    await pairAt('bruno', 277.88, 277.88)
-    await expect(container.locator('[data-tv-row-id]')).toHaveCount(1)
+    await expectTvDual(container.getByTestId('tv-weekly-total'), 277.88, 277.88)
+    await expect(container.getByTestId('tv-weekly-commercial')).toContainText('Participação do Comercial')
+    await expect(container.getByRole('heading', { name: 'Time MBA', exact: true })).toBeVisible()
+    await expect(container.getByRole('heading', { name: 'Time DevClub', exact: true })).toBeVisible()
     await expect(container).not.toContainText('Ana')
-    await expect(container).toContainText('Destaque da semana')
   }
   if (id === 'weekly-payments') {
     await pairAt('card', 277.88, 277.88); await pairAt('boleto', 0, 0)
-    await expect(container.locator('[data-tv-row-id="card"]')).toContainText('100%')
     await expect(container.locator('[data-tv-row-id="pix"]')).toHaveCount(0)
   }
   if (id === 'team-goals') { await pairAt('commercial', 1555.76, 955.76); await pairAt('marketing', 277.88, 277.88) }
@@ -55,6 +55,15 @@ export async function expectTvScene(container, id) {
   if (id === 'payment-mix') { await pairAt('card', 833.64, 833.64); await pairAt('boleto', 1000, 400); await expect(container.locator('[data-tv-row-id="pix"]')).toHaveCount(0) }
   if (id === 'products') await expect(container.locator('[data-tv-row-id]').first()).toHaveAttribute('data-tv-row-id', metric === 'gross' ? 'IAClub' : 'DevClub')
   if (id === 'team-goals') await expect(container.locator('[data-tv-row-id="commercial"]')).toContainText(metric === 'count' ? '30%' : metric === 'cash' ? '47,79%' : '77,79%')
-  if (id === 'payment-mix') await expect(container.locator('[data-tv-row-id="card"]')).toContainText(metric === 'count' ? '75%' : metric === 'cash' ? '67,58%' : '45,46%')
+  if (['payment-mix', 'daily-payments', 'weekly-payments'].includes(id)) {
+    const split = container.getByTestId('tv-payment-products')
+    await expect(split).toBeVisible()
+    const columns = await split.locator(':scope > section').evaluateAll(nodes => nodes.map(node => { const box = node.getBoundingClientRect(); return { width: box.width, left: box.left, viewport: innerWidth } }))
+    if (columns[0].viewport > 900) assert.ok(Math.abs(columns[0].width - columns[1].width) <= 1 && columns[1].left > columns[0].left, 'Payments and products use equal side-by-side columns')
+    const products = container.getByRole('region', { name: 'Faturamento por produto', exact: true })
+    await expect(products.getByRole('heading', { name: 'Faturamento por produto', exact: true })).toBeVisible()
+    await expectTvDual(products.locator('[data-tv-row-id="MBA"]'), 277.88, 277.88)
+    if (id !== 'payment-mix') await expect(products.locator('[data-tv-row-id="DevClub"]')).toHaveCount(0)
+  }
   if (['monthly-goal', 'pace', 'daily', 'weekly', 'weekly-cash'].includes(id)) await expect(container.getByTestId('tv-main-value')).toHaveText(tvMoney(id === 'monthly-goal' ? 1833.64 : id === 'pace' ? 1555.76 : 277.88))
 }

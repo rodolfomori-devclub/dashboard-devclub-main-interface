@@ -34,6 +34,7 @@ const directory = {
   teams: [{ id: 'commercial', name: 'Comercial', active: true }, { id: 'marketing', name: 'Marketing', active: true }],
   individuals: [{ id: 'ana', name: 'Ana', teamId: 'commercial', active: true }, { id: 'bruno', name: 'Bruno', teamId: 'marketing', active: true }],
 }
+const layoutPeople = Array.from({ length: 12 }, (_, index) => ({ id: `layout-${index}`, name: `Vendedor da operação ${index + 1}`, teamId: index < 6 ? 'commercial' : 'marketing', active: true }))
 const scopes = [
   { scope: 'overall', scopeId: '', scopeName: 'Geral', product: 'all' },
   ...directory.teams.map(team => ({ scope: 'team', scopeId: team.id, scopeName: team.name, product: 'all' })),
@@ -44,6 +45,16 @@ const plans = ['gross', 'cash', 'count'].flatMap(metric => scopes.map((scope, in
 const includes = (range, date) => range.startDate <= date && range.endDate >= date
 function provider(id, range) {
   if (scenario === 'empty') return emptyProviderPayload(id)
+  if (scenario.startsWith('weekly-teams')) {
+    if (id === 'asaas') return { success: true, data: { sales: { count: 0, totalValue: 0, entryValue: 0, entries: [] } } }
+    if (id !== 'hotmart') return emptyProviderPayload(id)
+    const amounts = scenario === 'weekly-teams-layout' ? layoutPeople.map((_, index) => (index + 1) * 100000) : [200, 100, 300, 100]
+    const transactions = amounts.map((netValue, index) => ({ transaction: `h${index + 1}`, product: index === 2 ? 'MBA em Inteligência Artificial' : 'DevClub',
+      netValue, grossValue: netValue, fee: 0, paymentMethod: 'CREDIT_CARD', currency: 'BRL', netCurrency: 'BRL', feeCurrency: 'BRL', orderDate: `${today}T12:00:00-03:00`,
+      utm: { source: index < 3 || scenario === 'weekly-teams-layout' ? 'comercial-fixture' : 'organico' } })).filter(row => includes(range, row.orderDate.slice(0, 10)))
+    const total = transactions.reduce((sum, row) => sum + row.netValue, 0)
+    return { success: true, data: { financialSchemaVersion: 2, count: transactions.length, totalGross: total, totalNet: total, totalFees: 0, transactions } }
+  }
   const month = range.startDate.slice(0, 7)
   if (!['2026-09', '2026-10'].includes(month)) return emptyProviderPayload(id)
   if (id === 'hotmart') {
@@ -118,9 +129,12 @@ async function fixture(route) {
   } else if (path === '/api/period-cache') {
     if (scenario === 'data-error') { status = 503; body = { error: 'Fontes indisponíveis' } }
     else body = periodCacheFixture(url, { today, payloadForSource: provider })
-  } else if (path === '/api/goal-plans/options') body = directory
+  } else if (path === '/api/goal-plans/options') body = scenario.startsWith('weekly-teams')
+    ? { ...directory, ...(scenario === 'weekly-teams-layout' ? { individuals: layoutPeople } : {}), teams: directory.teams.map(team => ({ ...team, name: team.id === 'commercial' ? 'Time MBA em IA' : 'Time DevClub' })) } : directory
   else if (/^\/api\/goal-plans\/\d{4}\/\d{1,2}$/.test(path)) body = { plans: scenario === 'empty' ? [] : plans }
-  else if (path === '/api/sales-ops/ledger') body = { data: { manualSales: [], attributions: [1, 2, 3].map(index => ({ source: 'hotmart', externalId: `h${index}`, sellerId: index === 3 ? 'bruno' : 'ana', sellerName: index === 3 ? 'Bruno' : 'Ana' })).concat({ source: 'tmb', externalId: '1', sellerId: 'ana', sellerName: 'Ana' }) } }
+  else if (path === '/api/sales-ops/ledger') body = { data: { manualSales: [], attributionMappingsStatus: scenario === 'weekly-teams-partial' ? 'unavailable' : 'ready', attributions: scenario === 'weekly-teams-layout'
+    ? layoutPeople.map((person, index) => ({ source: 'hotmart', externalId: `h${index + 1}`, sellerId: person.id, sellerName: person.name }))
+    : [1, 2, 3].map(index => ({ source: 'hotmart', externalId: `h${index}`, sellerId: index === 3 ? 'bruno' : 'ana', sellerName: index === 3 ? 'Bruno' : 'Ana' })).concat({ source: 'tmb', externalId: '1', sellerId: 'ana', sellerName: 'Ana' }) } }
   else if (path.startsWith('/api/goals/')) body = { success: true, data: { meta: 5000, superMeta: 7000, ultraMeta: 9000 } }
   else {
     const source = path === '/api/transactions' ? 'guru' : path === '/api/refunds' ? 'guruRefunds' : path === '/api/hotmart/vendas' ? 'hotmart' : path === '/api/hotmart/reembolsos' ? 'hotmartRefunds' : path === '/api/hubla/vendas' ? 'hubla' : path === '/api/hubla/reembolsos' ? 'hublaRefunds' : path === '/api/boleto/asaas/vendas' ? 'asaas' : path === '/api/boleto/boletex/vendas' ? 'boletex' : path.startsWith('/api/boleto/vendas/') ? 'tmb' : null
@@ -486,6 +500,53 @@ try {
   }
   await page.keyboard.press('Escape')
   record('Weekly preset cancels safely, resets historical/fixed settings, persists four20s Monday-to-today scenes, excludes prior weeks and fits desktop/mobile')
+  // Weekly team attribution is independent of product family: Ana sells DevClub
+  // for the MBA team, while Bruno sells MBA for the DevClub team.
+  scenario = 'weekly-teams'
+  savedSettings = { ...savedSettings, mode: 'fixed', fixedPanel: 'weekly-sellers' }
+  revision++
+  await page.setViewportSize({ width: 1280, height: 720 })
+  await page.clock.resume()
+  controlledClock = false
+  await visit()
+  await start()
+  const mbaTeam = player().locator('[data-tv-team-id="mba"]')
+  const devclubTeam = player().locator('[data-tv-team-id="devclub"]')
+  await expectTvDual(player().getByTestId('tv-weekly-total'), 700, 700)
+  await expectTvDual(player().getByTestId('tv-weekly-commercial'), 600, 600)
+  await expect(player().getByTestId('tv-weekly-commercial')).toContainText('85,71%')
+  await expectTvDual(mbaTeam.locator('[data-tv-row-id="ana"]'), 300, 300)
+  await expectTvDual(devclubTeam.locator('[data-tv-row-id="bruno"]'), 300, 300)
+  await expect(mbaTeam).not.toContainText('%')
+  await expect(devclubTeam).not.toContainText('%')
+  await expect(mbaTeam).not.toContainText('Bruno')
+  await expect(devclubTeam).not.toContainText('Ana')
+  await screenshot('weekly-team-rankings-1280-dark')
+  let teamSize = await player().locator('.tv-broadcast-main').evaluate(node => ({ scrollHeight: node.scrollHeight, clientHeight: node.clientHeight }))
+  assert.ok(teamSize.scrollHeight <= teamSize.clientHeight + 1, 'The weekly summary and both team rankings fit 1280x720')
+  await page.keyboard.press('Escape')
+  scenario = 'weekly-teams-partial'
+  await visit()
+  await start()
+  await expect(player().getByTestId('tv-weekly-commercial').getByTestId('tv-commercial-share')).toHaveText('—')
+  await expect(player().locator('[data-tv-team-id="mba"] [data-tv-row-id="ana"]')).toContainText('parcial')
+  await page.keyboard.press('Escape')
+  scenario = 'weekly-teams-layout'
+  await visit()
+  await start()
+  await expect(mbaTeam.locator('[data-tv-row-id]')).toHaveCount(5)
+  await expect(devclubTeam.locator('[data-tv-row-id]')).toHaveCount(5)
+  await expectTvDual(mbaTeam.locator('.tv-team-heading'), 2100000, 2100000)
+  await expectTvDual(devclubTeam.locator('.tv-team-heading'), 5700000, 5700000)
+  await expectTvDual(player().getByTestId('tv-weekly-total'), 7800000, 7800000)
+  await expectTvDual(player().getByTestId('tv-weekly-commercial'), 7800000, 7800000)
+  await expect(mbaTeam).toContainText('Top 5 de 6')
+  await screenshot('weekly-team-rankings-1280-large-values')
+  teamSize = await player().locator('.tv-broadcast-main').evaluate(node => ({ scrollHeight: node.scrollHeight, clientHeight: node.clientHeight }))
+  assert.ok(teamSize.scrollHeight <= teamSize.clientHeight + 1, 'Five sellers per team and large totals fit1280x720 without scrolling')
+  await page.keyboard.press('Escape')
+  record('Weekly TV separates actual MBA/DevClub teams, totals all company/commercial sales, displays gross shares and suppresses partial percentages at720p')
+  scenario = 'normal'
   savedSettings = beforeDailySettings
   revision++
   await page.setViewportSize({ width: 1920, height: 1080 })

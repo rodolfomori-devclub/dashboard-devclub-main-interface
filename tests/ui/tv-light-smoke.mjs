@@ -13,6 +13,7 @@ import { buildTvData } from '../../src/components/tv/tvData.js'
 import { defaultTvSettings, TV_PANELS } from '../../src/components/tv/tvConfig.js'
 
 const root = fileURLToPath(new URL('../../', import.meta.url))
+const buildRoot = process.env.DASHBOARD_SMOKE_DIST || fileURLToPath(new URL('../../dist', import.meta.url))
 const published = process.env.DASHBOARD_SMOKE_PRODUCTION === '1'
 const out = process.env.DASHBOARD_SMOKE_OUTPUT || fileURLToPath(new URL('./artifacts/tv-light', import.meta.url))
 const now = new Date('2026-10-15T15:00:00-03:00')
@@ -127,7 +128,7 @@ async function checkFits(name) {
 
 try {
   await fs.mkdir(out, { recursive: true })
-  const dist = fileURLToPath(new URL('../../dist/tv-light/', import.meta.url))
+  const dist = `${buildRoot.replace(/\/$/, '')}/tv-light/`
   if (published) assert.equal(base, 'https://dashboard.launchcontrol.com.br', 'Published verification accepts only the Dashboard production origin')
   else assert.ok(existsSync(`${dist}index.html`), 'Build first: npm run build')
   const readAsset = async name => {
@@ -155,7 +156,7 @@ try {
       await new Promise(resolve => socket.close(resolve))
     }
     base = `http://127.0.0.1:${port}`
-    server = spawn(process.execPath, [fileURLToPath(new URL('../../node_modules/vite/bin/vite.js', import.meta.url)), 'preview', '--host', '127.0.0.1', '--port', String(port), '--strictPort'], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] })
+    server = spawn(process.execPath, [fileURLToPath(new URL('../../node_modules/vite/bin/vite.js', import.meta.url)), 'preview', '--outDir', buildRoot, '--host', '127.0.0.1', '--port', String(port), '--strictPort'], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'] })
     server.stdout.on('data', chunk => { serverOutput = (serverOutput + chunk).slice(-3000) })
     server.stderr.on('data', chunk => { serverOutput = (serverOutput + chunk).slice(-3000) })
     let ready = false
@@ -354,6 +355,77 @@ try {
   }
   record('All configured panels, including daily and weekly scenes, render in both themes and fit a 1280x720 television')
 
+  for (const theme of ['dark', 'light']) {
+    for (const id of ['payment-mix', 'daily-payments', 'weekly-payments']) {
+      model = structuredClone(initialModel)
+      const recorte = id === 'payment-mix' ? model : id === 'daily-payments' ? model.daily : model.weekly
+      recorte.products = Array.from({ length: 8 }, (_, index) => ({ id: `period-product-${index}`, name: `Produto ${id} ${index + 1}`,
+        gross: 8100 - index * 100, cash: 4100 - index * 100, count: 8 - index, value: 4100 - index * 100, partial: false }))
+      settings = { ...settings, theme, mode: 'fixed', fixedPanel: id }
+      await refresh()
+      await expect(panel().getByTestId('tv-payment-methods')).toBeVisible()
+      const products = panel().getByTestId('tv-payment-products')
+      await expect(products).toContainText('Faturamento por produto')
+      await expect(products.getByRole('columnheader', { name: 'Valor das vendas', exact: true })).toBeVisible()
+      await expect(products.locator('tbody tr')).toHaveCount(5)
+      await expect(products).toContainText(`Produto ${id} 1`)
+      await expect(products).not.toContainText(`Produto ${id} 6`)
+      await expect(products).toContainText('5 primeiros de 8')
+      await dual(8100, 4100, products)
+      const columns = await panel().locator('.tv-light-split-column').evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().width))
+      assert.equal(columns.length, 2)
+      assert.ok(Math.abs(columns[0] - columns[1]) < 2, 'Payment and product sections each receive half the screen')
+      await checkFits(`${id}-products-${theme}-1280`)
+    }
+    model = structuredClone(initialModel)
+    model.weekly = { ...model.weekly, gross: 100000, cash: 70000, commercial: { gross: 60000, cash: 45000, count: 20, partial: false }, commercialSharePercent: 60,
+      sellerTeams: ['MBA', 'DevClub'].map((name, teamIndex) => ({ id: name.toLowerCase(), name, gross: 30000, cash: 22500, count: 10, available: true,
+        sellers: Array.from({ length: 8 }, (_, index) => ({ id: `team-${teamIndex}-seller-${index}`, name: `Vendedor ${name} ${index + 1}`,
+          gross: 3000 - index * 100, cash: 2000 - index * 100, count: 1 })) })) }
+    settings = { ...settings, theme, mode: 'fixed', fixedPanel: 'weekly-sellers' }
+    await refresh()
+    const overview = panel().getByTestId('tv-weekly-overview')
+    await expect(overview).toContainText('Total geral da semana')
+    await expect(overview).toContainText('Comercial')
+    await expect(overview).toContainText('60,00% do total geral')
+    await dual(100000, 70000, overview)
+    await expect(overview).toContainText('R$ 60.000,00')
+    for (const name of ['MBA', 'DevClub']) {
+      const team = panel().getByTestId('tv-weekly-team').filter({ has: page.getByRole('heading', { name, exact: true }) })
+      await expect(team).toHaveCount(1)
+      await expect(team).toContainText('R$ 30.000,00')
+      await expect(team.locator('tbody tr')).toHaveCount(5)
+      await expect(team).toContainText('5 primeiros de 8')
+      await expect(team).not.toContainText(`Vendedor ${name} 6`)
+    }
+    await checkFits(`weekly-sellers-teams-${theme}-1280`)
+  }
+  record('Payment scenes split the display equally and use period-specific products; weekly teams preserve full subtotals and denominator labels in both themes')
+
+  model.weekly.commercialSharePercent = null
+  await refresh()
+  await expect(panel().getByTestId('tv-weekly-overview')).toContainText('— do total geral')
+  model.weekly.sellerTeams[0].available = false
+  model.weekly.sellerTeams[0].sellers = []
+  model.weekly.sellerTeams[0].gross = null
+  await refresh()
+  await expect(panel().getByTestId('tv-weekly-team').first()).toContainText('Time indisponível')
+  record('Unknown weekly percentages stay unknown and an unavailable team has an explicit state')
+
+  model.weekly.commercialSharePercent = 60
+  model.weekly.sellerTeams[0] = { ...model.weekly.sellerTeams[0], available: true, gross: 30000,
+    sellers: [{ id: 'stale-person', name: 'Vendedor da leitura anterior', gross: 30000, cash: 22500, count: 10 }] }
+  await refresh()
+  await expect(panel()).toContainText('Vendedor da leitura anterior')
+  scenario = 'network-error'
+  await refresh()
+  await expect(panel()).not.toContainText('Vendedor da leitura anterior')
+  await expect(panel().getByTestId('tv-weekly-overview')).toContainText('— do total geral')
+  await expect(panel().getByTestId('tv-weekly-team').first()).toContainText('Time indisponível')
+  scenario = 'ready'
+  await refresh()
+  record('A failed TV Light refresh clears weekly team people and the commercial percentage until a confirmed read returns')
+
   for (const id of ['daily', 'daily-payments', 'daily-cash', 'daily-sellers']) {
     settings = { ...settings, mode: 'fixed', fixedPanel: id }
     const { hours, payments, sellers, unassignedSeller, ...day } = initialModel.daily
@@ -364,6 +436,7 @@ try {
     await expect(panel()).toHaveAttribute('data-panel-id', id)
     await expect(page.locator('#tv-light-context')).toContainText('15/10/2026 · Brasília')
     await dual(1900.12, 1233.64)
+    if (id === 'daily-payments') await expect(panel().getByTestId('tv-payment-products')).toContainText('Produtos indisponíveis para este período')
     if (id === 'daily-cash') {
       const cashSize = await panel().getByTestId('tv-cash-value').first().evaluate(node => parseFloat(getComputedStyle(node).fontSize))
       const grossSize = await panel().getByTestId('tv-gross-value').first().evaluate(node => parseFloat(getComputedStyle(node).fontSize))

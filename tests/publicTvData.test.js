@@ -62,3 +62,28 @@ test('public weekly scenes validate and mark stale only their own projected aggr
     assert.equal(weekly.grossPartial, false, 'cached response is not mutated')
   }
 })
+
+test('stale split scenes mark product values partial and remove current team shares and membership', () => {
+  const metrics = { gross: 1200, cash: 480, grossPartial: false, cashPartial: false, partial: false }
+  const model = { totals: metrics, daily: { products: [metrics] }, weekly: { ...metrics, products: [metrics],
+    commercial: metrics, commercialSharePercent: 80, sellerTeams: [{ id: 'mba', name: 'MBA', available: true, ...metrics,
+      sellers: [{ id: 'mba-sellers-1', name: 'Ana', ...metrics }] }] } }
+  const stale = stalePublicTvModel(model)
+  assert.equal(stale.daily.products[0].grossPartial, true)
+  assert.equal(stale.weekly.products[0].cashPartial, true)
+  assert.equal(stale.weekly.commercial.gross, 1200)
+  assert.equal(stale.weekly.commercial.grossPartial, true)
+  assert.equal(stale.weekly.commercialSharePercent, null)
+  assert.equal(stale.weekly.sellerTeams[0].available, false)
+  assert.equal(stale.weekly.sellerTeams[0].gross, null)
+  assert.deepEqual(stale.weekly.sellerTeams[0].sellers, [])
+  assert.equal(model.weekly.sellerTeams[0].sellers.length, 1)
+})
+
+test('new public scene fields validate when present while old cached programs remain compatible', () => {
+  const presentation = weekly => ({ revision: 1, settings: { version: 1, mode: 'fixed', metric: 'gross', theme: 'dark', fixedPanel: 'weekly-sellers',
+    panels: [{ id: 'weekly-sellers', enabled: true, durationSeconds: 20 }] }, model: { totals: {}, unit: 'currency', weekly: { sellers: [], unassignedSeller: {}, ...weekly } } })
+  assert.equal(validPublicPresentation(presentation({})), true)
+  assert.equal(validPublicPresentation(presentation({ sellerTeams: [{ id: 'mba', sellers: [] }, { id: 'devclub', sellers: [] }] })), true)
+  assert.equal(validPublicPresentation(presentation({ sellerTeams: [{ id: 'mba', sellers: 'invalid' }] })), false)
+})
