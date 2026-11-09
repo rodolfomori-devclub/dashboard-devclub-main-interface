@@ -1,6 +1,6 @@
 /* eslint-disable react/prop-types -- Internal blocks; their shape is the tested API projection. */
-import { memo } from 'react'
-import { CircleAlert, Info } from 'lucide-react'
+import { memo, useState } from 'react'
+import { CircleAlert, Download, Info } from 'lucide-react'
 import { MixChart, RankedBars } from '../charts/AnalyticsVisuals'
 import FinancialValue from '../charts/FinancialValue'
 import { ReferenceChart } from '../charts/ReferenceChart'
@@ -112,8 +112,50 @@ function SummaryBlock({ block }) {
   </article>
 }
 
+function BuyersBlock({ block }) {
+  const [page, setPage] = useState(0)
+  const [exporting, setExporting] = useState('')
+  const [error, setError] = useState('')
+  const pageSize = 25
+  const pageCount = Math.ceil(block.rows.length / pageSize)
+  const rows = block.rows.slice(page * pageSize, (page + 1) * pageSize)
+  const contact = value => value || 'Não informado'
+  const date = value => value && Number.isFinite(Date.parse(value))
+    ? new Date(value.length === 10 ? `${value}T12:00:00Z` : value).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) : 'Não informado'
+  async function download(format) {
+    if (exporting) return
+    setExporting(format); setError('')
+    try {
+      const { exportBuyerContacts } = await import('../../utils/periodSalesExport.js')
+      await exportBuyerContacts(block, format)
+    } catch { setError('Não foi possível baixar os contatos. Tente novamente.') }
+    finally { setExporting('') }
+  }
+  return <article className="agent-block ds-card" aria-label={`Compradores de ${block.period.label}`}>
+    <BlockHeader block={block} title={`Compradores · ${block.period.label}`} status={block.status} inProgress={block.period.inProgress} />
+    <Notices notices={block.notices} />
+    <p className="agent-muted">{block.rows.length} de {block.totalRows} registros de compra.</p>
+    <div className="agent-action">
+      {['xlsx', 'csv'].map(format => <button key={format} type="button" className="btn btn-ghost btn-sm" disabled={!block.rows.length || Boolean(exporting)} onClick={() => download(format)}><Download size={14} aria-hidden="true" />{exporting === format ? 'Preparando…' : `Baixar ${format.toUpperCase()}`}</button>)}
+    </div>
+    {error && <p className="notice notice-error" role="alert">{error}</p>}
+    {rows.length ? <>
+      <Table head={['Nome', 'E-mail', 'Telefone', 'Produto', 'Plataforma', 'Data (Brasília)']} caption="Contatos dos compradores" minWidth={820}>
+        {rows.map((row, index) => <tr key={page * pageSize + index}><th scope="row">{contact(row.name)}</th><td>{contact(row.email)}</td><td>{contact(row.phone)}</td><td>{contact(row.product)}</td><td>{contact(row.platform)}</td><td>{date(row.date)}</td></tr>)}
+      </Table>
+      {pageCount > 1 && <nav className="agent-action" aria-label="Páginas dos compradores">
+        <button type="button" className="btn btn-ghost btn-sm" disabled={page === 0} onClick={() => setPage(value => value - 1)}>Página anterior</button>
+        <span className="agent-muted" role="status">Página {page + 1} de {pageCount}</span>
+        <button type="button" className="btn btn-ghost btn-sm" disabled={page + 1 >= pageCount} onClick={() => setPage(value => value + 1)}>Próxima página</button>
+      </nav>}
+    </> : <p className="agent-muted">{block.status === 'pending' ? 'A lista ainda está em coleta. Tente novamente em alguns minutos.' : block.status === 'ready' ? 'Nenhum comprador encontrado neste recorte.' : 'Nenhum comprador identificado nos dados disponíveis. Resultado parcial.'}</p>}
+    <p className="agent-foot">Uma linha por compra; um comprador pode aparecer mais de uma vez. Campos ausentes aparecem como Não informado. Os downloads incluem todos os {block.rows.length} registros desta consulta.{block.truncated && ' Reduza o período ou os filtros para consultar os demais registros.'}</p>
+  </article>
+}
+
 // Blocks never change after they arrive, so text deltas do not redraw their charts.
 export default memo(function AgentBlock({ block }) {
   if (!isKnownBlock(block)) return <p className="notice">Este resultado não pôde ser exibido. Atualize a página e pergunte de novo.</p>
+  if (block.kind === 'buyers') return <BuyersBlock block={block} />
   return block.kind === 'comparison' ? <ComparisonBlock block={block} /> : <SummaryBlock block={block} />
 })

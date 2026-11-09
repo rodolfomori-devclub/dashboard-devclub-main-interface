@@ -10,7 +10,7 @@ const STATUS_TEXT = { ready: 'Dados completos', partial: 'Dados parciais', pendi
 const axisText = kind => kind === 'hourly' ? 'horário exato' : 'data individual'
 const shortName = name => name.length > 15 ? `${name.slice(0, 14)}…` : name
 
-export const isKnownBlock = block => block?.kind === 'comparison' || block?.kind === 'summary'
+export const isKnownBlock = block => ['comparison', 'summary', 'buyers'].includes(block?.kind)
 export const blockNumber = block => Number(String(block?.blockId ?? '').slice(1)) || null
 export const statusText = (status, inProgress = false) => status === 'ready' && inProgress ? 'Dados até agora' : STATUS_TEXT[status] ?? 'Dados parciais'
 export const periodCaption = ({ label, days, inProgress }) => `${label} · ${days} ${days === 1 ? 'dia' : 'dias'}${inProgress ? ' · até hoje, em andamento' : ''}`

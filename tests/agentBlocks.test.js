@@ -89,6 +89,7 @@ test('labels, statuses and captions', () => {
 test('unknown block kinds fall back instead of breaking the page', () => {
   assert.equal(isKnownBlock({ kind: 'comparison' }), true)
   assert.equal(isKnownBlock({ kind: 'summary' }), true)
+  assert.equal(isKnownBlock({ kind: 'buyers' }), true)
   assert.equal(isKnownBlock({ kind: 'chart3d' }), false)
   assert.equal(isKnownBlock(null), false)
 })

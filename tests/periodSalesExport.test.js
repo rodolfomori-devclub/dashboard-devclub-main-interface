@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import * as XLSX from 'xlsx'
-import { buildPeriodSalesWorkbook } from '../src/utils/periodSalesExport.js'
+import { buildBuyerContactsCsv, buildBuyerContactsWorkbook, buildPeriodSalesWorkbook } from '../src/utils/periodSalesExport.js'
 
 const options = { startDate: '2026-10-01', endDate: '2026-10-27', generatedAt: new Date('2026-10-28T01:00:00Z'), operationsStatus: 'ready', sources: [{ id: 'guru', label: 'Guru', kind: 'sale', status: 'ready' }] }
 const sale = {
@@ -140,4 +140,70 @@ test('missing UTM mappings mark an observed zero as partial and known sale rows 
   assert.match(workbook.Sheets.Comercial.A13.v, /Resultado parcial/)
   const explicitlyUnavailable = roundtrip([], { availableSales: false })
   assert.equal(table(explicitlyUnavailable.Sheets.Comercial, 10)[0].Vendas, null)
+})
+
+const buyers = {
+  kind: 'buyers', period: { startDate: '2026-10-01', endDate: '2026-10-27' },
+  filters: { platform: 'Guru', product: 'DevClub' }, status: 'ready', totalRows: 2,
+  truncated: false, omittedAggregateRows: 0,
+  rows: [
+    { name: 'Ana', email: 'ana@example.test', phone: '+55011999990000', product: 'DevClub', platform: 'Guru', date: '2026-10-02T01:30:00Z' },
+    { name: 'Bia', email: null, phone: '0012345', product: 'DevClub', platform: 'Guru', date: '2026-10-03' },
+  ],
+}
+
+test('buyer Excel exports the displayed rows with text contacts and dates in Brasília', () => {
+  const workbook = XLSX.read(XLSX.write(buildBuyerContactsWorkbook(buyers), { type: 'buffer', bookType: 'xlsx' }), { type: 'buffer', cellDates: true, UTC: true })
+  assert.deepEqual(workbook.SheetNames, ['Compradores', 'Contexto'])
+  const rows = table(workbook.Sheets.Compradores)
+  assert.equal(rows.length, 2)
+  assert.equal(rows[0].Nome, 'Ana')
+  assert.equal(rows[0]['E-mail'], 'ana@example.test')
+  assert.equal(rows[0].Telefone, '+55011999990000')
+  assert.equal(rows[1].Telefone, '0012345')
+  assert.equal(rows[1]['E-mail'], 'Não informado')
+  assert.equal(rows[0]['Data (Brasília)'].toISOString(), '2026-10-01T22:30:00.000Z')
+  assert.equal(rows[1]['Data (Brasília)'].toISOString(), '2026-10-03T00:00:00.000Z')
+  assert.equal(workbook.Sheets.Compradores.C2.t, 's')
+  assert.equal(workbook.Sheets.Compradores.C3.t, 's')
+})
+
+test('buyer workbook preserves incomplete coverage, truncation and the exact row count', () => {
+  const workbook = buildBuyerContactsWorkbook({ ...buyers, status: 'partial', totalRows: 20, truncated: true, omittedAggregateRows: 3, notices: [{ title: 'Fonte com falha', message: 'Hotmart indisponível.' }] })
+  assert.equal(table(workbook.Sheets.Compradores).length, 2)
+  const context = XLSX.utils.sheet_to_json(workbook.Sheets.Contexto, { header: 1 })
+  assert.ok(context.some(row => row[0] === 'Cobertura' && /parcial/i.test(row[1])))
+  assert.ok(context.some(row => row[0] === 'Registros exportados' && row[1] === 2))
+  assert.ok(context.some(row => row[0] === 'Registros encontrados' && row[1] === 20))
+  assert.ok(context.some(row => row[0] === 'Limite' && /2 de 20/.test(row[1])))
+  assert.ok(context.some(row => row[0] === 'Registros agregados excluídos' && row[1] === 3))
+  assert.ok(context.some(row => row[0] === 'Filtros aplicados' && /Guru.*DevClub/.test(row[1])))
+  assert.ok(context.some(row => row[0] === 'Fonte com falha' && row[1] === 'Hotmart indisponível.'))
+})
+
+test('buyer exports retain missing fields and write formula-like content as inert cells', () => {
+  const rows = ['=1+1', '+SUM(A1)', '-SUM(A1)', '@SUM(A1)', '\t=1+1', '\r=1+1', ' \n=1+1'].map(value => ({ name: value, email: value, phone: value, product: value, platform: value, date: null }))
+  const workbook = buildBuyerContactsWorkbook({ ...buyers, rows })
+  for (const sheet of Object.values(workbook.Sheets)) {
+    for (const [key, cell] of Object.entries(sheet)) if (!key.startsWith('!')) assert.equal(cell.f, undefined)
+  }
+  assert.equal(workbook.Sheets.Compradores.A2.v, '=1+1')
+  assert.equal(workbook.Sheets.Compradores.F2.v, 'Não informado')
+  const csv = buildBuyerContactsCsv({ ...buyers, rows })
+  for (const value of rows) assert.ok(csv.includes(`"'${value.name.replaceAll('"', '""')}"`))
+})
+
+test('buyer CSV uses UTF-8 BOM, semicolons, CRLF, quoted values and safe text phones', () => {
+  const csv = buildBuyerContactsCsv({ ...buyers, rows: [{ ...buyers.rows[0], name: 'Ana; "Clube"\nSilva' }, buyers.rows[1]] })
+  assert.ok(csv.startsWith('\uFEFF"Nome";"E-mail";"Telefone";"Produto";"Plataforma";"Data (Brasília)"\r\n'))
+  assert.ok(csv.includes('"Ana; ""Clube""\nSilva";"ana@example.test";"\'+55011999990000"'))
+  assert.ok(csv.includes('"Bia";"Não informado";"\'0012345"'))
+  assert.ok(csv.includes('"01/10/2026 22:30:00"'))
+  assert.ok(csv.includes('"03/10/2026"'))
+})
+
+test('empty buyer exports retain headers without inventing contacts', () => {
+  const block = { ...buyers, rows: [], totalRows: 0 }
+  assert.equal(table(buildBuyerContactsWorkbook(block).Sheets.Compradores).length, 0)
+  assert.equal(buildBuyerContactsCsv(block).split('\r\n').length, 2)
 })

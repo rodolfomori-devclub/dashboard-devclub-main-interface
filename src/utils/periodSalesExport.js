@@ -133,3 +133,66 @@ export function exportPeriodSalesExcel(records, options = {}) {
   const filename = `${prefix}-${options.startDate}-${options.endDate}.xlsx`
   XLSX.writeFile(workbook, filename, { bookType: 'xlsx', compression: true })
 }
+
+const BUYER_HEADERS = ['Nome', 'E-mail', 'Telefone', 'Produto', 'Plataforma', 'Data (Brasília)']
+const buyerText = value => value == null || String(value).trim() === '' ? 'Não informado' : String(value)
+const buyerRows = block => block.rows.map(row => [
+  ...['name', 'email', 'phone', 'product', 'platform'].map(key => buyerText(row[key])),
+  excelDate(row.date) || 'Não informado',
+])
+
+export function buildBuyerContactsWorkbook(block) {
+  const workbook = XLSX.utils.book_new()
+  const rows = buyerRows(block)
+  const sheet = XLSX.utils.aoa_to_sheet([BUYER_HEADERS, ...rows])
+  sheet['!cols'] = [32, 38, 24, 40, 20, 24].map(wch => ({ wch }))
+  sheet['!autofilter'] = { ref: `A1:F${rows.length + 1}` }
+  XLSX.utils.book_append_sheet(workbook, sheet, 'Compradores')
+  const context = XLSX.utils.aoa_to_sheet([
+    ['Contatos dos compradores'],
+    ['De', excelDate(block.period.startDate, true), 'Até', excelDate(block.period.endDate, true)],
+    ['Filtros aplicados', filterDescription(block.filters || {}, '', [])],
+    ['Cobertura', block.status === 'ready' ? 'Dados disponíveis' : block.status === 'pending' ? 'Ainda em coleta — resultado parcial' : 'Resultado parcial'],
+    ['Registros exportados', rows.length],
+    ['Registros encontrados', block.totalRows],
+    ['Limite', block.truncated ? `Exportados ${rows.length} de ${block.totalRows} registros encontrados. Restrinja o período ou os filtros para consultar os demais.` : 'Todos os registros exibidos foram exportados.'],
+    ['Registros agregados excluídos', block.omittedAggregateRows || 0],
+    ['Critério', 'Uma linha por compra individual. Um comprador pode aparecer em mais de uma compra. Campos ausentes ficam como Não informado.'],
+    ...(block.notices || []).map(notice => [notice.title, notice.message]),
+  ])
+  context['!cols'] = [32, 100, 10, 24].map(wch => ({ wch }))
+  XLSX.utils.book_append_sheet(workbook, context, 'Contexto')
+  workbook.Props = { Title: 'Contatos dos compradores', Subject: `Período ${block.period.startDate} a ${block.period.endDate}`, Author: 'DevClub' }
+  return workbook
+}
+
+export function buildBuyerContactsCsv(block) {
+  const cell = (value, column) => {
+    let text = String(value)
+    if (typeof value === 'object') {
+      const date = new Date(Math.round((value.v - 25569) * 86400000))
+      text = date.toLocaleDateString('pt-BR', { timeZone: 'UTC' })
+      if (value.z === DATETIME_FORMAT) text += ` ${date.toLocaleTimeString('pt-BR', { timeZone: 'UTC', hour12: false })}`
+    }
+    // CSV has no cell types. The apostrophe keeps phones as text in spreadsheet
+    // apps and prevents source text from becoming a formula when the file opens.
+    const first = [...text].find(character => character.trim() && character.charCodeAt(0) >= 32)
+    if ((column === 2 && text !== 'Não informado') || ['=', '+', '-', '@'].includes(first)) text = `'${text}`
+    return `"${text.replaceAll('"', '""')}"`
+  }
+  const head = BUYER_HEADERS.map(value => cell(value, -1)).join(';')
+  return `\uFEFF${[head, ...buyerRows(block).map(row => row.map(cell).join(';'))].join('\r\n')}\r\n`
+}
+
+export function exportBuyerContacts(block, format) {
+  if (!['xlsx', 'csv'].includes(format)) throw new Error('Formato de exportação inválido.')
+  const partial = block.status !== 'ready' || block.truncated
+  const filename = `compradores-${block.period.startDate}-${block.period.endDate}${partial ? '-parcial' : ''}.${format}`
+  if (format === 'xlsx') return XLSX.writeFile(buildBuyerContactsWorkbook(block), filename, { bookType: 'xlsx', compression: true })
+  const url = URL.createObjectURL(new Blob([buildBuyerContactsCsv(block)], { type: 'text/csv;charset=utf-8;' }))
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  try { link.click() } finally { link.remove(); URL.revokeObjectURL(url) }
+}
