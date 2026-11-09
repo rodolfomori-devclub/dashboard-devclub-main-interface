@@ -18,6 +18,9 @@ try {
   await writeFile(join(fixture, 'index.html'), '<!doctype html><html><body>release-one</body></html>')
   await writeFile(join(fixture, 'assets', 'app-fixture1234.js'), 'export const release = 1;')
   await writeFile(join(fixture, 'assets', 'plain.js'), 'export const plain = true;')
+  await mkdir(join(fixture, 'tv-light'))
+  await writeFile(join(fixture, 'tv-light', 'index.html'), '<!doctype html><html><body>tv-light-shell</body></html>')
+  await writeFile(join(fixture, 'tv-light', 'sale.mp3'), 'fixture-audio')
   // The official Caddy binary carries NET_BIND_SERVICE as a file capability.
   const common = ['--rm', '--read-only', '--cap-drop', 'ALL', '--cap-add', 'NET_BIND_SERVICE', '--security-opt', 'no-new-privileges', '--tmpfs', '/tmp', '--tmpfs', '/config', '--tmpfs', '/data', '-e', 'PORT=8080', '-v', `${config}:/etc/caddy/Caddyfile:ro`, '-v', `${fixture}:/app/dist:ro`]
   docker(['run', ...common, image, 'caddy', 'validate', '--config', '/etc/caddy/Caddyfile', '--adapter', 'caddyfile'])
@@ -69,6 +72,12 @@ try {
   }
   const plain = await fetch(base + '/assets/plain.js')
   assert.equal(plain.headers.get('cache-control'), 'no-cache, max-age=0, must-revalidate')
+  // The light TV rewrites its token links to HTML; its sound must stay a file.
+  const saleSound = await fetch(base + '/tv-light/sale.mp3')
+  assert.equal(saleSound.status, 200)
+  assert.match(saleSound.headers.get('content-type'), /audio\/mpeg/)
+  assert.equal(await saleSound.text(), 'fixture-audio')
+  assert.match(await (await fetch(base + '/tv-light/abcdefghijklmnop')).text(), /tv-light-shell/)
   console.log(JSON.stringify({ passed: true, image, checks: ['HTML direct routes and OAuth callback revalidate', 'ETag 304 and changed HTML 200', 'Existing hashed JS GET/HEAD immutable', 'Missing hashed JS GET/HEAD 404 without HTML', 'Unversioned assets revalidate'] }))
 } finally {
   if (container) docker(['stop', '--time', '2', container])

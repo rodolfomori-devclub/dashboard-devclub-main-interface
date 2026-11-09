@@ -95,12 +95,17 @@ const arrangements = {
   },
 }
 
+// The sale alert is a recording, fetched once on the first sale.
+const RECORDINGS = Object.freeze({ sale: '/tv-light/sale.mp3' })
+const RECORDING_FALLBACK = 'victory'
+
 /** Create a silent controller. Only an explicit play() creates/resumes audio.
  * play resolves { id, status: 'ended' | 'stopped' }; failures reject.
  * stop also cancels a play awaiting browser permission, without stale starts.
  */
 export function createCelebrationAudio() {
   let context = null, active = null, disposed = false
+  const recordings = new Map()
 
   function clean(session) {
     const now = context?.currentTime || 0
@@ -144,9 +149,42 @@ export function createCelebrationAudio() {
     } catch (cause) { return Promise.reject(cause) }
   }
 
+  function loadRecording(id) {
+    if (!recordings.has(id)) {
+      const decoder = context
+      recordings.set(id, fetch(RECORDINGS[id]).then(response => {
+        if (!response.ok) throw error('AUDIO_LOAD_FAILED', 'Não foi possível carregar o som de venda.')
+        return response.arrayBuffer()
+      }).then(data => new Promise((resolve, reject) => decoder.decodeAudioData(data, resolve, reject))).catch(cause => {
+        recordings.delete(id)
+        throw cause
+      }))
+    }
+    return recordings.get(id)
+  }
+
+  function begin(session, volume, buffer) {
+    session.start = context.currentTime + 0.015
+    session.master = context.createGain()
+    session.nodes.push(session.master)
+    session.params.push(session.master.gain)
+    session.master.gain.setValueAtTime(volumeGain(volume), context.currentTime)
+    session.master.connect(context.destination)
+    if (buffer) {
+      const source = context.createBufferSource()
+      source.buffer = buffer
+      session.nodes.push(source)
+      session.sources.push(source)
+      session.lastSource = source
+      source.connect(session.master)
+      source.start(session.start)
+    } else arrangements[Object.hasOwn(arrangements, session.id) ? session.id : RECORDING_FALLBACK](context, session)
+    session.lastSource.onended = () => finish(session, 'ended')
+  }
+
   function play(id, { volume = 0.35 } = {}) {
     if (disposed) return Promise.reject(error('AUDIO_DISPOSED', 'Este player de áudio já foi encerrado.'))
-    if (!Object.hasOwn(arrangements, id)) return Promise.reject(error('UNKNOWN_SOUND', 'Escolha um som de comemoração disponível.'))
+    if (!Object.hasOwn(arrangements, id) && !Object.hasOwn(RECORDINGS, id)) return Promise.reject(error('UNKNOWN_SOUND', 'Escolha um som de comemoração disponível.'))
     stop()
     const session = { id, sources: [], nodes: [], params: [], end: 0, master: null }
     const completion = new Promise((resolve, reject) => { session.resolve = resolve; session.reject = reject })
@@ -162,14 +200,11 @@ export function createCelebrationAudio() {
       Promise.resolve(resumed).then(() => {
         if (active !== session || disposed) return
         if (context.state !== 'running') throw error('AUDIO_BLOCKED', 'Clique novamente para liberar o áudio neste navegador.')
-        session.start = context.currentTime + 0.015
-        session.master = context.createGain()
-        session.nodes.push(session.master)
-        session.params.push(session.master.gain)
-        session.master.gain.setValueAtTime(volumeGain(volume), context.currentTime)
-        session.master.connect(context.destination)
-        arrangements[id](context, session)
-        session.lastSource.onended = () => finish(session, 'ended')
+        if (!Object.hasOwn(RECORDINGS, id)) { begin(session, volume); return }
+        // A wall TV has nobody to press retry: a failed download plays the score.
+        return loadRecording(id).catch(() => null).then(buffer => {
+          if (active === session && !disposed) begin(session, volume, buffer)
+        })
       }).catch(cause => finish(session, null, cause?.code ? cause
         : error('AUDIO_START_FAILED', 'Não foi possível tocar o som. Clique para tentar novamente.', cause)))
     } catch (cause) {
