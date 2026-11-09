@@ -7,7 +7,11 @@ const dateKey = value => {
   return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value ? value : null
 }
 const money = value => Math.round((value + Number.EPSILON) * 100) / 100
-const validOrigins = origins => origins?.schemaVersion === 1 && origins.basis === 'checkout_created_at' && Array.isArray(origins.rows)
+const validOrigins = origins => Array.isArray(origins?.rows) && (origins.schemaVersion === 1 && origins.basis === 'checkout_created_at' || origins.schemaVersion === 2 && origins.basis === 'sale_created_at')
+const saleDateBasis = (origins, row) => {
+  const basis = row.saleDateBasis === undefined && origins.schemaVersion === 1 ? 'checkout_created_at' : row.saleDateBasis
+  return ['checkout_created_at', 'asaas_installment_created_at'].includes(basis) ? basis : null
+}
 const asaasManual = row => row.isManual && /\basaas\b/i.test(String(row.platform || '').normalize('NFD').replace(/[\u0300-\u036f]/g, ''))
 const emptyBucket = value => ({ received: value, count: value })
 const saleDay = value => {
@@ -22,7 +26,7 @@ const saleDay = value => {
 export function mergeAsaasReceiptOrigins(parts = []) {
   const valid = parts.filter(validOrigins)
   return {
-    schemaVersion: 1, basis: 'checkout_created_at', rows: valid.flatMap(part => part.rows),
+    schemaVersion: 2, basis: 'sale_created_at', rows: valid.flatMap(part => part.rows.map(row => ({ ...row, saleDateBasis: saleDateBasis(part, row) }))),
     status: parts.length > 0 && valid.length === parts.length && valid.every(part => part.status === 'ready') ? 'ready'
       : valid.some(part => part.status !== 'unavailable' || part.rows.length) ? 'partial' : 'unavailable',
   }
@@ -38,9 +42,9 @@ function classifyReceipts(cash, origins, startDate, endDate) {
   for (const row of origins.rows) {
     const received = amount(row.received), quantity = amount(row.count)
     const receiptDate = dateKey(row.receiptDate), saleDate = dateKey(row.saleDate)
-    // A missing/invalid link never makes a receipt an old sale. Nor does an
-    // invoice issued this month prove that its contract was sold this month.
-    if (received === null || received < 0 || !Number.isInteger(quantity) || quantity < 0 || !receiptDate || receiptDate < startDate || receiptDate > endDate || !saleDate || saleDate > receiptDate) continue
+    // Only a confirmed checkout or original Asaas installment group establishes
+    // the sale date; creating the current invoice does not establish a sale.
+    if (!saleDateBasis(origins, row) || received === null || received < 0 || !Number.isInteger(quantity) || quantity < 0 || !receiptDate || receiptDate < startDate || receiptDate > endDate || !saleDate || saleDate > receiptDate) continue
     const group = saleDate < startDate ? result.previousPeriods : saleDate <= endDate ? result.currentPeriod : null
     if (!group) continue
     group.received = money(group.received + received)
