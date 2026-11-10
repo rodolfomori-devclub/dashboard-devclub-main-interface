@@ -17,16 +17,18 @@ export function validPublicPresentation(value) {
     if (id === 'monthly-goal') return Array.isArray(model.overview?.rows)
     if (id === 'pace') return Array.isArray(model.pace?.rows)
     if (id === 'daily' || id === 'daily-cash') return Array.isArray(model.daily?.hours)
-    if (id === 'daily-payments') return Array.isArray(model.daily?.payments)
+    if (id === 'daily-payments') return Array.isArray(model.daily?.payments) && (model.daily.products === undefined || Array.isArray(model.daily.products))
     if (id === 'daily-sellers') return Array.isArray(model.daily?.sellers) && Boolean(model.daily?.unassignedSeller)
     if (id === 'weekly' || id === 'weekly-cash') return Array.isArray(model.weekly?.days)
-    if (id === 'weekly-payments') return Array.isArray(model.weekly?.payments)
+    if (id === 'weekly-payments') return Array.isArray(model.weekly?.payments) && (model.weekly.products === undefined || Array.isArray(model.weekly.products))
     if (id === 'weekly-sellers') return Array.isArray(model.weekly?.sellers) && Boolean(model.weekly?.unassignedSeller)
+      && (model.weekly.sellerTeams === undefined || (Array.isArray(model.weekly.sellerTeams) && model.weekly.sellerTeams.length === 2
+        && model.weekly.sellerTeams.every((team, index) => team?.id === ['mba', 'devclub'][index] && Array.isArray(team.sellers))))
     if (id === 'team-goals') return Array.isArray(model.teamGoals)
     if (id === 'product-goals') return Array.isArray(model.productGoals)
     if (id === 'sellers') return Array.isArray(model.sellers) && Boolean(model.unassigned)
     if (id === 'products') return Array.isArray(model.products) && Boolean(model.unassigned)
-    return Array.isArray(model.payments)
+    return Array.isArray(model.payments) && (model.products === undefined || Array.isArray(model.products))
   })
 }
 
@@ -38,12 +40,15 @@ export function stalePublicTvModel(model) {
   return { ...model, totals: { ...financials(model.totals), partial: true }, overview: pace(model.overview), pace: pace(model.pace),
     daily: model.daily ? { ...financials(model.daily), partial: true,
       ...(model.daily.hours ? { hours: model.daily.hours.map(financials) } : {}),
-      ...Object.fromEntries(['payments', 'sellers'].filter(key => model.daily[key]).map(key => [key, model.daily[key].map(row => ({ ...financials(row), partial: true }))])),
+      ...Object.fromEntries(['payments', 'sellers', 'products'].filter(key => model.daily[key]).map(key => [key, model.daily[key].map(row => ({ ...financials(row), partial: true }))])),
       ...(model.daily.unassignedSeller ? { unassignedSeller: { ...financials(model.daily.unassignedSeller), partial: true } } : {}),
     } : undefined,
     weekly: model.weekly ? { ...financials(model.weekly), partial: true,
       ...(model.weekly.days ? { days: model.weekly.days.map(row => ({ ...financials(row), partial: true })) } : {}),
-      ...Object.fromEntries(['payments', 'sellers'].filter(key => model.weekly[key]).map(key => [key, model.weekly[key].map(row => ({ ...financials(row), partial: true }))])),
+      ...Object.fromEntries(['payments', 'sellers', 'products'].filter(key => model.weekly[key]).map(key => [key, model.weekly[key].map(row => ({ ...financials(row), partial: true }))])),
+      ...(model.weekly.commercial ? { commercial: { ...financials(model.weekly.commercial), partial: true }, commercialSharePercent: null } : {}),
+      ...(model.weekly.sellerTeams ? { sellerTeams: model.weekly.sellerTeams.map(team => ({ ...financials(team), available: false,
+        partial: true, value: null, gross: null, cash: null, count: null, sellers: [] })) } : {}),
       ...(model.weekly.unassignedSeller ? { unassignedSeller: { ...financials(model.weekly.unassignedSeller), partial: true } } : {}),
     } : undefined,
     unassigned: model.unassigned ? Object.fromEntries(Object.entries(model.unassigned).map(([key, row]) => [key, { ...financials(row), partial: true }])) : undefined,

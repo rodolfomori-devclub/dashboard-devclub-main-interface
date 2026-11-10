@@ -1,14 +1,16 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildAsaasSeparation } from '../src/utils/asaasSeparation.js'
+import { buildAsaasSeparation, mergeAsaasReceiptOrigins } from '../src/utils/asaasSeparation.js'
 import { normalizeSource } from '../src/utils/salesData.js'
 import { asaasCashView, sourceFinancialMetadata } from '../src/utils/sourceAvailability.js'
 import { mergePeriodSources } from '../src/utils/periodData.js'
 import { createAsaasCashLoader } from '../src/utils/asaasCashRange.js'
 import { prepareGoalData } from '../src/utils/goalData.js'
+import { calculateGoalPace } from '../src/utils/goalPace.js'
 
 const range = { startDate: '2026-10-01', endDate: '2026-10-31' }
 const origins = rows => ({ schemaVersion: 1, basis: 'checkout_created_at', status: 'ready', rows })
+const originsV2 = rows => ({ schemaVersion: 2, basis: 'sale_created_at', status: 'ready', rows })
 const receipt = (saleDate, received, receiptDate = '2026-10-10', count = 1) => ({ saleDate, received, receiptDate, count })
 const payload = (rows, values = {}) => ({ success: true, data: {
   totalGross: rows.reduce((sum, row) => sum + row.received, 0), totalNet: rows.reduce((sum, row) => sum + row.received, 0), totalFees: 0, count: rows.reduce((sum, row) => sum + row.count, 0),
@@ -187,5 +189,85 @@ test('partially failed weekly cash keeps its known subtotal and an explicit part
   assert.equal(separation.cash.partial, true)
   assert.equal(separation.receipts.currentPeriod.received, 100)
   assert.equal(result.cashReceiptOrigins.status, 'partial')
+  reconciles(separation)
+})
+
+test('V2 original Asaas installment dates classify receipts without changing new sales, statement cash or goals', () => {
+  const rows = [
+    { ...receipt('2026-09-01', 150), saleDateBasis: 'asaas_installment_created_at' },
+    { ...receipt('2026-10-01', 40), saleDateBasis: 'checkout_created_at' },
+    { ...receipt('2026-09-01', 20), saleDateBasis: 'asaas_payment_created_at' },
+    { ...receipt('2026-09-01', 10), saleDateBasis: null },
+    receipt('2026-09-01', 5),
+  ]
+  const data = payload(rows, { cashReceiptOrigins: originsV2(rows) })
+  const original = JSON.stringify(data)
+  const baseline = payload(rows, { cashReceiptOrigins: undefined })
+  const result = model(data)
+  assert.deepEqual(result.receipts.previousPeriods, { received: 150, count: 1 })
+  assert.deepEqual(result.receipts.currentPeriod, { received: 40, count: 1 })
+  assert.deepEqual(result.receipts.unclassified, { received: 35, count: 3 })
+  assert.equal(result.receipts.status, 'partial')
+  assert.deepEqual(result.sales, model(baseline).sales)
+  assert.deepEqual(result.cash, model(baseline).cash)
+  const goals = (value, metric) => calculateGoalPace({ ...prepareGoalData({ sources: [source(value)], records: normalizeSource('asaas', value) }), year: 2026, month: 10, plan: { scope: 'overall', metric, target: 1000 }, today: '2026-10-31' })
+  for (const metric of ['gross', 'cash', 'count']) assert.deepEqual(goals(data, metric), goals(baseline, metric))
+  assert.equal(JSON.stringify(data), original)
+  reconciles(result)
+})
+
+test('unknown explicit provenance never inherits the legacy checkout basis and unsupported envelopes stay unclassified', () => {
+  const rows = [receipt('2026-09-01', 100), { ...receipt('2026-09-01', 20), saleDateBasis: null }, { ...receipt('2026-09-01', 30), saleDateBasis: 'invoice_due_date' }]
+  const legacy = model(payload(rows))
+  assert.deepEqual(legacy.receipts.previousPeriods, { received: 100, count: 1 })
+  assert.deepEqual(legacy.receipts.unclassified, { received: 50, count: 2 })
+  reconciles(legacy)
+  for (const envelope of [{ schemaVersion: 2, basis: 'checkout_created_at' }, { schemaVersion: 1, basis: 'sale_created_at' }, { schemaVersion: 3, basis: 'sale_created_at' }]) {
+    const result = model(payload(rows, { cashReceiptOrigins: { ...envelope, status: 'ready', rows } }))
+    assert.equal(result.receipts.previousPeriods.received, 0)
+    assert.equal(result.receipts.unclassified.received, 150)
+    reconciles(result)
+  }
+})
+
+test('mixed monthly cache versions retain each row provenance, unknown receipts and immutable date facts', () => {
+  const january = payload([receipt('2025-12-01', 100, '2026-01-03')])
+  const februaryRows = [
+    { ...receipt('2026-01-02', 200, '2026-02-05'), saleDateBasis: 'asaas_installment_created_at' },
+    { ...receipt(null, 20, '2026-02-05'), saleDateBasis: null },
+    { ...receipt('2025-12-01', 30, '2026-02-05'), saleDateBasis: 'invoice_created_at' },
+  ]
+  const february = payload(februaryRows, { cashReceiptOrigins: originsV2(februaryRows) })
+  const legacy = payload([receipt(null, 25, '2026-03-01')], { cashReceiptOrigins: undefined })
+  const parts = [january.data.cashReceiptOrigins, february.data.cashReceiptOrigins, undefined]
+  const original = JSON.stringify(parts)
+  const merged = mergeAsaasReceiptOrigins(parts)
+  assert.equal(merged.schemaVersion, 2)
+  assert.equal(merged.basis, 'sale_created_at')
+  assert.deepEqual(merged.rows.map(row => row.saleDateBasis), ['checkout_created_at', 'asaas_installment_created_at', null, null])
+  assert.equal(merged.rows[2].saleDate, null)
+  assert.equal(merged.rows[3].saleDate, '2025-12-01', 'Unsupported provenance does not rewrite a date fact into a trusted one')
+  assert.equal(merged.status, 'partial')
+  assert.deepEqual(mergeAsaasReceiptOrigins([merged]).rows, merged.rows)
+  assert.equal(JSON.stringify(parts), original)
+  const sources = mergePeriodSources([january, february, legacy].map((data, index) => ({ startDate: `2026-0${index + 1}-01`, result: { sources: [source(data)], records: [] } })), true)
+  const result = buildAsaasSeparation({ sources, startDate: '2026-01-01', endDate: '2026-12-31' })
+  assert.deepEqual(result.receipts.previousPeriods, { received: 100, count: 1 })
+  assert.deepEqual(result.receipts.currentPeriod, { received: 200, count: 1 })
+  assert.deepEqual(result.receipts.unclassified, { received: 75, count: 3 })
+  reconciles(result)
+})
+
+test('weekly cash loader merges V1 checkout and V2 Asaas dates before classifying the requested month', async () => {
+  const loader = createAsaasCashLoader(async ({ startDate }) => {
+    const row = receipt(startDate === '2026-10-01' ? '2026-09-01' : '2026-10-01', 100, startDate)
+    return startDate === '2026-10-01' ? payload([row]) : payload([row], { cashReceiptOrigins: originsV2([{ ...row, saleDateBasis: 'asaas_installment_created_at' }]) })
+  })
+  const result = await loader.load('2026-10-01', '2026-10-14')
+  const separation = buildAsaasSeparation({ ...result, sources: [{ id: 'asaas', status: 'partial', salesAvailable: false, cash: result.cash, cashReceiptOrigins: result.cashReceiptOrigins }] })
+  assert.equal(result.cashReceiptOrigins.schemaVersion, 2)
+  assert.deepEqual(separation.receipts.previousPeriods, { received: 100, count: 1 })
+  assert.deepEqual(separation.receipts.currentPeriod, { received: 100, count: 1 })
+  assert.equal(separation.receipts.status, 'ready')
   reconciles(separation)
 })

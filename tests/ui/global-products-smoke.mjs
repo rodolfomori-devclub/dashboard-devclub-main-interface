@@ -73,6 +73,7 @@ try {
     else if (url.pathname === '/api/boleto/asaas/vendas') body = payloadForSource('asaas', range)
     else if (url.pathname === '/api/boleto/boletex/vendas') body = payloadForSource('boletex', range)
     else if (url.pathname === '/api/sales-ops/ledger') body = { data: { attributions: [], manualSales: [] } }
+    else if (/^\/api\/goal-plans\/\d{4}\/\d{1,2}$/.test(url.pathname)) body = { plans: [] }
     else if (url.pathname.startsWith('/api/goals/')) body = { success: true, data: { meta: 0, superMeta: 0, ultraMeta: 0 } }
     else { unexpected.push(`${request.method()} ${url.pathname}`); await route.abort(); return }
     const method = ['/api/transactions', '/api/refunds'].includes(url.pathname) ? 'POST' : 'GET'

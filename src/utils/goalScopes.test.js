@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { calculateGoalPace } from './goalPace.js'
 import { prepareGoalData } from './goalData.js'
-import { goalScope, goalScopeKey } from './goalScopes.js'
+import { goalScope, goalScopeKey, recordMatchesGoal } from './goalScopes.js'
 import { sourceFinancialMetadata } from './sourceAvailability.js'
 import { normalizeSource } from './salesData.js'
 import { mergeSalesOperations } from '../services/salesOpsService.js'
@@ -29,6 +29,19 @@ test('legacy general/product identities remain compatible and team does not alia
  assert.deepEqual(goalScope({ product: 'all' }), { scope: 'overall', scopeId: '' })
  assert.equal(goalScopeKey({ product: 'MBA' }), goalScopeKey({ scope: 'product', scopeId: 'MBA' }))
  assert.notEqual(goalScopeKey({ scope: 'team', scopeId: 'x', product: 'all' }), goalScopeKey({ product: 'all' }))
+})
+test('Vitalício goal matches the product word regardless of case or accent and preserves family matching', () => {
+ const plan = { scope: 'product', scopeId: 'Vitalício' }
+ for (const product of ['DevClub Vitalício', 'MBA VITALICIO', 'Vitalício', 'IAClub (Vitalício)', 'DevClub Vitalício'.normalize('NFD')]) {
+  assert.equal(recordMatchesGoal({ product, family: 'DevClub' }, plan), true, product)
+ }
+ for (const product of ['DevClub', 'Antivitalicio', 'DevClub Vitalícios', '', null, undefined]) {
+  assert.equal(recordMatchesGoal({ product, family: 'Vitalício' }, plan), false, String(product))
+ }
+ assert.equal(recordMatchesGoal({ product: 'Venda manual · DevClub', family: 'DevClub', isLifetimeGoal: true }, plan), true)
+ assert.equal(recordMatchesGoal({ product: 'DevClub', family: 'DevClub', isLifetimeGoal: 'true' }, plan), false)
+ assert.equal(recordMatchesGoal({ product: 'DevClub Vitalício', family: 'DevClub' }, { scope: 'product', scopeId: 'DevClub' }), true)
+ assert.equal(recordMatchesGoal({ product: 'DevClub Vitalício', family: 'DevClub' }, { scope: 'product', scopeId: 'MBA' }), false)
 })
 test('unassigned amounts are excluded from each individual/team and prevent definitive pace', () => {
  const extra = { kind: 'sale', date: '2026-06-04', family: 'MBA', gross: 700 }

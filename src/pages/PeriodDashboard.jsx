@@ -22,6 +22,9 @@ import { localDateKey } from '../components/daily/dailyData'
 import { EMPTY_FILTERS, UNKNOWN, filterSales, filterOptions, groupSales } from '../utils/salesData'
 import { summarizePeriod, periodSeries, goalProgress, localDay } from '../utils/periodData'
 import { commercialSellerLabel, summarizeCommercialSales } from '../utils/commercialSales'
+import { GOAL_TIERS, normalizeGoalPlan } from '../components/goals/goalConfig'
+import { prepareGoalData } from '../utils/goalData'
+import { calculateGoalPace } from '../utils/goalPace'
 
 const BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
 const currency = (value, currencyCode = 'BRL') => value === null || value === undefined ? '—' : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: currencyCode, maximumFractionDigits: 2 }).format(value)
@@ -90,8 +93,11 @@ export default function PeriodDashboard({ mode = 'global' }) {
   const [goals, setGoals] = useState(null)
   const [goalDraft, setGoalDraft] = useState({})
   const [goalError, setGoalError] = useState('')
+  const [goalsLoading, setGoalsLoading] = useState(true)
   const [savingGoal, setSavingGoal] = useState(null)
   const [goalNotice, setGoalNotice] = useState('')
+  const [goalConflict, setGoalConflict] = useState(false)
+  const [goalReload, setGoalReload] = useState(0)
   const [detailKind, setDetailKind] = useState('sale')
   const [detailPage, setDetailPage] = useState(1)
   const [expanded, setExpanded] = useState(null)
@@ -115,16 +121,24 @@ export default function PeriodDashboard({ mode = 'global' }) {
   useEffect(() => {
     if (mode === 'global') return
     const controller = new AbortController()
-    const suffix = mode === 'month' ? `/${Number(range.startDate.slice(5, 7))}` : ''
-    setGoals(null); setGoalError(''); setGoalNotice('')
-    axios.get(`${BASE}/goals/${mode}/${range.startDate.slice(0, 4)}${suffix}`, { signal: controller.signal, timeout: 15000 })
+    const year = range.startDate.slice(0, 4), month = Number(range.startDate.slice(5, 7))
+    const path = mode === 'month' ? `/goal-plans/${year}/${month}` : `/goals/year/${year}`
+    setGoals(null); setGoalsLoading(true); setGoalError(''); setGoalNotice(''); setGoalConflict(false)
+    axios.get(`${BASE}${path}`, { signal: controller.signal, timeout: 15000 })
       .then(response => {
-        if (!response.data?.success) throw new Error('unavailable')
-        setGoals(response.data.data); setGoalDraft(response.data.data)
+        if (controller.signal.aborted) return
+        if (mode === 'month') {
+          if (!Array.isArray(response.data?.plans)) throw new Error('unavailable')
+          setGoals(response.data.plans.map(normalizeGoalPlan).find(plan => plan.scope === 'overall' && plan.metric === 'gross') || null)
+        } else {
+          if (!response.data?.success) throw new Error('unavailable')
+          setGoals(response.data.data); setGoalDraft(response.data.data)
+        }
       })
       .catch(() => { if (!controller.signal.aborted) setGoalError('Metas indisponíveis. Nenhum valor foi substituído por zero.') })
+      .finally(() => { if (!controller.signal.aborted) setGoalsLoading(false) })
     return () => controller.abort()
-  }, [mode, range])
+  }, [mode, range, goalReload])
 
   const allRecords = useMemo(() => data?.records || [], [data])
   const filtered = useMemo(() => filterSales(allRecords, filters).filter(row => !offer || (offer === UNKNOWN ? !row.offer : row.offer === offer)), [allRecords, filters, offer])
@@ -132,7 +146,11 @@ export default function PeriodDashboard({ mode = 'global' }) {
   const commercial = useMemo(() => summarizeCommercialSales(filtered), [filtered])
   const sellers = useMemo(() => [...new Map(allRecords.filter(row => row.kind === 'sale' && row.sellerId).map(row => [row.sellerId, { id: row.sellerId, name: commercialSellerLabel(row) }])).values()].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')), [allRecords])
   const attributionUnavailable = data?.operationsStatus === 'unavailable' || data?.ledger?.attributionMappingsStatus === 'unavailable'
-  const relevantSources = data?.sources.filter(source => !filters.platform || source.platform === filters.platform || source.id === 'manual') || []
+  const relevantSources = useMemo(() => data?.sources.filter(source => !filters.platform || source.platform === filters.platform || source.id === 'manual') || [], [data, filters.platform])
+  const monthlyGoalPace = useMemo(() => mode === 'month' && goals ? calculateGoalPace({
+    year: Number(range.startDate.slice(0, 4)), month: Number(range.startDate.slice(5, 7)), plan: goals,
+    ...prepareGoalData({ records: filtered, sources: relevantSources }), today: localDateKey(),
+  }) : null, [mode, goals, range.startDate, filtered, relevantSources])
   const availableSales = relevantSources.some(source => source.kind === 'sale' && sourceHasSales(source) && (source.id !== 'manual' || filtered.some(row => row.sourceId === 'manual' && row.kind === 'sale')))
   const sourceAvailable = ids => relevantSources.some(source => ids.includes(source.id) && sourceHasSales(source))
   const digitalAvailable = sourceAvailable(['guru', 'hotmart', 'hubla']) || summary.digital.count > 0
@@ -201,16 +219,15 @@ export default function PeriodDashboard({ mode = 'global' }) {
     finally { setTrafficLoading(false) }
   }
   async function saveGoal(key) {
-    if (!userRoles?.isAdmin) return
+    if (mode !== 'year' || !userRoles?.isAdmin || savingGoal !== null || goalConflict) return
     const values = Object.fromEntries(Object.keys(GOALS).map(field => [field, Number(goalDraft[field])]))
     if (Object.keys(GOALS).some(field => goalDraft[field] === '' || !Number.isFinite(values[field]) || values[field] < 0)) { setGoalError('Preencha as três faixas com números maiores ou iguais a zero.'); return }
     if (values.superMeta < values.meta || values.ultraMeta < values.superMeta) { setGoalError('A supermeta deve ser maior ou igual à meta, e a ultrameta maior ou igual à supermeta.'); return }
     setSavingGoal(key); setGoalError(''); setGoalNotice('')
     try {
-      const suffix = mode === 'month' ? `/${Number(range.startDate.slice(5, 7))}` : ''
-      const response = await axios.post(`${BASE}/goals/${mode}/${range.startDate.slice(0, 4)}${suffix}`, values)
+      const response = await axios.post(`${BASE}/goals/year/${range.startDate.slice(0, 4)}`, values)
       setGoals(response.data.data || values); setGoalNotice('As três faixas foram salvas em conjunto.')
-    } catch (error) { setGoalError(error.response?.data?.error || 'Não foi possível salvar a meta. O valor anterior foi mantido.') }
+    } catch (error) { setGoalConflict(error.response?.status === 409); setGoalError(error.response?.status === 409 ? 'A meta foi alterada em outra tela. Recarregue os valores atuais e revise sua edição antes de salvar.' : error.response?.data?.error || 'Não foi possível salvar a meta. O valor anterior foi mantido.') }
     finally { setSavingGoal(null) }
   }
   async function exportRows(scope = 'all') {
@@ -282,7 +299,7 @@ export default function PeriodDashboard({ mode = 'global' }) {
         ['Vendas do comercial', availableSales ? displayAmount(summary.commercial.revenue) : '—', `${count(summary.commercial.count)} vendas · UTMs do Comercial${salesPartial || attributionUnavailable ? ' · parcial' : ''}`],
         ['Entradas e recebimentos', sourceAvailable(['asaas', 'boletex']) || summary.total.received.known ? displayAmount(summary.total.received) : '—', 'Recebimentos associados às vendas disponíveis'],
       ].map(([label, value, detail]) => <article className="ds-card p-5" key={label}><h2 className="text-xs font-medium text-slate-500">{label}</h2><p className="text-xl font-semibold mt-3 tabular-nums">{value}</p><p className="text-xs text-slate-500 mt-2">{detail}</p></article>)}</section>
-      <>{mode === 'year' ? <AnnualAsaasCashPanel key={`${range.startDate}:${range.endDate}`} startDate={range.startDate} endDate={range.endDate > localDateKey() ? localDateKey() : range.endDate} filters={{ ...filters, offer }} /> : <AsaasCashPanel sources={data.sources} records={filtered} filters={{ ...filters, offer }} startDate={range.startDate} endDate={range.endDate} loading={loading} error={Boolean(error)} />}</>
+      <>{mode === 'year' ? <AnnualAsaasCashPanel key={`${range.startDate}:${range.endDate}`} startDate={range.startDate} endDate={range.endDate > localDateKey() ? localDateKey() : range.endDate} filters={{ ...filters, offer }} /> : <AsaasCashPanel sources={data.sources} records={filtered} filters={{ ...filters, offer }} startDate={range.startDate} endDate={range.endDate} loading={loading} error={Boolean(error)} monthlyHighlight={mode === 'month'} />}</>
       <section className="ds-card p-5"><h2 className="font-semibold mb-4">Resultado por fonte</h2><div className="overflow-x-auto"><table className="data-table w-full text-sm min-w-[750px]"><thead><tr>{['Fonte', 'Vendas', 'Receita operacional', 'Valor das vendas', 'Líquido', 'Recebido', 'Pendente'].map(label => <th key={label} className="text-left text-xs font-medium text-slate-500 py-3 pr-4">{label}</th>)}</tr></thead><tbody>{platforms.map(group => <tr className="border-t border-slate-100 dark:border-slate-800" key={group.name}><td className="py-4 font-medium">{data.sources.find(source => source.id === group.name)?.label || group.name}</td><td>{count(group.count)}</td>{['revenue', 'gross', 'net', 'received', 'pending'].map(key => <td key={key} className="tabular-nums pr-4">{displayAmount(group[key])}</td>)}</tr>)}{relevantSources.filter(source => (source.reason === 'checkout_disabled' || source.status === 'not_requested') && !platforms.some(group => group.name === source.id)).map(source => <tr key={source.id}><td className="py-4 font-medium">{source.label}</td><td>—</td><td colSpan={5} className="text-slate-500">Vendas e valores contratados não informados; caixa exibido separadamente.</td></tr>)}</tbody></table></div><p className="text-xs text-slate-500 mt-4">— significa valor não disponibilizado pela fonte. Guru, Hotmart e Hubla usam sempre o líquido após taxas; demais plataformas usam o valor contratado. Valor das vendas e cash collected não são somados entre si.</p></section>
       <div className="analytics-grid">
         <ChartPanel title="Famílias de produtos" description="Receita operacional por família, no recorte selecionado." footer={salesPartial ? 'Comparação parcial das fontes recebidas. Valores não informados permanecem indisponíveis.' : 'Sem distribuir valores de produtos não identificados entre as famílias.'}>
@@ -311,10 +328,14 @@ export default function PeriodDashboard({ mode = 'global' }) {
         return <Fragment key={id}><tr className="border-t border-slate-100 dark:border-slate-800"><td className="py-4 pr-4 max-w-xs"><p className="font-medium">{row.buyerName || (row.isAggregate ? 'Saldo sem detalhamento' : 'Cliente não informado')}</p><p className="text-xs text-slate-500 mt-1">{row.product || 'Produto não informado'}</p></td><td className="whitespace-nowrap pr-4">{dateBR(localDay(row.date))}</td><td className="pr-4">{row.platform}{row.sourceId === 'manual' ? ' · Manual' : ''}</td><td className="pr-4">{salesPaymentLabel(row)}</td><td className="tabular-nums pr-4">{currency(row.revenue)}</td><td><button type="button" className="btn btn-ghost btn-sm" aria-label={`Detalhes de ${row.buyerName || 'registro'}`} aria-expanded={expanded === id} onClick={() => setExpanded(expanded === id ? null : id)}>{expanded === id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</button></td></tr>{expanded === id && <tr><td colSpan={6} className="p-4 bg-slate-50 dark:bg-slate-900"><dl className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">{[['Pagamento original', row.payment], ['E-mail', row.buyerEmail || 'Não informado'], ['Oferta', row.offer || 'Não informada'], ['Identificador', row.externalId || 'Não informado'], ['Valor da venda', currency(row.gross)], ['Líquido', currency(row.net)], ['Taxas', currency(row.fees)], ['Afiliação', currency(row.affiliate)], ['Recebido', currency(row.received)], ...(!usesPlatformNet(row) ? [['Preço de tabela', currency(row.listPrice)]] : []), ['Pendente', currency(row.pending)], ['Vendedor', commercialSellerLabel(row)], ['Identificação do vendedor', row.attributionMethod === 'utm' ? 'UTM vinculada' : row.attributionMethod === 'manual' ? 'Atribuição manual' : 'Sem vínculo'], ['UTM Source', row.utm?.source || 'Não informada'], ['UTM Medium', row.utm?.medium || 'Não informada'], ['UTM Campaign', row.utm?.campaign || 'Não informada'], ['UTM Content', row.utm?.content || 'Não informado'], ['UTM Term', row.utm?.term || 'Não informado']].map(([label, value]) => <div key={label}><dt className="text-slate-500 mb-1">{label}</dt><dd className="font-medium break-words">{value}</dd></div>)}</dl>{row.isAggregate && <p className="text-xs text-amber-700 mt-4">Saldo consolidado sem transações individualizadas. Não foi distribuído entre produtos, famílias ou dias.</p>}</td></tr>}</Fragment>
       })}</tbody></table></div>{!details.length && <p className="text-center text-sm text-slate-500 py-8">Nenhum registro neste recorte.</p>}<div className="flex justify-between items-center mt-4 text-xs text-slate-500"><span>{count(details.length)} registros</span><div className="flex gap-3 items-center"><button type="button" className="btn btn-ghost btn-sm disabled:opacity-40" disabled={currentPage === 1} onClick={() => setDetailPage(currentPage - 1)}>Anterior</button>{currentPage} / {detailPages}<button type="button" className="btn btn-ghost btn-sm disabled:opacity-40" disabled={currentPage === detailPages} onClick={() => setDetailPage(currentPage + 1)}>Próxima</button></div></div></section>
     </>}
-    {mode !== 'global' && <section className="ds-card p-5"><div className="flex flex-wrap justify-between items-center gap-3 mb-5"><div><h2 className="font-semibold">Metas do período</h2><p className="text-xs text-slate-500 mt-1">{hasFilters ? 'Progresso do recorte filtrado diante da meta geral.' : salesPartial ? 'Progresso parcial da receita operacional diante da meta geral.' : 'Progresso da receita operacional diante da meta geral.'}</p></div>{hasPermission('goals') && <Link to="/metas" className="text-sm text-blue-600 dark:text-blue-300">Gerenciar metas</Link>}</div>{goalError && <p role="alert" className="text-sm text-amber-700 mb-3">{goalError}</p>}{goalNotice && <p role="status" className="text-sm text-blue-600 mb-3">{goalNotice}</p>}{goals && <div className="grid lg:grid-cols-3 gap-5">{Object.entries(GOALS).map(([key, label]) => {
-      const goal = Number(goals[key]) || 0
-      const pace = goalProgress(summary.total.revenue.value, goal, range.startDate, range.endDate, localDateKey())
-      return <article key={key} className="rounded-lg border border-slate-200 dark:border-slate-700 p-4"><h3 className="text-sm font-semibold">{label}</h3><p className="text-2xl font-semibold mt-3">{loading || !availableSales || pace.actual === null ? '—' : `${pace.actual.toFixed(1)}%`}</p><div className="h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full mt-3 overflow-hidden"><div className="h-full bg-blue-600 rounded-full" style={{ width: `${loading ? 0 : Math.min(100, pace.actual || 0)}%` }} /></div><p className="text-xs text-slate-500 mt-3">Esperado (dias corridos): {pace.expected.toFixed(1)}% · Meta: {currency(goal)}</p><p className="text-xs text-slate-500 mt-1">Projeção no ritmo atual: {loading || !availableSales ? '—' : currency(pace.projected)}</p><div className="mt-4 flex gap-2"><label htmlFor={`goal-${key}`} className="sr-only">Valor da {label}</label><input disabled={!userRoles?.isAdmin || savingGoal !== null} id={`goal-${key}`} type="number" min="0" step="0.01" className="ds-input min-w-0" value={goalDraft[key] ?? ''} onChange={e => setGoalDraft(old => ({ ...old, [key]: e.target.value }))} />{userRoles?.isAdmin && <button type="button" className="btn btn-ghost btn-sm disabled:opacity-40" disabled={savingGoal !== null} onClick={() => saveGoal(key)}>{savingGoal === key ? 'Salvando…' : 'Salvar faixas'}</button>}</div></article>
+    {mode !== 'global' && <section className="ds-card p-5"><div className="flex flex-wrap justify-between items-center gap-3 mb-5"><div><h2 className="font-semibold">Metas do período</h2><p className="text-xs text-slate-500 mt-1">{mode === 'month' ? `Progresso${monthlyGoalPace && !monthlyGoalPace.definitive ? ' parcial' : ''} do valor das vendas${hasFilters ? ' no recorte filtrado' : ''} diante da meta geral.` : hasFilters ? 'Progresso do recorte filtrado diante da meta geral.' : salesPartial ? 'Progresso parcial da receita operacional diante da meta geral.' : 'Progresso da receita operacional diante da meta geral.'}</p></div>{hasPermission('goals') && <Link to={mode === 'month' ? `/metas?year=${range.startDate.slice(0, 4)}&month=${Number(range.startDate.slice(5, 7))}` : '/metas'} className="text-sm text-blue-600 dark:text-blue-300">Gerenciar metas</Link>}</div>{goalError && <p role="alert" className="text-sm text-amber-700 mb-3">{goalError}{(mode === 'month' || goalConflict) && <button type="button" className="button ml-3" onClick={() => setGoalReload(value => value + 1)}>Recarregar metas</button>}</p>}{goalNotice && <p role="status" className="text-sm text-blue-600 mb-3">{goalNotice}</p>}{goalsLoading && <p role="status" className="text-sm text-slate-500">Carregando metas do período…</p>}{mode === 'month' && !goalsLoading && !goalError && !goals && <p className="text-sm text-slate-500">Meta geral de valor das vendas não configurada para este mês. Configure as faixas em Metas.</p>}{goals && <div className="grid lg:grid-cols-3 gap-5">{(mode === 'month' ? GOAL_TIERS : Object.entries(GOALS)).map(([key, label]) => {
+      const goal = mode === 'month' ? goals[key] ?? null : Number(goals[key]) || 0
+      const pace = monthlyGoalPace ? {
+        actual: goal > 0 && monthlyGoalPace.actual !== null ? monthlyGoalPace.actual / goal * 100 : null,
+        expected: monthlyGoalPace.elapsedDays / monthlyGoalPace.totalDays * 100, projected: monthlyGoalPace.projection,
+      } : goalProgress(summary.total.revenue.value, goal, range.startDate, range.endDate, localDateKey())
+      const basis = monthlyGoalPace?.basis === 'business' ? 'dias úteis · seg–sex' : 'dias corridos'
+      return <article key={key} className="rounded-lg border border-slate-200 dark:border-slate-700 p-4"><h3 className="text-sm font-semibold">{label}</h3><p className="text-2xl font-semibold mt-3">{loading || !availableSales || pace.actual === null ? '—' : `${pace.actual.toFixed(1)}%`}</p><div className="h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full mt-3 overflow-hidden"><div className="h-full bg-blue-600 rounded-full" style={{ width: `${loading || !availableSales ? 0 : Math.min(100, pace.actual || 0)}%` }} /></div><p className="text-xs text-slate-500 mt-3">Esperado ({basis}): {pace.expected.toFixed(1)}% · Meta: {currency(goal)}</p><p className="text-xs text-slate-500 mt-1">Projeção no ritmo atual: {loading || !availableSales ? '—' : currency(pace.projected)}</p>{mode === 'year' && <div className="mt-4 flex gap-2"><label htmlFor={`goal-${key}`} className="sr-only">Valor da {label}</label><input disabled={!userRoles?.isAdmin || savingGoal !== null} id={`goal-${key}`} type="number" min="0" step="0.01" className="ds-input min-w-0" value={goalDraft[key] ?? ''} onChange={e => setGoalDraft(old => ({ ...old, [key]: e.target.value }))} />{userRoles?.isAdmin && <button type="button" className="btn btn-ghost btn-sm disabled:opacity-40" disabled={savingGoal !== null || goalConflict} onClick={() => saveGoal(key)}>{savingGoal === key ? 'Salvando…' : 'Salvar faixas'}</button>}</div>}</article>
     })}</div>}</section>}
     {mode === 'global' && selectedWeek && <section className="ds-card p-5"><div className="flex flex-wrap justify-between gap-3 items-center"><div><h2 className="font-semibold">Lançamento · semana {selectedWeek.weekNumber}</h2><p className="text-xs text-slate-500 mt-1">Vendas da semana selecionada e consulta complementar de mídia.</p></div><button type="button" disabled={trafficLoading} className="btn btn-ghost disabled:opacity-40" onClick={fetchTraffic}>{trafficLoading ? 'Consultando…' : 'Consultar mídia recente'}</button></div>{trafficError && <p role="alert" className="text-sm text-amber-700 mt-4">{trafficError}</p>}{traffic && <div className="mt-5"><p className="font-semibold">Gasto recente: {traffic.mixedCurrency ? 'Contas em moedas diferentes' : currency(Number(traffic.totalSpend), traffic.currencies?.[0] || 'BRL')}</p>{traffic.partial && <p className="text-xs text-amber-700 mt-2">Consulta parcial: algumas contas não responderam.</p>}<p className="text-xs text-slate-500 mt-2">{traffic.period || 'Últimos 7 dias consultados na Meta'}. Esta consulta não fornece o intervalo histórico da semana selecionada. O ROAS da semana fica indisponível para evitar comparar períodos diferentes.</p><div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-4">{(traffic.accountsWithSpend || []).map(account => <div key={account.accountId} className="border border-slate-200 dark:border-slate-700 rounded-lg p-3"><p className="text-xs text-slate-500">{account.accountName}</p><p className="font-medium mt-1">{currency(Number(account.spend), account.currency || 'BRL')}</p></div>)}</div></div>}</section>}
     {data && <p className="text-xs text-slate-500 pb-4">Atualizado às {new Date(data.fetchedAt).toLocaleTimeString('pt-BR')} · Os filtros usam os registros disponíveis, sem ratear valores sem identificação.</p>}

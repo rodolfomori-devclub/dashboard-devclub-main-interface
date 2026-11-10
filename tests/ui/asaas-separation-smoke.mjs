@@ -1,6 +1,7 @@
 // Fixture-only regression for new Asaas sales vs invoice receipts.
 // Published mode allows only public application assets; all API calls are mocked.
 import { chromium } from 'playwright'
+import { expect } from '@playwright/test'
 import { spawn } from 'node:child_process'
 import { createServer } from 'node:net'
 import { existsSync } from 'node:fs'
@@ -40,11 +41,12 @@ const includes = (range, date) => range.startDate <= date && range.endDate >= da
 function asaasPayload(range) {
   const saleDate = scenario === 'earlier-month' ? '2026-10-01' : scenario === 'annual-later-week' ? '2026-01-01' : today
   const receiptKnown = includes(range, today)
-  const checkout = scenario !== 'cash-only'
+  const providerOrigin = scenario === 'asaas-origin'
+  const checkout = scenario !== 'cash-only' && !providerOrigin
   const saleKnown = checkout && includes(range, saleDate)
   const rows = receiptKnown ? [
-    { receiptDate: today, saleDate: checkout ? saleDate : null, received: 200, count: 1 },
-    { receiptDate: today, saleDate: checkout ? '2025-12-31' : null, received: 100, count: 1 },
+    { receiptDate: today, saleDate: checkout || providerOrigin ? saleDate : null, received: 200, count: 1 },
+    { receiptDate: today, saleDate: checkout || providerOrigin ? '2025-12-31' : null, received: 100, count: 1 },
     { receiptDate: today, saleDate: null, received: 50, count: 1 },
   ] : []
   return { success: true, data: {
@@ -53,7 +55,8 @@ function asaasPayload(range) {
     totalNet: receiptKnown ? 340 : 0,
     totalFees: receiptKnown ? 10 : 0,
     cashReceipts: receiptKnown ? [{ date: today, received: 350, count: 3 }] : [],
-    cashReceiptOrigins: { schemaVersion: 1, basis: 'checkout_created_at', status: checkout ? 'ready' : 'unavailable', rows },
+    cashReceiptOrigins: { schemaVersion: providerOrigin ? 2 : 1, basis: providerOrigin ? 'sale_created_at' : 'checkout_created_at', status: checkout || providerOrigin ? 'partial' : 'unavailable',
+      rows: providerOrigin ? rows.map(row => ({ ...row, saleDateBasis: row.saleDate ? 'asaas_installment_created_at' : null })) : rows },
     sales: checkout ? {
       count: saleKnown ? 1 : 0,
       totalValue: saleKnown ? 2000 : 0,
@@ -84,7 +87,7 @@ try {
     const htmlResponse = await fetch(`${base}/diario`)
     assert.equal(htmlResponse.status, 200)
     const html = await htmlResponse.text()
-    const main = html.match(/src="([^" ]*\/assets\/index-[^" ]+\.js)"/)?.[1]
+    const main = html.match(/src="([^" ]*\/assets\/(?:main|index)-[^" ]+\.js)"/)?.[1]
     assert.ok(main, 'Published entry asset exists')
     if (process.env.DASHBOARD_EXPECTED_ASSET) assert.equal(main, process.env.DASHBOARD_EXPECTED_ASSET)
     const config = await readPublishedVault({ base, main })
@@ -128,6 +131,7 @@ try {
     else if (url.pathname === '/api/boleto/asaas/vendas') body = payload('asaas', range)
     else if (url.pathname === '/api/boleto/boletex/vendas') body = payload('boletex', range)
     else if (url.pathname === '/api/sales-ops/ledger') body = { data: { attributions: [], manualSales: [] } }
+    else if (/^\/api\/goal-plans\/\d{4}\/\d{1,2}$/.test(url.pathname)) body = { plans: [] }
     else if (url.pathname.startsWith('/api/goals/')) body = { success: true, data: { meta: 0, superMeta: 0, ultraMeta: 0 } }
     else { unexpected.push(`${req.method()} ${url.pathname}`); await route.abort(); return }
     const method = ['/api/transactions', '/api/refunds'].includes(url.pathname) ? 'POST' : 'GET'
@@ -147,7 +151,9 @@ try {
   const cash = () => page.locator('.revenue-card--cash .revenue-card-value')
   const metricIds = { 'Vendas novas Asaas': 'sales-gross', 'Recebimentos de faturas': 'receipts-gross', 'Vendas do período': 'receipts-currentPeriod', 'Vendas anteriores': 'receipts-previousPeriods', 'Origem não identificada': 'receipts-unclassified' }
   const metric = label => panel().locator(`[data-metric="${metricIds[label]}"]`)
-  const assertMoney = async (locator, value) => assert.match(await locator.innerText(), new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+  const monthlyInvoices = () => panel().getByTestId('monthly-asaas-invoices')
+  const monthlyMetric = name => monthlyInvoices().locator(`[data-metric="monthly-${name}"]`)
+  const assertMoney = async (locator, value) => expect(locator).toContainText(new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
   async function navigate(path, width = 1440, theme = 'light', pending = false) {
     await page.setViewportSize({ width, height: 1000 })
     await page.goto(`${base}/${path}`, { waitUntil: pending ? 'domcontentloaded' : 'networkidle' })
@@ -192,6 +198,14 @@ try {
     assert.equal((await panel().locator('[data-metric="sales-count"]').innerText()).trim(), '1')
     await assertMoney(panel().locator('[data-metric="sales-entry"]'), '200,00')
     await assertMoney(cash(), '200,00')
+    if (path === 'mensal') {
+      await assertMoney(monthlyMetric('previous-receipts'), '100,00')
+      assert.equal((await monthlyMetric('previous-count').innerText()).trim(), '1')
+      await assertMoney(monthlyMetric('receipts-gross'), '350,00')
+      await assertMoney(monthlyMetric('unclassified-receipts'), '50,00')
+      assert.match(await monthlyInvoices().innerText(), /Parcial|parcial/)
+      checks.push('Monthly highlight includes only the older contract installment and labels the unclassified remainder')
+    } else assert.equal(await monthlyInvoices().count(), 0)
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `${path} ${width} overflow`)
     await panel().getByRole('heading', { name: 'Asaas: vendas e recebimentos', exact: true }).click()
     await panel().screenshot({ path: `${out}/${path}-${width}-${theme}.png`, animations: 'disabled' })
@@ -207,6 +221,10 @@ try {
     assert.match(await metric('Recebimentos de faturas').innerText(), /Não informado|Sem atribuição/)
     assert.doesNotMatch(await metric('Recebimentos de faturas').innerText(), /350,00/)
     await assertMoney(metric('Vendas novas Asaas'), '2.000,00')
+    if (path === 'mensal') {
+      assert.match(await monthlyMetric('previous-receipts').innerText(), /Não informado|Indisponível/)
+      assert.doesNotMatch(await monthlyInvoices().innerText(), /R\$\s*100,00|R\$\s*350,00/)
+    }
     assert.equal(calls.length, before, 'Product filters must stay local and not allocate unlinked statement receipts')
     checks.push(`${path}/${width}/${theme}: product filter retains matching contract and does not allocate general receipts`)
   }
@@ -216,6 +234,17 @@ try {
   await navigate('mensal')
   await assertSplit()
   checks.push('An October 1 sale received October 2 is previous in a daily view and current in the monthly view')
+  await assertMoney(monthlyMetric('previous-receipts'), '100,00')
+  await page.getByLabel('Mês', { exact: true }).fill('2026-09')
+  await page.locator('form.filter-bar button[type="submit"]').click()
+  await page.waitForFunction(() => document.querySelector('.revenue-highlights')?.getAttribute('aria-busy') === 'false')
+  await assertMoney(monthlyMetric('previous-receipts'), '0,00')
+  assert.equal((await monthlyMetric('previous-count').innerText()).trim(), '0')
+  await page.getByLabel('Mês', { exact: true }).fill('2026-10')
+  await page.locator('form.filter-bar button[type="submit"]').click()
+  await page.waitForFunction(() => document.querySelector('.revenue-highlights')?.getAttribute('aria-busy') === 'false')
+  await assertMoney(monthlyMetric('previous-receipts'), '100,00')
+  checks.push('Monthly selection recomputes the receipt month and a confirmed empty month shows zero without retaining another month')
 
   scenario = 'cash-only'
   await navigate('diario')
@@ -226,6 +255,37 @@ try {
   assert.doesNotMatch(await revenue().innerText(), /350,00|2\.000,00/)
   assert.doesNotMatch(await cash().innerText(), /350,00/, 'Invoice receipts must not become new-sales cash')
   checks.push('Cash-only source is unknown new sales and unknown origin, never R$ 350 of invented sales')
+  for (const width of [1440, 360]) {
+    await navigate('mensal', width)
+    assert.match(await monthlyMetric('previous-receipts').innerText(), /Não informado|Indisponível/)
+    assert.match(await monthlyMetric('previous-count').innerText(), /Não informado|Indisponível/)
+    await assertMoney(monthlyMetric('receipts-gross'), '350,00')
+    await assertMoney(monthlyMetric('unclassified-receipts'), '350,00')
+    assert.equal((await monthlyMetric('receipts-count').innerText()).trim(), '3')
+    assert.equal((await monthlyMetric('unclassified-count').innerText()).trim(), '3')
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
+    await monthlyInvoices().screenshot({ path: `${out}/mensal-unknown-${width}.png`, animations: 'disabled' })
+  }
+  checks.push('Monthly cash-only desktop and mobile show the known statement total while older-sale amount and invoice count remain unknown')
+
+  scenario = 'asaas-origin'
+  for (const width of [1440, 360]) {
+    await navigate('mensal', width)
+    await assertMoney(monthlyMetric('previous-receipts'), '100,00')
+    assert.ok(await monthlyMetric('previous-receipts').locator('.financial-value-content').evaluate(node => parseFloat(getComputedStyle(node).fontSize) >= 26), 'The prior-month receipt amount must keep the highlighted metric size')
+    assert.equal((await monthlyMetric('previous-count').innerText()).trim(), '1')
+    await assertMoney(monthlyMetric('receipts-gross'), '350,00')
+    await assertMoney(monthlyMetric('unclassified-receipts'), '50,00')
+    assert.match(await monthlyInvoices().innerText(), /Subtotal parcial/)
+    assert.match(await metric('Vendas novas Asaas').innerText(), /Não informado|Indisponível/)
+    assert.doesNotMatch(await revenue().innerText(), /350,00|100,00|2\.000,00/)
+    assert.doesNotMatch(await cash().innerText(), /350,00|100,00|200,00/)
+    await panel().getByText('Critérios de vendas e recebimentos', { exact: true }).click()
+    assert.match(await panel().innerText(), /parcelamento original no Asaas/)
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true)
+    await monthlyInvoices().screenshot({ path: `${out}/mensal-asaas-origin-${width}.png`, animations: 'disabled' })
+  }
+  checks.push('Asaas original-installment provenance fills prior-month receipts without the checkout database or adding cash to new-sales totals and goals')
 
   scenario = 'annual-later-week'
   const beforeAnnual = calls.filter(call => call.path === '/api/boleto/asaas/vendas').length

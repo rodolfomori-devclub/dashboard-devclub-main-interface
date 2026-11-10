@@ -217,10 +217,10 @@ try {
 
   for (const id of ['daily', 'daily-payments', 'daily-cash', 'daily-sellers']) {
     settings = { ...settings, mode: 'fixed', fixedPanel: id }
-    const { hours, payments, sellers, unassignedSeller, ...day } = initialModel.daily
+    const { hours, payments, products, sellers, unassignedSeller, ...day } = initialModel.daily
     model = { month: initialModel.month, today: initialModel.today, metric: 'cash', unit: 'currency', totals: { partial: false },
       daily: id === 'daily' || id === 'daily-cash' ? { ...day, hours } : { date: day.date, inSelectedMonth: day.inSelectedMonth, partial: day.partial,
-        ...(id === 'daily-payments' ? { payments } : { sellers, unassignedSeller }) } }
+        ...(id === 'daily-payments' ? { payments, products } : { sellers, unassignedSeller }) } }
     revision++
     await page.clock.runFor(61000)
     await expect(player()).toHaveAttribute('data-panel-id', id)
@@ -236,11 +236,11 @@ try {
 
   for (const id of ['weekly', 'weekly-payments', 'weekly-cash', 'weekly-sellers']) {
     settings = { ...settings, mode: 'fixed', fixedPanel: id }
-    const { days, payments, sellers, unassignedSeller, ...week } = initialModel.weekly
+    const { days, payments, products, sellers, unassignedSeller, commercial, commercialSharePercent, sellerTeams, ...week } = initialModel.weekly
     const weekContext = { startDate: week.startDate, endDate: week.endDate, partial: week.partial }
     model = { month: '2026-09', today: initialModel.today, metric: 'cash', unit: 'currency', totals: { partial: false },
       weekly: id === 'weekly' || id === 'weekly-cash' ? { ...week, days } : { ...weekContext,
-        ...(id === 'weekly-payments' ? { payments } : { sellers, unassignedSeller }) } }
+        ...(id === 'weekly-payments' ? { payments, products } : { ...week, sellers, unassignedSeller, commercial, commercialSharePercent, sellerTeams }) } }
     revision++
     await page.clock.runFor(61000)
     await expect(player()).toHaveAttribute('data-panel-id', id)

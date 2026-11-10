@@ -9,6 +9,7 @@ import { SyncStatusChip, SyncState } from '@/components/SyncStatusBanner';
 import { draftStore } from '@/lib/draftStore';
 import { addPendingItem, removePendingItem } from '@/hooks/usePendingSync';
 import { logActivity } from '@/lib/activityLogger';
+import IndividualGoalPace from '@/components/IndividualGoalPace';
 
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
@@ -170,6 +171,8 @@ export default function DailyKpis() {
         <h1 className="page-title">KPIs Diários</h1>
         <Select value={String(year)} onValueChange={v => setYear(Number(v))}><SelectTrigger className="w-32"><SelectValue /></SelectTrigger><SelectContent>{[2025, 2026, 2027].map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent></Select>
       </div>
+
+      <IndividualGoalPace year={year} />
 
       <Accordion type="single" collapsible className="space-y-2">
         {MONTHS.map((monthName, monthIdx) => {

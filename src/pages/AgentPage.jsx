@@ -10,6 +10,7 @@ const EXAMPLES = [
   'Compare novembro de 2025 com novembro de 2026',
   'Compare a semana do dia 3 de setembro com a semana do dia 7 de setembro',
   'Quais as vendas da Hotmart em 15 de outubro?',
+  'Mostre nome, e-mail e telefone dos compradores deste mês',
 ]
 const COMMENT_NOTE = 'Tabelas e gráficos vêm do servidor; o texto do agente é um comentário.'
 const SWAP_GUARD_MS = 500
@@ -45,7 +46,7 @@ function EmptyState({ onPick }) {
   return <section className="agent-empty ds-card">
     <span className="agent-empty-icon"><Bot size={26} aria-hidden="true" /></span>
     <h2>O que você quer comparar?</h2>
-    <p className="agent-muted">Pergunte por datas, semanas, meses ou plataformas. O agente busca os dados e monta as tabelas e os gráficos.</p>
+    <p className="agent-muted">Pergunte por datas, semanas, meses ou plataformas. Consulte também nome, e-mail e telefone dos compradores, com downloads em XLSX e CSV.</p>
     <div className="agent-examples">{EXAMPLES.map(example => <button key={example} type="button" className="btn btn-ghost" onClick={() => onPick(example)}>{example}</button>)}</div>
     <p className="agent-muted">A conversa não é salva. {COMMENT_NOTE}</p>
   </section>

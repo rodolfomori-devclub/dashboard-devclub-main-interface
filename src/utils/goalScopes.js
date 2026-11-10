@@ -19,6 +19,8 @@ export function goalScopeName(plan = {}) {
 }
 export function recordMatchesGoal(row, plan) {
   const { scope, scopeId } = goalScope(plan)
+  if (scope === 'product' && scopeId === 'Vitalício') return row.isLifetimeGoal === true
+    || /\bvitalicio\b/.test(String(row.product || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase())
   if (scope === 'product') return row.family === scopeId
   if (scope === 'team') return isRankingParticipant(row) && Boolean(scopeId) && row.teamId === scopeId
   if (scope === 'individual') return isRankingParticipant(row) && Boolean(scopeId) && row.sellerId === scopeId

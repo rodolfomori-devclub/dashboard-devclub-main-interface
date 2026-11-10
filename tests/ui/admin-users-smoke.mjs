@@ -122,7 +122,8 @@ async function fixture(route) {
     } else if (/^\/api\/admin\/users\/[^/]+$/.test(path) && method === 'GET') {
       const user = users.find(item => item.id === path.split('/')[4]); assert.ok(user); body = { user }
     } else { unexpected.push(`${method} ${path}`); await route.abort(); return }
-  } else { unexpected.push(`${method} ${path}`); await route.abort(); return }
+  } else if (path === '/api/mcp/status' && method === 'GET') body = { enabled: false, writesEnabled: false }
+  else { unexpected.push(`${method} ${path}`); await route.abort(); return }
   await route.fulfill({ status, contentType: 'application/json', headers: { 'access-control-allow-origin': base, 'cache-control': 'no-store' }, body: JSON.stringify(body) })
 }
 

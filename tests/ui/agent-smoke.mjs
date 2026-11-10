@@ -11,7 +11,7 @@ import { chromium } from 'playwright'
 import { expect } from '@playwright/test'
 
 const root = fileURLToPath(new URL('../../', import.meta.url))
-const out = fileURLToPath(new URL('./artifacts/agent/', import.meta.url))
+const out = process.env.UI_ARTIFACTS_DIR || fileURLToPath(new URL('./artifacts/agent/', import.meta.url))
 const freePort = async () => {
   const socket = createServer()
   await new Promise(resolve => socket.listen(0, '127.0.0.1', resolve))
@@ -443,6 +443,45 @@ try {
   }
   await composer.evaluate(node => { node.style.height = '' })
   await page.setViewportSize({ width: 1440, height: 1000 })
+
+  // Buyer contacts stay in the table and downloads, outside the conversation sent to the model.
+  const buyers = { blockId: 'b1', kind: 'buyers', period: summary.period, filters: summary.filters, status: 'partial',
+    rows: Array.from({ length: 26 }, (_, index) => ({ name: index ? `Comprador ${index + 1}` : '<script>cliente</script>', email: `comprador${index + 1}@example.test`, phone: index ? null : '+55011999990000', product: 'DevClub', platform: 'Hotmart', date: '2026-10-15T13:00:00Z' })),
+    totalRows: 30, limit: 26, truncated: true, omittedAggregateRows: 0, notices: [{ id: 'contact-limit', title: 'Lista limitada', tone: 'warning', message: 'Reduza o período para consultar os demais registros.' }] }
+  replies.push(stream([meta, { type: 'block', block: buyers }, text('Os contatos estão na tabela.'), done()]))
+  await ask('Mostre nome, email e telefone dos compradores de outubro')
+  const contacts = page.getByRole('article', { name: 'Compradores de 15/10/2026' })
+  await expect(contacts.getByRole('cell', { name: 'comprador1@example.test', exact: true })).toBeVisible()
+  await expect(contacts.getByRole('cell', { name: '+55011999990000', exact: true })).toBeVisible()
+  await expect(contacts.getByText('<script>cliente</script>', { exact: true })).toBeVisible()
+  await expect(contacts.locator('script')).toHaveCount(0)
+  await expect(contacts.locator('tbody tr')).toHaveCount(25)
+  await expect(contacts.getByText('Não informado', { exact: true }).first()).toBeVisible()
+  await expect(contacts.getByText('26 de 30 registros de compra.', { exact: true })).toBeVisible()
+  await contacts.getByRole('button', { name: 'Próxima página' }).click()
+  await expect(contacts.locator('tbody tr')).toHaveCount(1)
+  await expect(contacts.getByRole('cell', { name: 'comprador26@example.test', exact: true })).toBeVisible()
+  const csvDownload = page.waitForEvent('download')
+  await contacts.getByRole('button', { name: 'Baixar CSV' }).click()
+  const csv = await csvDownload
+  assert.match(csv.suggestedFilename(), /^compradores-.*\.csv$/)
+  const csvText = await fs.readFile(await csv.path(), 'utf8')
+  assert.ok(csvText.includes('comprador1@example.test') && csvText.includes('comprador26@example.test'), 'Every returned row exports, including other pages')
+  const xlsxDownload = page.waitForEvent('download')
+  await contacts.getByRole('button', { name: 'Baixar XLSX' }).click()
+  assert.match((await xlsxDownload).suggestedFilename(), /^compradores-.*\.xlsx$/)
+  await page.setViewportSize({ width: 360, height: 800 })
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth) <= 360, 'The contacts table scrolls inside the block on mobile')
+  await page.screenshot({ path: `${out}/buyers-mobile.png`, fullPage: true })
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  replies.push(stream([meta, { type: 'block', block: { ...buyers, rows: [], totalRows: 0, truncated: false, status: 'pending' } }, done({ pending: true })]))
+  await ask('E os compradores de setembro?')
+  assert.doesNotMatch(JSON.stringify(requests.at(-1).history), /comprador\d+@example\.test|55011999990000|<script>/)
+  const emptyContacts = page.getByRole('article', { name: 'Compradores de 15/10/2026' }).last()
+  await expect(emptyContacts.getByText('Ainda em coleta', { exact: true })).toBeVisible()
+  await expect(emptyContacts.getByText('A lista ainda está em coleta. Tente novamente em alguns minutos.', { exact: true })).toBeVisible()
+  await expect(emptyContacts.getByRole('button', { name: 'Baixar CSV' })).toBeDisabled()
+  await expect(emptyContacts.getByRole('button', { name: 'Baixar XLSX' })).toBeDisabled()
 
   // Starting over discards the conversation.
   await newConversation()

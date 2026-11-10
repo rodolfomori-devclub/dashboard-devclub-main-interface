@@ -39,6 +39,28 @@ p { margin: 0; }
 .tv-light-table-goals td { font-size: 21px; padding-top: 11px; padding-bottom: 11px; }
 .tv-light-table-goals td:first-child { font-size: 19px; }
 .tv-light-table-goals .tv-light-label { font-size: 13px; }
+.tv-light-split { display: table; table-layout: fixed; width: 100%; }
+.tv-light-split-column { display: table-cell; width: 50%; vertical-align: top; padding-right: 22px; }
+.tv-light-split-column + .tv-light-split-column { padding: 0 0 0 22px; border-left: 1px solid #35413b; }
+.tv-light-split-column h2 { font-size: 24px; line-height: 1.2; margin: 0 0 15px; }
+.tv-light-compact-table th { font-size: 13px; padding: 0 5px 9px; }
+.tv-light-compact-table th:first-child { width: 34%; }
+.tv-light-compact-table td { font-size: 20px; padding: 11px 5px; }
+.tv-light-compact-table td:first-child { font-size: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tv-light-compact-table .tv-light-table-cash { font-size: 19px; }
+.tv-light-compact-table small { font-size: 12px; }
+.tv-light-weekly-overview { display: table; table-layout: fixed; width: 100%; border: 1px solid #35413b; border-radius: 10px; background: #1b2520; margin-bottom: 17px; }
+.tv-light-weekly-overview section { display: table-cell; width: 50%; vertical-align: top; padding: 12px 20px; }
+.tv-light-weekly-overview section + section { border-left: 1px solid #35413b; }
+.tv-light-weekly-amount { display: block; font-size: 34px; line-height: 1.1; margin: 5px 0; }
+.tv-light-weekly-cash { display: block; font-size: 16px; color: #99edac; }
+.tv-light-commercial-share { display: block; font-size: 16px; margin-top: 4px; }
+.tv-light-team-total { display: table; table-layout: fixed; width: 100%; margin: 0 0 13px; }
+.tv-light-team-total span { display: table-cell; width: 50%; font-size: 13px; color: #bdc9c2; }
+.tv-light-team-total strong { display: block; color: #f1f6f3; font-size: 23px; margin-top: 3px; }
+.tv-light-team-total span + span strong { color: #99edac; }
+.tv-light-team-rankings .tv-light-compact-table td { padding-top: 9px; padding-bottom: 9px; }
+.tv-light-team-rankings .tv-light-note { font-size: 13px; }
 .tv-light-empty { padding: 60px 25px; border: 1px solid #35413b; background: #1b2520; border-radius: 12px; text-align: center; color: #bdc9c2; }
 .tv-light-empty h2 { color: #f1f6f3; font-size: 26px; margin: 0 0 10px; }
 .tv-light-notice { background: #3e3320; color: #ffdda0; border: 1px solid #8c7041; padding: 10px 14px; margin: 0 0 12px; border-radius: 6px; font-size: 16px; }
@@ -58,6 +80,28 @@ body[data-tv-theme="light"] .tv-light-empty h2 { color: #13231a; }
 body[data-tv-theme="light"] .tv-light-header, body[data-tv-theme="light"] .tv-light-footer, body[data-tv-theme="light"] .tv-light-table td, body[data-tv-theme="light"] .tv-light-hero-cell { border-color: #c6d3cb; }
 body[data-tv-theme="light"] .tv-light-dot, body[data-tv-theme="light"] .tv-light-track span { background: #37804a; }
 body[data-tv-theme="light"] .tv-light-pace { border-color: #37804a; }
+body[data-tv-theme="light"] .tv-light-weekly-overview { background: #ffffff; border-color: #c6d3cb; }
+body[data-tv-theme="light"] .tv-light-weekly-overview section + section, body[data-tv-theme="light"] .tv-light-split-column + .tv-light-split-column { border-color: #c6d3cb; }
+body[data-tv-theme="light"] .tv-light-team-total span { color: #4c6053; }
+body[data-tv-theme="light"] .tv-light-team-total strong { color: #13231a; }
+body[data-tv-theme="light"] .tv-light-weekly-cash, body[data-tv-theme="light"] .tv-light-team-total span + span strong { color: #23623a; }
+@media (min-width: 801px) and (max-height: 800px) {
+  .tv-light-shell { padding-top: 16px; padding-bottom: 12px; }
+  .tv-light-heading { padding-top: 10px; padding-bottom: 8px; }
+  .tv-light-weekly-overview { margin-bottom: 10px; }
+  .tv-light-weekly-overview section { padding: 8px 16px; }
+  .tv-light-weekly-amount { margin: 3px 0; line-height: 1; }
+  .tv-light-weekly-cash, .tv-light-commercial-share { display: inline-block; margin-top: 0; }
+  .tv-light-commercial-share { margin-left: 16px; }
+  .tv-light-team-rankings h2 { margin-bottom: 6px; }
+  .tv-light-team-total { margin-bottom: 7px; }
+  .tv-light-team-total strong { display: inline; margin: 0 0 0 7px; }
+  .tv-light-team-rankings .tv-light-compact-table th { padding-bottom: 6px; }
+  .tv-light-team-rankings .tv-light-compact-table td { padding-top: 5px; padding-bottom: 5px; }
+  .tv-light-team-rankings .tv-light-note { margin-top: 7px; }
+  .tv-light-footer { padding-top: 8px; margin-top: 10px; }
+  .tv-light-footer-info { font-size: 13px; line-height: 1.2; }
+}
 @media (min-width: 1600px) {
   .tv-light-shell { padding: 42px 64px; }
   .tv-light-heading { padding: 32px 0 27px; }
@@ -74,6 +118,18 @@ body[data-tv-theme="light"] .tv-light-pace { border-color: #37804a; }
   .tv-light-table td:first-child { font-size: 30px; }
   .tv-light-table .tv-light-table-cash { font-size: 28px; }
   .tv-light-table small { font-size: 18px; }
+  .tv-light-split-column { padding-right: 32px; }
+  .tv-light-split-column + .tv-light-split-column { padding-left: 32px; }
+  .tv-light-split-column h2 { font-size: 32px; margin-bottom: 22px; }
+  .tv-light-compact-table th { font-size: 18px; }
+  .tv-light-compact-table td, .tv-light-compact-table .tv-light-table-cash { font-size: 28px; padding: 18px 8px; }
+  .tv-light-compact-table td:first-child { font-size: 26px; }
+  .tv-light-weekly-overview section { padding: 20px 30px; }
+  .tv-light-weekly-amount { font-size: 48px; }
+  .tv-light-weekly-cash, .tv-light-commercial-share { font-size: 22px; }
+  .tv-light-team-total span { font-size: 18px; }
+  .tv-light-team-total strong { font-size: 32px; }
+  .tv-light-team-rankings .tv-light-note { font-size: 18px; }
 }
 @media (max-width: 800px) {
   .tv-light-shell { padding: 18px; }
@@ -97,6 +153,11 @@ body[data-tv-theme="light"] .tv-light-pace { border-color: #37804a; }
   .tv-light-table-goals th:first-child { width: 25%; }
   .tv-light-label { font-size: 14px; }
   #tv-light-panel { min-height: 290px; }
+  .tv-light-split, .tv-light-split-column, .tv-light-split-column + .tv-light-split-column { display: block; width: 100%; padding: 0; border-left: 0; }
+  .tv-light-split-column + .tv-light-split-column { margin-top: 22px; }
+  .tv-light-weekly-overview section { padding: 12px; }
+  .tv-light-weekly-amount { font-size: 26px; }
+  .tv-light-weekly-cash, .tv-light-commercial-share { font-size: 13px; }
 }
 
 /* The approved confetti preset also works without modern layout primitives. */

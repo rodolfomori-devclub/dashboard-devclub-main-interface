@@ -25,6 +25,17 @@
 .asaas-cash-totals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 18px 0 0; color: var(--muted); font-size: 11px; }
 .asaas-cash-totals dd { margin: 4px 0 0; font-size: 16px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
 .asaas-cash-details p { max-width: 100ch; margin-top: 14px; }
+.asaas-monthly-invoices { min-width:0; margin-top:22px; padding:22px; border:1px solid var(--border); border-left:4px solid var(--accent); border-radius:12px; background:var(--surface-subtle); }
+.asaas-monthly-invoices > header { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
+.asaas-monthly-invoices h3 { margin:0; font-size:17px; font-weight:650; }
+.asaas-monthly-invoices header p,.asaas-monthly-invoice-main > div > span,.asaas-monthly-invoice-context dt { margin:6px 0 0; color:var(--muted); font-size:11px; line-height:1.6; }
+.asaas-monthly-invoices header > span { flex-shrink:0; color:var(--muted); font-size:11px; font-weight:600; }
+.asaas-monthly-invoice-main { display:grid; grid-template-columns:minmax(0,1.4fr) minmax(0,1fr); gap:24px; align-items:baseline; margin-top:18px; }
+.asaas-monthly-invoice-main p { margin:7px 0 0; font-family:'Outfit Variable',sans-serif; font-size:clamp(26px,3vw,40px); line-height:1.2; font-weight:600; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+.asaas-monthly-invoice-main > div:last-child p { font-size:26px; }
+.asaas-monthly-invoice-context { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px; border-top:1px solid var(--border); padding-top:14px; margin-top:20px; }
+.asaas-monthly-invoice-context dd { margin:5px 0 0; font-size:16px; font-weight:600; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+.asaas-monthly-invoice-note { margin:16px 0 0; color:var(--muted); font-size:11px; line-height:1.7; }
 @media (max-width: 760px) {
   .asaas-separation { padding: 18px; }
   .asaas-separation-grid { grid-template-columns: minmax(0, 1fr); gap: 12px; margin-top: 18px; }
@@ -33,4 +44,8 @@
   .asaas-receipt-origins > div { flex-wrap: wrap; gap: 6px; }
   .asaas-receipt-origins dd { margin-left: auto; }
   .asaas-cash-totals { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .asaas-monthly-invoices { padding:18px; }
+  .asaas-monthly-invoices > header { flex-wrap:wrap; gap:8px; }
+  .asaas-monthly-invoice-main { grid-template-columns:minmax(0,1fr); gap:16px; }
+  .asaas-monthly-invoice-context { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }

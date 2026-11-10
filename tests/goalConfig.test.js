@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildGoalPayload, emptyGoalBreakdown, goalBreakdownPreview, goalBreakdownTotals, goalDraft, goalPlanKey, goalScopeTargets, normalizeGoalPlan } from '../src/components/goals/goalConfig.js'
+import { buildGoalPayload, emptyGoalBreakdown, goalBreakdownPreview, goalBreakdownTotals, goalDraft, goalPlanKey, goalProductPreview, goalScopeTargets, normalizeGoalPlan } from '../src/components/goals/goalConfig.js'
 import { normalizeSource, PRODUCT_FAMILIES } from '../src/utils/salesData.js'
 import { prepareGoalData } from '../src/utils/goalData.js'
 import { calculateGoalPace } from '../src/utils/goalPace.js'
@@ -41,6 +41,30 @@ test('Operação 50K connects goal selection to its own gross and TMB cash pace'
     assert.equal(pace.actual, expected)
     assert.equal(pace.rows[0].actual, expected)
     assert.equal(pace.rows[1].actual, null)
+  }
+})
+
+test('Vitalício is selectable for goals without changing product families or their totals', () => {
+  const product = 'Vitalício'
+  assert.equal(PRODUCT_FAMILIES.includes(product), false)
+  assert.ok(goalScopeTargets('product', {}).some(item => item.id === product && item.active))
+  const records = normalizeSource('tmb', { data: [
+    { value: 1000, product: 'DevClub Vitalício', timestamp: '2026-10-01T15:00:00Z', raw: { pedido_id: 1, valor_total: 1000 } },
+    { value: 500, product: 'MBA VITALICIO', timestamp: '2026-10-01T15:00:00Z', raw: { pedido_id: 2, valor_total: 500 } },
+    { value: 700, product: 'DevClub Full Stack', timestamp: '2026-10-01T15:00:00Z', raw: { pedido_id: 3, valor_total: 700 } },
+    { value: 200, product: 'Vitalício', timestamp: '2026-10-01T15:00:00Z', raw: { pedido_id: 4, valor_total: 200 } },
+  ] })
+  assert.deepEqual(records.map(row => row.family), ['DevClub', 'MBA', 'DevClub', 'Outros'])
+  const data = prepareGoalData({ records, sources: [{ id: 'tmb', kind: 'sale', status: 'ready' }] })
+  for (const [metric, expected] of [['gross', 1700], ['cash', 680], ['count', 3]]) {
+    const plan = buildGoalPayload({ scope: 'product', scopeId: product, metric, draft: { ...draft, target: '1000' } })
+    assert.equal(plan.product, product)
+    assert.equal(plan.scopeId, product)
+    assert.equal(calculateGoalPace({ ...data, year: 2026, month: 10, plan, today: '2026-10-01' }).actual, expected)
+  }
+  for (const [family, expected] of [['DevClub', 1700], ['MBA', 500], ['Outros', 200]]) {
+    const plan = buildGoalPayload({ scope: 'product', scopeId: family, metric: 'gross', draft })
+    assert.equal(calculateGoalPace({ ...data, year: 2026, month: 10, plan, today: '2026-10-01' }).actual, expected)
   }
 })
 
@@ -110,4 +134,39 @@ test('split goals reject invalid parts, cross-scope use, fractional counts and e
   for (const target of ['', null, false, -1, Infinity, .001, 201]) assert.throws(() => buildGoalPayload({ ...input, draft: { ...draft, breakdown: [{ ...breakdown[0], target }, breakdown[1]] } }))
   assert.throws(() => buildGoalPayload({ ...input, metric: 'count', draft: { ...draft, breakdown: [{ ...breakdown[0], target: .5 }, breakdown[1]] } }), /inteiras/)
   assert.throws(() => goalBreakdownTotals(breakdown.map(part => ({ ...part, target: 600000000000, superTarget: 600000000000, ultraTarget: 600000000000 })), 'gross'), /limite/)
+})
+
+test('product prefilling sums exact tiers only for product plans of the selected metric, including Vitalício', () => {
+  const product = (scopeId, target, superTarget, ultraTarget, metric = 'gross') => ({ scope: 'product', scopeId, metric, target, superTarget, ultraTarget })
+  const plans = [product('DevClub', .1, 1.15, 10.07), product('Vitalício', .2, 2.35, 20.09), product('MBA', 100, 200, 300, 'cash'),
+    { ...product('', 1000, 2000, 3000), scope: 'overall' }, { ...product(uuid, 1000, 2000, 3000), scope: 'team' }, { ...product(uuid, 1000, 2000, 3000), scope: 'individual' }]
+  const original = structuredClone(plans)
+  const preview = goalProductPreview(plans, 'gross')
+  assert.deepEqual(preview.products.map(plan => plan.scopeId), ['DevClub', 'Vitalício'])
+  assert.deepEqual(preview.totals, { target: .3, superTarget: 3.5, ultraTarget: 30.16 })
+  assert.deepEqual(goalProductPreview(plans, 'cash').totals, { target: 100, superTarget: 200, ultraTarget: 300 })
+  assert.deepEqual(plans, original, 'A preview must not mutate the saved product plans')
+})
+
+test('product prefilling distinguishes missing and zero plans and rejects invalid amounts or overflowing totals', () => {
+  const plan = { product: 'DevClub', metric: 'gross', target: 0, superTarget: 0, ultraTarget: 0 }
+  assert.deepEqual(goalProductPreview([], 'gross'), { products: [], totals: null })
+  assert.deepEqual(goalProductPreview([plan], 'gross').totals, { target: 0, superTarget: 0, ultraTarget: 0 })
+  assert.deepEqual(goalProductPreview([{ ...plan, metric: 'count', target: 2, superTarget: 3, ultraTarget: 4 }], 'count').totals, { target: 2, superTarget: 3, ultraTarget: 4 })
+  for (const target of ['', null, -1, Infinity, .001, 1]) assert.throws(() => goalProductPreview([{ ...plan, target }], 'gross'))
+  assert.throws(() => goalProductPreview([{ ...plan, metric: 'count', target: .5, superTarget: 1, ultraTarget: 2 }], 'count'), /inteiras/)
+  const large = { ...plan, target: 600000000000, superTarget: 600000000000, ultraTarget: 600000000000 }
+  assert.throws(() => goalProductPreview([large, { ...large, product: 'MBA' }], 'gross'), /limite/)
+})
+
+test('only an explicit overall conversion sends clearBreakdown without altering ordinary write contracts', () => {
+  const input = { scope: 'overall', scopeId: '', metric: 'gross', draft: { ...draft, breakdown: null } }
+  assert.equal(Object.hasOwn(buildGoalPayload(input), 'clearBreakdown'), false)
+  const payload = buildGoalPayload({ ...input, draft: { ...input.draft, clearBreakdown: true } })
+  assert.equal(payload.clearBreakdown, true)
+  assert.equal(Object.hasOwn(payload, 'breakdown'), false)
+  assert.equal(payload.notes, draft.notes)
+  assert.equal(payload.paceBasis, draft.paceBasis)
+  assert.throws(() => buildGoalPayload({ ...input, scope: 'product', scopeId: 'DevClub', draft: { ...input.draft, clearBreakdown: true } }), /geral/)
+  assert.throws(() => buildGoalPayload({ ...input, draft: { ...input.draft, clearBreakdown: true, breakdown: emptyGoalBreakdown() } }), /divisão/)
 })
