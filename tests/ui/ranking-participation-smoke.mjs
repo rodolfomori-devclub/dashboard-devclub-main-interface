@@ -65,7 +65,8 @@ async function fixture(route) {
       Object.assign(user, { excludedFromRanking: input.excludedFromRanking, revision: user.revision + 1, updatedAt: '2026-10-01T16:00:00Z' })
       body = { user }
     }
-  } else { unexpected.push(`${method} ${path}`); await route.abort(); return }
+  } else if (path === '/api/mcp/status' && method === 'GET') body = { enabled: false, writesEnabled: false }
+  else { unexpected.push(`${method} ${path}`); await route.abort(); return }
   await route.fulfill({ status, contentType: 'application/json', headers: { 'access-control-allow-origin': base }, body: JSON.stringify(body) })
 }
 

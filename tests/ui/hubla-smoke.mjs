@@ -64,6 +64,7 @@ try {
     if (url.pathname === '/api/access') body = { user: { sub: 'fixture', name: 'Fixture', permissions: ['today', 'monthly', 'yearly'], isAdmin: true } }
     else if (url.pathname === '/api/period-cache') body = periodCacheFixture(url, { today: day, payloadForSource: payload })
     else if (url.pathname === '/api/sales-ops/ledger') body = { data: { manualSales: [], attributions: [], utmMappings: [] } }
+    else if (/^\/api\/goal-plans\/\d{4}\/\d{1,2}$/.test(url.pathname)) body = { plans: [] }
     else if (url.pathname.startsWith('/api/goals/')) body = { success: true, data: { meta: 0, superMeta: 0, ultraMeta: 0 } }
     else {
       const id = ({ '/api/transactions': 'guru', '/api/refunds': 'guruRefunds', '/api/hotmart/vendas': 'hotmart',
