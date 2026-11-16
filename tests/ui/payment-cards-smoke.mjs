@@ -66,6 +66,7 @@ await context.route('**/*', async route => {
  else if (url.pathname === '/api/period-cache') body = periodCacheFixture(url, { today: date, payloadForSource: payload })
  else if (url.pathname === '/api/transactions') body = payload('guru')
  else if (url.pathname === '/api/refunds') body = payload('guruRefunds')
+ else if (url.pathname === '/api/refunds/requests') body = { success: true, data: [], sources: [{ id: 'typeform', status: 'available' }, { id: 'spreadsheet', status: 'available' }], incomplete: false }
  else if (url.pathname === '/api/hotmart/vendas') body = payload('hotmart')
  else if (['/api/hubla/vendas', '/api/hubla/reembolsos'].includes(url.pathname)) body = { success: true, data: { financialSchemaVersion: 2, count: 0, totalNet: 0, totalGross: 0, totalFees: 0, transactions: [] } }
  else if (url.pathname === '/api/hotmart/reembolsos') body = payload('hotmartRefunds')

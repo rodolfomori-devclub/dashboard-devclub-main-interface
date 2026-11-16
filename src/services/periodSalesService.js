@@ -4,6 +4,8 @@ import { SOURCE_DEFINITIONS } from '../utils/salesData.js'
 import { mergePeriodSources } from '../utils/periodData.js'
 import { getSalesLedger } from './salesOpsService.js'
 import { sourceHasSales } from '../utils/sourceAvailability.js'
+import { reconcileGlobalRefunds } from '../utils/refundSummary.js'
+import { refundsService } from './refundsService.js'
 
 const cancelledError = () => Object.assign(new Error('Consulta cancelada'), { name: 'AbortError' })
 const waitForPoll = (milliseconds, signal) => new Promise((resolve, reject) => {
@@ -123,13 +125,36 @@ const loadCachedPeriod = createPeriodCacheLoader({
   },
 })
 
+export function createGlobalPeriodLoader({ fetchSales = loadSalesRange, fetchRequests = refundsService.getRequests } = {}) {
+  return async (startDate, endDate, options = {}) => {
+    validateSalesRange(startDate, endDate)
+    const generation = salesCacheGeneration()
+    const assertActive = () => { if (options.signal?.aborted || options.isCancelled?.() || generation !== salesCacheGeneration()) throw cancelledError() }
+    assertActive()
+    const [sales, requests] = await Promise.allSettled([
+      fetchSales(startDate, endDate, { force: options.force }), fetchRequests({ signal: options.signal }),
+    ])
+    assertActive()
+    if (sales.status === 'rejected') throw sales.reason
+    const result = sales.value
+    const payload = requests.status === 'fulfilled' ? requests.value : null
+    const valid = payload?.success === true && Array.isArray(payload.data) && Array.isArray(payload.sources)
+      && ['typeform', 'spreadsheet'].every(id => payload.sources.some(source => source.id === id))
+    const requestSources = valid ? payload.sources : []
+    const status = !valid || requestSources.every(source => source.status === 'unavailable') ? 'unavailable'
+      : payload.incomplete || requestSources.some(source => source.status !== 'available') ? 'partial' : 'ready'
+    const sources = mergePeriodSources([{ startDate, endDate, result }])
+    const reconciled = reconcileGlobalRefunds(sources.flatMap(source => source.rows), valid ? payload.data : [], { startDate, endDate })
+    const reconciledSources = sources.map(source => ({ ...source, rows: reconciled.records.filter(row => row.sourceId === source.id) }))
+    reconciledSources.push({ id: 'refundRequests', label: 'Solicitações de reembolso', kind: 'refund', status, rows: [] })
+    options.onProgress?.({ current: 1, total: 1 })
+    return { ...result, startDate, endDate, sources: reconciledSources, records: reconciled.records,
+      refundReview: { status, sources: requestSources, pendingRequests: reconciled.pendingRequests, excludedCount: reconciled.excludedCount } }
+  }
+}
+
+const loadGlobalPeriod = createGlobalPeriodLoader()
+
 export async function loadPeriodSales(startDate, endDate, options = {}) {
-  if (options.annual || options.historical) return loadCachedPeriod(startDate, endDate, options)
-  // The launch/global view keeps its existing direct-provider behavior.
-  if (options.isCancelled?.()) throw cancelledError()
-  const result = await loadSalesRange(startDate, endDate, { force: options.force })
-  if (options.isCancelled?.()) throw cancelledError()
-  options.onProgress?.({ current: 1, total: 1 })
-  const sources = mergePeriodSources([{ startDate, endDate, result }])
-  return { ...result, startDate, endDate, sources, records: sources.flatMap(source => source.rows) }
+  return options.annual || options.historical ? loadCachedPeriod(startDate, endDate, options) : loadGlobalPeriod(startDate, endDate, options)
 }

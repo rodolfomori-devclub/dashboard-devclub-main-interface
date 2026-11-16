@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import * as XLSX from 'xlsx'
 import { buildBuyerContactsCsv, buildBuyerContactsWorkbook, buildPeriodSalesWorkbook } from '../src/utils/periodSalesExport.js'
+import { reconcileGlobalRefunds } from '../src/utils/refundSummary.js'
 
 const options = { startDate: '2026-10-01', endDate: '2026-10-27', generatedAt: new Date('2026-10-28T01:00:00Z'), operationsStatus: 'ready', sources: [{ id: 'guru', label: 'Guru', kind: 'sale', status: 'ready' }] }
 const sale = {
@@ -17,6 +18,19 @@ function roundtrip(records, changes = {}) {
 function table(sheet, range = 0) {
   return XLSX.utils.sheet_to_json(sheet, { range, defval: null, UTC: true })
 }
+
+test('Excel global exclui solicitação dos totais e da aba Vendas, preservando motivo e data no histórico', () => {
+  const requests = [{ id: 'request', email: sale.buyerEmail, product: sale.product, purchasedAt: '2026-10-01', requestedAt: '2026-11-10', status: 'requested' }]
+  const result = reconcileGlobalRefunds([sale], requests, options)
+  const workbook = roundtrip(result.records, { refundReview: { ...result, status: 'ready' } })
+  assert.equal(table(workbook.Sheets.Vendas).length, 0)
+  assert.equal(table(workbook.Sheets.Comercial, 10)[0].Vendas, 0)
+  const history = table(workbook.Sheets['Reembolsos e chargebacks'])
+  assert.equal(history.length, 1)
+  assert.equal(history[0]['Status do reembolso'], 'Reembolso solicitado')
+  assert.equal(history[0]['Solicitado em'].toISOString(), '2026-11-10T00:00:00.000Z')
+  assert.equal(history[0]['ID na plataforma'], sale.externalId)
+})
 
 test('Excel keeps all filtered records, every UTM, IDs, typed money and the São Paulo date', () => {
   const records = Array.from({ length: 25 }, (_, index) => ({ ...sale, id: `guru:${index}`, externalId: String(index).padStart(4, '0') }))

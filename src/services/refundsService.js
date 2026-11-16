@@ -1,8 +1,13 @@
 import axios from 'axios'
 
-const API_URL = import.meta.env.VITE_API_URL
+const API_URL = import.meta.env?.VITE_API_URL || 'http://localhost:3000/api'
 
 export const refundsService = {
+  async getRequests({ signal } = {}) {
+    const response = await axios.get(`${API_URL}/refunds/requests`, { signal, timeout: 180000 })
+    return response.data
+  },
+
   async getOverview({ startDate, endDate, signal }) {
     const response = await axios.get(`${API_URL}/refunds/overview`, {
       params: { startDate, endDate }, signal, timeout: 180000,

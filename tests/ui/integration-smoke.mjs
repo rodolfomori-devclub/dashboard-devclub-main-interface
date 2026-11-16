@@ -101,6 +101,7 @@ await context.route('**/*',async route=>{
  }
  else if(url.pathname==='/api/transactions')body={data:guruRows}
  else if(url.pathname==='/api/refunds')body={data:[]}
+ else if(url.pathname==='/api/refunds/requests')body={success:true,data:[],sources:[{id:'typeform',status:'available'},{id:'spreadsheet',status:'available'}],incomplete:false}
  else if(url.pathname==='/api/hotmart/vendas')body={success:true,data:{count:1,totalGross:300,totalNet:250,totalFees:50,transactions:[{transaction:'h1',product:'Seu segundo salário com IA',grossValue:300,netValue:250,fee:50,paymentMethod:'PIX',orderDate:`${date}T16:10:00-03:00`}]}}
  else if (['/api/hubla/vendas', '/api/hubla/reembolsos'].includes(url.pathname)) body = { success: true, data: { financialSchemaVersion: 2, count: 0, totalNet: 0, totalGross: 0, totalFees: 0, transactions: [] } }
  else if(url.pathname==='/api/hotmart/reembolsos')body={success:true,data:{count:0,totalRefundAmount:0,transactions:[]}}

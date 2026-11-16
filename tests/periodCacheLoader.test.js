@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createPeriodCacheLoader, normalizePeriodSnapshot, periodCacheStatus, bucketHasSalesSource } from '../src/services/periodSalesService.js'
+import { createPeriodCacheLoader, createGlobalPeriodLoader, normalizePeriodSnapshot, periodCacheStatus, bucketHasSalesSource } from '../src/services/periodSalesService.js'
 import { mergeFreshSalesLedger } from '../src/components/daily/dailyData.js'
 import { SOURCE_DEFINITIONS } from '../src/utils/salesData.js'
 import { periodSeries, summarizePeriod } from '../src/utils/periodData.js'
@@ -18,6 +18,38 @@ const segment = (startDate, endDate = startDate, kind = 'history') => ({ startDa
 const snapshot = (segments, pending = 0) => ({ schemaVersion: 1, requested: { startDate: segments[0].startDate, endDate: segments.at(-1).endDate }, segments, complete: pending === 0, pending, total: segments.length * 7, completed: segments.length * 7 - pending, generatedAt: stamp, schedule: { timezone: 'America/Sao_Paulo', hour: 4 } })
 const manual = (id, date) => ({ id, date, product: 'DevClub', family: 'DevClub', platform: 'Pix direto', gross: 40, net: 30, cashCollected: 40, status: 'pending' })
 const emptyLedger = async () => ({ attributions: [], manualSales: [] })
+
+test('global consulta solicitações novas em cada carga, sem limitar à data das vendas', async () => {
+  let calls = 0
+  const sale = { id: 'one', externalId: 'one', platform: 'Guru', sourceId: 'guru', kind: 'sale', quantity: 1, net: 100, buyerEmail: 'fixture@example.test', product: 'DevClub', date: '2026-09-01T15:00:00Z' }
+  const load = createGlobalPeriodLoader({ fetchSales: async () => ({ sources: [{ id: 'guru', kind: 'sale', status: 'ready', rows: [sale] }], records: [sale] }),
+    fetchRequests: async options => {
+      calls++; assert.equal(options.startDate, undefined); assert.equal(options.endDate, undefined)
+      return { success: true, sources: [{ id: 'typeform', status: 'available' }, { id: 'spreadsheet', status: 'available' }], data: calls === 1 ? [{ id: 'request', email: sale.buyerEmail, product: sale.product, purchasedAt: '2026-09-01', requestedAt: '2026-11-01', status: 'requested' }] : [] }
+    } })
+  const first = await load('2026-09-01', '2026-09-30')
+  assert.equal(summarizePeriod(first.records).total.count, 0)
+  assert.equal(first.refundReview.excludedCount, 1)
+  assert.equal(first.sources.find(source => source.id === 'guru').rows[0].kind, 'refund')
+  assert.equal(summarizePeriod((await load('2026-09-01', '2026-09-30')).records).total.count, 1)
+  assert.equal(calls, 2)
+  assert.equal(sale.kind, 'sale')
+})
+
+test('global sinaliza consulta falha ou incompleta; ausência de pedidos não presume fonte disponível', async () => {
+  for (const response of [new Error('offline'), { data: [] }, { success: true, data: [], sources: [{ id: 'typeform', status: 'available' }, { id: 'spreadsheet', status: 'unavailable' }], incomplete: true }]) {
+    const load = createGlobalPeriodLoader({ fetchSales: async () => ({ sources: [], records: [] }), fetchRequests: async () => { if (response instanceof Error) throw response; return response } })
+    const result = await load('2026-09-01', '2026-09-30')
+    assert.notEqual(result.refundReview.status, 'ready')
+    assert.notEqual(result.sources.find(source => source.id === 'refundRequests').status, 'ready')
+  }
+})
+
+test('global não publica consulta cancelada durante leitura de solicitações', async () => {
+  const controller = new AbortController()
+  const load = createGlobalPeriodLoader({ fetchSales: async () => ({ sources: [], records: [] }), fetchRequests: async () => { controller.abort(); return { data: [] } } })
+  await assert.rejects(load('2026-09-01', '2026-09-30', { signal: controller.signal }), /cancelada/)
+})
 
 test('a month starting today reports actual provider timestamps without inventing historical freshness', () => {
   const item = segment('2026-10-01', '2026-10-01', 'today')

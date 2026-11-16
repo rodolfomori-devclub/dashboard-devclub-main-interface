@@ -27,6 +27,7 @@ await context.addInitScript(() => {
 })
 if (context.routeWebSocket) await context.routeWebSocket('**/*', () => {})
 const calls = [], errors = [], external = [], checks = []
+let requestScenario = false, requestFailure = false
 await context.route('**/*', async route => {
  const request = route.request(), url = new URL(request.url())
  if (url.origin !== base) { external.push(url.origin); await route.abort(); return }
@@ -38,7 +39,11 @@ await context.route('**/*', async route => {
  else if (url.pathname === '/api/refunds') { const query = request.postDataJSON(); body = payload('guruRefunds', { startDate: query.ordered_at_ini, endDate: query.ordered_at_end }) }
  else if (url.pathname === '/api/hotmart/reembolsos') body = payload('hotmartRefunds', { startDate: url.searchParams.get('date') || url.searchParams.get('data_inicio'), endDate: url.searchParams.get('date') || url.searchParams.get('data_final') })
  else if (url.pathname === '/api/refunds/overview') body = overview
- else if (url.pathname === '/api/transactions') body = payload('guru')
+ else if (url.pathname === '/api/refunds/requests') {
+  if (requestFailure) { await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ success: false }) }); return }
+  body = { success: true, data: requestScenario ? [{ id: 'late-request', name: 'Cliente com duas compras', email: 'late@example.test', product: 'DevClub', platform: 'guru', purchasedAt: date, requestedAt: '2026-10-20', status: 'requested', sources: ['typeform'] }] : [], sources: [{ id: 'typeform', status: 'available' }, { id: 'spreadsheet', status: 'available' }], incomplete: false }
+ }
+ else if (url.pathname === '/api/transactions') body = requestScenario ? { data: ['DevClub', 'MBA'].map((product, index) => ({ id: `late-${index}`, status: 'approved', product: { name: product }, payment: { method: 'credit_card', currency: 'BRL' }, calculation_details: { net_amount: 100 + index * 100 }, dates: { created_at: timestamp }, contact: { name: 'Cliente com duas compras', email: 'late@example.test' } })) } : payload('guru')
  else if (url.pathname === '/api/hotmart/vendas') body = payload('hotmart')
  else if (['/api/hubla/vendas', '/api/hubla/reembolsos'].includes(url.pathname)) body = { success: true, data: { financialSchemaVersion: 2, count: 0, totalNet: 0, totalGross: 0, totalFees: 0, transactions: [] } }
  else if (url.pathname.startsWith('/api/boleto/vendas/')) body = payload('tmb')
@@ -58,7 +63,7 @@ try {
   await page.goto(`${base}/${path}`, { waitUntil: 'networkidle' })
   const card = page.getByRole('region', { name: 'Resumo de reembolsos' })
   await card.waitFor()
-  await page.waitForFunction(() => document.querySelector('.refund-summary-amount')?.textContent.includes('315,00'))
+  await page.waitForFunction(value => document.querySelector('.refund-summary-amount')?.textContent.includes(value), path === 'global' ? '675,00' : '315,00')
   assert.match(await card.locator('.refund-summary-metrics > div').nth(0).innerText(), /Confirmados\s+3\s+2 parciais incluídos/)
   assert.match(await card.locator('.refund-summary-metrics > div').nth(1).innerText(), /Contestações\s+1/)
   assert.match(await card.locator('.refund-summary-metrics > div').nth(2).innerText(), new RegExp(`Cancelamentos\\s+${path === 'reembolsos' ? 2 : 1}`))
@@ -100,6 +105,29 @@ try {
  assert.match(await comparisonCards.nth(1).locator('.refund-summary-amount').innerText(), /R\$\s*0,00/)
  assert.equal(await comparisonCards.nth(1).getByRole('link').getAttribute('href'), '/reembolsos?startDate=2026-09-30&endDate=2026-09-30')
  checks.push('comparison keeps A/B refunds and links separate')
+ requestScenario = true
+ await page.clock.setFixedTime(new Date('2026-11-16T16:00:00-03:00'))
+ await page.goto(`${base}/global`, { waitUntil: 'networkidle' })
+ await page.locator('#period-start').fill(date); await page.locator('#period-end').fill(date)
+ await page.getByRole('button', { name: /Aplicar período/ }).click()
+ await page.waitForFunction(() => document.querySelector('.refund-summary-amount')?.textContent.includes('775,00'))
+ assert.deepEqual(await page.locator('.period-distribution-table tbody tr td:first-child button').allTextContents(), ['MBA'])
+ await page.getByRole('combobox', { name: 'Tipo de registro', exact: true }).selectOption('refund')
+ assert.equal(await page.getByText('Reembolso solicitado', { exact: true }).count(), 1)
+ const requestedRow = page.locator('tr').filter({ has: page.getByText('Reembolso solicitado', { exact: true }) })
+ await requestedRow.getByRole('button', { name: /Detalhes/ }).click()
+ assert.equal(await page.getByText('20/10/2026', { exact: true }).count(), 1)
+ await page.getByRole('combobox', { name: 'Plataforma', exact: true }).selectOption('Guru')
+ assert.match(await page.locator('.refund-summary-metrics').innerText(), /Solicitações\s+1/)
+ for (const width of [1440, 360]) {
+  await page.setViewportSize({ width, height: 1000 })
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, `global requests/${width} overflow`)
+  await page.getByRole('region', { name: 'Resumo de reembolsos' }).screenshot({ path: `${out}/global-requests-${width}.png`, animations: 'disabled' })
+ }
+ requestFailure = true
+ await page.getByRole('button', { name: 'Atualizar', exact: true }).click()
+ await page.getByText(/A consulta de solicitações de reembolso está indisponível/).waitFor()
+ checks.push('global: late request removes only matching purchase, keeps dated history, platform filter and unavailable-source warning')
  assert.deepEqual(errors, []); assert.deepEqual(external, [])
  await fs.writeFile(`${out}/results.json`, JSON.stringify({ passed: true, checks, apiCalls: calls.length, errors, external }, null, 2))
  console.log(JSON.stringify({ passed: true, checks: checks.length, apiCalls: calls.length, errors, external }))

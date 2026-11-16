@@ -6,6 +6,7 @@
 .refund-summary .refund-summary-amount { display: grid; gap: 5px; font-family: 'Outfit Variable', sans-serif; font-size: clamp(26px, 2.9vw, 38px); line-height: 1.2; letter-spacing: -.03em; font-weight: 600; margin: 12px 0 6px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .refund-summary-caption, .refund-summary-metrics small { font-size: 11px; line-height: 1.65; color: var(--muted); margin: 0; }
 .refund-summary-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 0; }
+.refund-summary-metrics.is-global { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .refund-summary-metrics > div { padding-left: 20px; border-left: 1px solid var(--border); }
 .refund-summary dt { font-size: 11px; color: var(--muted); }
 .refund-summary-metrics dd { margin: 7px 0 4px; font-size: 28px; font-family: 'Outfit Variable', sans-serif; font-weight: 600; font-variant-numeric: tabular-nums; }

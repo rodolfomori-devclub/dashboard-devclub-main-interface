@@ -46,6 +46,7 @@ await context.route('**/*',async route=>{
   const range=request.postDataJSON();body={data:transactions.filter(row=>{const date=new Date(row.dates.created_at*1000).toISOString().slice(0,10);return date>=range.ordered_at_ini&&date<=range.ordered_at_end})}
  }
  else if(url.pathname==='/api/refunds')body={data:[]}
+ else if(url.pathname==='/api/refunds/requests')body={success:true,data:[],sources:[{id:'typeform',status:'available'},{id:'spreadsheet',status:'available'}],incomplete:false}
  else if(url.pathname.startsWith('/api/hotmart/'))body={success:true,data:{count:0,totalGross:0,totalNet:0,totalFees:0,totalRefundAmount:0,transactions:[]}}
  else if(url.pathname.startsWith('/api/boleto/vendas/'))body={success:true,data:[]}
  else if(url.pathname==='/api/boleto/asaas/vendas')body={success:true,data:{count:0,totalGross:0,totalNet:0,totalFees:0,cashReceipts:[],sales:null,availability:{cash:'ready',sales:'unavailable',reason:'checkout_disabled'}}}

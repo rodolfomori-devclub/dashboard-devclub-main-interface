@@ -9,7 +9,7 @@ import { periodCacheFixture, emptyProviderPayload } from './period-cache-fixture
 
 const base = process.env.DASHBOARD_SMOKE_URL || 'http://127.0.0.1:4317'
 assert.ok(['127.0.0.1', 'localhost', '[::1]'].includes(new URL(base).hostname), 'This suite only runs against a local app')
-const out = fileURLToPath(new URL('./artifacts/global-products', import.meta.url))
+const out = process.env.DASHBOARD_SMOKE_OUTPUT || fileURLToPath(new URL('./artifacts/global-products', import.meta.url))
 await fs.mkdir(out, { recursive: true })
 const today = '2026-10-06'
 const productA = 'DevClub Full Stack'
@@ -66,6 +66,7 @@ try {
     else if (url.pathname === '/api/period-cache') body = periodCacheFixture(url, { today, payloadForSource })
     else if (url.pathname === '/api/transactions') body = payloadForSource('guru', range)
     else if (url.pathname === '/api/refunds') body = payloadForSource('guruRefunds', range)
+    else if (url.pathname === '/api/refunds/requests') body = { success: true, data: [], sources: [{ id: 'typeform', status: 'available' }, { id: 'spreadsheet', status: 'available' }], incomplete: false }
     else if (url.pathname === '/api/hotmart/vendas') body = payloadForSource('hotmart', range)
     else if (url.pathname === '/api/hotmart/reembolsos') body = payloadForSource('hotmartRefunds', range)
     else if (['/api/hubla/vendas', '/api/hubla/reembolsos'].includes(url.pathname)) body = { success: true, data: { financialSchemaVersion: 2, count: 0, totalNet: 0, totalGross: 0, totalFees: 0, transactions: [] } }

@@ -53,6 +53,7 @@ await context.route('**/*', async route => {
   if (url.pathname === '/api/access') body = { user: { sub: 'fixture', email: 'fixture@example.test', name: 'Fixture', permissions: ['today', 'daily', 'monthly', 'yearly', 'refunds'], isAdmin: true } }
   else if (url.pathname === '/api/period-cache') body = periodCacheFixture(url, { today: date, payloadForSource: payload, statusForSource: () => mode === 'unavailable' ? 'unavailable' : 'ready' })
   else if (url.pathname === '/api/sales-ops/ledger') body = { data: { attributions: [], manualSales: [] } }
+  else if (url.pathname === '/api/refunds/requests') body = { success: true, data: [], sources: [{ id: 'typeform', status: 'available' }, { id: 'spreadsheet', status: 'available' }], incomplete: false }
   else if (url.pathname.startsWith('/api/goals/')) body = { success: true, data: { meta: 0, superMeta: 0, ultraMeta: 0 } }
   else if (sourceId) {
     const posted = route.request().method() === 'POST' ? route.request().postDataJSON() : null
