@@ -260,6 +260,7 @@ await shot('goals-360')
 await page.setViewportSize({width:1440,height:1000})
 for(const path of ['/hub','/daily-kpis','/kpi-report','/daily-checklist','/results','/ranking','/sales-links','/manager-notes','/commissions','/financial','/dre-global','/marketing','/activity-log','/settings']){
  await visit(path)
+ if(path!=='/hub')await page.locator('.hub-module').waitFor()
  assert.equal(await page.locator('.hub-module').count(),path==='/hub'?0:1)
  checked(`Hub module ${path} no runtime failure`)
 }
