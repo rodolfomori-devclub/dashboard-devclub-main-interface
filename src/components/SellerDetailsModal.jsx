@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Bar, Line, Pie } from 'react-chartjs-2';
+import PropTypes from 'prop-types';
+import { useState } from 'react';
+import { Line, Pie } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -203,7 +204,7 @@ const SellerDetailsModal = ({ seller, salesData = [], products, onClose }) => {
     const dateStr = saleDate.toLocaleDateString('en-CA');
     
     // Apenas vendas dos últimos 30 dias
-    if (last30Days.hasOwnProperty(dateStr)) {
+    if (Object.hasOwn(last30Days, dateStr)) {
       last30Days[dateStr]++;
     }
   });
@@ -214,7 +215,7 @@ const SellerDetailsModal = ({ seller, salesData = [], products, onClose }) => {
   
   const dailySalesChartData = {
     labels: dailySalesLabels.map(date => {
-      const [year, month, day] = date.split('-');
+      const [, month, day] = date.split('-');
       return `${day}/${month}`;
     }),
     datasets: [
@@ -232,17 +233,6 @@ const SellerDetailsModal = ({ seller, salesData = [], products, onClose }) => {
   const totalSales = sortedSales.length;
   const totalRevenue = sortedSales.reduce((total, sale) => total + (sale.value || 0), 0);
   
-  // Calcular média diária nos últimos 30 dias
-  const salesLast30Days = sortedSales.filter(sale => {
-    if (!sale.timestamp) return false;
-    const saleDate = new Date(sale.timestamp);
-    const timeDiff = today.getTime() - saleDate.getTime();
-    const daysDiff = timeDiff / (1000 * 3600 * 24);
-    return daysDiff <= 30;
-  }).length;
-  
-  const avgDailySales = salesLast30Days / 30;
-
   // Função para formatar data e hora
   const formatDateTime = (timestamp) => {
     if (!timestamp) return { date: 'N/A', time: 'N/A' };
@@ -470,6 +460,19 @@ const SellerDetailsModal = ({ seller, salesData = [], products, onClose }) => {
       </div>
     </div>
   );
+};
+
+SellerDetailsModal.propTypes = {
+  seller: PropTypes.shape({ name: PropTypes.string }).isRequired,
+  salesData: PropTypes.arrayOf(PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    product: PropTypes.string,
+    value: PropTypes.number,
+    channel: PropTypes.string,
+    timestamp: PropTypes.oneOfType([PropTypes.string, PropTypes.number, PropTypes.instanceOf(Date)]),
+  })),
+  products: PropTypes.arrayOf(PropTypes.string).isRequired,
+  onClose: PropTypes.func.isRequired,
 };
 
 export default SellerDetailsModal;

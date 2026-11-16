@@ -261,7 +261,7 @@ export const goalsService = {
    * @param {number} month - Mês das metas (1-12)
    * @returns {Promise<Array>} Array com objetos de metas dos vendedores
    */
-  async getAllSellerGoals(year, month) {
+  async getAllSellerGoals() {
     try {
       const sellerGoals = [];
 

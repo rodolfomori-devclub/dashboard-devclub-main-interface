@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+import PropTypes from 'prop-types';
+import { useState } from 'react'
 import { FaBullseye, FaPen, FaArrowUp, FaArrowDown } from 'react-icons/fa'
 
 const NEUTRAL_COLORS = {
@@ -167,5 +168,29 @@ const MetricCard = ({
     </div>
   )
 }
+
+MetricCard.propTypes = {
+  icon: PropTypes.elementType,
+  title: PropTypes.node,
+  value: PropTypes.node,
+  subtitle: PropTypes.node,
+  gradientFrom: PropTypes.string,
+  gradientTo: PropTypes.string,
+  iconGradientFrom: PropTypes.string,
+  iconGradientTo: PropTypes.string,
+  delay: PropTypes.string,
+  goalKey: PropTypes.string,
+  goalValue: PropTypes.number,
+  onGoalChange: PropTypes.func,
+  isInverse: PropTypes.bool,
+  rawValue: PropTypes.number,
+  goalPrefix: PropTypes.string,
+  goalSuffix: PropTypes.string,
+  delta: PropTypes.number,
+  deltaLabel: PropTypes.string,
+  deltaInverse: PropTypes.bool,
+  badge: PropTypes.node,
+  onClick: PropTypes.func,
+};
 
 export default MetricCard

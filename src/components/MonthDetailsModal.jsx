@@ -1,4 +1,4 @@
-import React from 'react';
+import PropTypes from 'prop-types';
 import { Bar, Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -278,6 +278,20 @@ const MonthDetailsModal = ({ year, month, salesData, products, onClose }) => {
       </div>
     </div>
   );
+};
+
+MonthDetailsModal.propTypes = {
+  year: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  month: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  salesData: PropTypes.arrayOf(PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    product: PropTypes.string,
+    value: PropTypes.number,
+    sellerName: PropTypes.string,
+    timestamp: PropTypes.oneOfType([PropTypes.string, PropTypes.number, PropTypes.instanceOf(Date)]),
+  })).isRequired,
+  products: PropTypes.arrayOf(PropTypes.string).isRequired,
+  onClose: PropTypes.func.isRequired,
 };
 
 export default MonthDetailsModal;

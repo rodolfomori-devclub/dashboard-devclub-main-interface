@@ -1,5 +1,6 @@
 // src/components/LaunchComparisonModal.jsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import {
   Dialog,
   DialogTitle,
@@ -13,9 +14,7 @@ import {
   Select,
   MenuItem,
   Grid,
-  Divider,
   CircularProgress,
-  Chip,
   Table,
   TableBody,
   TableCell,
@@ -33,7 +32,6 @@ import {
   TrendingUp,
   TrendingDown,
   RemoveCircleOutline,
-  CheckCircleOutline,
   InfoOutlined,
   ExpandMore,
   ExpandLess
@@ -41,21 +39,15 @@ import {
 import { 
   BarChart, 
   Bar, 
-  LineChart, 
-  Line, 
   XAxis, 
   YAxis, 
   CartesianGrid, 
   Tooltip as RechartsTooltip, 
   Legend, 
   ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell
 } from 'recharts';
 import { formatCurrency } from '../utils/currencyUtils';
 import launchService from '../services/launchService';
-import { CHART_COLORS } from '../styles/designTokens';
 
 /**
  * Modal para comparação entre dois lançamentos
@@ -149,7 +141,7 @@ const LaunchComparisonModal = ({ open, onClose, launchOptions = [], initialLaunc
     if (!value) return 0;
     
     // Tentar extrair número de string
-    let numericValue = value.toString().replace(/[^\d.,\-]/g, '');
+    let numericValue = value.toString().replace(/[^\d.,-]/g, '');
     
     // Converter vírgula para ponto, mas apenas a última (formato brasileiro)
     const lastCommaIndex = numericValue.lastIndexOf(',');
@@ -311,7 +303,7 @@ const LaunchComparisonModal = ({ open, onClose, launchOptions = [], initialLaunc
   };
   
   // Função para renderizar tabela comparativa de métricas por categoria
-  const renderMetricsTable = (metrics, category) => {
+  const renderMetricsTable = (metrics) => {
     if (!metrics || metrics.length === 0) {
       return (
         <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
@@ -856,7 +848,7 @@ const LaunchComparisonModal = ({ open, onClose, launchOptions = [], initialLaunc
                       {isExpanded ? <ExpandLess /> : <ExpandMore />}
                     </Button>
                     
-                    {isExpanded && renderMetricsTable(metrics, category)}
+                    {isExpanded && renderMetricsTable(metrics)}
                   </Box>
                 );
               })}
@@ -875,6 +867,13 @@ const LaunchComparisonModal = ({ open, onClose, launchOptions = [], initialLaunc
       </DialogActions>
     </Dialog>
   );
+};
+
+LaunchComparisonModal.propTypes = {
+  open: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  launchOptions: PropTypes.arrayOf(PropTypes.string),
+  initialLaunch: PropTypes.string,
 };
 
 export default LaunchComparisonModal;

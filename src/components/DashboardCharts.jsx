@@ -1,4 +1,4 @@
-import React from 'react';
+import PropTypes from 'prop-types';
 import { Bar, Line, Pie } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -56,7 +56,6 @@ const categorizeProduct = (productName) => {
 const getSaleChannel = (sale) => {
   if (!sale || !sale.channel) return "Desconhecido";
 
-  console.log(sale)
   return sale.channel;
 };
 
@@ -198,7 +197,7 @@ const DashboardCharts = ({ salesData, products, sellers }) => {
     const dateStr = `${saleDate.getFullYear()}-${String(saleDate.getMonth() + 1).padStart(2, '0')}-${String(saleDate.getDate()).padStart(2, '0')}`;
     
     // Apenas vendas dos últimos 15 dias
-    if (last15Days.hasOwnProperty(dateStr)) {
+    if (Object.hasOwn(last15Days, dateStr)) {
       last15Days[dateStr]++;
     }
   });
@@ -209,7 +208,7 @@ const DashboardCharts = ({ salesData, products, sellers }) => {
   
   const dailySalesChartData = {
     labels: dailySalesLabels.map(date => {
-      const [year, month, day] = date.split('-');
+      const [, month, day] = date.split('-');
       return `${day}/${month}`;
     }),
     datasets: [
@@ -260,7 +259,7 @@ const DashboardCharts = ({ salesData, products, sellers }) => {
     const saleDate = new Date(sale.timestamp);
     const monthKey = `${saleDate.getFullYear()}-${saleDate.getMonth() + 1}`;
     
-    if (last6Months.hasOwnProperty(monthKey)) {
+    if (Object.hasOwn(last6Months, monthKey)) {
       last6Months[monthKey] += sale.value;
     }
   });
@@ -412,6 +411,21 @@ const DashboardCharts = ({ salesData, products, sellers }) => {
       </div>
     </div>
   );
+};
+
+DashboardCharts.propTypes = {
+  salesData: PropTypes.arrayOf(PropTypes.shape({
+    product: PropTypes.string,
+    value: PropTypes.number,
+    channel: PropTypes.string,
+    sellerId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    timestamp: PropTypes.oneOfType([PropTypes.string, PropTypes.number, PropTypes.instanceOf(Date)]),
+  })),
+  products: PropTypes.arrayOf(PropTypes.string).isRequired,
+  sellers: PropTypes.arrayOf(PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    name: PropTypes.string,
+  })).isRequired,
 };
 
 export default DashboardCharts;

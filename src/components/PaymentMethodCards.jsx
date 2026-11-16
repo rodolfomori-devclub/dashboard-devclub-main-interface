@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
+import { useState, useEffect } from 'react';
 import { formatCurrency } from '../utils/currencyUtils';
 
 const PaymentMethodCards = ({ salesData }) => {
@@ -111,6 +112,13 @@ const PaymentMethodCards = ({ salesData }) => {
       </div>
     </div>
   );
+};
+
+PaymentMethodCards.propTypes = {
+  salesData: PropTypes.arrayOf(PropTypes.shape({
+    paymentMethod: PropTypes.string,
+    value: PropTypes.number,
+  })),
 };
 
 export default PaymentMethodCards;

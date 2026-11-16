@@ -471,7 +471,9 @@ try {
   await contacts.getByRole('button', { name: 'Baixar XLSX' }).click()
   assert.match((await xlsxDownload).suggestedFilename(), /^compradores-.*\.xlsx$/)
   await page.setViewportSize({ width: 360, height: 800 })
-  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth) <= 360, 'The contacts table scrolls inside the block on mobile')
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth), {
+    message: 'The contacts table scrolls inside the block on mobile after responsive layout settles',
+  }).toBeLessThanOrEqual(360)
   await page.screenshot({ path: `${out}/buyers-mobile.png`, fullPage: true })
   await page.setViewportSize({ width: 1440, height: 1000 })
   replies.push(stream([meta, { type: 'block', block: { ...buyers, rows: [], totalRows: 0, truncated: false, status: 'pending' } }, done({ pending: true })]))

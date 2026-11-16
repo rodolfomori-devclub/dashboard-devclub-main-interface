@@ -1,4 +1,4 @@
-import React from 'react';
+import PropTypes from 'prop-types';
 import { 
   PieChart, 
   Pie, 
@@ -192,7 +192,7 @@ const RefundDetailsModal = ({ isOpen, onClose, refundsData = [] }) => {
                     labelLine={false}
                   >
                     {pieChartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={CHART_COLORS[index % COLORS.length]} />
+                      <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip formatter={(value) => `${value.toFixed(1)}%`} />
@@ -311,6 +311,18 @@ const RefundDetailsModal = ({ isOpen, onClose, refundsData = [] }) => {
       </div>
     </div>
   );
+};
+
+RefundDetailsModal.propTypes = {
+  isOpen: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  refundsData: PropTypes.arrayOf(PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    product: PropTypes.shape({ name: PropTypes.string }),
+    customer: PropTypes.shape({ name: PropTypes.string }),
+    dates: PropTypes.shape({ created_at: PropTypes.number }),
+    calculation_details: PropTypes.shape({ net_amount: PropTypes.number }),
+  })),
 };
 
 export default RefundDetailsModal;

@@ -1,10 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
   BarChart,
   Bar,
-  LineChart,
-  Line,
   PieChart,
   Pie,
   Cell,
@@ -23,37 +21,17 @@ import {
   FaSave,
   FaTrophy,
   FaMedal,
-  FaAward,
   FaChevronLeft,
   FaTimes,
-  FaUser,
   FaStar,
   FaChartLine,
 } from 'react-icons/fa'
 import PodiumTopSellers from '../components/PodiumTopSellers'
 import ConfettiEffect from '../components/ConfettiEffect'
 import { CHART_COLORS } from '../styles/designTokens'
-const MEDALS = [
-  {
-    icon: <FaTrophy className="text-yellow-500 text-2xl" />,
-    label: 'Ouro',
-    color: 'from-yellow-300 to-yellow-500',
-  },
-  {
-    icon: <FaMedal className="text-gray-400 text-2xl" />,
-    label: 'Prata',
-    color: 'from-gray-300 to-gray-500',
-  },
-  {
-    icon: <FaAward className="text-amber-600 text-2xl" />,
-    label: 'Bronze',
-    color: 'from-amber-500 to-amber-700',
-  },
-]
-
 function CommercialSellersPage() {
   // Estado para vendas e filtros
-  const [salesData, setSalesData] = useState([])
+  const [, setSalesData] = useState([])
   const [filterType, setFilterType] = useState('month') // 'month', 'year', 'custom'
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1)
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
@@ -68,7 +46,6 @@ function CommercialSellersPage() {
 
   // Estado para vendedores
   const [sellers, setSellers] = useState([])
-  const [selectedSeller, setSelectedSeller] = useState(null)
   const [sellerGoals, setSellerGoals] = useState({})
   const [editingSellerGoal, setEditingSellerGoal] = useState(null)
   const [tempSellerGoalValue, setTempSellerGoalValue] = useState('')
@@ -315,43 +292,6 @@ function CommercialSellersPage() {
     navigate('/commercial')
   }
 
-  // Preparar dados para gráficos do modal
-  const prepareModalChartData = (seller) => {
-    if (!seller) return {}
-
-    // Dados para gráfico de produtos
-    const productChartData = Object.entries(seller.salesByProduct).map(
-      ([name, data]) => ({
-        name,
-        count: data.count,
-        value: data.value,
-      }),
-    )
-
-    // Dados para gráfico de canais
-    const channelChartData = Object.entries(seller.salesByChannel).map(
-      ([name, data]) => ({
-        name,
-        count: data.count,
-        value: data.value,
-      }),
-    )
-
-    // Dados para gráfico de métodos de pagamento
-    const paymentChartData = Object.entries(seller.salesByPaymentMethod).map(
-      ([name, data]) => ({
-        name,
-        count: data.count,
-        value: data.value,
-      }),
-    )
-
-    return {
-      productChartData,
-      channelChartData,
-      paymentChartData,
-    }
-  }
 
   return (
     <div className="min-h-screen bg-background-light dark:bg-background-dark p-6">
@@ -624,11 +564,7 @@ function CommercialSellersPage() {
                     {/* Tabs de Navegação */}
                     <div className="flex border-b border-gray-200 dark:border-gray-700 mb-6">
                       <button
-                        className={`py-2 px-4 font-medium border-b-2 transition-colors ${
-                          true
-                            ? 'border-primary text-primary dark:border-secondary dark:text-secondary'
-                            : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-                        }`}
+                        className="py-2 px-4 font-medium border-b-2 transition-colors border-primary text-primary dark:border-secondary dark:text-secondary"
                       >
                         Desempenho
                       </button>
@@ -733,7 +669,7 @@ function CommercialSellersPage() {
                                   (entry, index) => (
                                     <Cell
                                       key={`cell-${index}`}
-                                      fill={CHART_COLORS[index % COLORS.length]}
+                                      fill={CHART_COLORS[index % CHART_COLORS.length]}
                                     />
                                   ),
                                 )}
@@ -785,7 +721,7 @@ function CommercialSellersPage() {
                                   (entry, index) => (
                                     <Cell
                                       key={`cell-${index}`}
-                                      fill={CHART_COLORS[(index + 3) % COLORS.length]}
+                                      fill={CHART_COLORS[(index + 3) % CHART_COLORS.length]}
                                     />
                                   ),
                                 )}
@@ -811,7 +747,7 @@ function CommercialSellersPage() {
                                 ).map(([name, data], index) => ({
                                   name,
                                   value: data.count,
-                                  fill: CHART_COLORS[index % COLORS.length],
+                                  fill: CHART_COLORS[index % CHART_COLORS.length],
                                 }))}
                                 cx="50%"
                                 cy="50%"
@@ -827,7 +763,6 @@ function CommercialSellersPage() {
                                   innerRadius,
                                   outerRadius,
                                   value,
-                                  index,
                                   name,
                                   fill,
                                 }) => {
@@ -858,7 +793,7 @@ function CommercialSellersPage() {
                                   (entry, index) => (
                                     <Cell
                                       key={`cell-${index}`}
-                                      fill={CHART_COLORS[index % COLORS.length]}
+                                      fill={CHART_COLORS[index % CHART_COLORS.length]}
                                     />
                                   ),
                                 )}
@@ -882,7 +817,7 @@ function CommercialSellersPage() {
                               <Pie
                                 data={Object.entries(
                                   modalData.salesByPaymentMethod,
-                                ).map(([name, data], index) => ({
+                                ).map(([name, data]) => ({
                                   name,
                                   value: data.count,
                                 }))}
@@ -898,7 +833,7 @@ function CommercialSellersPage() {
                                 ).map((entry, index) => (
                                   <Cell
                                     key={`cell-${index}`}
-                                    fill={CHART_COLORS[(index + 2) % COLORS.length]}
+                                    fill={CHART_COLORS[(index + 2) % CHART_COLORS.length]}
                                   />
                                 ))}
                               </Pie>

@@ -1,5 +1,5 @@
 // src/pages/CommercialSalesListPage.jsx
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { FaChevronLeft, FaFilter, FaSearch, FaDownload } from 'react-icons/fa';
 import commercialService from '../services/commercialService';

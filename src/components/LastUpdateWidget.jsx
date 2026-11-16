@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
+import { useState, useEffect } from 'react';
 
 /**
  * Componente LastUpdateWidget
  * Mostra quando foi a última atualização e a idade do cache
  */
-const LastUpdateWidget = ({ lastFetchTime = null, cacheAge = 0, isError = false }) => {
+const LastUpdateWidget = ({ lastFetchTime = null, isError = false }) => {
   const [displayTime, setDisplayTime] = useState('');
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
@@ -67,6 +68,11 @@ const LastUpdateWidget = ({ lastFetchTime = null, cacheAge = 0, isError = false 
       </div>
     </div>
   );
+};
+
+LastUpdateWidget.propTypes = {
+  lastFetchTime: PropTypes.oneOfType([PropTypes.string, PropTypes.number, PropTypes.instanceOf(Date)]),
+  isError: PropTypes.bool,
 };
 
 export default LastUpdateWidget;

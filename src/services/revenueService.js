@@ -213,7 +213,7 @@ export const revenueService = {
         
         lastColumns.forEach((column, index) => {
           const value = launch[column];
-          if (value && /^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}/.test(value)) {
+          if (value && /^\d{1,2}[/-]\d{1,2}[/-]\d{4}/.test(value)) {
             dateValues.push({
               column,
               value,

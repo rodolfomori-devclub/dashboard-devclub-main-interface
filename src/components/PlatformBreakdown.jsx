@@ -1,4 +1,4 @@
-import React from 'react';
+import PropTypes from 'prop-types';
 
 /**
  * Componente PlatformBreakdown
@@ -138,6 +138,14 @@ const PlatformBreakdown = ({ platforms = {} }) => {
       </div>
     </div>
   );
+};
+
+PlatformBreakdown.propTypes = {
+  platforms: PropTypes.objectOf(PropTypes.shape({
+    count: PropTypes.number,
+    percentage: PropTypes.number,
+    error: PropTypes.oneOfType([PropTypes.string, PropTypes.bool]),
+  })),
 };
 
 export default PlatformBreakdown;

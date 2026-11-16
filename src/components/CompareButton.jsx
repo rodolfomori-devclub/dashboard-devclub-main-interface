@@ -1,5 +1,5 @@
+import PropTypes from 'prop-types';
 // src/components/CompareButton.jsx
-import React from 'react';
 import { Button, Tooltip } from '@mui/material';
 import { CompareArrows } from '@mui/icons-material';
 
@@ -39,6 +39,12 @@ const CompareButton = ({ onClick, selectedLaunch, disabled }) => {
       </span>
     </Tooltip>
   );
+};
+
+CompareButton.propTypes = {
+  onClick: PropTypes.func,
+  selectedLaunch: PropTypes.string,
+  disabled: PropTypes.bool,
 };
 
 export default CompareButton;

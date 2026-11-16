@@ -1,5 +1,5 @@
+import PropTypes from 'prop-types';
 // src/components/RefundDetailsButton.jsx
-import React from 'react';
 import { FaSearchPlus } from 'react-icons/fa';
 
 /**
@@ -17,6 +17,10 @@ const RefundDetailsButton = ({ onClick }) => {
       Ver Detalhes
     </button>
   );
+};
+
+RefundDetailsButton.propTypes = {
+  onClick: PropTypes.func,
 };
 
 export default RefundDetailsButton;

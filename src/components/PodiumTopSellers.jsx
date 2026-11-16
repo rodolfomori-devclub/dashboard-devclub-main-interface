@@ -1,4 +1,4 @@
-import React from 'react';
+import PropTypes from 'prop-types';
 import { FaTrophy, FaMedal, FaAward, FaStar, FaChartLine } from 'react-icons/fa';
 import { formatCurrency } from '../utils/currencyUtils';
 
@@ -195,6 +195,16 @@ const PodiumTopSellers = ({ sellers, onSellerClick }) => {
       </div>
     </div>
   );
+};
+
+PodiumTopSellers.propTypes = {
+  sellers: PropTypes.arrayOf(PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    name: PropTypes.string.isRequired,
+    totalSales: PropTypes.number,
+    totalValue: PropTypes.number,
+  })).isRequired,
+  onSellerClick: PropTypes.func,
 };
 
 export default PodiumTopSellers;

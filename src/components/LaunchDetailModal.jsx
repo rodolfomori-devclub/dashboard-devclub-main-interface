@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import PropTypes from 'prop-types';
 import {
   Dialog,
   DialogTitle,
@@ -22,16 +23,12 @@ import {
   Divider,
   TextField,
   InputAdornment,
-  CircularProgress
 } from '@mui/material';
 import {
   Close,
   Search,
   AttachMoney,
   TrendingUp,
-  Facebook,
-  Google,
-  Email,
   People,
   Visibility,
   VisibilityOff,
@@ -42,8 +39,6 @@ import {
 import { 
   BarChart, 
   Bar, 
-  LineChart, 
-  Line, 
   XAxis, 
   YAxis, 
   CartesianGrid, 
@@ -273,7 +268,7 @@ const LaunchDetailModal = ({ open, onClose, launchName, launchData, metrics }) =
                       dataKey="valor"
                     >
                       {investmentData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={CHART_COLORS[index % COLORS.length]} />
+                        <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                       ))}
                     </Pie>
                     <Legend />
@@ -301,7 +296,7 @@ const LaunchDetailModal = ({ open, onClose, launchName, launchData, metrics }) =
                       dataKey="valor"
                     >
                       {revenueData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={CHART_COLORS[(index + 3) % COLORS.length]} />
+                        <Cell key={`cell-${index}`} fill={CHART_COLORS[(index + 3) % CHART_COLORS.length]} />
                       ))}
                     </Pie>
                     <Legend />
@@ -641,6 +636,27 @@ const LaunchDetailModal = ({ open, onClose, launchName, launchData, metrics }) =
       </DialogActions>
     </Dialog>
   );
+};
+
+LaunchDetailModal.propTypes = {
+  open: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  launchName: PropTypes.string,
+  launchData: PropTypes.arrayOf(PropTypes.objectOf(PropTypes.oneOfType([
+    PropTypes.string, PropTypes.number, PropTypes.bool,
+  ]))),
+  metrics: PropTypes.shape({
+    investment: PropTypes.number.isRequired,
+    revenue: PropTypes.number.isRequired,
+    profit: PropTypes.number.isRequired,
+    facebookInvestment: PropTypes.number.isRequired,
+    googleInvestment: PropTypes.number.isRequired,
+    guruRevenue: PropTypes.number.isRequired,
+    tmbRevenue: PropTypes.number.isRequired,
+    roi: PropTypes.number.isRequired,
+    leads: PropTypes.number.isRequired,
+    leadCost: PropTypes.number.isRequired,
+  }),
 };
 
 export default LaunchDetailModal;

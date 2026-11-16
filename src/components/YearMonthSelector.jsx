@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
+import { useState, useEffect } from 'react';
 
 const YearMonthSelector = ({ salesData, onMonthSelect }) => {
   const [expandedYear, setExpandedYear] = useState(null);
@@ -93,6 +94,13 @@ const YearMonthSelector = ({ salesData, onMonthSelect }) => {
       </div>
     </div>
   );
+};
+
+YearMonthSelector.propTypes = {
+  salesData: PropTypes.arrayOf(PropTypes.shape({
+    timestamp: PropTypes.oneOfType([PropTypes.string, PropTypes.number, PropTypes.instanceOf(Date)]),
+  })),
+  onMonthSelect: PropTypes.func.isRequired,
 };
 
 export default YearMonthSelector;

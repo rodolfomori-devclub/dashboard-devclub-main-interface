@@ -1,13 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
+import { useState, useEffect } from 'react';
 import {
-  BarChart,
-  Bar,
   PieChart,
   Pie,
   Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
   Tooltip,
   Legend,
   ResponsiveContainer
@@ -106,7 +102,7 @@ const PaymentMethodAnalysis = ({ salesData }) => {
                   label={({name, percent}) => `${name}: ${(percent * 100).toFixed(1)}%`}
                 >
                   {paymentMethodSummary.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={CHART_COLORS[index % COLORS.length]} />
+                    <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip formatter={(value) => value} />
@@ -135,7 +131,7 @@ const PaymentMethodAnalysis = ({ salesData }) => {
                   label={({name, percent}) => `${name}: ${(percent * 100).toFixed(1)}%`}
                 >
                   {paymentMethodSummary.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={CHART_COLORS[index % COLORS.length]} />
+                    <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip formatter={(value) => formatCurrency(value)} />
@@ -212,6 +208,13 @@ const PaymentMethodAnalysis = ({ salesData }) => {
       </div>
     </div>
   );
+};
+
+PaymentMethodAnalysis.propTypes = {
+  salesData: PropTypes.arrayOf(PropTypes.shape({
+    paymentMethod: PropTypes.string,
+    value: PropTypes.number,
+  })),
 };
 
 export default PaymentMethodAnalysis;

@@ -1,5 +1,6 @@
+import PropTypes from 'prop-types';
 // src/components/DateRangePicker.jsx
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { FaCalendarAlt, FaSearch } from 'react-icons/fa';
 
 const DateRangePicker = ({ startDate, endDate, onDateChange, label }) => {
@@ -180,6 +181,13 @@ const DateRangePicker = ({ startDate, endDate, onDateChange, label }) => {
       )}
     </div>
   );
+};
+
+DateRangePicker.propTypes = {
+  startDate: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+  endDate: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+  onDateChange: PropTypes.func.isRequired,
+  label: PropTypes.string,
 };
 
 export default DateRangePicker;

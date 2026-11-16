@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import PropTypes from 'prop-types';
+import { useState, useEffect, useRef } from 'react';
 import { FaCalendarWeek, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 
 const WeekSelector = ({ onWeekSelect, selectedWeek, label = "Filtrar por Lançamento", autoSelect = true }) => {
@@ -216,6 +217,19 @@ const WeekSelector = ({ onWeekSelect, selectedWeek, label = "Filtrar por Lançam
       )}
     </div>
   );
+};
+
+WeekSelector.propTypes = {
+  onWeekSelect: PropTypes.func.isRequired,
+  selectedWeek: PropTypes.shape({
+    id: PropTypes.string,
+    weekNumber: PropTypes.number,
+    startDate: PropTypes.instanceOf(Date),
+    endDate: PropTypes.instanceOf(Date),
+    year: PropTypes.number,
+  }),
+  label: PropTypes.string,
+  autoSelect: PropTypes.bool,
 };
 
 export default WeekSelector;

@@ -1,5 +1,5 @@
+import PropTypes from 'prop-types';
 // src/components/ResponsiveTable.jsx
-import React from 'react';
 
 /**
  * ResponsiveTable - Um componente para renderizar tabelas responsivas
@@ -25,9 +25,6 @@ const ResponsiveTable = ({
   if (!columns || !data) {
     return <p className="text-center text-gray-500 dark:text-gray-400 py-4">{emptyMessage}</p>;
   }
-
-  // Para dispositivos móveis, mostramos apenas colunas que não têm hide definido como 'sm'
-  const responsiveColumns = columns.filter(col => !col.hide);
 
   return (
     <div className="overflow-x-auto w-full">
@@ -84,6 +81,23 @@ const ResponsiveTable = ({
       </table>
     </div>
   );
+};
+
+ResponsiveTable.propTypes = {
+  columns: PropTypes.arrayOf(PropTypes.shape({
+    key: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+    header: PropTypes.node,
+    render: PropTypes.func,
+    hide: PropTypes.oneOf(['sm', 'md', 'lg']),
+    className: PropTypes.string,
+    cellClassName: PropTypes.string,
+  })),
+  data: PropTypes.arrayOf(PropTypes.object),
+  keyExtractor: PropTypes.func,
+  emptyMessage: PropTypes.string,
+  className: PropTypes.string,
+  headerClassName: PropTypes.string,
+  rowClassName: PropTypes.string,
 };
 
 export default ResponsiveTable;

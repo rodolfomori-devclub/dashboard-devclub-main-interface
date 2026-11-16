@@ -1,5 +1,5 @@
 // src/components/ConfettiEffect.jsx
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 const ConfettiEffect = () => {
   const [confetti, setConfetti] = useState([]);
