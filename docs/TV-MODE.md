@@ -25,7 +25,7 @@ Os cálculos puros são sincronizados no repositório da API, em `src/services/t
 ## Acesso e persistência
 
 - A sessão e o menu `ranking` continuam sob controle do Vault.
-- Os indicadores exigem também um dos menus `today`, `daily`, `monthly`, `yearly`, `goal-pace` ou `goals`. Administradores têm acesso. Apenas `ranking` mantém acesso ao ranking comercial sem consultar endpoints financeiros.
+- Os indicadores exigem também um dos menus `today`, `daily`, `monthly` ou `yearly`. Administradores têm acesso. `goal-pace` e `goals` não liberam a TV: fora do admin, mostram só a meta da própria pessoa. Apenas `ranking` mantém acesso ao ranking comercial sem consultar endpoints financeiros.
 - `GET /api/tv/settings` lê a programação compartilhada; `PUT` é exclusivo de administradores. `GET/POST /api/tv/share` administra o link e também exige admin. O campo `simplePath` informa `/tv` quando ativo; `token` e `path` são preservados para compatibilidade com clientes antigos.
 - `dashboard_tv_settings` guarda uma configuração para o Workspace. A migração `20261001_tv_settings.sql`, no repositório da API, deve ser aplicada antes do frontend.
 - A migração `20261001_tv_public_links.sql` cria a tabela privada do link, inicialmente sem acesso público ativo. A criação é uma ação explícita do administrador ou uma ativação operacional autorizada. Rota pública responde 404 a links desconhecidos/desativados, revalida após o carregamento dos dados e não aceita parâmetros para alterar período, indicador ou painéis.

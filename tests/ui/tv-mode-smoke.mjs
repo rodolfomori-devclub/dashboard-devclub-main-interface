@@ -596,13 +596,15 @@ try {
   admin = false
 
   // Permissions remain enforced even though TV settings are shared by the workspace.
-  permissions = ['ranking']
+  // A closer with Ritmo das metas sees only the own goal, never the TV financial panels.
+  permissions = ['ranking', 'goal-pace']
   const permissionStart = calls.length
   await visit()
   await page.getByRole('heading', { name: 'Acesso aos indicadores da TV', exact: true }).waitFor()
+  await page.getByText('Os painéis da TV mostram os indicadores financeiros da empresa e não estão liberados para esta conta.').waitFor()
   await expect(page.getByRole('button', { name: 'Iniciar TV', exact: true })).toBeDisabled()
   const forbidden = calls.slice(permissionStart).filter(call => /^\/api\/(?:period-cache|goal-plans|sales-ops\/ledger|transactions|hotmart|boleto)/.test(call.path))
-  assert.deepEqual(forbidden, [], 'Ranking-only access cannot trigger unauthorized financial reads')
+  assert.deepEqual(forbidden, [], 'Ranking plus Ritmo das metas cannot trigger financial or goal-plan reads')
   await page.getByRole('button', { name: 'Ranking comercial', exact: true }).click()
   await page.getByRole('heading', { name: 'Ranking comercial', exact: true }).waitFor()
   const legacyPair = async (testId, gross, cash) => {

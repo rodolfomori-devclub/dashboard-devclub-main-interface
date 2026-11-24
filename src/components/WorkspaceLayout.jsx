@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { Sun, ChartNoAxesCombined, CalendarDays, CalendarRange, Columns3, Undo2, Target, Gauge, GitCompareArrows, House, ListChecks, ClipboardList, CheckCheck, ChartColumnIncreasing, Trophy, Library, Link, NotebookPen, Wallet, Landmark, Table2, Megaphone, Settings2, History, Database, ShieldCheck, Square, PanelsTopLeft, LogOut, Menu, ChevronRight, Moon, Presentation, GraduationCap, BookOpen, Bot } from 'lucide-react'
 const Icons = { Sun, ChartNoAxesCombined, CalendarDays, CalendarRange, Columns3, Undo2, Target, Gauge, GitCompareArrows, House, ListChecks, ClipboardList, CheckCheck, ChartColumnIncreasing, Trophy, Library, Link, NotebookPen, Wallet, Landmark, Table2, Megaphone, Settings2, History, Database, ShieldCheck, Square, PanelsTopLeft, LogOut, Menu, ChevronRight, Moon, Presentation, GraduationCap, BookOpen, Bot }
-import { NAVIGATION, SCREENS } from '../lib/navigation'
+import { OWN_GOAL, OWN_GOAL_LABEL, SCREENS, navigationFor } from '../lib/navigation'
 import { useAuth } from '../contexts/AuthContext'
 
 export function PageSkeleton() {
@@ -38,15 +38,16 @@ export default function WorkspaceLayout({ children }) {
     document.addEventListener('keydown', key)
     return () => { document.removeEventListener('keydown', key); document.body.style.overflow = previousOverflow; menuButton?.focus() }
   }, [open, mobile])
-  const title = SCREENS.find(screen => location.pathname === screen.path || location.pathname.startsWith(`${screen.path}/`))?.label || 'Operação'
+  const screen = SCREENS.find(item => location.pathname === item.path || location.pathname.startsWith(`${item.path}/`))
+  const title = (!userRoles?.isAdmin && OWN_GOAL.includes(screen?.permission) && hasPermission(screen.permission) ? OWN_GOAL_LABEL : screen?.label) || 'Operação'
   const initials = (currentUser?.displayName || 'U').split(' ').slice(0,2).map(word => word[0]).join('')
   return <div className="workspace">
     <a href="#workspace-main" className="skip-link">Ir para o conteúdo</a>
     {open && <button className="sidebar-backdrop" aria-label="Fechar menu" onClick={() => setOpen(false)} />}
     <aside ref={sidebarRef} inert={mobile && !open ? true : undefined} role={mobile && open ? "dialog" : undefined} aria-modal={mobile && open ? true : undefined} className={`workspace-sidebar ${open ? 'is-open' : ''}`} aria-label="Menu principal" id="workspace-navigation">
       <NavLink to="/" className="workspace-brand"><span className="brand-mark"><Icons.PanelsTopLeft size={23} /></span><span><strong>DevClub</strong><small>Workspace</small></span></NavLink>
-      <nav>{NAVIGATION.map(group => {
-        const items = group.items.filter(item => hasPermission(item.permission))
+      <nav>{navigationFor(Boolean(userRoles?.isAdmin), hasPermission).map(group => {
+        const items = group.items
         if (!items.length) return null
         return <div className="nav-group" key={group.group}><p>{group.group}</p>{items.map(item => {
           const Icon = Icons[item.icon] || Icons.Square

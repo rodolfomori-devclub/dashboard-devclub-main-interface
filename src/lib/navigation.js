@@ -1,6 +1,7 @@
 // The agent reads the data of the financial screens, so any of them opens it.
 // Mirrors financialRead in the API, which is what actually enforces this.
-export const FINANCIAL_READ = ['today', 'daily', 'monthly', 'yearly', 'comparativo', 'goal-pace', 'goals', 'refunds', 'attribution']
+// Goals and pace are not here: outside admin they show only the own goal.
+export const FINANCIAL_READ = ['today', 'daily', 'monthly', 'yearly', 'comparativo', 'refunds', 'attribution']
 
 // Shared catalog for navigation and guards; assignment belongs to Vault.
 export const NAVIGATION = [
@@ -45,6 +46,22 @@ export const NAVIGATION = [
   ] },
 ]
 export const SCREENS = NAVIGATION.flatMap(group => group.items)
+// Outside admin, Metas and Ritmo das metas both open only the person's own goal.
+export const OWN_GOAL = ['goals', 'goal-pace']
+export const OWN_GOAL_LABEL = 'Minha meta'
+// The menu as this user sees it: outside admin the two goal screens become one
+// "Minha meta" entry, in place of the first one, opening Ritmo das metas when granted.
+export function navigationFor(isAdmin, hasPermission) {
+  return NAVIGATION.map(group => {
+    const items = group.items.filter(item => hasPermission(item.permission))
+    const goals = items.filter(item => OWN_GOAL.includes(item.permission))
+    if (isAdmin || !goals.length) return { ...group, items }
+    const entry = { ...(goals.find(item => item.permission === 'goal-pace') || goals[0]), label: OWN_GOAL_LABEL }
+    const at = items.indexOf(goals[0])
+    const rest = items.filter(item => !OWN_GOAL.includes(item.permission))
+    return { ...group, items: [...rest.slice(0, at), entry, ...rest.slice(at)] }
+  }).filter(group => group.items.length)
+}
 // A screen opened by a list has no id of its own to assign to a user.
 export const isAssignable = screen => typeof screen.permission === 'string'
 export const hasAnyPermission = (granted, permission) => [].concat(permission).some(id => granted[id] === true)

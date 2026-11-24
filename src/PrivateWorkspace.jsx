@@ -8,7 +8,7 @@ import { Toaster as Sonner } from './hub/components/ui/sonner'
 import { TooltipProvider } from './hub/components/ui/tooltip'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import WorkspaceLayout, { PageSkeleton } from './components/WorkspaceLayout'
-import { FINANCIAL_READ, SCREENS } from './lib/navigation'
+import { FINANCIAL_READ, OWN_GOAL, SCREENS } from './lib/navigation'
 import { queryClient } from './lib/queryClient'
 
 const Today = lazy(() => import('./pages/Today'))
@@ -20,6 +20,7 @@ const Agent = lazy(() => import('./pages/AgentPage'))
 const Refunds = lazy(() => import('./pages/RefundsPage'))
 const Goals = lazy(() => import('./pages/GoalsPage'))
 const Pace = lazy(() => import('./pages/GoalPacePage'))
+const OwnGoal = lazy(() => import('./pages/OwnGoalPage'))
 const Attribution = lazy(() => import('./pages/AttributionPage'))
 const BuyerIntelligence = lazy(() => import('./pages/BuyerIntelligencePage'))
 const Sources = lazy(() => import('./pages/DataSourcesPage'))
@@ -58,6 +59,9 @@ class ScreenBoundary extends Component {
     return this.props.children
   }
 }
+// Only admin sees everyone's goals and pace; anyone else sees their own.
+function GoalsScreen() { const { userRoles } = useAuth(); return userRoles?.isAdmin ? <Goals /> : <OwnGoal /> }
+function PaceScreen() { const { userRoles } = useAuth(); return userRoles?.isAdmin ? <Pace /> : <OwnGoal /> }
 function Screen({ permission, hub, children }) {
   const { hasPermission } = useAuth()
   const { pathname } = useLocation()
@@ -93,15 +97,17 @@ function SessionLayout({ bare = false }) {
   return <WorkspaceLayout key={`${currentUser.uid}:${accessKey}`}><Outlet /></WorkspaceLayout>
 }
 function StartPage() {
-  const { hasPermission } = useAuth()
-  const first = SCREENS.find(screen => hasPermission(screen.permission))
+  const { userRoles, hasPermission } = useAuth()
+  const granted = SCREENS.filter(screen => hasPermission(screen.permission))
+  // Outside admin, the own goal is the start page only when nothing else is granted.
+  const first = (userRoles?.isAdmin ? granted[0] : granted.find(screen => !OWN_GOAL.includes(screen.permission))) || granted[0]
   return first ? <Navigate to={first.path} replace /> : <section className="surface-panel empty-state"><h1>Seu acesso está pronto</h1><p>Peça a um administrador para liberar seus menus em Administração → Usuários e acessos.</p></section>
 }
 function AppRouter() {
   const routes = [
     ['/diario', 'today', Today], ['/global', 'daily', Global], ['/mensal', 'monthly', Monthly], ['/anual', 'yearly', Yearly],
-    ['/comparativo', 'comparativo', Comparativo], ['/reembolsos', 'refunds', Refunds], ['/metas', 'goals', Goals],
-    ['/pace', 'goal-pace', Pace], ['/atribuicao', 'attribution', Attribution], ['/data-sources', 'data-sources', Sources],
+    ['/comparativo', 'comparativo', Comparativo], ['/reembolsos', 'refunds', Refunds], ['/metas', 'goals', GoalsScreen],
+    ['/pace', 'goal-pace', PaceScreen], ['/atribuicao', 'attribution', Attribution], ['/data-sources', 'data-sources', Sources],
     ['/compradores', 'attribution', BuyerIntelligence], ['/agente', FINANCIAL_READ, Agent],
     ['/hub', 'hub-home', HubHome], ['/admin', 'admin', Admin],
     ['/onboarding/mba', 'onboarding-mba', Onboarding], ['/onboarding/devclub', 'onboarding-devclub', Onboarding],

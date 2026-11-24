@@ -84,6 +84,7 @@ test('seller reads only own monthly endpoint and sees2500/10000=25%, expected500
   handler = path => Promise.resolve({ ...response(path), ignoredOtherSeller: { name: 'OTHER_PERSON_PRIVATE', target: 8000000 } })
   await mount()
   assert.equal(stat('target').replace(/\s/g, ' '), 'R$ 10.000,00')
+  assert.equal(stat('tiers').replace(/\s/g, ' '), 'Supermeta R$ 15.000,00 · Ultrameta R$ 20.000,00')
   assert.equal(stat('actual').replace(/\s/g, ' '), 'R$ 2.500,00')
   assert.equal(stat('attainment'), '25%')
   assert.equal(stat('expected').replace(/\s/g, ' '), 'R$ 5.000,00')
@@ -110,6 +111,7 @@ test('first configured valid metric is selected automatically; count does not us
   assert.equal(stat('attainment'), '50%')
   await choose('Indicador da minha meta', 'count')
   assert.match(document.body.textContent, /Meta não definida para este mês e indicador/)
+  assert.equal(stat('tiers'), undefined)
   assert.equal(stat('attainment'), '—')
   assert.equal(stat('pace'), '—')
   assert.doesNotMatch(document.body.textContent, /999999|999\.999/)
@@ -142,7 +144,6 @@ test('an account switch clears old values immediately and late old-account respo
   assert.equal(stat('attainment'), '25%')
   handler = () => lateB.promise
   vault.currentUser = { uid: 'vault-sub-b' }
-  hub.user = { id: 'hub-profile-b', individual_goal: 888888, role: 'vendedor' }
   await render(2026, false)
   assert.doesNotMatch(document.body.textContent, /2\.500,00|25%|50%/)
   await runtime.act(async () => lateA.resolve(response(`/goal-plans/me/2026/${currentMonth}`)))
@@ -152,9 +153,8 @@ test('an account switch clears old values immediately and late old-account respo
   await settle()
   assert.equal(stat('actual').replace(/\s/g, ' '), 'R$ 1.234,00')
   const keys = client.getQueryCache().getAll().map(query => query.queryKey)
-  assert.ok(keys.some(key => key.includes('vault-sub-b') && key.includes('hub-profile-b')))
+  assert.ok(keys.some(key => key.includes('vault-sub-b')))
   vault.currentUser = null
-  hub.user = null
   await render(2026, false)
   assert.equal(document.querySelector('[aria-label="Minha meta do mês"]'), null)
 })
@@ -169,4 +169,23 @@ test('failed reads offer retry without displaying invented values', async () => 
   await settle()
   assert.equal(stat('attainment'), '25%')
   assert.equal(requests.length, 2)
+})
+test('the card needs only the Vault session, never a Hub session that could create a profile', async () => {
+  hub.user = null
+  handler = path => Promise.resolve(response(path))
+  await mount()
+  assert.deepEqual(requests.map(item => item.path), [`/goal-plans/me/2026/${currentMonth}`])
+  assert.equal(stat('target').replace(/\s/g, ' '), 'R$ 10.000,00')
+})
+test('a missing or inactive commercial profile is explained instead of offering a retry', async () => {
+  for (const [code, message] of [['COMMISSION_PROFILE_MISSING', 'Não foi possível identificar um único perfil comercial para esta conta.'], ['COMMISSION_PROFILE_INACTIVE', 'O perfil comercial desta conta está inativo.']]) {
+    handler = () => Promise.reject(Object.assign(new Error(message), { status: code.endsWith('INACTIVE') ? 403 : 409, code }))
+    await mount()
+    const alert = document.querySelector('[role="alert"]').textContent
+    assert.ok(alert.includes(message), code)
+    assert.match(alert, /Peça a um administrador para revisar seu perfil comercial/)
+    assert.equal(button('Tentar novamente'), undefined)
+    assert.equal(stat('target'), undefined)
+    await runtime.act(async () => root.unmount()); root = null
+  }
 })

@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import fs from 'node:fs/promises'
 import assert from 'node:assert/strict'
 import {checkComparison} from './comparison-checks.mjs'
-import { checkGoalConfiguration, checkGoalConfigurationReader } from './goal-config-checks.mjs'
+import { checkGoalConfiguration, checkOwnGoalReader, ownGoalFixture } from './goal-config-checks.mjs'
 import { periodCacheFixture, emptyProviderPayload } from './period-cache-fixture.mjs'
 import { adminUsersCatalogFixture, emptyAdminUsersFixture } from './admin-users-read-fixture.mjs'
 import { emptyCommissionFixture, emptyUtmMappingFixture } from './commission-read-fixture.mjs'
@@ -21,7 +21,7 @@ const guruRows = [
 const apiCalls=[]
 let failedBoletex=false
 let admin=true
-let goalReader=false
+let reader=null
 let comparisonFixture=false
 const writes=[]
 const materials=[{id:'material-1',title:'Playbook comercial',description:'Documento de treinamento',category:'Treinamentos',url:'storage://materials/playbook.pdf',created_at:'2026-09-10T12:00:00Z'}]
@@ -52,7 +52,7 @@ await context.route('**/*',async route=>{
  const method=route.request().method(); const request=route.request();
  if(!['GET','HEAD'].includes(method))writes.push({path:url.pathname,method,body:request.headers()['content-type']?.includes('json')?request.postDataJSON():request.postData()})
  let body
- if(url.pathname==='/api/access')body={user:{sub:'fixture-user',email:'qa@example.test',name:'QA local',permissions:admin?['admin']:goalReader?['goals']:['materials'],isAdmin:admin}}
+ if(url.pathname==='/api/access')body={user:{sub:'fixture-user',email:'qa@example.test',name:'QA local',permissions:admin?['admin']:reader?[...[].concat(reader),'hub-home']:['materials'],isAdmin:admin}}
  else if(url.pathname==='/api/admin/users/catalog'){assert.equal(method,'GET');assert.equal(admin,true);body=adminUsersCatalogFixture}
  else if(url.pathname==='/api/admin/users'){assert.equal(method,'GET');assert.equal(admin,true);body=emptyAdminUsersFixture}
  else if(url.pathname==='/api/ranking-participation'){assert.equal(method,'GET');assert.equal(admin,true);body={users:[{id:profile.id,name:profile.name,teamId:null,teamName:'',active:true,excludedFromRanking:false,revision:0,updatedAt:null}]}}
@@ -90,6 +90,7 @@ await context.route('**/*',async route=>{
  else if(url.pathname.startsWith('/api/goals/revenue/'))body={data:{faturamentoCartao:{base:1000,super:2000,ultra:3000},faturamentoBoleto:{base:1000,super:2000,ultra:3000},investimentoTrafego:{base:100,super:200,ultra:300}}}
  else if(url.pathname.startsWith('/api/goals/'))body={success:true,data:{meta:30000,superMeta:35000,ultraMeta:40000,revision:1}}
  else if(url.pathname==='/api/mcp/status')body={enabled:false,writesEnabled:false}
+ else if(url.pathname.startsWith('/api/goal-plans/me/'))body=ownGoalFixture(url.pathname,date)
  else if(url.pathname==='/api/goal-plans/options')body=goalOptions
  else if(url.pathname.startsWith('/api/goal-plans/')&&method==='PUT'){
   const input=request.postDataJSON()
@@ -273,10 +274,24 @@ ledger.manualSales=[
 await checkComparison({page,visit,shot,checked,apiCalls})
 await page.setViewportSize({width:1440,height:1000})
 admin=false
-goalReader=true
-await visit('/metas','Metas da operação')
-await checkGoalConfigurationReader({page,checked})
-goalReader=false
+for(const [permission,path] of [['goals','/metas'],['goal-pace','/pace'],[['goals','goal-pace'],'/pace']]){
+ reader=permission
+ const name=[].concat(permission).join(' + ')
+ const before=apiCalls.length
+ await visit(path,'Minha meta')
+ await checkOwnGoalReader({page,checked,permission:name,calls:()=>apiCalls.slice(before)})
+ const menu=page.locator('#workspace-navigation nav')
+ assert.equal(await menu.getByRole('link',{name:'Minha meta',exact:true}).count(),1,'One own goal menu entry')
+ assert.equal(await menu.locator(`a[href="${path}"]`).count(),1)
+ assert.equal(await menu.getByRole('link',{name:/^(Metas|Ritmo das metas|Agente)$/}).count(),0,'No general goal screens or agent in the menu')
+ assert.match(await page.locator('.workspace-breadcrumb').innerText(),/Minha meta/)
+ await visit('/','Seu espaço de trabalho')
+ assert.equal(new URL(page.url()).pathname,'/hub','The own goal is not the start page when Meu espaço is granted')
+ assert.equal(await page.locator(`main a[href="${path}"]`).filter({hasText:'Minha meta'}).count(),1,'One own goal shortcut')
+ assert.equal(await page.locator('main').getByRole('heading',{name:/^(Metas|Ritmo das metas)$/}).count(),0,'No shortcut to the general goal screens')
+ checked(`${name} outside admin: one Minha meta menu entry and shortcut, start page stays Meu espaço`)
+}
+reader=null
 await visit('/materials','Biblioteca de materiais')
 assert.equal(await page.getByRole('button',{name:'Adicionar material'}).count(),0)
 assert.equal(await page.getByRole('link',{name:'Visão global',exact:true}).count(),0)

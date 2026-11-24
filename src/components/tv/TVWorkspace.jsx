@@ -46,7 +46,8 @@ export default function TVWorkspace() {
     return () => { mounted.current = false; invalidate(); window.clearInterval(timer); document.removeEventListener('visibilitychange', refresh) }
   }, [readSettings])
   const settings = saved?.settings || defaultTvSettings()
-  const allowed = ['today', 'daily', 'monthly', 'yearly', 'goal-pace', 'goals'].some(hasPermission)
+  // Business screens only: outside admin, goals and pace show just the own goal.
+  const allowed = ['today', 'daily', 'monthly', 'yearly'].some(hasPermission)
   const data = useTvData({ month: settings.monthMode === 'fixed' ? settings.month : 'current', metric: settings.metric, enabled: allowed && Boolean(saved), paceScope: settings.paceScope, paceScopeId: settings.paceScopeId })
   const enabledPanels = settings.panels.filter(panel => panel.enabled)
   const previewId = enabledPanels.some(panel => panel.id === preview) ? preview : enabledPanels[0]?.id
@@ -85,7 +86,7 @@ export default function TVWorkspace() {
     {userRoles?.isAdmin && <div className="tv-celebration-demo-link"><div><strong>Novas vendas com confetes e som de venda</strong><p>Comemoração de 5 segundos, com o nome do vendedor quando identificado. Na apresentação, clique em Ativar som. O volume fica em 100%; ajuste pelo computador.</p></div><a href="/tv-demo" target="_blank" rel="noopener noreferrer">Testar animações e sons</a></div>}
     {userRoles?.isAdmin && <TvSharing/>}
     {editor && <TvSettingsEditor key={editor.revision} initial={editor.settings} directory={data.model?.directory} saving={saving} error={saveError} conflict={conflict} onSave={save} onCancel={() => setEditor(null)} onReload={reloadDraft}/>}
-    {!allowed ? <div className="tv-empty"><Monitor size={36}/><h2>Acesso aos indicadores da TV</h2><p>Para exibir os painéis financeiros, libere Mensal ou Ritmo das metas no Vault. O ranking comercial continua disponível na outra aba.</p></div> : <>
+    {!allowed ? <div className="tv-empty"><Monitor size={36}/><h2>Acesso aos indicadores da TV</h2><p>Os painéis da TV mostram os indicadores financeiros da empresa e não estão liberados para esta conta. O ranking comercial continua disponível na outra aba.</p></div> : <>
       <div className="tv-program-summary"><div><span className="tv-live-dot"/><strong>{settings.mode === 'fixed' ? 'Painel fixo' : `${enabledPanels.length} painéis em sequência`}</strong><span>{isWeeklyTvProgram(settings) ? tvWeekLabel(data.model?.weekly?.startDate, data.model?.weekly?.endDate) : isDailyTvProgram(settings) ? tvDayLabel(data.model?.today) : tvMonthLabel(data.model?.month || settings.month)}</span><span>Metas e ordem: {TV_METRICS[settings.metric]}</span></div><button onClick={() => data.refresh()} disabled={data.loading || data.refreshing || !saved} aria-label="Atualizar indicadores"><RefreshCw size={16} className={data.refreshing ? 'tv-spin' : ''}/>{data.refreshing ? 'Atualizando…' : 'Atualizar'}</button></div>
       <div className="tv-preview-nav" aria-label="Prévia dos painéis">{enabledPanels.map(panel => <button key={panel.id} aria-pressed={panel.id === previewId} onClick={() => setPreview(panel.id)}>{TV_PANELS.find(info => info.id === panel.id)?.title}{settings.mode === 'rotate' && <small>{panel.durationSeconds}s</small>}</button>)}</div>
       {data.error && <div className="tv-notice" role="status">{data.error}</div>}

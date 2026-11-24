@@ -1,16 +1,17 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { FINANCIAL_READ, NAVIGATION, SCREENS, hasAnyPermission, isAssignable } from '../src/lib/navigation.js'
+import { FINANCIAL_READ, NAVIGATION, SCREENS, hasAnyPermission, isAssignable, navigationFor } from '../src/lib/navigation.js'
 
 const agent = SCREENS.find(screen => screen.path === '/agente')
-const FINANCIAL_SCREENS = ['today', 'daily', 'monthly', 'yearly', 'comparativo', 'goal-pace', 'goals', 'refunds', 'attribution']
+const FINANCIAL_SCREENS = ['today', 'daily', 'monthly', 'yearly', 'comparativo', 'refunds', 'attribution']
 
 test('the agent opens with any of the financial screens, and with nothing else', () => {
   assert.deepEqual(agent.permission, FINANCIAL_SCREENS)
   assert.equal(agent.permission, FINANCIAL_READ)
   for (const id of FINANCIAL_SCREENS) assert.equal(hasAnyPermission({ [id]: true }, agent.permission), true, id)
   assert.equal(hasAnyPermission({ materials: true, 'hub-home': true, commissions: true }, agent.permission), false)
+  assert.equal(hasAnyPermission({ goals: true, 'goal-pace': true }, agent.permission), false, 'Goals and pace show only the own goal')
   assert.equal(hasAnyPermission({ monthly: false }, agent.permission), false, 'Only a granted permission counts')
   assert.equal(hasAnyPermission({}, agent.permission), false)
 })
@@ -42,4 +43,19 @@ test('session guards accept a list of permissions', () => {
   assert.match(auth, /userRoles\.isAdmin \|\| hasAnyPermission\(userRoles, permission\)/)
   const workspace = readFileSync(new URL('../src/PrivateWorkspace.jsx', import.meta.url), 'utf8')
   assert.match(workspace, /\['\/agente', FINANCIAL_READ, Agent\]/)
+})
+
+test('outside admin the two goal screens become one Minha meta entry, in place of the first', () => {
+  const can = granted => permission => [].concat(permission).some(id => granted.includes(id))
+  const entries = nav => nav.flatMap(group => group.items.map(item => `${item.label}>${item.path}`))
+  const admin = entries(navigationFor(true, () => true))
+  assert.ok(admin.includes('Ritmo das metas>/pace') && admin.includes('Metas>/metas') && !admin.some(entry => entry.startsWith('Minha meta')))
+  assert.deepEqual(entries(navigationFor(false, can(['goals']))), ['Minha meta>/metas'])
+  assert.deepEqual(entries(navigationFor(false, can(['goal-pace']))), ['Minha meta>/pace'])
+  const closer = entries(navigationFor(false, can(['goals', 'goal-pace', 'hub-home', 'daily-kpis', 'ranking'])))
+  assert.deepEqual(closer, ['Minha meta>/pace', 'Meu espaço>/hub', 'KPIs diários>/daily-kpis', 'Ranking e TV>/ranking'])
+  assert.deepEqual(entries(navigationFor(false, can(['today', 'refunds', 'goals', 'goal-pace', 'attribution']))),
+    ['Diário>/diario', 'Reembolsos>/reembolsos', 'Minha meta>/pace', 'Atribuição e conciliação>/atribuicao', 'Compradores>/compradores', 'Agente>/agente'])
+  assert.deepEqual(navigationFor(false, can([])), [])
+  assert.equal(SCREENS.find(screen => screen.path === '/pace').label, 'Ritmo das metas', 'The admin catalog keeps the screen names')
 })

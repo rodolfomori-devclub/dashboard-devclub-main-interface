@@ -31,7 +31,7 @@ Metas de time usam a composição **atual**, inclusive em consultas históricas;
 
 ## Acesso e compatibilidade
 
-A administração continua no Vault. Leitores com acesso à tela consultam metas e opções; somente administradores do Dashboard salvam metas. O catálogo retorna apenas ID, nome, status e vínculo de time. Perfis comerciais aparecem após primeiro acesso ao módulo comercial; contas humanas continuam geridas no Vault.
+A administração continua no Vault. Somente administradores do Dashboard veem e salvam todas as metas nas telas Metas e Ritmo das metas. Fora do admin, essas telas mostram só a meta e o ritmo da própria pessoa (`GET /api/goal-plans/me/:ano/:mês`, que identifica a pessoa pelo e-mail verificado no Vault). Todas as metas e as opções continuam disponíveis para Diário, Visão global, Mensal e Anual, que já mostram os números da empresa. O catálogo retorna apenas ID, nome, status e vínculo de time. Perfis comerciais aparecem após primeiro acesso ao módulo comercial; contas humanas continuam geridas no Vault.
 
 A migração mantém os IDs, valores e auditoria anteriores: `product=all` torna-se `overall`; outras famílias tornam-se `product`. Apenas a meta geral operacional sincroniza o consumidor legado mensal. Metas de time/pessoa, bruto e caixa não sobrescrevem os totais legados.
 

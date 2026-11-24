@@ -180,13 +180,28 @@ export async function checkGoalConfiguration({ page, writes, checked, shot, team
   checked('Goals financial editors fit desktop and 360px in both themes')
 }
 
-export async function checkGoalConfigurationReader({ page, checked }) {
-  for (const name of ['Valor das vendas', 'Cash collected']) {
-    const form = page.getByRole('form', { name: `Meta de ${name}`, exact: true })
-    for (const [, area] of areas) for (const [, tier] of tiers) assert.equal(await areaInput(form, area, tier).isDisabled(), true, 'Reader cannot change area targets')
-    assert.equal(await form.locator('.goal-breakdown-total').count(), 3)
-    assert.equal(await form.getByRole('button', { name: /Salvar|Configurar|Manter meta/ }).count(), 0)
-  }
+// Outside admin, Metas and Ritmo das metas read only /goal-plans/me.
+export function ownGoalFixture(pathname, today) {
+  const [year, month] = pathname.split('/').slice(-2).map(Number)
+  const metric = (id, target) => ({ metric: id, configured: true, plan: { target, superTarget: target * 1.2, ultraTarget: target * 1.5, paceBasis: 'calendar' },
+    pace: { target, actual: target / 4, attainment: 25, expected: target / 2, pacePercent: 50, remaining: target * .75, requiredPerDay: target / 40, projection: target / 2, delta: -target / 4,
+      validTarget: true, definitive: true, scopeExcluded: false, available: true, sourceIncomplete: false, future: false, ended: false, basis: 'calendar',
+      rows: [{ date: `${year}-${String(month).padStart(2, '0')}-01`, label: '01', actual: target / 4, planned: target / 2, observed: true }] } })
+  return { year, month, today, loading: false, attributionAvailable: true, metrics: [metric('gross', 12000), metric('cash', 8000), { ...metric('count', 0), configured: false, plan: null }] }
+}
+
+export async function checkOwnGoalReader({ page, checked, permission, calls }) {
+  const text = async id => (await page.getByTestId(`individual-goal-${id}`).innerText()).replace(/\s/g, ' ')
+  await page.getByTestId('individual-goal-target').waitFor()
+  assert.equal(await text('target'), 'R$ 12.000,00')
+  assert.equal(await text('tiers'), 'Supermeta R$ 14.400,00 · Ultrameta R$ 18.000,00')
+  assert.equal(await text('actual'), 'R$ 3.000,00')
+  assert.equal(await text('pace'), '50%')
+  assert.equal(await page.getByRole('heading', { name: /Metas da operação|Metas e ritmo de vendas/ }).count(), 0)
   assert.equal(await page.getByRole('button', { name: /^Salvar/ }).count(), 0)
-  checked('Goals reader sees calculated totals with all Marketing/Vendas fields disabled and no write controls')
+  assert.equal(await page.getByRole('link', { name: 'Agente', exact: true }).count(), 0, 'Goals and pace do not open the agent')
+  const requested = calls()
+  assert.ok(requested.some(path => path.startsWith('/api/goal-plans/me/')), 'Reads the own goal')
+  assert.deepEqual(requested.filter(path => path !== '/api/access' && !path.startsWith('/api/goal-plans/me/')), [], 'Reads nothing beyond the own goal, not even a Hub session')
+  checked(`${permission} outside admin sees only the own goal, super and ultra targets and pace, with no general data or write controls`)
 }
