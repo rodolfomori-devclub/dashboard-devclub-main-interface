@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowLeftRight, CircleAlert, RefreshCw } from 'lucide-react'
 import { ReferenceChart } from '../components/charts/ReferenceChart'
+import ExportMenu from '../components/ExportMenu'
 import RefundSummary from '../components/charts/RefundSummary'
 import { loadSalesRange, localDateKey } from '../components/daily/dailyData'
 import { EMPTY_FILTERS, UNKNOWN, filterOptions } from '../utils/salesData'
@@ -39,14 +40,14 @@ export default function ComparativoPage() {
     Promise.all([
       loadSalesRange(selection.a.startDate, selection.a.endDate, { force: selection.force }),
       loadSalesRange(selection.b.startDate, selection.b.endDate, { force: selection.force }),
-    ]).then(([a, b]) => { if (active) setData({ a, b }) })
+    ]).then(([a, b]) => { if (active) setData({ a, b, selection }) })
       .catch(() => { if (active) setError('Não foi possível carregar a comparação. Confira as datas e tente atualizar.') })
       .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
   }, [selection])
 
   const allRecords = useMemo(() => [...(data?.a.records || []), ...(data?.b.records || [])], [data])
-  const snapshots = useMemo(() => data ? {
+  const snapshots = useMemo(() => data?.selection === selection ? {
     a: buildComparisonSnapshot(data.a, filters, selection.a), b: buildComparisonSnapshot(data.b, filters, selection.b),
   } : null, [data, filters, selection])
   const groups = useMemo(() => snapshots ? comparisonGroups(snapshots.a, snapshots.b, groupBy) : [], [snapshots, groupBy])
@@ -92,11 +93,15 @@ export default function ComparativoPage() {
     </tr>)
   }
   const tableHead = <thead><tr>{['Indicador', 'Período A', 'Período B · base', 'Variação A − B'].map(label => <th key={label} scope="col" className="text-left text-xs font-medium text-slate-500 py-3 pr-6">{label}</th>)}</tr></thead>
+  async function exportRows(format) {
+    const [{ buildComparisonReport }, { exportReport }] = await Promise.all([import('../utils/goalsComparisonExport.js'), import('../utils/reportExport.js')])
+    await exportReport(buildComparisonReport({ snapshots, selection, filters, groupBy, groupSearch, groupRows, daily, hourly }), format)
+  }
 
   return <div className="hub-page space-y-5">
     <header className="page-heading flex flex-wrap items-start justify-between gap-4">
       <div><h1 className="text-2xl font-semibold tracking-tight">Comparativo</h1><p className="text-sm text-slate-500 mt-2 max-w-2xl">Compare dois dias ou intervalos com as mesmas fontes da visão global.</p></div>
-      <button type="button" className="btn btn-ghost disabled:opacity-40" disabled={loading} onClick={() => setSelection(old => ({ ...old, force: true }))}><RefreshCw size={15} className={loading ? 'animate-spin' : ''} />Atualizar fontes</button>
+      <div className="flex flex-wrap gap-2"><ExportMenu disabled={loading || !snapshots || Boolean(error)} onExport={exportRows} /><button type="button" className="btn btn-ghost disabled:opacity-40" disabled={loading} onClick={() => setSelection(old => ({ ...old, force: true }))}><RefreshCw size={15} className={loading ? 'animate-spin' : ''} />Atualizar fontes</button></div>
     </header>
 
     <form className="surface-panel ds-card p-5 space-y-5" onSubmit={applyComparison}>

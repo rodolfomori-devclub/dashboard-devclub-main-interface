@@ -223,9 +223,10 @@ try {
     await assertNewSales()
     assert.equal(await panel().count(), 0, 'Hotmart filter cannot display Asaas receipts')
     assert.equal(calls.length, beforeFilter, 'Platform filtering remains local')
-    if (path === 'mensal') {
+    if (path === 'mensal' || path === 'diario') {
       const downloaded = page.waitForEvent('download');
-      await page.getByRole('button', { name: 'Exportar Excel', exact: true }).click();
+      await page.getByRole('button', { name: 'Exportar', exact: true }).click();
+      await page.getByRole('button', { name: 'Excel (.xlsx)', exact: true }).click();
       const download = await downloaded;
       const sheet = XLSX.read(await fs.readFile(await download.path()), { type: 'buffer' }).Sheets.Vendas;
       const [headers, ...cells] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null });
@@ -244,7 +245,7 @@ try {
         assert.equal(row.Recebido, 277.88, 'Exported cash must use the same net without subtracting fees again');
       }
       assert.deepEqual(rows.map(row => row['Pagamento original']).sort(), ['Boleto', 'Cartão', 'Pix'], 'Excel preserves the original provider method independently of its commercial category');
-      checks.push(`Monthly Excel/${width}: named columns preserve Cartão category, original methods and net 277.88 for sales and cash`);
+      checks.push(`${path} Excel/${width}: named columns preserve Cartão category, original methods and net 277.88 for sales and cash`);
     }
   }
 

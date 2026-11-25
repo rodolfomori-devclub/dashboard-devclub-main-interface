@@ -9,6 +9,7 @@ import UtmDetails from '../components/attribution/UtmDetails'
 import { UTM_FIELDS } from '../utils/salesData'
 import { isNetSalesPlatform, usesPlatformNet } from '../utils/platformCash'
 import UtmMappings from '../components/attribution/UtmMappings'
+import ExportMenu from '../components/ExportMenu'
 import '../components/attribution/attribution.css'
 
 const FAMILIES = ['MBA', 'DevClub', 'IAClub', 'Seu segundo salário com IA']
@@ -190,8 +191,17 @@ export default function AttributionPage() {
     catch (failure) { setError(failure.message) }
     finally { setSyncing(null) }
   }
+  async function exportFiltered(format) {
+    const [{ exportReport }, { buildAttributionReport }] = await Promise.all([import('../utils/reportExport.js'), import('../utils/dataScreenExport.js')])
+    await exportReport(buildAttributionReport(rows, { period, sources: currentData.sources, warning: error, filters: [
+      ['Fonte', filters.source || 'Todas'], ['Situação', { pending: 'Pendentes', reconciled: 'Conciliadas', 'sync-pending': 'Sincronização pendente' }[filters.status] || 'Todas'],
+      ['Identificação', { all: 'Todas', utm: 'Automática por UTM', manual: 'Atribuição manual', unassigned: 'Sem vendedor' }[filters.identification]],
+      ['Vendedor', filters.seller ? sellers.find(seller => seller.id === filters.seller)?.name || filters.seller : 'Todos'],
+      ['UTM Source', filters.utmSource || 'Todas'], ['Busca', filters.search || 'Sem busca'],
+    ] }), format)
+  }
   return <div className="hub-page space-y-5">
-    <header className="page-heading"><div><h1>Atribuição e conciliação</h1><p>Vendas identificadas por UTM ou manualmente. Guru, Hotmart e Hubla: líquido após taxas; demais: valor contratado.</p></div><div className="flex flex-wrap gap-2"><button className="button" onClick={() => load(true)} disabled={loading}><RefreshCw size={16} />{loading ? 'Atualizando…' : 'Atualizar'}</button><button className="button button-primary" onClick={() => setOperation({ mode: 'manual' })} disabled={!sellers.length}><Plus size={16} />Venda manual</button></div></header>
+    <header className="page-heading"><div><h1>Atribuição e conciliação</h1><p>Vendas identificadas por UTM ou manualmente. Guru, Hotmart e Hubla: líquido após taxas; demais: valor contratado.</p></div><div className="flex flex-wrap gap-2"><ExportMenu disabled={loading || !currentData || !rows.length} onExport={exportFiltered} /><button className="button" onClick={() => load(true)} disabled={loading}><RefreshCw size={16} />{loading ? 'Atualizando…' : 'Atualizar'}</button><button className="button button-primary" onClick={() => setOperation({ mode: 'manual' })} disabled={!sellers.length}><Plus size={16} />Venda manual</button></div></header>
     {notice && <div className="notice flex items-center justify-between gap-3" role="status"><span>{notice}</span><button className="icon-button" aria-label="Fechar mensagem" onClick={() => setNotice('')}><X size={16} /></button></div>}
     {error && <div className="notice notice-error" role="alert">{error}</div>}
     {sellerError && <div className="notice notice-error" role="alert">Vendedores indisponíveis: {sellerError}</div>}

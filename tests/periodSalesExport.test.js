@@ -32,6 +32,56 @@ test('Excel global exclui solicitação dos totais e da aba Vendas, preservando 
   assert.equal(history[0]['ID na plataforma'], sale.externalId)
 })
 
+const pendingRequests = [
+  { id: 'p1', name: 'Cliente DevClub', email: 'dev@example.test', product: 'DevClub', platform: 'guru', purchasedAt: '2026-10-01', requestedAt: '2026-10-10', status: 'requested' },
+  { id: 'p2', name: 'Cliente MBA', email: 'mba@example.test', product: 'MBA', platform: 'guru', purchasedAt: '2026-10-01', requestedAt: '2026-10-10', status: 'requested' },
+  { id: 'p3', name: 'Cliente outra plataforma', email: 'tmb@example.test', product: 'DevClub', platform: 'tmb', purchasedAt: '2026-10-01', requestedAt: '2026-10-10', status: 'requested' },
+  { id: 'p4', name: 'Cliente Full Stack', email: 'full@example.test', product: 'DevClub, Full Stack', platform: 'guru', purchasedAt: '2026-10-01', requestedAt: '2026-10-10', status: 'requested' },
+  { id: 'p5', name: 'Cliente sem produto', email: 'missing@example.test', product: null, platform: null, purchasedAt: '2026-10-01', requestedAt: '2026-10-10', status: 'requested' },
+]
+const refundReview = { status: 'ready', pendingRequests }
+
+test('unmatched refund requests respect product selections and platform filters in the exported workbook', () => {
+  const workbook = roundtrip([sale], { filters: { product: ['DevClub', 'DevClub, Full Stack'], platform: 'Guru' }, refundReview })
+  const rows = table(workbook.Sheets['Solicitações a conferir'], 1)
+  assert.deepEqual(rows.map(row => row['E-mail']), ['dev@example.test', 'full@example.test'])
+  assert.match(workbook.Sheets.Comercial.B10.v, /3 solicitações omitidas/)
+  assert.equal(table(workbook.Sheets.Vendas).length, 1)
+  assert.equal(table(workbook.Sheets.Comercial, 10)[0]['Receita operacional'], 900.25)
+})
+
+test('pending refund export reuses product family and missing-product filters without changing the unfiltered list', () => {
+  const family = roundtrip([sale], { filters: { family: 'DevClub' }, refundReview })
+  assert.deepEqual(table(family.Sheets['Solicitações a conferir'], 1).map(row => row['E-mail']), ['dev@example.test', 'tmb@example.test', 'full@example.test'])
+  const missing = roundtrip([sale], { filters: { product: '__not_informed__' }, refundReview })
+  assert.deepEqual(table(missing.Sheets['Solicitações a conferir'], 1).map(row => row['E-mail']), ['missing@example.test'])
+  const unfiltered = roundtrip([sale], { filters: { product: [] }, refundReview })
+  assert.equal(table(unfiltered.Sheets['Solicitações a conferir'], 1).length, pendingRequests.length)
+})
+
+test('pending requests for another purchase date or without a known date do not escape the exported period', () => {
+  const requests = [...pendingRequests, { ...pendingRequests[0], email: 'past@example.test', purchasedAt: '2026-09-30' }, { ...pendingRequests[0], email: 'unknown@example.test', purchasedAt: null }]
+  const workbook = roundtrip([sale], { refundReview: { ...refundReview, pendingRequests: requests } })
+  const emails = table(workbook.Sheets['Solicitações a conferir'], 1).map(row => row['E-mail'])
+  assert.equal(emails.length, pendingRequests.length)
+  assert.ok(!emails.includes('past@example.test') && !emails.includes('unknown@example.test'))
+  assert.match(workbook.Sheets.Comercial.B10.v, /2 solicitações omitidas/)
+})
+
+test('pending requests without a safe purchase link are not exported under attribution, payment, offer or commercial filters', () => {
+  const changes = [
+    ...['sellerId', 'source', 'medium', 'campaign', 'content', 'term', 'payment'].map(key => ({ filters: { [key]: key === 'payment' ? 'Cartão' : 'selected' } })),
+    { filters: { sellerId: '__not_informed__' } }, { filters: { source: '__not_informed__' } },
+    { offer: 'Oferta outubro' }, { offer: '__not_informed__' }, { scope: 'commercial' },
+  ]
+  for (const change of changes) {
+    const workbook = roundtrip([sale], { ...change, refundReview })
+    assert.equal(workbook.Sheets['Solicitações a conferir'], undefined, JSON.stringify(change))
+    assert.match(workbook.Sheets.Comercial.B10.v, /sem vínculo seguro.*filtros/)
+    assert.equal(table(workbook.Sheets.Comercial, 10)[0].Vendas, 1)
+  }
+})
+
 test('Excel keeps all filtered records, every UTM, IDs, typed money and the São Paulo date', () => {
   const records = Array.from({ length: 25 }, (_, index) => ({ ...sale, id: `guru:${index}`, externalId: String(index).padStart(4, '0') }))
   records.push({ ...sale, id: 'refund:1', kind: 'refund', net: 50, revenue: 50, gross: 60, attributionMethod: 'unassigned', sellerId: null, sellerName: null })

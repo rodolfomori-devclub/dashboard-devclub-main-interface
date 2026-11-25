@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, Fragment } from 'react'
 import { ArrowDownLeft, ArrowUpRight, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, RefreshCw, Search, CircleAlert } from 'lucide-react'
 import { refundsService } from '../services/refundsService'
 import RefundSummary from '../components/charts/RefundSummary'
+import ExportMenu from '../components/ExportMenu'
 
 const SOURCES = { guru: 'Guru', hotmart: 'Hotmart', hubla: 'Hubla', tmb: 'TMB', typeform: 'Typeform', spreadsheet: 'Planilha' }
 const STATUSES = { refunded: 'Reembolso confirmado', partially_refunded: 'Reembolso parcial', requested: 'Solicitado', retained: 'Retido no atendimento', reported_refunded: 'Informado na planilha', chargeback: 'Chargeback', dispute: 'Em contestação', rejected: 'Venda rejeitada', cancelled: 'Pedido cancelado' }
@@ -82,6 +83,14 @@ export default function RefundsPage() {
   function setFilter(setter, value) { setter(value); setPage(1); setExpanded(null) }
   function clearFilters() { setSource('all'); setStatus('all'); setProduct('all'); setSearch(''); setView('all'); setPage(1); setExpanded(null) }
   function toggle(row) { setExpanded(expanded === row.id ? null : row.id) }
+  async function exportFiltered(format) {
+    const [{ exportReport }, { buildRefundsReport }] = await Promise.all([import('../utils/reportExport.js'), import('../utils/dataScreenExport.js')])
+    await exportReport(buildRefundsReport(filtered, { period, result, filters: [
+      ['Fonte', source === 'all' ? 'Todas' : SOURCES[source] || source], ['Status', status === 'all' ? 'Todos' : STATUSES[status] || status],
+      ['Produto', product === 'all' ? 'Todos' : product], ['Busca', search || 'Sem busca'],
+      ['Tipo de registro', { all: 'Todos', confirmed: 'Confirmados', requests: 'Atendimento', exceptions: 'Contestações e cancelamentos' }[view]],
+    ] }), format)
+  }
 
   function renderDetails(row, prefix) {
     return <div id={`${prefix}-${row.id}`} className="p-5 bg-slate-50 dark:bg-slate-900">
@@ -102,7 +111,7 @@ export default function RefundsPage() {
   return <div className="hub-page space-y-6">
     <header className="page-heading flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
       <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 mb-2">Financeiro / Atendimento</p><h1 className="text-3xl font-semibold">Reembolsos</h1><p className="text-sm text-slate-500 dark:text-slate-400 mt-2 max-w-2xl">Acompanhe devoluções confirmadas, solicitações e cancelamentos em um só lugar.</p></div>
-      <button type="button" className="btn btn-ghost disabled:opacity-50" onClick={() => setRefresh(r => r + 1)} disabled={loading}><RefreshCw size={16} className={loading ? 'animate-spin' : ''} aria-hidden="true" />{loading ? 'Consultando fontes' : 'Atualizar'}</button>
+      <div className="flex flex-wrap gap-2"><ExportMenu disabled={loading || !filtered.length} onExport={exportFiltered} /><button type="button" className="btn btn-ghost disabled:opacity-50" onClick={() => setRefresh(r => r + 1)} disabled={loading}><RefreshCw size={16} className={loading ? 'animate-spin' : ''} aria-hidden="true" />{loading ? 'Consultando fontes' : 'Atualizar'}</button></div>
     </header>
     <form onSubmit={applyPeriod} className="filter-bar ds-card p-4 flex flex-wrap items-end gap-3">
       <div><label htmlFor="refund-start" className="ds-label">De</label><input id="refund-start" className="ds-input" type="date" required value={draft.startDate} onChange={e => setDraft(d => ({ ...d, startDate: e.target.value }))} /></div>

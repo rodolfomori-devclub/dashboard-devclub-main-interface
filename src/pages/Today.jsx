@@ -1,6 +1,7 @@
 /* eslint-disable react/prop-types -- Internal UI props; React 19 does not use runtime propTypes. */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ReferenceChart } from '../components/charts/ReferenceChart'
+import ExportMenu from '../components/ExportMenu'
 import { ChartPanel, RankedBars, MixChart } from '../components/charts/AnalyticsVisuals'
 import RevenueHighlights from '../components/charts/RevenueHighlights'
 import FinancialValue from '../components/charts/FinancialValue'
@@ -116,8 +117,13 @@ export default function Today() {
   const paymentMixValid = paymentMix.every(item => Number.isFinite(item.value) && item.value >= 0)
   const notifications = current ? buildRevenueNotices(relevantSources, filters, { partial, records: filtered }) : []
 
+  async function exportRows(format) {
+    const { exportPeriodSales } = await import('../utils/periodSalesExport')
+    await exportPeriodSales(filtered, { startDate: date, endDate: date, filters, sources: relevantSources, availableSales: salesAvailable, operationsStatus: current?.operationsStatus, attributionMappingsStatus: current?.ledger?.attributionMappingsStatus }, format)
+  }
+
   return <div className="hub-page daily-page">
-    <header className="page-heading daily-heading"><div><h1>Diário de vendas</h1><p>Acompanhe o dia, os produtos e a origem de cada venda.</p></div><div className="daily-heading-actions"><RevenueNotifications items={notifications} /><div className="daily-refresh"><button className="button button-primary" onClick={() => refresh(true)} disabled={loading}><RefreshCw size={16} className={loading ? 'daily-spin' : ''} />{loading ? 'Atualizando' : 'Atualizar dados'}</button><span>{current ? `${hasSourceWarning ? 'Consulta' : 'Atualizado'} às ${clock(current.fetchedAt)}` : 'Aguardando dados'}</span></div></div></header>
+    <header className="page-heading daily-heading"><div><h1>Diário de vendas</h1><p>Acompanhe o dia, os produtos e a origem de cada venda.</p></div><div className="daily-heading-actions"><RevenueNotifications items={notifications} /><ExportMenu disabled={loading || !filtered.length} onExport={exportRows} /><div className="daily-refresh"><button className="button button-primary" onClick={() => refresh(true)} disabled={loading}><RefreshCw size={16} className={loading ? 'daily-spin' : ''} />{loading ? 'Atualizando' : 'Atualizar dados'}</button><span>{current ? `${hasSourceWarning ? 'Consulta' : 'Atualizado'} às ${clock(current.fetchedAt)}` : 'Aguardando dados'}</span></div></div></header>
 
     {hasSourceWarning && <div className="daily-notice is-warning" role="status" data-testid="daily-source-warning">
       {preservedSources.length > 0 && <p>Atualização incompleta. Mantivemos os últimos dados válidos de {preservedSources.map(source => `${source.label}${source.fetchedAt ? ` (leitura às ${clock(source.fetchedAt)})` : ''}`).join(', ')}. Use “Atualizar dados” para tentar novamente.</p>}

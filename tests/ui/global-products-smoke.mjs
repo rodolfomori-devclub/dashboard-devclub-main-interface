@@ -101,11 +101,12 @@ try {
     assert.deepEqual((await detailSection.locator('tbody tr td:first-child p:first-child').allTextContents()).sort(), expected.map(row => row.id).sort())
     const groups = [...new Set(expected.map(row => row.product || 'Não informado'))].sort()
     assert.deepEqual((await page.locator('.period-distribution-table tbody tr td:first-child button').allTextContents()).sort(), groups)
-    assert.equal(await page.getByRole('button', { name: 'Exportar Excel', exact: true }).isEnabled(), expected.length > 0)
+    assert.equal(await page.getByRole('button', { name: 'Exportar', exact: true }).isEnabled(), expected.length > 0)
   }
   async function assertExport(expected, products) {
     const downloaded = page.waitForEvent('download')
-    await page.getByRole('button', { name: 'Exportar Excel', exact: true }).click()
+    await page.getByRole('button', { name: 'Exportar', exact: true }).click()
+    await page.getByRole('button', { name: 'Excel (.xlsx)', exact: true }).click()
     const download = await downloaded
     const workbook = XLSX.read(await fs.readFile(await download.path()), { type: 'buffer' })
     const rows = XLSX.utils.sheet_to_json(workbook.Sheets.Vendas, { defval: null })

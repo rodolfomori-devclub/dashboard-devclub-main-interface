@@ -1,6 +1,7 @@
 /* eslint-disable react/prop-types -- Internal blocks; their shape is the tested API projection. */
 import { memo, useState } from 'react'
 import { CircleAlert, Download, Info } from 'lucide-react'
+import ExportMenu from '../ExportMenu'
 import { MixChart, RankedBars } from '../charts/AnalyticsVisuals'
 import FinancialValue from '../charts/FinancialValue'
 import { ReferenceChart } from '../charts/ReferenceChart'
@@ -21,9 +22,14 @@ function Table({ head, caption, minWidth, children }) {
 
 function BlockHeader({ block, title, status, inProgress }) {
   const chips = filterChips(block.filters)
+  const exportable = block.kind !== 'buyers' && (block.kind === 'comparison' ? [block.a, block.b] : [block]).some(side => Object.values(side.metrics).some(metric => metric.value != null))
+  async function download(format) {
+    const { exportAgentBlock } = await import('../../utils/agentExport.js')
+    await exportAgentBlock(block, format)
+  }
   return <header className="agent-block-head">
     <div><p className="agent-eyebrow">Bloco {blockNumber(block)} · Calculado pelo servidor</p><h3>{title}</h3>{chips.length > 0 && <p className="agent-muted">{chips.join(' · ')}</p>}</div>
-    {status && <span className={statusClass(status)}>{statusText(status, inProgress)}</span>}
+    <div className="flex flex-wrap items-center gap-2">{status && <span className={statusClass(status)}>{statusText(status, inProgress)}</span>}{block.kind !== 'buyers' && <ExportMenu disabled={!exportable} onExport={download} label="Exportar bloco" />}</div>
   </header>
 }
 
@@ -126,8 +132,8 @@ function BuyersBlock({ block }) {
     if (exporting) return
     setExporting(format); setError('')
     try {
-      const { exportBuyerContacts } = await import('../../utils/periodSalesExport.js')
-      await exportBuyerContacts(block, format)
+      const { exportAgentBlock } = await import('../../utils/agentExport.js')
+      await exportAgentBlock(block, format)
     } catch { setError('Não foi possível baixar os contatos. Tente novamente.') }
     finally { setExporting('') }
   }
@@ -136,7 +142,7 @@ function BuyersBlock({ block }) {
     <Notices notices={block.notices} />
     <p className="agent-muted">{block.rows.length} de {block.totalRows} registros de compra.</p>
     <div className="agent-action">
-      {['xlsx', 'csv'].map(format => <button key={format} type="button" className="btn btn-ghost btn-sm" disabled={!block.rows.length || Boolean(exporting)} onClick={() => download(format)}><Download size={14} aria-hidden="true" />{exporting === format ? 'Preparando…' : `Baixar ${format.toUpperCase()}`}</button>)}
+      {['xlsx', 'csv', 'pdf'].map(format => <button key={format} type="button" className="btn btn-ghost btn-sm" disabled={!block.rows.length || Boolean(exporting)} onClick={() => download(format)}><Download size={14} aria-hidden="true" />{exporting === format ? 'Preparando…' : `Baixar ${format.toUpperCase()}`}</button>)}
     </div>
     {error && <p className="notice notice-error" role="alert">{error}</p>}
     {rows.length ? <>

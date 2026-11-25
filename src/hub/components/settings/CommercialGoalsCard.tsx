@@ -3,6 +3,7 @@ import { Target, Save, Sparkles, TrendingUp, CalendarRange, Calendar, Sun, Loade
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { useGoals, useUpsertGoals, DEFAULT_GOALS } from '@/hooks/useGoals';
+import ExportMenu from '../../../components/ExportMenu';
 
 const MONTH_NAMES = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -62,7 +63,7 @@ export function CommercialGoalsCard() {
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
 
-  const { data: goals, isLoading } = useGoals(month, year);
+  const { data: goals, isLoading, isFetching } = useGoals(month, year);
   const upsert = useUpsertGoals();
 
   const [teamGoal, setTeamGoal] = useState('');
@@ -105,6 +106,10 @@ export function CommercialGoalsCard() {
   };
 
   const isFallback = goals?.isFallback;
+  const exportRows = async (format: 'csv' | 'xlsx' | 'pdf') => {
+    const [{ buildLegacyGoalsReport }, { exportReport }] = await Promise.all([import('../../../utils/goalsComparisonExport.js'), import('../../../utils/reportExport.js')]);
+    await exportReport(buildLegacyGoalsReport({ kind: 'commercial', year, month, goals }), format);
+  };
 
   return (
     <div className="glass-card p-6 space-y-5">
@@ -121,6 +126,7 @@ export function CommercialGoalsCard() {
           </div>
         </div>
 
+        <ExportMenu disabled={!goals || isFallback || isFetching || upsert.isPending} onExport={exportRows} />
         {/* Period selector */}
         <div className="flex items-center gap-2 bg-muted/30 border border-border/40 rounded-lg p-1">
           <select

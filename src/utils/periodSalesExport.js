@@ -1,7 +1,7 @@
 import * as XLSX from 'xlsx'
 import { isCommercialSale, commercialSellerLabel, summarizeCommercialSales } from './commercialSales.js'
 import { applyPlatformCashRule, salesPaymentLabel } from './platformCash.js'
-import { amount, UNKNOWN, UTM_FIELDS } from './salesData.js'
+import { amount, filterSales, productFamily, SOURCE_DEFINITIONS, UNKNOWN, UTM_FIELDS } from './salesData.js'
 import { sourceHasSales } from './sourceAvailability.js'
 import { refundStatusLabel } from './refundSummary.js'
 
@@ -64,6 +64,15 @@ export function buildPeriodSalesWorkbook(records, {
   attributionMappingsStatus, availableSales, generatedAt = new Date(), scope = 'all', refundReview,
 } = {}) {
   const normalized = records.map(applyPlatformCashRule)
+  const pendingRequests = refundReview?.pendingRequests || []
+  // Unlinked requests carry no safe seller, campaign, offer or sales-payment
+  // category. Missing linkage must not qualify as an unknown-value filter.
+  const unverifiedPendingFilters = scope === 'commercial' || Boolean(offer) || Object.entries(filters).some(([key, value]) => value && !['product', 'family', 'platform'].includes(key))
+  const pendingRows = unverifiedPendingFilters ? [] : filterSales(pendingRequests.map(row => ({
+    ...row, family: productFamily(row.product),
+    platform: SOURCE_DEFINITIONS.find(source => source.id === String(row.platform || '').toLowerCase())?.platform || row.platform,
+  })), filters).filter(row => (!startDate || row.purchasedAt >= startDate) && (!endDate || row.purchasedAt <= endDate))
+  const omittedPending = pendingRequests.length - pendingRows.length
   const commercial = summarizeCommercialSales(normalized)
   const workbook = XLSX.utils.book_new()
   const salesSources = sources.filter(source => source.kind === 'sale')
@@ -91,7 +100,7 @@ export function buildPeriodSalesWorkbook(records, {
     ['Vínculos dos vendedores', mappingStatus],
     ['Critério', 'Vendas individuais com origem comercial/comercial-nome ou vínculo UTM cadastrado. O nome do vendedor vem da atribuição cadastrada.'],
     ['Valores', 'Guru, Hotmart e Hubla: líquido após taxas. Demais plataformas: regra do dashboard. Recebido não é somado ao valor da venda. Células vazias indicam valores não informados.'],
-    [],
+    omittedPending ? ['Pendências de reembolso', `${omittedPending} solicitações omitidas: fora do período/filtros ou sem vínculo seguro para confirmar os filtros. A cobertura dos totais permanece parcial.`] : [],
     ['Vendedor', 'UTM Source', 'Vendas', ...moneyLabels, 'Cobertura dos valores'],
     totalRow,
     ...commercial.groups.map(group => summaryRow(group.sellerName, group.utmSource || 'Não informada', group)),
@@ -101,10 +110,11 @@ export function buildPeriodSalesWorkbook(records, {
     : commercialPartial ? 'Nenhuma venda do Comercial identificada nos dados disponíveis. Resultado parcial.'
       : 'Nenhuma venda do Comercial identificada neste recorte.'])
   const commercialSheet = XLSX.utils.aoa_to_sheet(commercialRows)
+  commercialSheet['!exportHeaderRow'] = 10
   commercialSheet['!cols'] = [32, 46, 14, 23, 23, 23, 23, 76].map(wch => ({ wch }))
-  commercialSheet['!rows'] = commercialRows.map((_, index) => ({ hpt: [7, 8].includes(index) ? 30 : 22 }))
+  commercialSheet['!rows'] = commercialRows.map((_, index) => ({ hpt: [7, 8, 9].includes(index) ? 30 : 22 }))
   commercialSheet['!merges'] = [0].map(r => ({ s: { r, c: 0 }, e: { r, c: 7 } }))
-    .concat([3, 4, 5, 6, 7, 8].map(r => ({ s: { r, c: 1 }, e: { r, c: 7 } })))
+    .concat([3, 4, 5, 6, 7, 8, 9].map(r => ({ s: { r, c: 1 }, e: { r, c: 7 } })))
   formatMoney(commercialSheet, 11, commercialRows.length - 1, [3, 4, 5, 6])
   XLSX.utils.book_append_sheet(workbook, commercialSheet, 'Comercial')
 
@@ -134,12 +144,13 @@ export function buildPeriodSalesWorkbook(records, {
     refundSheet['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: refundRows.length, c: headers.length - 1 } }) }
     formatMoney(refundSheet, 1, refundRows.length, [20, 21, 22, 23, 24])
     XLSX.utils.book_append_sheet(workbook, refundSheet, 'Reembolsos e chargebacks')
-    if (refundReview.pendingRequests.length) {
+    if (pendingRows.length) {
       const pendingSheet = XLSX.utils.aoa_to_sheet([
         ['Solicitações sem vínculo seguro — vendas mantidas para conferência'],
         ['Cliente', 'E-mail', 'Produto', 'Compra', 'Solicitação', 'Status'],
-        ...refundReview.pendingRequests.map(row => [text(row.name), text(row.email), text(row.product), excelDate(row.purchasedAt, true), excelDate(row.requestedAt, true), refundStatusLabel(row.status)]),
+        ...pendingRows.map(row => [text(row.name), text(row.email), text(row.product), excelDate(row.purchasedAt, true), excelDate(row.requestedAt, true), refundStatusLabel(row.status)]),
       ])
+      pendingSheet['!exportHeaderRow'] = 1
       pendingSheet['!cols'] = [38, 38, 40, 20, 20, 38].map(wch => ({ wch }))
       XLSX.utils.book_append_sheet(workbook, pendingSheet, 'Solicitações a conferir')
     }
@@ -153,6 +164,15 @@ export function exportPeriodSalesExcel(records, options = {}) {
   const prefix = options.scope === 'commercial' ? 'comercial' : 'vendas'
   const filename = `${prefix}-${options.startDate}-${options.endDate}.xlsx`
   XLSX.writeFile(workbook, filename, { bookType: 'xlsx', compression: true })
+}
+
+export async function exportPeriodSales(records, options, format) {
+  const { exportWorkbook } = await import('./reportExport.js')
+  const prefix = options.scope === 'commercial' ? 'comercial' : 'vendas'
+  return exportWorkbook(buildPeriodSalesWorkbook(records, options), format, {
+    filename: `${prefix}-${options.startDate}-${options.endDate}`,
+    title: `Vendas · ${options.startDate} a ${options.endDate}`,
+  })
 }
 
 const BUYER_HEADERS = ['Nome', 'E-mail', 'Telefone', 'Produto', 'Plataforma', 'Data (Brasília)']

@@ -41,7 +41,7 @@ const mappings = [
   { utmSource: 'parceiro-ana', sellerId: 'ana', sellerName: 'Ana Silva', enabled: true },
 ]
 const guruSale = (id, value, source, product = 'DevClub Full Stack') => ({
-  hash: id, product: { name: product }, contact: { name: `Cliente ${id}`, email: `${id}@example.test` },
+  hash: id, product: { name: product }, contact: { name: `Cliente ${id}${id === 'override' ? ' José 李 😀' : ''}`, email: `${id}@example.test` },
   dates: { created_at: Date.parse(date) / 1000 }, payment: { method: 'credit_card', total: value + 10 },
   calculation_details: { net_amount: value, total_amount: value + 10, net_affiliate_value: 0, discounts: { fee: 10 } },
   trackings: { utm_source: source, utm_medium: 'whatsapp', utm_campaign: 'Turma outubro', utm_content: '=HYPERLINK("https://example.test")', utm_term: 'Termo da campanha' },
@@ -147,6 +147,7 @@ try {
     if (url.pathname === '/api/access') body = { user: { sub: 'fixture', email: 'qa@example.test', name: 'QA Comercial', permissions: ['daily'], isAdmin: true } }
     else if (url.pathname === '/api/transactions') body = payload('guru')
     else if (url.pathname === '/api/refunds') body = payload('guruRefunds')
+    else if (url.pathname === '/api/refunds/requests') body = { success: true, data: [], sources: [{ id: 'typeform', status: 'available' }, { id: 'spreadsheet', status: 'available' }], incomplete: false }
     else if (url.pathname === '/api/hotmart/vendas') body = payload('hotmart')
     else if (['/api/hubla/vendas', '/api/hubla/reembolsos'].includes(url.pathname)) body = { success: true, data: { financialSchemaVersion: 2, count: 0, totalNet: 0, totalGross: 0, totalFees: 0, transactions: [] } }
     else if (url.pathname === '/api/hotmart/reembolsos') body = payload('hotmartRefunds')
@@ -178,14 +179,19 @@ try {
   const exportBook = async (button, filename) => {
     const pending = page.waitForEvent('download')
     await page.getByRole('button', { name: button, exact: true }).click()
+    if (button === 'Exportar') await page.getByRole('button', { name: 'Excel (.xlsx)', exact: true }).click()
     const download = await pending
+    if (button === 'Exportar') {
+      await page.waitForFunction(() => [...document.querySelectorAll('button')].some(button => button.textContent.trim() === 'Exportar' && !button.disabled))
+      assert.equal(await page.getByRole('button', { name: 'Exportar', exact: true }).evaluate(node => node === document.activeElement), true, 'Focus returns to the export button after choosing a format')
+    }
     assert.match(download.suggestedFilename(), /\.xlsx$/)
     const path = `${output}/${filename}.xlsx`
     await download.saveAs(path)
     const bytes = await fs.readFile(path)
     assert.equal(bytes.subarray(0, 2).toString(), 'PK', 'Real XLSX ZIP container')
     const book = XLSX.read(bytes, { type: 'buffer', cellDates: true })
-    assert.deepEqual(book.SheetNames, ['Comercial', 'Vendas'])
+    assert.deepEqual(book.SheetNames, ['Comercial', 'Vendas', 'Reembolsos e chargebacks'])
     return book
   }
   const setProducts = async values => {
@@ -208,9 +214,10 @@ try {
   assert.match((await commercial().innerText()).replace(/\s/g, ''), /4\.300,00/)
   const override = commercial().getByRole('row').filter({ hasText: 'Bruno Souza' })
   assert.match(await override.innerText(), /300,00/)
-  const book = await exportBook('Exportar Excel', 'all-records')
+  const book = await exportBook('Exportar', 'all-records')
   const detail = locateTable(book.Sheets.Vendas, ['UTM Source', 'UTM Medium', 'UTM Campaign', 'UTM Content', 'UTM Term'])
-  assert.equal(detail.rows.length, 31, 'All 30 sales plus refund, beyond the UI page size')
+  assert.equal(detail.rows.length, 30, 'All sales, beyond the UI page size')
+  assert.equal(locateTable(book.Sheets['Reembolsos e chargebacks'], ['UTM Source']).rows.length, 1, 'Refunds remain separate from sales')
   const utmContent = detail.headers.indexOf('UTM Content')
   const formulaRow = detail.rows.findIndex(row => row[utmContent] === '=HYPERLINK("https://example.test")')
   assert.ok(formulaRow >= 0, 'Full original UTM content is retained')
@@ -228,10 +235,36 @@ try {
   const beforeFilterCalls = calls.length
   await page.getByRole('combobox', { name: 'Vendedor', exact: true }).selectOption('bruno')
   assert.match((await commercial().innerText()).replace(/\s/g, ''), /300,00/)
-  const filteredBook = await exportBook('Exportar Excel', 'seller-filtered')
+  const filteredBook = await exportBook('Exportar', 'seller-filtered')
   const filteredDetail = locateTable(filteredBook.Sheets.Vendas, ['UTM Source'])
   assert.equal(filteredDetail.rows.length, 1)
   assert.ok(filteredDetail.rows[0].includes('Bruno Souza'))
+  for (const format of ['CSV', 'PDF']) {
+    await page.getByRole('button', { name: 'Exportar', exact: true }).click()
+    const pending = page.waitForEvent('download')
+    await page.getByRole('button', { name: format, exact: true }).click()
+    const download = await pending
+    const path = `${output}/seller-filtered.${format.toLowerCase()}`
+    await download.saveAs(path)
+    const bytes = await fs.readFile(path)
+    const text = bytes.toString()
+    if (format === 'CSV') {
+      assert.ok(text.startsWith('\uFEFF'))
+      assert.ok(text.includes('Bruno Souza'))
+      assert.ok(text.includes('"300"'))
+      assert.ok(!text.includes('Cliente ana-1'), 'CSV excludes records outside the seller filter')
+    } else {
+      assert.equal(bytes.subarray(0, 5).toString(), '%PDF-')
+      assert.match(text, /\/Subtype \/Image/, 'Names outside the PDF base font are preserved as browser-rendered glyphs')
+      assert.ok(text.includes('Bruno Souza'))
+      assert.ok(!text.includes('Cliente ana-1'), 'PDF excludes records outside the seller filter')
+    }
+  }
+  await page.getByRole('button', { name: 'Exportar', exact: true }).click()
+  await page.getByRole('button', { name: 'CSV', exact: true }).focus()
+  await page.keyboard.press('Escape')
+  assert.equal(await page.getByRole('group', { name: 'Formatos de exportação' }).count(), 0)
+  assert.equal(await page.getByRole('button', { name: 'Exportar', exact: true }).evaluate(node => node === document.activeElement), true)
   assert.equal(calls.length, beforeFilterCalls, 'Seller filter and export reuse the loaded records')
   await page.getByRole('combobox', { name: 'Vendedor', exact: true }).selectOption('')
   await setProducts(['MBA em Inteligência Artificial'])
@@ -249,6 +282,9 @@ try {
   }
   await page.screenshot({ path: `${output}/global-desktop.png`, fullPage: true, animations: 'disabled' })
   await page.setViewportSize({ width: 390, height: 844 })
+  await page.getByRole('button', { name: 'Exportar', exact: true }).click()
+  await page.screenshot({ path: `${output}/export-menu-mobile.png`, animations: 'disabled' })
+  await page.keyboard.press('Escape')
   await page.waitForFunction(() => document.documentElement.scrollWidth <= innerWidth)
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'No mobile page overflow')
   await commercial().scrollIntoViewIfNeeded()
@@ -266,7 +302,7 @@ try {
   await page.screenshot({ path: `${output}/global-mappings-unavailable.png`, fullPage: true, animations: 'disabled' })
   scenario = 'empty'
   await navigate()
-  assert.equal(await page.getByRole('button', { name: 'Exportar Excel', exact: true }).isDisabled(), true)
+  assert.equal(await page.getByRole('button', { name: 'Exportar', exact: true }).isDisabled(), true)
   assert.equal(await page.getByRole('button', { name: 'Exportar Comercial', exact: true }).isDisabled(), true)
   assert.match(await commercial().innerText(), /nenhuma|sem vendas/i)
   checks.push({ check: 'unavailable mappings and empty states', passed: true })

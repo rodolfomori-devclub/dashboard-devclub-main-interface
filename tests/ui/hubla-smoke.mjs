@@ -5,12 +5,14 @@ import { createServer } from 'node:net'
 import { existsSync } from 'node:fs'
 import fs from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { chromium } from 'playwright'
 import * as XLSX from 'xlsx'
 import { emptyProviderPayload, periodCacheFixture } from './period-cache-fixture.mjs'
 
 const root = fileURLToPath(new URL('../../', import.meta.url))
-const out = fileURLToPath(new URL('./artifacts/hubla', import.meta.url))
+const out = process.env.DASHBOARD_SMOKE_OUTPUT || await fs.mkdtemp(join(tmpdir(), 'hubla-smoke-'))
 await fs.mkdir(out, { recursive: true })
 const socket = createServer()
 await new Promise(resolve => socket.listen(0, '127.0.0.1', resolve))
@@ -101,7 +103,8 @@ try {
       await page.getByLabel('Produto', { exact: true }).selectOption('DevClub Hubla')
       await assertMoney('Cartão', '900,00')
       const downloading = page.waitForEvent('download')
-      await page.getByRole('button', { name: 'Exportar Excel', exact: true }).click()
+      await page.getByRole('button', { name: 'Exportar', exact: true }).click()
+      await page.getByRole('button', { name: 'Excel (.xlsx)', exact: true }).click()
       const download = await downloading
       const workbook = XLSX.read(await fs.readFile(await download.path()), { type: 'buffer' })
       const rows = XLSX.utils.sheet_to_json(workbook.Sheets.Vendas)

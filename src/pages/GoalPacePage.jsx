@@ -5,6 +5,7 @@ import axios from 'axios'
 import { useAuth } from '../contexts/AuthContext'
 import { RefreshCw } from 'lucide-react'
 import { ReferenceChart } from '../components/charts/ReferenceChart'
+import ExportMenu from '../components/ExportMenu'
 import MonthlyPaceChart from '../components/goals/MonthlyPaceChart'
 import { ChartPanel, RankedBars } from '../components/charts/AnalyticsVisuals'
 import { formatValue } from '../components/charts/chartFormatters'
@@ -107,9 +108,13 @@ export default function GoalPacePage() {
   const percent = (number) => number === null ? '—' : `${number.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`
   const partialLabel = pace.definitive ? '' : 'Parcial · '
   const elapsedNote = pace.future ? 'O mês ainda não começou.' : `${pace.elapsedDays} de ${pace.totalDays} dias ${pace.basis === 'business' ? 'úteis' : 'corridos'} considerados.`
+  async function exportRows(format) {
+    const [{ buildGoalPaceReport }, { exportReport }] = await Promise.all([import('../utils/goalsComparisonExport.js'), import('../utils/reportExport.js')])
+    await exportReport(buildGoalPaceReport({ year, month, selection, metric, pace, financialSummary, current, selectedPlan }), format)
+  }
 
   return <div className="hub-page daily-page pace-page">
-    <header className="page-heading daily-heading"><div><h1>Metas e ritmo de vendas</h1><p>Acompanhe metas gerais, por time, produto e pessoa — com valor das vendas e cash collected separados.</p></div><div className="daily-refresh"><button className="button button-primary" onClick={() => load(true)} disabled={loading}><RefreshCw size={16} className={loading ? 'daily-spin' : ''} />{loading ? 'Atualizando' : 'Atualizar dados'}</button>{hasPermission('goals') && <Link to="/metas" className="pace-configure">Configurar metas</Link>}</div></header>
+    <header className="page-heading daily-heading"><div><h1>Metas e ritmo de vendas</h1><p>Acompanhe metas gerais, por time, produto e pessoa — com valor das vendas e cash collected separados.</p></div><div className="daily-refresh"><ExportMenu disabled={loading || !current} onExport={exportRows} /><button className="button button-primary" onClick={() => load(true)} disabled={loading}><RefreshCw size={16} className={loading ? 'daily-spin' : ''} />{loading ? 'Atualizando' : 'Atualizar dados'}</button>{hasPermission('goals') && <Link to="/metas" className="pace-configure">Configurar metas</Link>}</div></header>
 
     <div className="tab-strip" role="group" aria-label="Escopo da meta">{Object.entries(GOAL_SCOPES).map(([key, label]) => <button key={key} aria-pressed={scope === key} onClick={() => { setScope(key); setTargetId('') }}>{label}</button>)}</div>
 

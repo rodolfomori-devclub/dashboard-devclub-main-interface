@@ -5,7 +5,8 @@ import { salesPaymentLabel, usesPlatformNet } from '../utils/platformCash'
 import { useEffect, useMemo, useState, Fragment } from 'react'
 import { Link } from 'react-router-dom'
 import axios from 'axios'
-import { RefreshCw, ArrowUpRight, ChevronDown, ChevronUp, Download } from 'lucide-react'
+import { RefreshCw, ArrowUpRight, ChevronDown, ChevronUp } from 'lucide-react'
+import ExportMenu from '../components/ExportMenu'
 import { ReferenceChart } from '../components/charts/ReferenceChart'
 import { ChartPanel, RankedBars, MixChart } from '../components/charts/AnalyticsVisuals'
 import RevenueHighlights from '../components/charts/RevenueHighlights'
@@ -232,19 +233,19 @@ export default function PeriodDashboard({ mode = 'global' }) {
     } catch (error) { setGoalConflict(error.response?.status === 409); setGoalError(error.response?.status === 409 ? 'A meta foi alterada em outra tela. Recarregue os valores atuais e revise sua edição antes de salvar.' : error.response?.data?.error || 'Não foi possível salvar a meta. O valor anterior foi mantido.') }
     finally { setSavingGoal(null) }
   }
-  async function exportRows(scope = 'all') {
+  async function exportRows(scope = 'all', format = 'xlsx') {
     const records = scope === 'commercial' ? commercial.records : filtered
     if (loading || exporting || !records.length) return
     setExporting(scope); setExportError('')
     try {
-      const { exportPeriodSalesExcel } = await import('../utils/periodSalesExport')
-      await exportPeriodSalesExcel(records, { ...range, filters, offer, sources: relevantSources, availableSales, operationsStatus: data?.operationsStatus, attributionMappingsStatus: data?.ledger?.attributionMappingsStatus, scope, refundReview })
-    } catch { setExportError('Não foi possível gerar o Excel. Tente exportar novamente.') }
+      const { exportPeriodSales } = await import('../utils/periodSalesExport')
+      await exportPeriodSales(records, { ...range, filters, offer, sources: relevantSources, availableSales, operationsStatus: data?.operationsStatus, attributionMappingsStatus: data?.ledger?.attributionMappingsStatus, scope, refundReview }, format)
+    } catch { setExportError('Não foi possível gerar o arquivo. Tente exportar novamente.') }
     finally { setExporting('') }
   }
 
   return <div className="hub-page period-analytics space-y-6">
-    <header className="page-heading flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[.16em] text-slate-500 mb-2">Performance comercial</p><h1 className="text-3xl font-semibold">{TITLE[mode]}</h1><p className="text-sm text-slate-500 mt-2">Receita, produtos e meios de pagamento. Do consolidado a cada venda.</p></div><div className="period-heading-actions"><RevenueNotifications items={notifications} /><button type="button" className="btn btn-ghost disabled:opacity-40" onClick={() => exportRows()} disabled={!filtered.length || loading || Boolean(exporting)}><Download size={16} />{exporting === 'all' ? 'Gerando Excel…' : 'Exportar Excel'}</button><button type="button" className="btn btn-ghost disabled:opacity-40" disabled={loading} title={mode === 'global' ? 'Atualizar fontes' : 'Atualizar histórico e hoje'} onClick={() => setRange(previous => ({ ...previous, force: true }))}><RefreshCw size={16} className={loading ? 'animate-spin' : ''} />Atualizar</button></div></header>
+    <header className="page-heading flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[.16em] text-slate-500 mb-2">Performance comercial</p><h1 className="text-3xl font-semibold">{TITLE[mode]}</h1><p className="text-sm text-slate-500 mt-2">Receita, produtos e meios de pagamento. Do consolidado a cada venda.</p></div><div className="period-heading-actions"><RevenueNotifications items={notifications} /><ExportMenu onExport={format => exportRows('all', format)} disabled={!filtered.length || loading || Boolean(exporting)} /><button type="button" className="btn btn-ghost disabled:opacity-40" disabled={loading} title={mode === 'global' ? 'Atualizar fontes' : 'Atualizar histórico e hoje'} onClick={() => setRange(previous => ({ ...previous, force: true }))}><RefreshCw size={16} className={loading ? 'animate-spin' : ''} />Atualizar</button></div></header>
     {exportError && <p role="alert" className="daily-notice is-warning">{exportError}</p>}
     <RevenueHighlights records={filtered} sources={relevantSources} filters={{ ...filters, offer }} loading={loading} ready={Boolean(data)} error={Boolean(error)} />
     <RefundSummary records={filtered} sources={relevantSources} platform={filters.platform} ready={Boolean(data)} loading={loading} error={Boolean(error)} startDate={range.startDate} endDate={range.endDate > localDateKey() ? localDateKey() : range.endDate} globalReview={mode === 'global'} title={mode === 'global' ? 'Reembolsos e chargebacks' : 'Reembolsos'} />

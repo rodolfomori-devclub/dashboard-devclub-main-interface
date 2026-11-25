@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { useProfiles, useUpdateProfile } from '@/hooks/useSupabaseData';
 import { SellerAvatar } from '@/components/SellerAvatar';
 import { toast } from 'sonner';
+import ExportMenu from '../../../components/ExportMenu';
 
 const fmtBRL = (raw: string) => {
   const digits = (raw || '').replace(/\D/g, '');
@@ -15,7 +16,7 @@ const fmtBRL = (raw: string) => {
 const parseBRL = (s: string) => parseFloat((s || '').replace(/\./g, '').replace(',', '.')) || 0;
 
 export function SellerGoalsCard() {
-  const { data: profiles = [], isLoading } = useProfiles();
+  const { data: profiles = [], isLoading, isFetching, isError } = useProfiles();
   const updateProfile = useUpdateProfile();
 
   const sellers = useMemo(
@@ -73,6 +74,10 @@ export function SellerGoalsCard() {
   };
 
   const dirtyCount = sellers.filter(isDirty).length;
+  const exportRows = async (format: 'csv' | 'xlsx' | 'pdf') => {
+    const [{ buildLegacyGoalsReport }, { exportReport }] = await Promise.all([import('../../../utils/goalsComparisonExport.js'), import('../../../utils/reportExport.js')]);
+    await exportReport(buildLegacyGoalsReport({ kind: 'seller', goals: filtered, search }), format);
+  };
 
   return (
     <div className="glass-card p-6 space-y-5">
@@ -89,6 +94,7 @@ export function SellerGoalsCard() {
           </div>
         </div>
 
+        <ExportMenu disabled={!filtered.length || isFetching || isError || Boolean(savingId) || bulkSaving} onExport={exportRows} />
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input

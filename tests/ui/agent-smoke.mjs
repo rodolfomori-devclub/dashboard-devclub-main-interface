@@ -9,6 +9,7 @@ import fs from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
 import { expect } from '@playwright/test'
+import * as XLSX from 'xlsx'
 
 const root = fileURLToPath(new URL('../../', import.meta.url))
 const out = process.env.UI_ARTIFACTS_DIR || fileURLToPath(new URL('./artifacts/agent/', import.meta.url))
@@ -154,6 +155,7 @@ try {
   await expect(stop).toBeVisible()
   await expect(log.getByText('Compare novembro de 2025 com novembro de 2026')).toBeInViewport()
   await expect(log.locator('.agent-turn')).toHaveAttribute('aria-busy', 'true')
+  await expect(log.getByRole('button', { name: 'Exportar resposta', exact: true })).toBeDisabled()
   assert.deepEqual(requests[0], { message: 'Compare novembro de 2025 com novembro de 2026', history: [] })
   await expect(page.getByRole('button', { name: 'Enviar' })).toBeVisible()
   await expect(log.locator('.agent-turn')).toHaveAttribute('aria-busy', 'false')
@@ -188,6 +190,31 @@ try {
   const gap = await page.locator('.rr-chart').first().evaluate(node => node.querySelectorAll('path').length)
   assert.ok(gap > 0, 'The chart was drawn')
 
+  async function exportMenu(scope, label, option) {
+    await scope.getByRole('button', { name: label, exact: true }).click()
+    const pendingDownload = page.waitForEvent('download')
+    await scope.getByRole('group', { name: 'Formatos de exportação' }).getByRole('button', { name: option, exact: true }).click()
+    const download = await pendingDownload
+    return { name: download.suggestedFilename(), bytes: await fs.readFile(await download.path()) }
+  }
+  const blockCsv = await exportMenu(log, 'Exportar bloco', 'CSV')
+  assert.match(blockCsv.name, /^agente-comparacao-.*-parcial\.csv$/)
+  assert.match(blockCsv.bytes.toString('utf8'), /Dados parciais/)
+  assert.match(blockCsv.bytes.toString('utf8'), /1833,64/)
+  const blockExcel = await exportMenu(log, 'Exportar bloco', 'Excel (.xlsx)')
+  const blockBook = XLSX.read(blockExcel.bytes, { type: 'buffer' })
+  const comparisonRows = XLSX.utils.sheet_to_json(blockBook.Sheets.Indicadores, { header: 1, defval: null })
+  const exportedRevenue = comparisonRows.find(row => row[0] === 'Receita operacional')
+  assert.deepEqual(exportedRevenue.slice(1), [1833.64, 'Disponível', 833.64, 'Parcial', null, null, 'Dados parciais'])
+  const blockPdf = await exportMenu(log, 'Exportar bloco', 'PDF')
+  assert.match(blockPdf.name, /\.pdf$/)
+  assert.equal(blockPdf.bytes.subarray(0, 5).toString(), '%PDF-')
+  const answerExcel = await exportMenu(log, 'Exportar resposta', 'Excel (.xlsx)')
+  const answerBook = XLSX.read(answerExcel.bytes, { type: 'buffer' })
+  assert.ok(answerBook.SheetNames.includes('1 Indicadores'))
+  assert.match(JSON.stringify(XLSX.utils.sheet_to_json(answerBook.Sheets.Comentário, { header: 1 })), /O bloco 1 mostra alta/)
+  assert.match(JSON.stringify(XLSX.utils.sheet_to_json(answerBook.Sheets.Contexto, { header: 1 })), /999,99/)
+
   for (const [theme, width] of [['light', 1440], ['dark', 1440], ['light', 360], ['dark', 360]]) {
     await page.setViewportSize({ width, height: 1000 })
     await page.evaluate(value => document.documentElement.classList.toggle('dark', value === 'dark'), theme)
@@ -208,6 +235,10 @@ try {
   await composer.press('Enter')
   await expect(page.getByText('Uma venda.')).toBeVisible()
   await expect(composer).toHaveValue('')
+  const summaryCsv = await exportMenu(log.locator('.agent-turn').last(), 'Exportar bloco', 'CSV')
+  assert.match(summaryCsv.name, /^agente-resumo-.*\.csv$/)
+  assert.match(summaryCsv.bytes.toString('utf8'), /Hotmart/)
+  assert.match(summaryCsv.bytes.toString('utf8'), /277,88/)
   assert.deepEqual(requests[1].history, [
     { role: 'user', text: 'Compare novembro de 2025 com novembro de 2026' },
     { role: 'assistant', text: `O bloco 1 mostra alta. O período B está parcial.\n\n[Consultas feitas: ${startCall.label}]` },
@@ -470,6 +501,14 @@ try {
   const xlsxDownload = page.waitForEvent('download')
   await contacts.getByRole('button', { name: 'Baixar XLSX' }).click()
   assert.match((await xlsxDownload).suggestedFilename(), /^compradores-.*\.xlsx$/)
+  const pdfDownload = page.waitForEvent('download')
+  await contacts.getByRole('button', { name: 'Baixar PDF' }).click()
+  const pdf = await pdfDownload
+  assert.match(pdf.suggestedFilename(), /^compradores-.*-parcial\.pdf$/)
+  assert.equal((await fs.readFile(await pdf.path())).subarray(0, 5).toString(), '%PDF-')
+  const contactsAnswer = await exportMenu(log.locator('.agent-turn').last(), 'Exportar resposta', 'CSV')
+  assert.match(contactsAnswer.bytes.toString('utf8'), /comprador26@example\.test/)
+  assert.match(contactsAnswer.bytes.toString('utf8'), /Os contatos estão na tabela/)
   await page.setViewportSize({ width: 360, height: 800 })
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth), {
     message: 'The contacts table scrolls inside the block on mobile after responsive layout settles',
@@ -484,6 +523,7 @@ try {
   await expect(emptyContacts.getByText('A lista ainda está em coleta. Tente novamente em alguns minutos.', { exact: true })).toBeVisible()
   await expect(emptyContacts.getByRole('button', { name: 'Baixar CSV' })).toBeDisabled()
   await expect(emptyContacts.getByRole('button', { name: 'Baixar XLSX' })).toBeDisabled()
+  await expect(emptyContacts.getByRole('button', { name: 'Baixar PDF' })).toBeDisabled()
 
   // Starting over discards the conversation.
   await newConversation()

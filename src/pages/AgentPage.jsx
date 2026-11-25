@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Bot, CircleAlert, MessageSquarePlus, RotateCcw, SendHorizontal, Square } from 'lucide-react'
 import AgentBlock from '../components/agent/AgentBlock'
+import ExportMenu from '../components/ExportMenu'
 import { MAX_MESSAGE, announcement, canRetry, progressText } from '../components/agent/agentStream'
 import { useAgentChat } from '../components/agent/useAgentChat'
 import '../components/agent/agent.css'
@@ -32,7 +33,12 @@ function TurnFooter({ turn, busy, onRetry }) {
 }
 
 function AssistantTurn({ turn, latest, busy, onRetry }) {
+  async function download(format) {
+    const { exportAgentResponse } = await import('../utils/agentExport.js')
+    await exportAgentResponse(turn, format)
+  }
   return <div className={`agent-turn${latest ? ' is-latest' : ''}`} aria-busy={turn.status === 'streaming'}>
+    <div className="flex justify-end"><ExportMenu disabled={turn.status === 'streaming' || !turn.parts.some(part => ['block', 'text'].includes(part.type))} onExport={download} label="Exportar resposta" /></div>
     {turn.parts.map((part, index) => {
       if (part.type === 'block') return <AgentBlock key={part.block.blockId} block={part.block} />
       if (part.type === 'text') return <AgentText key={index} text={part.text} />
@@ -46,7 +52,7 @@ function EmptyState({ onPick }) {
   return <section className="agent-empty ds-card">
     <span className="agent-empty-icon"><Bot size={26} aria-hidden="true" /></span>
     <h2>O que você quer comparar?</h2>
-    <p className="agent-muted">Pergunte por datas, semanas, meses ou plataformas. Consulte também nome, e-mail e telefone dos compradores, com downloads em XLSX e CSV.</p>
+    <p className="agent-muted">Pergunte por datas, semanas, meses ou plataformas. Consulte também nome, e-mail e telefone dos compradores. Exporte os resultados e as respostas em CSV, XLSX ou PDF.</p>
     <div className="agent-examples">{EXAMPLES.map(example => <button key={example} type="button" className="btn btn-ghost" onClick={() => onPick(example)}>{example}</button>)}</div>
     <p className="agent-muted">A conversa não é salva. {COMMENT_NOTE}</p>
   </section>

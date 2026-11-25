@@ -5,6 +5,7 @@ import fs from 'node:fs/promises'
 import { createServer } from 'node:net'
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
+import * as XLSX from 'xlsx'
 
 // Actual application, synthetic identity and provider payloads. No live API access.
 const root = fileURLToPath(new URL('../../', import.meta.url))
@@ -27,6 +28,8 @@ const providerResponse = path => {
   const unknown = scenario === 'unknown'
   if (path === '/api/access') return { user: { sub: 'fixture-user', email: 'fixture@example.test', name: 'QA fixture', permissions: ['goal-pace', 'goals'], isAdmin: true } }
   if (path === '/api/goal-plans/options') return { teams: [{ id: 'team-commercial', name: 'Comercial', active: true }], individuals: [{ id: 'seller-ana', name: 'Ana', teamId: 'team-commercial', active: true }] }
+  if (path === '/api/mcp/status') return { enabled: false, writesEnabled: false }
+  if (path.startsWith('/api/goals/revenue/month/')) return { data: { faturamentoCartao: { base: 1000, super: 2000, ultra: 3000 }, faturamentoBoleto: { base: 500, super: 600, ultra: 700 } } }
   if (/^\/api\/goal-plans\/\d{4}\/\d{1,2}$/.test(path)) return { plans }
   if (path === '/api/transactions') return { data: unknown ? [receipt('unknown', '07', 'DevClub', null)] : [receipt('guru-1', '01', 'DevClub', 1000), receipt('guru-2', '07', 'MBA em IA', 2000), receipt('guru-3', '15', 'IAClub', 500)] }
   if (path === '/api/refunds') return { data: [] }
@@ -244,6 +247,59 @@ try {
   assert.match(await selectedTotal(), /4\.900,00/, 'Failure of plan query does not erase observed sales')
   assert.match(await tooltip('End'), /Não informado|Não observado|—/i, 'Unknown plan is not plotted as a zero target')
   record('Plan API503: target unavailable, observed sales preserved')
+  scenario = 'normal'
+  const exportBook = async () => {
+    const pendingDownload = page.waitForEvent('download')
+    await page.getByRole('button', { name: 'Exportar', exact: true }).click()
+    await page.getByRole('button', { name: 'Excel (.xlsx)', exact: true }).click()
+    const download = await pendingDownload
+    assert.match(download.suggestedFilename(), /\.xlsx$/)
+    return XLSX.read(await fs.readFile(await download.path()), { type: 'buffer' })
+  }
+  const sheet = (book, name) => XLSX.utils.sheet_to_json(book.Sheets[name], { defval: null })
+  const metadata = book => Object.fromEntries(XLSX.utils.sheet_to_json(book.Sheets.Contexto, { header: 1 }))
+  await openMonth()
+  await page.getByRole('group', { name: 'Escopo da meta', exact: true }).getByRole('button', { name: 'Produto', exact: true }).click()
+  await page.getByLabel('Família de produto', { exact: true }).selectOption('DevClub')
+  await page.getByLabel('Base financeira', { exact: true }).selectOption('cash')
+  const paceBook = await exportBook()
+  assert.equal(metadata(paceBook).Destino, 'DevClub')
+  assert.equal(metadata(paceBook)['Base financeira'], 'Cash collected · novas vendas')
+  assert.equal(sheet(paceBook, 'Resumo').find(row => row.Indicador === 'Realizado no mês').Valor, 1920)
+  assert.equal(sheet(paceBook, 'Dia a dia').length, 30)
+  assert.equal(sheet(paceBook, 'Dia a dia')[15]['Realizado no dia'], null)
+  record('Pace XLSX export keeps selected product/cash filters and future daily gaps')
+
+  await page.goto(`${base}/metas?year=2026&month=9`, { waitUntil: 'networkidle' })
+  await page.getByRole('navigation', { name: 'Escopo da meta', exact: true }).getByRole('button', { name: 'Produto', exact: true }).click()
+  await page.getByLabel('Família de produtos', { exact: true }).selectOption('DevClub')
+  const grossForm = page.getByRole('form', { name: 'Meta de Valor das vendas', exact: true })
+  await grossForm.getByLabel(/Meta base/).fill('999999')
+  const goalBook = await exportBook()
+  assert.equal(metadata(goalBook).Destino, 'DevClub')
+  assert.equal(sheet(goalBook, 'Metas').length, 2)
+  assert.equal(sheet(goalBook, 'Metas').find(row => row.Indicador === 'Valor das vendas')['Meta base'], 30000)
+  assert.ok(sheet(goalBook, 'Metas').every(row => row.Destino === 'DevClub'))
+  record('Goals XLSX export excludes unsaved edits and other destinations')
+
+  await page.getByRole('tab', { name: 'Receita por pagamento', exact: true }).click()
+  await page.getByRole('heading', { name: 'Receita por meio de pagamento', exact: true }).waitFor()
+  await page.getByRole('spinbutton', { name: 'Meta base (R$)', exact: true }).first().fill('999999')
+  const revenueBook = await exportBook()
+  assert.equal(sheet(revenueBook, 'Metas financeiras')[0]['Meta base'], 1000)
+  assert.equal(sheet(revenueBook, 'Metas financeiras')[2]['Meta base'], null)
+  record('Payment goals XLSX uses the confirmed snapshot and retains missing values')
+
+  await page.goto(`${base}/comparativo`, { waitUntil: 'networkidle' })
+  await page.getByRole('heading', { name: 'Resultado dos períodos', exact: true }).waitFor()
+  await page.getByLabel('Produto', { exact: true }).selectOption('DevClub')
+  await page.getByLabel('Dia do período A', { exact: true }).fill('2026-09-12')
+  const comparisonBook = await exportBook()
+  assert.equal(metadata(comparisonBook).Produto, 'DevClub')
+  assert.equal(metadata(comparisonBook)['Período A'], '15/09/2026')
+  assert.equal(sheet(comparisonBook, 'Indicadores').find(row => row.Indicador === 'Receita operacional')['Valor A'], 1000)
+  assert.ok(sheet(comparisonBook, 'Distribuição').every(row => row.Grupo === 'DevClub'))
+  record('Comparison XLSX applies filters and uses the applied period instead of its draft')
   assert.deepEqual(unexpected, [])
   assert.deepEqual(errors, [])
 } catch (error) {

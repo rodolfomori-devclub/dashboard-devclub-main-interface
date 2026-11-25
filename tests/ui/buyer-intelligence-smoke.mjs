@@ -4,12 +4,15 @@ import { spawn } from 'node:child_process'
 import { createServer } from 'node:net'
 import { existsSync } from 'node:fs'
 import fs from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
 import { expect } from '@playwright/test'
+import * as XLSX from 'xlsx'
 
 const root = fileURLToPath(new URL('../../', import.meta.url))
-const out = fileURLToPath(new URL('./artifacts/buyer-intelligence/', import.meta.url))
+const out = process.env.UI_ARTIFACTS_DIR || await fs.mkdtemp(join(tmpdir(), 'buyer-intelligence-smoke-'))
 const socket = createServer()
 await new Promise(resolve => socket.listen(0, '127.0.0.1', resolve))
 const port = socket.address().port
@@ -105,6 +108,36 @@ try {
   assert.deepEqual(calls.at(-1), { dateFrom: '2025-01-01', dateTo: '2025-12-31' })
   await expect(page.getByText('20 vinculados a perfis ativos', { exact: false })).toBeVisible()
   checks.push('period changes forwarded to one authoritative overview')
+  await page.getByLabel('De', { exact: true }).fill('2024-06-01')
+  for (const [label, extension] of [['Excel (.xlsx)', 'xlsx'], ['CSV', 'csv'], ['PDF', 'pdf']]) {
+    await page.getByRole('button', { name: 'Exportar', exact: true }).click()
+    const menu = page.getByRole('group', { name: 'Formatos de exportação' })
+    if (extension === 'xlsx') {
+      await page.screenshot({ path: `${out}/export-menu-mobile.png`, animations: 'disabled' })
+      const box = await menu.boundingBox()
+      assert.ok(box.x >= 0 && box.x + box.width <= 360, 'Export menu fits the mobile viewport')
+    }
+    const pendingDownload = page.waitForEvent('download')
+    await menu.getByRole('button', { name: label, exact: true }).click()
+    const download = await pendingDownload
+    assert.equal(download.suggestedFilename(), `compradores-2025-01-01-2025-12-31.${extension}`, 'Exports applied dates, not the unsubmitted draft')
+    const bytes = await fs.readFile(await download.path())
+    if (extension === 'xlsx') {
+      const workbook = XLSX.read(bytes, { type: 'buffer' })
+      const indicators = XLSX.utils.sheet_to_json(workbook.Sheets.Indicadores)
+      assert.equal(indicators.find(row => row.Indicador === 'Pedidos ligados a um perfil').Quantidade, 6)
+      assert.equal(indicators.find(row => row.Indicador === 'Pedidos ligados a um perfil')['Base de comparação'], 10)
+      assert.match(JSON.stringify(XLSX.utils.sheet_to_json(workbook.Sheets.Contexto, { header: 1 })), /Toda a base importada/)
+      assert.equal(XLSX.utils.sheet_to_json(workbook.Sheets.Produtos).length, 3)
+    } else if (extension === 'csv') {
+      assert.deepEqual([...bytes.subarray(0, 3)], [239, 187, 191])
+      assert.match(bytes.toString('utf8'), /"Pedidos ligados a um perfil";"6";"10";"60%"/)
+    } else {
+      assert.equal(bytes.subarray(0, 5).toString(), '%PDF-')
+      assert.match(bytes.toString('latin1'), /DevClub/)
+    }
+  }
+  checks.push('CSV/XLSX/PDF downloads retain applied period, denominators and historical scope')
   scenario = 'legacy'; await page.getByRole('button', { name: 'Atualizar', exact: true }).click()
   await expect(page.getByText('A cobertura histórica ainda não está disponível nesta consulta.')).toBeVisible()
   await expect(page.getByText('O catálogo de produtos ainda não está disponível nesta consulta.')).toBeVisible()
@@ -112,6 +145,7 @@ try {
   checks.push('rolling release with older upstream keeps signups and marks new metrics unavailable')
   scenario = 'error'; await page.getByRole('button', { name: 'Atualizar', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Consulta indisponível' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Exportar', exact: true })).toBeDisabled()
   await expect(page.getByRole('heading', { name: 'Quanto da base já está conectado?' })).toHaveCount(0)
   scenario = 'empty'; await page.getByRole('button', { name: 'Tentar novamente' }).click()
   await expect(page.getByText('Nenhum pedido observado neste período.', { exact: false })).toBeVisible()

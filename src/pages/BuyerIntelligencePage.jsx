@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom'
 import { ArrowUpRight, RefreshCw } from 'lucide-react'
 import { requestApi } from '../lib/api'
 import { PageSkeleton } from '../components/WorkspaceLayout'
+import ExportMenu from '../components/ExportMenu'
 import { brazilToday, count, dateLabel, oraculoBuyersUrl, percentage, validCount, validPeriod } from '../components/buyers/buyerIntelligence'
 import { BuyerHistoryOverview, BuyerProductOverview } from '../components/buyers/BuyerHistoryOverview'
 import '../components/buyers/buyerIntelligence.css'
@@ -51,8 +52,13 @@ export default function BuyerIntelligencePage() {
   const launches = (data?.launchCountBeforePurchaseDistribution || []).map(row => ({ key: row.launches, label: row.launches === '0' ? 'Nenhum observado' : row.launches === '1' ? '1 lançamento' : `${row.launches} lançamentos`, value: row.purchases }))
   const sources = (data?.priorSourceDistribution || []).map(row => ({ key: row.source, label: row.source === '(sem utm_source)' ? 'Origem não informada' : row.source, value: row.purchases }))
   const linkedPercent = data ? percentage(data.linkedPurchases, data.coverage.totalPurchases) : '—'
+  async function exportFiltered(format) {
+    const [{ exportReport }, { buildBuyerIntelligenceReport }] = await Promise.all([import('../utils/reportExport.js'), import('../utils/dataScreenExport.js')])
+    await exportReport(buildBuyerIntelligenceReport(data, selected), format)
+  }
   return <div className="hub-page buyers-intelligence-page">
     <header className="page-heading"><div><h1>Inteligência de compradores</h1><p>Conecte pedidos, produtos, inscrições e interações para conhecer a trajetória de quem compra.</p></div><div className="buyers-actions">
+      <ExportMenu disabled={state.loading || !data} onExport={exportFiltered} />
       {oraculoUrl && <a className="button" href={oraculoUrl} target="_blank" rel="noopener noreferrer">Abrir fichas no Oráculo<ArrowUpRight size={16} aria-hidden="true" /></a>}
       <button className="button button-primary" disabled={state.loading} onClick={() => setRefresh(value => value + 1)}><RefreshCw size={16} aria-hidden="true" />{state.loading ? 'Consultando…' : 'Atualizar'}</button>
     </div></header>

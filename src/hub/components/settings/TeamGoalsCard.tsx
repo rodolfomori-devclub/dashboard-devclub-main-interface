@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { useTeams } from '@/hooks/useTeams';
 import { useTeamGoals, useUpsertTeamGoal } from '@/hooks/useTeamGoals';
 import { TeamAvatar } from '@/components/TeamAvatar';
+import ExportMenu from '../../../components/ExportMenu';
 
 const MONTH_NAMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
@@ -20,8 +21,8 @@ export function TeamGoalsCard() {
   const now = new Date();
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
-  const { data: teams = [] } = useTeams(false);
-  const { data: goals = [] } = useTeamGoals(month, year);
+  const { data: teams = [], isFetching: teamsLoading, isError: teamsError } = useTeams(false);
+  const { data: goals = [], isFetching: goalsLoading, isError: goalsError } = useTeamGoals(month, year);
   const upsert = useUpsertTeamGoal();
 
   const [values, setValues] = useState<Record<string, { monthly: string; hyper: string; weekly: string; daily: string }>>({});
@@ -41,6 +42,10 @@ export function TeamGoalsCard() {
   }, [teams, goals]);
 
   const yearOptions = useMemo(() => [now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1, now.getFullYear() + 2], [now]);
+  const exportRows = async (format: 'csv' | 'xlsx' | 'pdf') => {
+    const [{ buildLegacyGoalsReport }, { exportReport }] = await Promise.all([import('../../../utils/goalsComparisonExport.js'), import('../../../utils/reportExport.js')]);
+    await exportReport(buildLegacyGoalsReport({ kind: 'team', year, month, goals, targets: teams }), format);
+  };
 
   const saveTeam = (teamId: string) => {
     const v = values[teamId];
@@ -63,6 +68,7 @@ export function TeamGoalsCard() {
             <p className="text-xs text-muted-foreground">Configure metas mensais individuais para cada time.</p>
           </div>
         </div>
+        <ExportMenu disabled={!teams.length || teamsLoading || goalsLoading || teamsError || goalsError || upsert.isPending} onExport={exportRows} />
         <div className="flex items-center gap-2 bg-muted/30 border border-border/40 rounded-lg p-1">
           <select value={month} onChange={(e) => setMonth(Number(e.target.value))} className="bg-transparent text-sm font-medium px-3 py-1.5 outline-none cursor-pointer">
             {MONTH_NAMES.map((n, i) => <option key={i} value={i + 1}>{n}</option>)}
