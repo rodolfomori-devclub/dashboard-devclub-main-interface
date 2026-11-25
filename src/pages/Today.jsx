@@ -64,7 +64,10 @@ export default function Today() {
   useEffect(() => { refresh(); return () => { requestId.current += 1 } }, [refresh])
   useEffect(() => {
     if (!autoRefresh || date !== localDateKey()) return undefined
-    const timer = setInterval(() => { if (!document.hidden) refresh(true) }, 5 * 60_000)
+    // The browser cache lasts one minute, so a normal read already brings new
+    // data. Forcing here would also bypass the API caches of Asaas and Boletex
+    // for every open tab, which only the Atualizar button should do.
+    const timer = setInterval(() => { if (!document.hidden) refresh() }, 5 * 60_000)
     return () => clearInterval(timer)
   }, [autoRefresh, date, refresh])
 
