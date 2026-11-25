@@ -1,5 +1,5 @@
 import { applyPlatformCashRule } from '../utils/platformCash.js';
-import { applyTmbCashRule } from '../utils/tmbCash.js';
+import { applyTmbCashRule, isTmbSale, tmbCashAmount } from '../utils/tmbCash.js';
 
 const request = async (path, options) => {
   const { requestApi } = await import('../lib/api');
@@ -74,14 +74,19 @@ export function mergeSalesOperations(records, ledger = {}) {
 }
 
 export function saleSnapshot(row) {
+  // The Hub reads this snapshot as the sale's value and commission base. Until
+  // the owner approves another base, it keeps the previous one: the Guru net of
+  // the previous formula and the default TMB rate, whatever the fee table says.
   row = applyPlatformCashRule(row);
   const money = (value) => value == null ? null : Math.round(Number(value) * 100) / 100;
   const date = new Date(row.date);
   if (Number.isNaN(date.getTime())) throw new Error('A fonte não informou uma data válida para esta transação.');
+  const base = Object.hasOwn(row, 'legacyNet') ? { gross: row.legacyNet, net: row.legacyNet, received: row.legacyNet } : row;
+  const cash = isTmbSale(row) && row.received != null ? tmbCashAmount(row.gross) : base.received;
   return {
     date: new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date),
     product: row.product || 'Produto não informado', family: row.family || 'Outros',
     buyerName: row.buyerName || 'Não informado', buyerEmail: row.buyerEmail || null,
-    gross: money(row.gross), net: money(row.net), cashCollected: money(row.received), platform: row.platform, utm: row.utm || {},
+    gross: money(base.gross), net: money(base.net), cashCollected: money(cash), platform: row.platform, utm: row.utm || {},
   };
 }

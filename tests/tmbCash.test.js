@@ -123,3 +123,22 @@ test('new Asaas manual cash counts once alongside TMB while statement receipts r
   assert.deepEqual([asaasRow.gross, asaasRow.revenue, asaasRow.received], [1000, 1000, 100])
   assert.strictEqual(applyTmbCashRule(asaasRow), asaasRow)
 })
+
+// The Hub reads the attribution snapshot as its commission base, which keeps
+// the previous rule until the owner approves another one.
+test('attribution snapshots keep the previous commission base whatever the fee table says', () => {
+  const order = (id, total, rate) => normalizeSource('tmb', { success: true, data: [{ id: `tmb-${id}-0`, raw: { pedido_id: id, valor_total: total },
+    product: 'MBA', value: Number(total) || 0, timestamp: '2026-11-20T12:00:00-03:00', tmbCashRate: rate }] })[0]
+  const priced = order(7, 1000, 0.35)
+  assert.equal(priced.received, 350, 'screens follow the table rate')
+  assert.deepEqual([saleSnapshot(priced).gross, saleSnapshot(priced).cashCollected], [1000, 400])
+  assert.equal(saleSnapshot(order(8, 'quebrado', 0.35)).cashCollected, null, 'an unknown TMB total stays unknown')
+  const guru = normalizeSource('guru', { data: [{ id: 'g1', product: { name: 'DevClub' }, payment: { method: 'credit_card' }, dates: { created_at: 1795438800 },
+    calculation_details: { net_amount: 2104.26, legacy_net_amount: 2052.7, charged_amount: 2397.2, basis: 'estimated' } }] })[0]
+  assert.equal(guru.net, 2104.26)
+  const snapshot = saleSnapshot(guru)
+  assert.deepEqual([snapshot.gross, snapshot.net, snapshot.cashCollected], [2052.7, 2052.7, 2052.7])
+  const unknown = normalizeSource('guru', { data: [{ id: 'g2', product: { name: 'DevClub' }, payment: { method: 'credit_card' }, dates: { created_at: 1795438800 },
+    calculation_details: { net_amount: 1900, legacy_net_amount: null, basis: 'estimated' } }] })[0]
+  assert.equal(saleSnapshot(unknown).net, null, 'a sale the previous formula could not price stays without a base, as before')
+})
