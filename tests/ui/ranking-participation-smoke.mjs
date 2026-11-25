@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
 import { expect } from '@playwright/test'
 import { readPublishedVault } from './published-vault.mjs'
+import { emptySaleFeesFixture } from './sale-fees-fixture.mjs'
 import { adminUsersCatalogFixture, emptyAdminUsersFixture } from './admin-users-read-fixture.mjs'
 
 const root = fileURLToPath(new URL('../../', import.meta.url))
@@ -66,6 +67,7 @@ async function fixture(route) {
       body = { user }
     }
   } else if (path === '/api/mcp/status' && method === 'GET') body = { enabled: false, writesEnabled: false }
+  else if (path === '/api/sale-fees' && method === 'GET') body = emptySaleFeesFixture
   else { unexpected.push(`${method} ${path}`); await route.abort(); return }
   await route.fulfill({ status, contentType: 'application/json', headers: { 'access-control-allow-origin': base }, body: JSON.stringify(body) })
 }

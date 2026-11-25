@@ -1,0 +1,24 @@
+.sale-fees { border-top:3px solid var(--accent); display:flex; flex-direction:column; gap:16px; }
+.sale-fees-heading { display:flex; align-items:flex-start; gap:14px; }
+.sale-fees-heading>div { flex:1; min-width:0; }
+.sale-fees-heading h2 { font-size:23px; line-height:1.2; }
+.sale-fees-heading p { margin-top:5px; color:var(--muted); font-size:13px; line-height:1.7; max-width:100ch; }
+.sale-fees-icon { display:flex; align-items:center; justify-content:center; width:46px; height:46px; flex-shrink:0; border-radius:12px; background:var(--accent-soft); color:var(--accent); }
+.sale-fees-muted { display:flex; gap:8px; align-items:center; color:var(--muted); font-size:13px; }
+.sale-fees-message { color:var(--accent); font-size:13px; }
+/* Positioned so screen-reader-only labels stay inside the scroll area. */
+.sale-fees-table-wrap { position:relative; overflow-x:auto; }
+.sale-fees-table { width:100%; border-collapse:collapse; font-size:13px; font-variant-numeric:tabular-nums; }
+.sale-fees-table th,.sale-fees-table td { padding:8px 10px; border-top:1px solid var(--border); text-align:left; white-space:nowrap; }
+.sale-fees-table thead th { color:var(--muted); font-weight:600; border-top:0; }
+.sale-fees-grid input { width:96px; }
+.sale-fees-actions,.sale-fees-actions-row,.sale-fees-fields { display:flex; flex-wrap:wrap; gap:8px; align-items:flex-end; }
+.sale-fees-fields label { display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--muted); }
+.sale-fees-editor { min-width:0; border:1px solid var(--border); border-radius:10px; padding:16px; display:flex; flex-direction:column; gap:14px; }
+.sale-fees-editor legend { padding:0 6px; font-weight:600; }
+.sale-fees-preview { display:flex; flex-direction:column; gap:12px; }
+.sale-fees-rules ul,.sale-fees-history { list-style:none; padding:0; margin:8px 0 0; display:flex; flex-direction:column; gap:6px; font-size:13px; }
+.sale-fees-rules li,.sale-fees-history li { display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px; border-top:1px solid var(--border); padding-top:6px; }
+.sale-fees-spin { animation:sale-fees-spin 1s linear infinite; }
+@keyframes sale-fees-spin { to { transform:rotate(360deg); } }
+@media(max-width:700px) { .sale-fees-heading { flex-direction:column; } .sale-fees-fields label { width:100%; } }

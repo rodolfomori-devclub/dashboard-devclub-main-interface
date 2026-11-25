@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ShieldCheck, ExternalLink } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import RankingParticipation from '../components/admin/RankingParticipation'
+import SaleFeeSettings from '../components/admin/SaleFeeSettings'
 import UserManagement from '../components/admin/UserManagement'
 import { requestApi } from '../lib/api'
 
@@ -13,6 +14,7 @@ export default function AdminPage() {
     <header className="page-heading"><div><h1>Administração</h1><p>Cadastre sua equipe, defina os acessos e organize a participação nos indicadores.</p></div><a className="button" href={vaultUrl} target="_blank" rel="noopener noreferrer"><ExternalLink size={17}/>Abrir Vault</a></header>
     <UserManagement onDirectoryChange={() => setDirectoryVersion(value => value + 1)}/>
     <RankingParticipation refreshKey={directoryVersion}/>
+    <SaleFeeSettings />
     <McpConnections />
     <section className="surface-panel"><div className="flex items-start gap-4"><ShieldCheck className="text-primary" size={27}/><div><h2 className="text-lg">Uma conta, acessos organizados</h2><p className="text-muted-foreground text-sm mt-2 max-w-3xl">Os cadastros feitos aqui são registrados no Vault. O perfil e as telas escolhidas valem para o Dashboard; a gestão dos demais sistemas continua no Vault. As permissões controlam os menus e os dados disponíveis.</p><button className="button mt-5" onClick={reload}>Atualizar minhas permissões</button></div></div></section>
   </div>
