@@ -168,7 +168,7 @@ export default function Today() {
     </ChartPanel>
 
     <div className="analytics-grid analytics-grid--wide daily-sales-analysis">
-      <ChartPanel className="daily-products" title="Produtos do dia" description="Nome original preservado. Ordenados pela receita operacional, após as taxas de Guru (tabela de taxas), Hotmart e Hubla." footer={products.some(product => product.revenue.missing > 0) ? <p className="daily-footnote">Produtos com valores ausentes são identificados como parciais ou não informados.</p> : null}>
+      <ChartPanel className="daily-products" title="Produtos do dia" description="Nome original preservado. Ordenados pela receita operacional, após as taxas de Guru (tabela de taxas ou regra anterior), Hotmart e Hubla." footer={products.some(product => product.revenue.missing > 0) ? <p className="daily-footnote">Produtos com valores ausentes são identificados como parciais ou não informados.</p> : null}>
         {!salesAvailable ? <p className="daily-empty">Produtos indisponíveis até uma fonte responder.</p> : !products.length ? <p className="daily-empty">Nenhuma venda encontrada com estes filtros.</p> : <RankedBars items={productBars} limit={7} />}
       </ChartPanel>
       <ChartPanel className="daily-payment-mix" title="Formas de pagamento" description="Guru, Hotmart e Hubla: Cartão. TMB e Boletex: Boleto." footer={<p className="daily-footnote">O meio original fica nos detalhes da venda. {partial && 'A consulta é parcial.'}</p>}>
@@ -184,7 +184,7 @@ export default function Today() {
     </ChartPanel>
 
     <section className="surface-panel daily-panel daily-financial">
-      <SectionHeading title="Composição financeira" description="Hotmart e Hubla: valores informados pelas plataformas. Guru: líquido estimado pela tabela de taxas mantida em Administração." />
+      <SectionHeading title="Composição financeira" description="Hotmart e Hubla: valores informados pelas plataformas. Guru: líquido estimado pela tabela de taxas de Administração ou, sem regra aplicável, pela regra anterior (veja a base do líquido em cada venda)." />
       <div className="daily-financial-grid">{[['Valor das vendas', 'gross'], ['Líquido informado', 'net'], ['Taxas e descontos', 'fees'], ['Afiliados (líquido)', 'affiliate']].map(([label, key]) => <div key={key}><span>{label}</span><strong><FinancialValue ready={Boolean(current)} loading={loading} error={loadError} compact>{displayMetric(summary[key])}</FinancialValue></strong><small>{summary[key].missing ? `${summary[key].missing} registros sem esse valor` : salesAvailable ? 'Dados disponíveis no recorte' : 'Fonte indisponível'}</small></div>)}</div>
       <details className="daily-calculation"><summary>Como ler estes valores<ChevronDown size={15} /></summary><p>O valor das vendas e as metas usam sempre o líquido após taxas na Guru, Hotmart e Hubla e o valor contratado nas demais plataformas. Gráficos e detalhes operacionais preservam essa regra nas plataformas e usam o líquido declarado dos demais lançamentos manuais ainda não conciliados. Os reembolsos ficam separados. Taxas e afiliação já descontadas do líquido não são subtraídas novamente. Valores de boleto não representam saldo já recebido.</p><p>Campos ausentes permanecem “Não informado”. Um consolidado sem detalhes aparece na lista como “Saldo sem detalhamento”, sem produto, horário ou UTM presumidos.</p></details>
     </section>

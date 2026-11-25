@@ -38,7 +38,7 @@ Todos os painéis usam o mesmo carregador do cache de períodos e o mesmo ledger
 
 A atualização é automática por consulta periódica, sujeita ao cache e ao tempo de coleta das plataformas. A TV Light consulta a cada 30 segundos. A TV normal e a Light comemoram novas vendas detectadas com **Chuva de confetes**, som **Vitória**, volume **100%**, ajustado pelo computador e duração **5 segundos**. As celebrações do ranking comercial são independentes.
 
-Cash collected preserva Guru/Hotmart líquidos integrais, TMB em 40% por venda e entradas conhecidas de novos contratos Asaas. Recebimentos de faturas antigas ficam fora. Manuais conciliadas não duplicam vendas nativas. Vendas sem vendedor identificado não recebem atribuição fictícia.
+Cash collected preserva Guru/Hotmart líquidos integrais, TMB pelo percentual da tabela de taxas em cada venda (40% sem tabela) e entradas conhecidas de novos contratos Asaas. Recebimentos de faturas antigas ficam fora. Manuais conciliadas não duplicam vendas nativas. Vendas sem vendedor identificado não recebem atribuição fictícia.
 
 Valores indisponíveis são diferentes de zero. Atualização com falha pode preservar a última leitura do mesmo mês, marcada como parcial. Um pace parcial não recebe diagnóstico definitivo de adiantado/atrasado. Metas ausentes não são estimadas. Comparações e rankings exibem até oito itens, com indicação de truncamento e valores sem atribuição.
 

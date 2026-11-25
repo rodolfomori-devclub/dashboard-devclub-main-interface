@@ -73,7 +73,7 @@ const side = (range, values, status, overrides = {}) => ({
   sources: [source('hotmart', 'Hotmart', 'ready', 3, 833.64), source('tmb', 'TMB', status === 'ready' ? 'ready' : 'unavailable', status === 'ready' ? 1 : null, status === 'ready' ? 1000 : null)],
   asaasCash: { value: 1255.36, count: 3, partial: false }, dataSource: { kind: 'shared_history_cache', oldestSnapshotAt: '2026-11-02T07:00:00.000Z', newestSnapshotAt: '2026-11-02T07:00:00.000Z' }, notices: [], ...overrides,
 })
-const BASIS = { refunds: { guru: 'cancellation_date' }, cash: { tmb: 'tmb_sales_40_percent' } }
+const BASIS = { refunds: { guru: 'cancellation_date' }, cash: { tmb: 'tmb_sales_fee_table_rate' } }
 const comparison = {
   blockId: 'b1', kind: 'comparison', filters: { platform: null, family: null, payment: null, product: null }, basis: BASIS,
   a: side(period('2026-10-01', '2026-10-03', '01/10/2026 a 03/10/2026'), metrics(1833.64, 4), 'ready'),

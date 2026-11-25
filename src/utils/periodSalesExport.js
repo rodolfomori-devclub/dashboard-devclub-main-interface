@@ -100,7 +100,7 @@ export function buildPeriodSalesWorkbook(records, {
     ['Fontes', sourceCoverage],
     ['Vínculos dos vendedores', mappingStatus],
     ['Critério', 'Vendas individuais com origem comercial/comercial-nome ou vínculo UTM cadastrado. O nome do vendedor vem da atribuição cadastrada.'],
-    ['Valores', 'Guru: líquido estimado pela tabela de taxas (veja Base do líquido e Regra de taxa). Hotmart e Hubla: líquido informado pela plataforma. Demais plataformas: regra do dashboard. Recebido não é somado ao valor da venda. Células vazias indicam valores não informados.'],
+    ['Valores', 'Guru: líquido estimado pela tabela de taxas ou, sem regra aplicável, pela regra anterior (veja Base do líquido e Regra de taxa). Hotmart e Hubla: líquido informado pela plataforma. Demais plataformas: regra do dashboard. Recebido não é somado ao valor da venda. Células vazias indicam valores não informados.'],
     omittedPending ? ['Pendências de reembolso', `${omittedPending} solicitações omitidas: fora do período/filtros ou sem vínculo seguro para confirmar os filtros. A cobertura dos totais permanece parcial.`] : [],
     ['Vendedor', 'UTM Source', 'Vendas', ...moneyLabels, 'Cobertura dos valores'],
     totalRow,

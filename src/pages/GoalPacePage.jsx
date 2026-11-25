@@ -145,7 +145,7 @@ export default function GoalPacePage() {
 
     <section className="pace-financial-grid" aria-label="Valor das vendas e cash collected">
       {financialSummary.map(({ metric: key, pace: item }) => <button key={key} className={`surface-panel pace-financial-card${metric === key ? ' is-selected' : ''}`} onClick={() => setSelectedMetric(key)} aria-pressed={metric === key}>
-        <span className="pace-financial-label">{key === 'gross' ? 'Valor das vendas' : 'Cash collected'}</span><p>{key === 'gross' ? 'Guru, Hotmart e Hubla: líquido após taxas; demais: valor contratado.' : 'Novas vendas: Guru, Hotmart e Hubla líquido integral; TMB 40%; Asaas entrada do novo contrato.'}</p>
+        <span className="pace-financial-label">{key === 'gross' ? 'Valor das vendas' : 'Cash collected'}</span><p>{key === 'gross' ? 'Guru, Hotmart e Hubla: líquido após taxas; demais: valor contratado.' : 'Novas vendas: Guru, Hotmart e Hubla líquido integral; TMB: percentual da tabela de taxas (40% sem tabela); Asaas entrada do novo contrato.'}</p>
         <strong>{item.future ? 'Não iniciado' : formatValue(item.actual, 'currency')}</strong><span>{!item.definitive && !item.future ? 'Realizado parcial' : 'Realizado no mês'}</span>
         <div><span>Meta <b>{current?.plansError ? 'Indisponível' : item.validTarget ? formatValue(item.target, 'currency') : 'Não definida'}</b></span><span>Pace <b>{percent(item.pacePercent)}</b></span></div>
       </button>)}
