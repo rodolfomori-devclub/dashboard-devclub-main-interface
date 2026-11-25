@@ -2,6 +2,7 @@ import { applyPlatformCashRule, salesPaymentLabel, usesPlatformNet } from './pla
 import { amount, summarizeSales, sumAmount } from './salesData.js'
 import { asaasCashView, sourceHasSales } from './sourceAvailability.js'
 import { prepareGoalData } from './goalData.js'
+import { TMB_CASH_RATE, tmbCashPercent } from './tmbCash.js'
 
 const SOURCES = ['guru', 'hotmart', 'hubla', 'tmb', 'asaas', 'boletex', 'manual']
 const LABELS = { guru: 'Guru', hotmart: 'Hotmart', hubla: 'Hubla', tmb: 'TMB', asaas: 'Asaas', boletex: 'Boletex', manual: 'Vendas manuais' }
@@ -98,6 +99,7 @@ export function buildRevenueBreakdown(records = [], sources = [], filters = {}) 
   const tmbSource = saleSources.find(source => source.id === 'tmb')
   const tmbRows = prepared.cashRecords.filter(row => fold(row.platform) === 'tmb')
   const tmbKnown = tmbRows.some(row => amount(row.received) !== null) || (tmbRows.length === 0 && tmbSource && sourceHasSales(tmbSource))
+  const tmbRates = [...new Set(tmbRows.map(row => row.cashRate ?? TMB_CASH_RATE))]
   const asaasRows = prepared.cashRecords.filter(row => row.sourceId === 'asaas' && !row.isManual && !row.isReceipt)
   const asaasSource = prepared.cashSources.find(source => source.id === 'asaas')
   const asaasKnown = asaasRows.some(row => amount(row.received) !== null) || (asaasRows.length === 0 && asaasSource && sourceHasSales(asaasSource))
@@ -111,7 +113,7 @@ export function buildRevenueBreakdown(records = [], sources = [], filters = {}) 
   })
   const cashProviders = [
     ...platformCash,
-    { id: 'tmb', label: 'TMB · 40% das vendas', value: tmbKnown ? sum(tmbRows) : null },
+    { id: 'tmb', label: tmbRates.length > 1 ? 'TMB · percentual por vigência' : `TMB · ${tmbCashPercent(tmbRates[0])} das vendas`, value: tmbKnown ? sum(tmbRows) : null },
     ...(asaasRows.length ? [{ id: 'asaas', label: 'Asaas · entradas de novas vendas', value: asaasKnown ? sum(asaasRows) : null }] : []),
     ...(manuals.length ? [{ id: 'manual', label: 'Caixa manual declarado', value: manualKnown ? sum(manuals) : null }] : []),
   ]
@@ -138,7 +140,7 @@ export function buildRevenueNotices(sources = [], filters = {}, { partial = fals
   if (asaas?.allocationMissing) notices.push({ id: 'asaas-allocation', title: 'Asaas sem atribuição neste recorte', tone: 'info', message: 'O extrato não informa produto, família, pagamento, oferta ou UTM. O caixa Asaas não foi distribuído entre esses filtros.' })
   if (asaas?.partial) notices.push({ id: 'asaas-partial-cash', title: 'Caixa Asaas parcial', tone: 'warning', message: 'Há recebimentos sem data ou consultas incompletas/em atualização. O subtotal conhecido foi preservado.' })
   if (relevant.some(source => source.id === 'asaas')) notices.push({ id: 'asaas-new-sales-cash', title: 'Asaas: novas vendas e faturas separadas', tone: 'info', message: 'O cash collected principal e as metas incluem somente entradas confirmadas de novas vendas Asaas. Recebimentos do extrato, incluindo faturas de vendas anteriores, ficam apenas no painel separado.' })
-  if (relevant.some(source => source.id === 'tmb')) notices.push({ id: 'tmb-cash-rule', title: 'Regra de cash collected da TMB', tone: 'info', message: 'O cash collected considera 40% do valor bruto de cada nova venda TMB, na data da venda. O bruto e a receita contratada permanecem integrais.' })
+  if (relevant.some(source => source.id === 'tmb')) notices.push({ id: 'tmb-cash-rule', title: 'Regra de cash collected da TMB', tone: 'info', message: 'O cash collected considera o percentual da TMB definido na tabela de taxas (40% quando não há tabela) sobre o valor bruto de cada nova venda TMB, na data da venda. O bruto e a receita contratada permanecem integrais.' })
   if (relevant.some(source => ['guru', 'hotmart', 'hubla'].includes(source.id))) notices.push({ id: 'platform-net-cash', title: 'Cash collected Guru, Hotmart e Hubla', tone: 'info', message: 'Guru, Hotmart e Hubla entram com 100% do líquido de cada venda, na data da venda. As taxas e comissões já consideradas pela fonte não são descontadas novamente. O indicador não representa a data de saque ou de repasse bancário.' })
   const foreign = records.filter(row => row.excludedCurrencies?.length)
   if (foreign.length) notices.push({ id: 'foreign-currency', title: 'Vendas em outras moedas', tone: 'warning', message: `${foreign.length} registros têm valores em ${[...new Set(foreign.flatMap(row => row.excludedCurrencies))].join(', ')}. Somente os campos informados em BRL entram nos totais em reais; valores em outras moedas ficam fora, sem conversão estimada.` })

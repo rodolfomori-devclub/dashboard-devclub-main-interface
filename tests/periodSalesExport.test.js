@@ -107,8 +107,19 @@ test('Excel keeps all filtered records, every UTM, IDs, typed money and the São
   assert.equal(rows[26]['Registro agregado'], 'Sim')
   assert.equal(rows[26].Quantidade, 4)
   assert.equal(rows[26].Comercial, 'Não')
-  assert.equal(workbook.Sheets.Vendas['!autofilter'].ref, 'A1:AD28')
+  assert.equal(workbook.Sheets.Vendas['!autofilter'].ref, 'A1:AI28')
   assert.match(workbook.Sheets.Vendas.U2.z, /R\$/)
+  assert.equal(rows[0]['Base do líquido'], 'Estimado pela regra anterior')
+  assert.equal(rows[0]['Valor cobrado'], null)
+})
+
+test('Excel shows how each Guru net was priced, with the amount charged as money', () => {
+  const priced = { ...sale, id: 'guru:priced', charged: 2397.2, gateway: 'pagarme', installments: 12, netBasis: 'estimated', feeRule: 'pagarme.card.12@2025-10-01#atual' }
+  const workbook = roundtrip([priced])
+  const [row] = table(workbook.Sheets.Vendas)
+  assert.deepEqual([row['Valor cobrado'], row.Gateway, row.Parcelas, row['Base do líquido'], row['Regra de taxa']],
+    [2397.2, 'pagarme', 12, 'Estimado pela tabela de taxas', 'pagarme.card.12@2025-10-01#atual'])
+  assert.match(workbook.Sheets.Vendas.AE2.z, /R\$/)
 })
 
 test('commercial totals reconcile with eligible details and preserve missing amounts', () => {

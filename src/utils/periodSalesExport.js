@@ -4,6 +4,7 @@ import { applyPlatformCashRule, salesPaymentLabel } from './platformCash.js'
 import { amount, filterSales, productFamily, SOURCE_DEFINITIONS, UNKNOWN, UTM_FIELDS } from './salesData.js'
 import { sourceHasSales } from './sourceAvailability.js'
 import { refundStatusLabel } from './refundSummary.js'
+import { netBasisLabel } from './netBasis.js'
 
 const MONEY_FORMAT = '"R$" #,##0.00;[Red]-"R$" #,##0.00'
 const DATE_FORMAT = 'dd/mm/yyyy'
@@ -99,7 +100,7 @@ export function buildPeriodSalesWorkbook(records, {
     ['Fontes', sourceCoverage],
     ['Vínculos dos vendedores', mappingStatus],
     ['Critério', 'Vendas individuais com origem comercial/comercial-nome ou vínculo UTM cadastrado. O nome do vendedor vem da atribuição cadastrada.'],
-    ['Valores', 'Guru, Hotmart e Hubla: líquido após taxas. Demais plataformas: regra do dashboard. Recebido não é somado ao valor da venda. Células vazias indicam valores não informados.'],
+    ['Valores', 'Guru: líquido estimado pela tabela de taxas (veja Base do líquido e Regra de taxa). Hotmart e Hubla: líquido informado pela plataforma. Demais plataformas: regra do dashboard. Recebido não é somado ao valor da venda. Células vazias indicam valores não informados.'],
     omittedPending ? ['Pendências de reembolso', `${omittedPending} solicitações omitidas: fora do período/filtros ou sem vínculo seguro para confirmar os filtros. A cobertura dos totais permanece parcial.`] : [],
     ['Vendedor', 'UTM Source', 'Vendas', ...moneyLabels, 'Cobertura dos valores'],
     totalRow,
@@ -118,7 +119,7 @@ export function buildPeriodSalesWorkbook(records, {
   formatMoney(commercialSheet, 11, commercialRows.length - 1, [3, 4, 5, 6])
   XLSX.utils.book_append_sheet(workbook, commercialSheet, 'Comercial')
 
-  const headers = ['Data (Brasília)', 'ID da venda', 'ID na plataforma', 'Fonte', 'Plataforma', 'Tipo', 'Quantidade', 'Registro agregado', 'Comercial', 'Vendedor', 'ID do vendedor', 'Atribuição', 'UTM vinculada', 'Cliente', 'Email', 'Produto', 'Família', 'Oferta', 'Categoria de pagamento', 'Pagamento original', 'Receita operacional', 'Valor das vendas', 'Líquido', 'Recebido', 'Pendente', ...UTM_FIELDS.map(field => `UTM ${field[0].toUpperCase()}${field.slice(1)}`)]
+  const headers = ['Data (Brasília)', 'ID da venda', 'ID na plataforma', 'Fonte', 'Plataforma', 'Tipo', 'Quantidade', 'Registro agregado', 'Comercial', 'Vendedor', 'ID do vendedor', 'Atribuição', 'UTM vinculada', 'Cliente', 'Email', 'Produto', 'Família', 'Oferta', 'Categoria de pagamento', 'Pagamento original', 'Receita operacional', 'Valor das vendas', 'Líquido', 'Recebido', 'Pendente', ...UTM_FIELDS.map(field => `UTM ${field[0].toUpperCase()}${field.slice(1)}`), 'Valor cobrado', 'Gateway', 'Parcelas', 'Base do líquido', 'Regra de taxa']
   const exportRows = row => [
     excelDate(row.date), text(row.id), text(row.externalId), text(row.sourceId || row.source), text(row.platform),
     row.kind === 'sale' ? 'Venda' : row.kind === 'refund' ? 'Reembolso' : text(row.kind), amount(row.quantity), row.isAggregate ? 'Sim' : 'Não',
@@ -126,6 +127,7 @@ export function buildPeriodSalesWorkbook(records, {
     text(row.buyerName), text(row.buyerEmail), text(row.product), text(row.family), text(row.offer), text(salesPaymentLabel(row)), text(row.payment),
     ...['revenue', 'gross', 'net', 'received', 'pending'].map(key => amount(row[key])),
     ...UTM_FIELDS.map(field => text(row.utm?.[field])),
+    amount(row.charged), text(row.gateway), amount(row.installments), netBasisLabel(row), text(row.feeRule),
     ...(refundReview ? [refundStatusLabel(row.refundExclusion?.status || row.original?.status), excelDate(row.refundExclusion?.requestedAt, true)] : []),
   ]
   if (refundReview) headers.push('Status do reembolso', 'Solicitado em')
@@ -133,16 +135,16 @@ export function buildPeriodSalesWorkbook(records, {
   // aoa_to_sheet writes supplied strings as text cells, even when they begin
   // with =, +, -, or @. No source value is ever assigned as an Excel formula.
   const salesSheet = XLSX.utils.aoa_to_sheet([headers, ...saleRows])
-  salesSheet['!cols'] = [23, 30, 26, 19, 18, 15, 12, 20, 14, 30, 30, 24, 36, 32, 38, 40, 23, 36, 25, 24, 23, 23, 23, 23, 23, 38, 30, 38, 38, 30].map(wch => ({ wch }))
+  salesSheet['!cols'] = [23, 30, 26, 19, 18, 15, 12, 20, 14, 30, 30, 24, 36, 32, 38, 40, 23, 36, 25, 24, 23, 23, 23, 23, 23, 38, 30, 38, 38, 30, 18, 14, 10, 30, 36].map(wch => ({ wch }))
   salesSheet['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: saleRows.length, c: headers.length - 1 } }) }
-  formatMoney(salesSheet, 1, saleRows.length, [20, 21, 22, 23, 24])
+  formatMoney(salesSheet, 1, saleRows.length, [20, 21, 22, 23, 24, 30])
   XLSX.utils.book_append_sheet(workbook, salesSheet, 'Vendas')
   if (refundReview) {
     const refundRows = normalized.filter(row => row.kind === 'refund').map(exportRows)
     const refundSheet = XLSX.utils.aoa_to_sheet([headers, ...refundRows])
     refundSheet['!cols'] = [...salesSheet['!cols'], { wch: 38 }, { wch: 20 }]
     refundSheet['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: refundRows.length, c: headers.length - 1 } }) }
-    formatMoney(refundSheet, 1, refundRows.length, [20, 21, 22, 23, 24])
+    formatMoney(refundSheet, 1, refundRows.length, [20, 21, 22, 23, 24, 30])
     XLSX.utils.book_append_sheet(workbook, refundSheet, 'Reembolsos e chargebacks')
     if (pendingRows.length) {
       const pendingSheet = XLSX.utils.aoa_to_sheet([

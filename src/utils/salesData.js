@@ -122,6 +122,11 @@ export function normalizeSource(sourceId, payload) {
         gross: amount(calculation.net_amount), net: amount(calculation.net_amount),
         fees: feeValues.length && feeValues.every((value) => value !== null) ? feeValues.reduce((sum, value) => sum + value, 0) : null,
         affiliate: amount(calculation.net_affiliate_value),
+        // The fee table prices the sale; the net collected with the previous
+        // formula travels apart because the commission base still uses it.
+        ...(Object.hasOwn(calculation, 'legacy_net_amount') ? { legacyNet: amount(calculation.legacy_net_amount) } : {}),
+        charged: amount(calculation.charged_amount), netBasis: text(calculation.basis), gateway: text(calculation.gateway),
+        installments: amount(calculation.installments), feeRule: text(calculation.fee_rule),
       }))
     })
   }

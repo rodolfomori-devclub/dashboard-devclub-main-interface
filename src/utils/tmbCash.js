@@ -1,6 +1,8 @@
 export const TMB_CASH_RATE = 0.4
 export const TMB_CASH_RULE = 'tmb_sales_40_percent'
-export const TMB_CASH_LABEL = 'TMB · 40% do valor vendido'
+export const tmbCashPercent = (rate = TMB_CASH_RATE) => `${(Math.round(rate * 10000) / 100).toLocaleString('pt-BR')}%`
+export const tmbCashLabel = (rate = TMB_CASH_RATE) => `TMB · ${tmbCashPercent(rate)} do valor vendido`
+export const TMB_CASH_LABEL = tmbCashLabel()
 export const TMB_CASH_METADATA = Object.freeze({
   cashBasis: 'sales_rule', cashRule: TMB_CASH_RULE, cashLabel: TMB_CASH_LABEL,
   cashRate: TMB_CASH_RATE, cashDateBasis: 'sale_date',
@@ -12,15 +14,21 @@ function number(value) {
   return Number.isFinite(parsed) ? parsed : null
 }
 
-// Apply 40% to each sale and round once to cents. Decimal integer arithmetic
-// avoids binary floating-point errors at half-cent boundaries. The base is
-// always the sold amount, never an already computed cash amount.
-export function tmbCashAmount(value) {
+const validRate = value => typeof value === 'number' && Number.isFinite(value) && value > 0 && value < 1
+  && Math.abs(value * 1e6 - Math.round(value * 1e6)) < 1e-6
+// The admin fee table may set another rate from a given date; the API sends it
+// on each TMB order (and on manual TMB sales). Without it, the default applies.
+export const tmbCashRateOf = row => validRate(row?.original?.tmbCashRate) ? row.original.tmbCashRate : TMB_CASH_RATE
+
+// Apply the rate to each sale and round once to cents. Decimal integer
+// arithmetic avoids binary floating-point errors at half-cent boundaries. The
+// base is always the sold amount, never an already computed cash amount.
+export function tmbCashAmount(value, rate = TMB_CASH_RATE) {
   const parsed = number(value)
-  if (parsed === null || Math.abs(parsed) > Number.MAX_SAFE_INTEGER / 100) return null
+  if (parsed === null || Math.abs(parsed) > Number.MAX_SAFE_INTEGER / 100 || !validRate(rate)) return null
   const [, sign, whole, fraction = '', exponent = '0'] = String(parsed).match(/^(-?)(\d+)(?:\.(\d+))?(?:e([+-]?\d+))?$/i)
-  const numerator = BigInt(`${whole}${fraction}`) * 40n
-  const scale = Number(exponent) - fraction.length
+  const numerator = BigInt(`${whole}${fraction}`) * BigInt(Math.round(rate * 1e6))
+  const scale = Number(exponent) - fraction.length - 4
   let cents
   if (scale >= 0) cents = numerator * 10n ** BigInt(scale)
   else {
@@ -56,5 +64,7 @@ export function applyTmbCashRule(row) {
   // existing sale fields, but never promote that unknown amount to known cash.
   const unknownRawTotal = !row.isManual && Object.hasOwn(raw, 'valor_total') && number(raw.valor_total) === null
   const saleDate = original.date?.original ?? original.timestamp ?? row.date
-  return { ...row, ...TMB_CASH_METADATA, received: unknownRawTotal ? null : tmbCashAmount(row.gross), cashDate: calendarDate(saleDate) }
+  const rate = tmbCashRateOf(row)
+  return { ...row, ...TMB_CASH_METADATA, cashRate: rate, cashLabel: tmbCashLabel(rate),
+    received: unknownRawTotal ? null : tmbCashAmount(row.gross, rate), cashDate: calendarDate(saleDate) }
 }

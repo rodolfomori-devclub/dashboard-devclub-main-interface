@@ -4,7 +4,7 @@ import { applyTmbCashRule, TMB_CASH_METADATA } from './tmbCash.js'
 import { applyPlatformCashRule, PLATFORM_NET_CASH_METADATA } from './platformCash.js'
 
 /** Cash follows the agreed platform rules: Guru/Hotmart/Hubla = full net and
- * TMB = 40% of sold value, on the sale date. Asaas contributes only the
+ * TMB = the fee table's cash rate (40% without a table) of sold value, on the sale date. Asaas contributes only the
  * received entry of a new contract, also on its sale date. Its account
  * statement is a separate receivables view and never advances sales goals.
  * Boletex's confirmedValue is lifetime cash of contracts CREATED in the range;
