@@ -17,6 +17,8 @@ export default function ExportMenu({ disabled = false, onExport, label = 'Export
     restoreFocus.current = false
     if (!disabled && (document.activeElement === document.body || container.current?.contains(document.activeElement))) trigger.current?.focus()
   }, [exporting, disabled, open])
+  // A screen that reloads disables the button; it must not reopen by itself afterwards.
+  useEffect(() => { if (disabled) setOpen(false) }, [disabled])
   useEffect(() => {
     const close = event => { if (!container.current?.contains(event.target)) setOpen(false) }
     document.addEventListener('pointerdown', close)
