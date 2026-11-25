@@ -2,9 +2,9 @@
 
 A partir de 2026-10-01, Guru e Hotmart contribuem com 100% do líquido de cada venda, na data da venda. O backend já calcula ou recebe esse líquido; a interface não aplica novamente taxas, percentuais ou comissões. É uma definição operacional do indicador, não a data do repasse bancário.
 
-- Guru: mantém o cálculo existente do servidor (MDR, antecipação, processamento, transferência e afiliação).
+- Guru: líquido estimado pela tabela de taxas de Administração, por provedor, meio e parcelas, com vigência pela data da venda. Sem tabela vigente, vale o cálculo anterior do servidor, que segue como base das comissões.
 - Hotmart: usa a comissão PRODUCER informada pela plataforma. Líquido ausente permanece desconhecido; não é substituído por bruto menos taxa estimada. Taxas variam por transação; não há dedução fixa de 6% no frontend.
-- TMB: mantém 40% do bruto vendido, arredondado por venda.
+- TMB: percentual da tabela de taxas vigente na data da venda (40% sem tabela) sobre o bruto vendido, arredondado por venda.
 - Asaas: somente a entrada confirmada de novos contratos. O extrato de faturas, inclusive quando traz vínculo com um contrato, fica separado dos cards principais e das metas. Nunca substitui uma entrada não informada.
 - Boletex: o acumulado recebido de contratos não representa caixa do período; continua fora do indicador.
 - Vendas manuais: mantêm o caixa declarado e a proteção contra duplicidade por conciliação. A regra específica da TMB permanece aplicável aos manuais dessa plataforma; manuais Asaas usam o caixa declarado da nova venda, sem somar o extrato.

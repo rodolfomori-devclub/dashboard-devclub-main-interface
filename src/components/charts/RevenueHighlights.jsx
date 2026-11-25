@@ -27,7 +27,7 @@ function PaymentCard({ title, detail, data, tone, icon: Icon, ready, loading, er
             <dl className="revenue-provider-financials">{[['gross', ['guru', 'hotmart', 'hubla'].includes(provider.id) ? 'Líquido após taxas' : 'Valor contratado'], ['cash', 'Cash collected'], ['entry', 'Entrada recebida']].map(([key, label]) => <div key={key}>
               <dt>{label}</dt><dd><FinancialValue ready={ready} loading={loading} error={error} compact>{money(provider[key].value)}</FinancialValue>{provider[key].partial && provider[key].value !== null && <small>Parcial</small>}</dd>
             </div>)}</dl>
-            <p className="revenue-provider-note">{provider.id === 'tmb' ? 'Cash collected: 40% do valor contratado. ' : ['guru', 'hotmart', 'hubla'].includes(provider.id) ? 'Cash collected: líquido integral. ' : ''}{provider.note}</p>
+            <p className="revenue-provider-note">{provider.id === 'tmb' ? 'Cash collected: percentual da tabela de taxas sobre o valor contratado (40% sem tabela). ' : ['guru', 'hotmart', 'hubla'].includes(provider.id) ? 'Cash collected: líquido integral. ' : ''}{provider.note}</p>
           </div>
           : <div className="revenue-provider-row" key={provider.id} data-provider={provider.id}><div><span>{provider.label}</span><small>{salesCount(provider.count)}{provider.partial && ' · parcial'}</small></div><strong><FinancialValue ready={ready} loading={loading} error={error} compact>{money(provider.value)}</FinancialValue></strong></div>)}
         {!data.providers.length && <p className="revenue-provider-empty">{loading ? 'Carregando as plataformas deste período…' : !ready || data.value === null ? 'Detalhamento indisponível neste recorte.' : `Nenhuma venda por ${title.toLocaleLowerCase('pt-BR')} neste recorte.`}</p>}
@@ -53,7 +53,7 @@ export default function RevenueHighlights({ records = [], sources = [], filters 
       <article className="revenue-card revenue-card--cash">
         <div className="revenue-card-heading"><h2><Wallet size={21} aria-hidden="true" />Cash collected</h2><Coverage partial={ready && model.cash.partial} /></div>
         <p className="revenue-card-value"><FinancialValue ready={ready && (model.cash.value !== null || !loading)} loading={loading} error={error}>{money(model.cash.value)}</FinancialValue></p>
-        <p className="revenue-card-subtitle">Somente novas vendas · Guru, Hotmart e Hubla: líquido integral · TMB: 40% · Asaas: entradas de novas vendas</p>
+        <p className="revenue-card-subtitle">Somente novas vendas · Guru, Hotmart e Hubla: líquido integral · TMB: percentual da tabela de taxas · Asaas: entradas de novas vendas</p>
         <dl className="revenue-cash-details">{model.cash.providers.map(provider => <div key={provider.id}><dt>{provider.label}</dt><dd><FinancialValue ready={ready} loading={loading} error={error} compact>{money(provider.value)}</FinancialValue></dd></div>)}</dl>
       </article>
     </div>

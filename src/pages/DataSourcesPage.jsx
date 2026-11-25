@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Database, RefreshCw } from 'lucide-react'
 import { requestApi } from '../lib/api'
 const SOURCES = [
-  ['guru','Guru','Vendas, descontos, afiliados e reembolsos. Todos os indicadores de vendas usam o líquido após taxas, calculado pela integração existente.'],
+  ['guru','Guru','Vendas, descontos, afiliados e reembolsos. Todos os indicadores de vendas usam o líquido após taxas, estimado pela tabela de taxas de Administração (sem tabela vigente, vale a regra anterior).'],
   ['hotmart','Hotmart','Vendas e compras com status de reembolso, incluindo Seu segundo salário com IA. Todos os indicadores de vendas usam o líquido após taxas.'],
   ['hubla','Hubla','Vendas e compras com status de reembolso. Classificada como Cartão, com o líquido após taxas no valor das vendas e 100% desse líquido no cash collected.'],
   ['tmb','TMB','Contratos de boleto parcelado. O valor contratado é separado do caixa. Cancelamento de pedido não comprova devolução de dinheiro.'],

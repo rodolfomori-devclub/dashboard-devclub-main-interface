@@ -83,7 +83,7 @@ function OperationForm({ mode, row, sellers, candidates, onClose, onSaved }) {
           <p className="text-xs" style={{ color: 'var(--muted)' }}>Guru, Hotmart e Hubla usam este líquido como valor da venda e cash collected integral, já com as taxas descontadas.</p>
         </> : <>
           <div className="grid sm:grid-cols-3 gap-4"><Field label="Valor contratado (R$)">{input('gross', 'number')}</Field><Field label="Valor líquido informado (R$)">{input('net', 'number')}</Field><Field label="Caixa recebido (R$)">{input('cashCollected', 'number')}</Field></div>
-          <p className="text-xs" style={{ color: 'var(--muted)' }}>Informe cada valor separadamente. O líquido compõe a receita manual; o cash collected considera 40% do contratado na TMB e o caixa declarado nas demais plataformas.</p>
+          <p className="text-xs" style={{ color: 'var(--muted)' }}>Informe cada valor separadamente. O líquido compõe a receita manual; o cash collected considera o percentual da tabela de taxas sobre o contratado na TMB (40% sem tabela) e o caixa declarado nas demais plataformas.</p>
         </>}
         <section className="attribution-utm-form"><h3>Origem e UTMs</h3><p>Informe os campos disponíveis na venda. O vendedor selecionado acima será o responsável, mesmo que a UTM esteja vinculada a outra pessoa.</p><div className="grid sm:grid-cols-2 gap-4">{UTM_FIELDS.map(field => <Field key={field} label={`UTM ${field}`}>{input(field, 'text', false)}</Field>)}</div></section>
       </>}
