@@ -81,7 +81,9 @@ export function saleSnapshot(row) {
   const money = (value) => value == null ? null : Math.round(Number(value) * 100) / 100;
   const date = new Date(row.date);
   if (Number.isNaN(date.getTime())) throw new Error('A fonte não informou uma data válida para esta transação.');
-  const base = Object.hasOwn(row, 'legacyNet') ? { gross: row.legacyNet, net: row.legacyNet, received: row.legacyNet } : row;
+  // A negative or unknown previous net is unknown, as the API presents a net.
+  const legacy = Number.isFinite(row.legacyNet) && row.legacyNet >= 0 ? row.legacyNet : null;
+  const base = Object.hasOwn(row, 'legacyNet') ? { gross: legacy, net: legacy, received: legacy } : row;
   const cash = isTmbSale(row) && row.received != null ? tmbCashAmount(row.gross) : base.received;
   return {
     date: new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date),

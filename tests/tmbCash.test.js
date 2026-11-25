@@ -141,4 +141,8 @@ test('attribution snapshots keep the previous commission base whatever the fee t
   const unknown = normalizeSource('guru', { data: [{ id: 'g2', product: { name: 'DevClub' }, payment: { method: 'credit_card' }, dates: { created_at: 1795438800 },
     calculation_details: { net_amount: 1900, legacy_net_amount: null, basis: 'estimated' } }] })[0]
   assert.equal(saleSnapshot(unknown).net, null, 'a sale the previous formula could not price stays without a base, as before')
+  // The previous formula goes negative on a R$ 0 card order (-4,11); the screens and the API took it as unknown.
+  const negative = normalizeSource('guru', { data: [{ id: 'g3', product: { name: 'DevClub' }, payment: { method: 'credit_card' }, dates: { created_at: 1795438800 },
+    calculation_details: { net_amount: null, legacy_net_amount: -4.11, basis: 'legacy' } }] })[0]
+  assert.deepEqual([saleSnapshot(negative).gross, saleSnapshot(negative).net, saleSnapshot(negative).cashCollected], [null, null, null])
 })
