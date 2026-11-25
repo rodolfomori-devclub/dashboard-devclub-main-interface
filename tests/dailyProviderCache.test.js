@@ -22,14 +22,31 @@ const card = result => buildRevenueBreakdown(result.sources.flatMap(item => item
 function fixture() {
   let time = stamp
   const payloads = { guru: guru(), hotmart: hotmart() }, calls = []
-  const loader = createProviderRangeLoader({ now: () => time, fetchProvider: async (id, from, to) => {
-    calls.push({ id, from, to })
+  const loader = createProviderRangeLoader({ now: () => time, fetchProvider: async (id, from, to, options) => {
+    calls.push({ id, from, to, options })
     const value = payloads[id] ?? empty(id)
     if (value instanceof Error) throw value
     return structuredClone(value)
   } })
   return { ...loader, payloads, calls, advance: (milliseconds = 60001) => { time += milliseconds } }
 }
+
+test('force refresh reaches provider adapters for the exact range while ordinary reads reuse cache', async () => {
+  const f = fixture()
+  const end = '2026-10-20'
+  await f.load(date, end)
+  const count = f.calls.length
+  assert.ok(f.calls.every(call => call.options?.force === false))
+  await f.load(date, end)
+  assert.equal(f.calls.length, count)
+  await f.load(date, end, { force: true })
+  assert.equal(f.calls.length, count * 2)
+  for (const call of f.calls.slice(count)) {
+    assert.deepEqual(call.options, { force: true })
+    assert.equal(call.from, date)
+    assert.equal(call.to, end)
+  }
+})
 
 test('one failed provider preserves its last valid subtotal while healthy sources advance, including repeated failures', async () => {
   const f = fixture()

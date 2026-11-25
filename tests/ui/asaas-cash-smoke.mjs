@@ -39,6 +39,7 @@ try {
   })
   if (context.routeWebSocket) await context.routeWebSocket('**/*', () => {})
   const calls = []
+  const boletoRequests = []
   let failedProviders = false
   let cashPause = false, activeCash = 0, peakCash = 0, failCashDate = null
   const cashIntervals = []
@@ -48,6 +49,7 @@ try {
     if (url.origin !== base) return route.abort()
     if (!url.pathname.startsWith('/api/')) return route.continue()
     calls.push(url.pathname)
+    if (['/api/boleto/asaas/vendas', '/api/boleto/boletex/vendas'].includes(url.pathname)) boletoRequests.push(url)
     const date = req.method() === 'POST' ? req.postDataJSON()?.ordered_at_ini : url.searchParams.get('date') || url.searchParams.get('data_inicio') || '2026-09-15'
     const timestamp = `${date}T12:00:00-03:00`
     let body
@@ -69,7 +71,7 @@ try {
       if (cashPause) {
         const start = url.searchParams.get('data_inicio'), end = url.searchParams.get('data_final')
         assert.ok((Date.parse(end) - Date.parse(start)) / 86400000 <= 6, 'cash query exceeds seven inclusive days')
-        cashIntervals.push({ start, end }); activeCash++; peakCash = Math.max(peakCash, activeCash)
+        cashIntervals.push({ start, end, force: url.searchParams.get('force') }); activeCash++; peakCash = Math.max(peakCash, activeCash)
         await new Promise(resolve => setTimeout(resolve, 60)); activeCash--
         if (start === failCashDate) { failCashDate = null; return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ success: false }) }) }
       }
@@ -114,6 +116,7 @@ try {
       assert.doesNotMatch(await cash().innerText(), /R\$/)
       await cash().getByText('Todos os intervalos foram consultados.', { exact: true }).waitFor()
       assert.equal(cashIntervals.length, 37)
+      assert.ok(cashIntervals.every(interval => interval.force === null), 'initial cash lookup should use normal provider cache')
       assert.equal(peakCash, 2)
     }
     assert.match(await page.getByTestId('revenue-gross-value').innerText(), annual ? /5\.400,00/ : /600,00/)
@@ -156,6 +159,19 @@ try {
     assert.doesNotMatch(await cash().innerText(), /495,00|18\.315,00/)
     await selectProduct('')
     assert.equal(calls.length, before, `${path}: filters must be local`)
+    if (path === '/diario' || path === '/global') {
+      const beforeRefresh = boletoRequests.length
+      const previous = boletoRequests.slice(-2)
+      await page.getByRole('button', { name: path === '/diario' ? 'Atualizar dados' : 'Atualizar', exact: true }).click()
+      await page.waitForLoadState('networkidle')
+      const refreshed = boletoRequests.slice(beforeRefresh)
+      assert.equal(refreshed.length, 2)
+      assert.ok(refreshed.every(url => url.searchParams.get('force') === '1'), `${path}: Atualizar must bypass the provider cache`)
+      for (const url of refreshed) {
+        const original = previous.find(item => item.pathname === url.pathname)
+        for (const key of ['date', 'data_inicio', 'data_final']) assert.equal(url.searchParams.get(key), original.searchParams.get(key))
+      }
+    }
     for (const dark of [false, true]) {
       await page.setViewportSize({ width: 360, height: 1000 })
       if (await page.evaluate(() => document.documentElement.classList.contains('dark')) !== dark) await page.getByRole('button', { name: dark ? 'Usar tema escuro' : 'Usar tema claro' }).click()
@@ -163,13 +179,17 @@ try {
     }
     if (annual) {
       failCashDate = '2026-01-01'
+      const beforeRefresh = cashIntervals.length
       await page.getByRole('button', { name: 'Atualizar caixa Asaas', exact: true }).click()
       await cash().getByText(/Subtotal parcial:/).waitFor()
       assert.match(await cash().innerText(), /36 de 37/)
+      assert.equal(cashIntervals.length, beforeRefresh + 37)
+      assert.ok(cashIntervals.slice(beforeRefresh).every(interval => interval.force === '1'), 'annual Atualizar must bypass every weekly provider cache')
       const beforeRetry = cashIntervals.length
       await page.getByRole('button', { name: 'Tentar novamente', exact: true }).click()
       await cash().getByText('Todos os intervalos foram consultados.', { exact: true }).waitFor()
       assert.equal(cashIntervals.length, beforeRetry + 1, 'retry must query only the failed interval')
+      assert.equal(cashIntervals.at(-1).force, null, 'partial retry should preserve successfully collected weeks')
     }
     console.log(`PASS ${path}: cash preserved, sales partial, Asaas unknown, Guru unaffected, filters no allocation, mobile themes`)
   }

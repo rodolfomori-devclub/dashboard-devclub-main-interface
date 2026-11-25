@@ -14,7 +14,7 @@ export function readAsaasCash(payload) {
   if (payload?.success === false || data?.availability?.cash !== 'ready') throw new Error('Caixa Asaas indisponível')
   const cash = Object.fromEntries([['gross', 'totalGross'], ['net', 'totalNet'], ['fees', 'totalFees'], ['count', 'count']].map(([field, key]) => {
     const value = data[key]
-    if (value === null || value === undefined || value === '' || !Number.isFinite(Number(value)) || (field === 'count' && (!Number.isInteger(Number(value)) || Number(value) < 0))) throw new Error('Caixa Asaas incompleto')
+    if (value === null || value === undefined || value === '' || typeof value === 'boolean' || !Number.isFinite(Number(value)) || (field === 'count' && (!Number.isInteger(Number(value)) || Number(value) < 0))) throw new Error('Caixa Asaas incompleto')
     return [field, Number(value)]
   }))
   return { ...cash, ...(data.cashReceiptOrigins ? { cashReceiptOrigins: data.cashReceiptOrigins } : {}) }
@@ -42,7 +42,7 @@ export function createAsaasCashLoader(fetchRange, { now = Date.now, ttl = 60_000
     if (!force && saved && now() - saved.at < ttl) return Promise.resolve(saved.cash)
     const request = schedule(async () => {
       if (requestGeneration !== generation || isCancelled()) throw new Error('Consulta cancelada')
-      const cash = readAsaasCash(await fetchRange(range))
+      const cash = readAsaasCash(await fetchRange(range, { force }))
       if (requestGeneration === generation) weeks.set(key, { cash, at: now() })
       return cash
     }).finally(() => { if (pendingWeeks.get(key) === request) pendingWeeks.delete(key) })

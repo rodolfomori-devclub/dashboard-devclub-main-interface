@@ -59,6 +59,27 @@ test('all failed remains unknown while a confirmed empty query has real zero cas
   assert.throws(() => readAsaasCash({ ...payload(), data: { ...payload().data, totalNet: null } }))
 })
 
+test('boolean cash fields are unavailable instead of turning into confirmed zero or one', () => {
+  for (const key of ['totalGross', 'totalNet', 'totalFees', 'count']) {
+    for (const value of [false, true]) {
+      assert.throws(() => readAsaasCash({ ...payload(), data: { ...payload().data, [key]: value } }), /incompleto/, `${key}=${value}`)
+    }
+  }
+  assert.deepEqual(readAsaasCash(payload(0)), { gross: 0, net: 0, fees: 0, count: 0 })
+})
+
+test('forced cash refresh forwards force to every weekly provider request without changing date bounds', async () => {
+  const calls = []
+  const loader = createAsaasCashLoader(async (range, options) => { calls.push({ range, options }); return payload() })
+  const ranges = asaasCashRanges('2026-01-01', '2026-01-14')
+  await loader.load('2026-01-01', '2026-01-14')
+  assert.deepEqual(calls, ranges.map(range => ({ range, options: { force: false } })))
+  await loader.load('2026-01-01', '2026-01-14')
+  assert.equal(calls.length, 2)
+  await loader.load('2026-01-01', '2026-01-14', { force: true })
+  assert.deepEqual(calls.slice(2), ranges.map(range => ({ range, options: { force: true } })))
+})
+
 test('session invalidation stops queued intervals and old responses never repopulate the new cache', async () => {
   const releases = []; let calls = 0
   const loader = createAsaasCashLoader(async () => { calls++; await new Promise(resolve => releases.push(resolve)); return payload() })

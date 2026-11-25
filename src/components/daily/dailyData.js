@@ -50,10 +50,11 @@ export async function loadSalesRange(startDate, endDate, options = {}) {
   return mergeFreshSalesLedger(providers, startDate, endDate)
 }
 
-async function fetchProviderPayload(sourceId, startDate, endDate) {
+async function fetchProviderPayload(sourceId, startDate, endDate, { force = false } = {}) {
   const base = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
   const daily = startDate === endDate
   const config = { timeout: daily ? 60_000 : 120_000, params: daily ? { date: startDate } : { data_inicio: startDate, data_final: endDate } }
+  if (force && ['asaas', 'boletex'].includes(sourceId)) config.params.force = 1
   const guruDates = { ordered_at_ini: startDate, ordered_at_end: endDate }
   const loaders = {
     guru: () => axios.post(`${base}/transactions`, guruDates, { timeout: config.timeout }),
@@ -103,7 +104,7 @@ export function createProviderRangeLoader({ fetchProvider = fetchProviderPayload
     const request = (async () => {
       const settled = await Promise.allSettled(SOURCE_DEFINITIONS.map(async source => {
         if (source.id === 'asaas' && !includeAsaas) return { ...source, status: 'not_requested', salesAvailable: false, reason: 'annual_cash_on_demand', rows: [], cash: null }
-        const payload = await fetchProvider(source.id, startDate, endDate)
+        const payload = await fetchProvider(source.id, startDate, endDate, { force })
         return { ...normalizeProviderSource(source.id, payload), fetchedAt: now(), lastAttemptAt: attemptedAt }
       }))
       const sources = settled.map((result, index) => {

@@ -1,9 +1,9 @@
 import axios from 'axios'
 import { createAsaasCashLoader } from '../utils/asaasCashRange.js'
 
-const loader = createAsaasCashLoader(async ({ startDate, endDate }) => {
+const loader = createAsaasCashLoader(async ({ startDate, endDate }, { force = false } = {}) => {
   const base = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
-  const response = await axios.get(`${base}/boleto/asaas/vendas`, { params: { data_inicio: startDate, data_final: endDate }, timeout: 120_000 })
+  const response = await axios.get(`${base}/boleto/asaas/vendas`, { params: { data_inicio: startDate, data_final: endDate, ...(force ? { force: 1 } : {}) }, timeout: 120_000 })
   return response.data
 })
 export const loadAsaasCashRange = loader.load
