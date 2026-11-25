@@ -2,21 +2,19 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { History, LoaderCircle, Percent, Plus, RefreshCw, Save, Trash2 } from 'lucide-react'
 import { requestApi } from '../../lib/api'
 import { invalidateSalesCache } from '../daily/dailyData'
-import { draftFromSchedule, percentInput, ruleLabel, scheduleFromDraft, withSchedule } from './saleFeeForm'
+import { changesPast, dayLabel, defaultPreviewRange, draftFromSchedule, percentInput, placeSchedule, ruleLabel, scheduleFromDraft } from './saleFeeForm'
 import './saleFees.css'
 
 const MAX_INSTALLMENTS = 24
 const money = value => value == null ? '—' : Number(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-const dateBR = value => value ? value.slice(0, 10).split('-').reverse().join('/') : '—'
 const localToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date())
-const yearAgo = date => `${Number(date.slice(0, 4)) - 1}${date.slice(4, 8)}01`
 const json = body => ({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
 
 export default function SaleFeeSettings() {
   const [saved, setSaved] = useState(null)
   const [schedules, setSchedules] = useState([])
   const [draft, setDraft] = useState(null)
-  const [range, setRange] = useState(() => ({ startDate: yearAgo(localToday()), endDate: localToday() }))
+  const [range, setRange] = useState(() => defaultPreviewRange(localToday()))
   const [preview, setPreview] = useState(null)
   const [history, setHistory] = useState(null)
   const [confirming, setConfirming] = useState(false)
@@ -35,7 +33,7 @@ export default function SaleFeeSettings() {
   useEffect(() => { mounted.current = true; load(); return () => { mounted.current = false } }, [load])
 
   const changed = Boolean(saved) && JSON.stringify(schedules) !== JSON.stringify(saved.settings.schedules)
-  const edit = effectiveFrom => { setDraft(draftFromSchedule(schedules.find(item => item.effectiveFrom === effectiveFrom))); setMessage('') }
+  const edit = effectiveFrom => { setDraft({ ...draftFromSchedule(schedules.find(item => item.effectiveFrom === effectiveFrom)), replacing: effectiveFrom }); setMessage('') }
   const startDraft = () => { setDraft(draftFromSchedule({ ...(schedules.at(-1) || saved.defaults), effectiveFrom: localToday() })); setMessage('') }
   const changeDraft = patch => setDraft(previous => ({ ...previous, ...patch }))
   const changeScenario = (index, patch) => setDraft(previous => ({ ...previous, scenarios: previous.scenarios.map((scenario, position) => position === index ? { ...scenario, ...patch } : scenario) }))
@@ -44,7 +42,9 @@ export default function SaleFeeSettings() {
   const applyDraft = () => {
     const result = scheduleFromDraft(draft)
     if (result.error) { setError(result.error); return }
-    setSchedules(list => withSchedule(list, result.schedule)); setDraft(null); setError(''); setPreview(null); setConfirming(false)
+    const placed = placeSchedule(schedules, result.schedule, draft.replacing)
+    if (placed.error) { setError(placed.error); return }
+    setSchedules(placed.schedules); setDraft(null); setError(''); setPreview(null); setConfirming(false)
   }
   const remove = effectiveFrom => { setSchedules(list => list.filter(item => item.effectiveFrom !== effectiveFrom)); setPreview(null); setConfirming(false) }
 
@@ -57,13 +57,13 @@ export default function SaleFeeSettings() {
   }
   async function save() {
     if (busy) return
-    if (!confirming && schedules.some(item => item.effectiveFrom < localToday())) { setConfirming(true); return }
+    if (!confirming && changesPast(saved.settings.schedules, schedules, localToday())) { setConfirming(true); return }
     setBusy('save'); setError(''); setMessage('')
     try {
       const result = await requestApi('/sale-fees', { ...json({ settings: { version: 1, schedules }, expectedRevision: saved.revision }), method: 'PUT' })
       invalidateSalesCache()
       if (mounted.current) {
-        setSaved(previous => ({ ...previous, ...result })); setSchedules(result.settings.schedules); setConfirming(false); setHistory(null)
+        setSaved(previous => ({ ...previous, ...result })); setSchedules(result.settings.schedules); setConfirming(false); setHistory(null); setPreview(null)
         setMessage('Tabela salva. As telas passam a usar a nova tabela em até 2 minutos.')
       }
     } catch (failure) { if (mounted.current) { setError(failure.message); setConfirming(false) } }
@@ -86,13 +86,13 @@ export default function SaleFeeSettings() {
     {message && <p role="status" className="sale-fees-message">{message}</p>}
     {loading && <p role="status" className="sale-fees-muted"><LoaderCircle size={16} className="sale-fees-spin" aria-hidden="true" />Carregando a tabela…</p>}
     {saved && <>
-      <p className="sale-fees-muted">{saved.revision ? `Revisão ${saved.revision}, salva em ${dateBR(saved.updatedAt)}.` : 'Nenhuma tabela salva: todas as vendas usam a regra anterior.'}</p>
+      <p className="sale-fees-muted">{saved.revision ? `Revisão ${saved.revision}, salva em ${dayLabel(saved.updatedAt)}.` : 'Nenhuma tabela salva: todas as vendas usam a regra anterior.'}</p>
       <div className="sale-fees-table-wrap"><table className="sale-fees-table">
         <thead><tr><th>Vigência a partir de</th><th>Cenário ativo</th><th>Cartão 12x</th><th>Pix</th><th>Boleto</th><th>TMB</th><th><span className="sr-only">Ações</span></th></tr></thead>
         <tbody>{schedules.map(item => { const scenario = item.scenarios.find(option => option.id === item.activeScenario); return <tr key={item.effectiveFrom}>
-          <td>{dateBR(item.effectiveFrom)}</td><td>{scenario.label}</td><td>{scenario.pagarme.card[11] === undefined ? 'Sem taxa' : `${percentInput(scenario.pagarme.card[11])}%`}</td>
+          <td>{dayLabel(item.effectiveFrom)}</td><td>{scenario.label}</td><td>{scenario.pagarme.card[11] === undefined ? 'Sem taxa' : `${percentInput(scenario.pagarme.card[11])}%`}</td>
           <td>{percentInput(scenario.pagarme.pix.rate)}% + {money(scenario.pagarme.pix.fixed)}</td><td>{money(scenario.pagarme.boleto.fixed)}</td><td>{percentInput(item.tmb.cashRate)}%</td>
-          <td className="sale-fees-actions"><button type="button" className="button" onClick={() => edit(item.effectiveFrom)} disabled={Boolean(draft)}>Editar</button><button type="button" className="button" onClick={() => remove(item.effectiveFrom)} aria-label={`Remover a vigência de ${dateBR(item.effectiveFrom)}`}><Trash2 size={15} /></button></td>
+          <td className="sale-fees-actions"><button type="button" className="button" onClick={() => edit(item.effectiveFrom)} disabled={Boolean(draft)} aria-label={`Editar a vigência de ${dayLabel(item.effectiveFrom)}`}>Editar</button><button type="button" className="button" onClick={() => remove(item.effectiveFrom)} aria-label={`Remover a vigência de ${dayLabel(item.effectiveFrom)}`}><Trash2 size={15} /></button></td>
         </tr> })}{!schedules.length && <tr><td colSpan={7} className="sale-fees-muted">Nenhuma vigência. Salvar a tabela vazia volta todas as vendas para a regra anterior.</td></tr>}</tbody>
       </table></div>
       {!draft && <button type="button" className="button" onClick={startDraft}><Plus size={16} />Nova vigência</button>}
@@ -130,13 +130,13 @@ export default function SaleFeeSettings() {
           <details className="sale-fees-rules"><summary>Como cada venda foi calculada</summary><ul>{preview.rules.map(rule => <li key={rule.rule}><span>{ruleLabel(rule.rule)}</span><span>{rule.count} venda(s) · cobrado {money(rule.charged)} · líquido {money(rule.proposed)}</span></li>)}</ul></details>
         </>}
       </div>
-      {confirming && <p role="alert" className="notice">Há vigências com data passada: meses já fechados serão recalculados em todas as telas, inclusive metas e TV. Confirme para salvar.</p>}
+      {confirming && <p role="alert" className="notice">Esta alteração muda o cálculo de vendas anteriores a hoje: meses já fechados serão recalculados em todas as telas, inclusive metas e TV. Confirme para salvar.</p>}
       <div className="sale-fees-actions-row">
         <button type="button" className="button button-primary" onClick={save} disabled={!changed || Boolean(busy) || Boolean(draft)}>{busy === 'save' ? <LoaderCircle size={16} className="sale-fees-spin" /> : <Save size={16} />}{confirming ? 'Confirmar e salvar' : 'Salvar tabela'}</button>
         {changed && <button type="button" className="button" onClick={load} disabled={Boolean(busy)}>Descartar alterações</button>}
         <button type="button" className="button" onClick={showHistory} disabled={Boolean(busy)}><History size={16} />Histórico</button>
       </div>
-      {history && <ul className="sale-fees-history">{history.map(entry => <li key={`${entry.revision}-${entry.createdAt}`}><strong>Revisão {entry.revision}</strong><span>{dateBR(entry.createdAt)} · {entry.actor} · {entry.after?.schedules?.length ?? 0} vigência(s)</span></li>)}{!history.length && <li className="sale-fees-muted">Nenhuma alteração registrada.</li>}</ul>}
+      {history && <ul className="sale-fees-history">{history.map(entry => <li key={`${entry.revision}-${entry.createdAt}`}><strong>Revisão {entry.revision}</strong><span>{dayLabel(entry.createdAt)} · {entry.actor} · {entry.after?.schedules?.length ?? 0} vigência(s)</span></li>)}{!history.length && <li className="sale-fees-muted">Nenhuma alteração registrada.</li>}</ul>}
     </>}
   </section>
 }

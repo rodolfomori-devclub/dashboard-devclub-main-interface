@@ -37,8 +37,8 @@ async function fixture(route) {
   } else if (path === '/api/sale-fees' && method === 'PUT') {
     const input = request.postDataJSON(); writes.push(input)
     if (conflict || input.expectedRevision !== saved.revision) { status = 409; body = { code: 'SALE_FEES_CONFLICT', error: 'A tabela de taxas foi alterada por outro administrador. Recarregue antes de salvar.' } }
-    else { saved = { ...saved, settings: input.settings, revision: saved.revision + 1, updatedAt: '2026-11-25T16:00:00Z' }; body = saved }
-  } else if (path === '/api/sale-fees/history') body = { entries: [{ revision: 1, actor: 'admin@example.test', createdAt: '2026-11-25T16:00:00Z', before: null, after: saved.settings }] }
+    else { saved = { ...saved, settings: input.settings, revision: saved.revision + 1, updatedAt: '2026-11-26T01:30:00Z' }; body = saved }
+  } else if (path === '/api/sale-fees/history') body = { entries: [{ revision: 1, actor: 'admin@example.test', createdAt: '2026-11-26T01:30:00Z', before: null, after: saved.settings }] }
   else { unexpected.push(`${method} ${path}`); await route.abort(); return }
   await route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) })
 }
@@ -96,6 +96,7 @@ try {
   await expect(section()).toContainText('R$ 51.867,41')
   assert.equal(previews.at(-1).settings.schedules[0].scenarios[0].pagarme.card[11], 0.1222)
   assert.deepEqual(Object.keys(previews.at(-1)).sort(), ['endDate', 'settings', 'startDate'])
+  assert.ok((Date.parse(previews.at(-1).endDate) - Date.parse(previews.at(-1).startDate)) / 86400000 <= 366, 'The default range fits the 366 days the API accepts')
   await section().getByText('Como cada venda foi calculada').click()
   await expect(section()).toContainText('Pagar.me · cartão 12x')
   await expect(section()).toContainText('Regra anterior · parcelas sem taxa na tabela')
@@ -108,19 +109,44 @@ try {
   await expect(section()).toContainText('Tabela salva. As telas passam a usar a nova tabela em até 2 minutos.')
   assert.deepEqual([writes.length, writes[0].expectedRevision, writes[0].settings.schedules[0].tmb.cashRate], [1, 0, 0.4])
   await expect(button('Salvar tabela')).toBeDisabled()
-  record('Saving a past-dated schedule asks for confirmation, sends the current revision and confirms when the screens follow')
+  await expect(section().getByText('Como cada venda foi calculada')).toHaveCount(0)
+  await expect(section()).toContainText('Revisão 1, salva em 25/11/2026.')
+  record('Saving a past-dated schedule asks for confirmation, sends the current revision, clears the preview and dates the save in Brasília')
 
   conflict = true
   await section().getByRole('button', { name: 'Remover a vigência de 01/10/2025' }).click()
   await button('Salvar tabela').click()
+  await expect(section().getByRole('alert')).toContainText('meses já fechados serão recalculados')
+  assert.equal(writes.length, 1, 'Removing a past schedule recalculates closed months and needs a confirmation too')
+  await button('Confirmar e salvar').click()
   await expect(section().getByRole('alert')).toContainText('alterada por outro administrador')
   await button('Recarregar').click()
   await expect(section().getByRole('row', { name: /01\/10\/2025/ })).toBeVisible()
   conflict = false
   record('A concurrent change is refused and the editor reloads the saved table instead of overwriting it')
 
+  await section().getByRole('button', { name: 'Editar a vigência de 01/10/2025' }).click()
+  await section().getByLabel('Começa em').fill('2025-11-01')
+  await button('Usar esta vigência').click()
+  await expect(section().getByRole('row', { name: /01\/11\/2025/ })).toBeVisible()
+  await expect(section().getByRole('row', { name: /01\/10\/2025/ })).toHaveCount(0)
+  await button('Nova vigência').click()
+  await section().getByLabel('Começa em').fill('2025-11-01')
+  await button('Usar esta vigência').click()
+  await expect(section().getByRole('alert')).toContainText('Já existe uma vigência a partir de 01/11/2025')
+  await button('Cancelar').click()
+  await button('Descartar alterações').click()
+  await expect(section().getByRole('row', { name: /01\/10\/2025/ })).toBeVisible()
+  await button('Nova vigência').click()
+  await section().getByLabel('Começa em').fill('2099-01-01')
+  await button('Usar esta vigência').click()
+  await button('Salvar tabela').click()
+  await expect(section()).toContainText('Tabela salva.')
+  assert.deepEqual([writes.length, writes.at(-1).expectedRevision, writes.at(-1).settings.schedules.map(item => item.effectiveFrom)], [3, 1, ['2025-10-01', '2099-01-01']])
+  record('Editing a start date moves the schedule, a taken date is refused, and a future-only change saves without the past-date warning')
+
   await button('Histórico').click()
-  await expect(section()).toContainText('Revisão 1')
+  await expect(section()).toContainText('25/11/2026 · admin@example.test')
   await page.setViewportSize({ width: 360, height: 900 })
   await page.goto(`${base}/admin`, { waitUntil: 'networkidle' })
   await section().getByRole('heading', { name: 'Tabela de taxas das vendas', exact: true }).waitFor()
