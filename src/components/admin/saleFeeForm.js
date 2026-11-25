@@ -71,9 +71,12 @@ export function placeSchedule(schedules, schedule, replacing = null) {
 
 const canonical = value => Array.isArray(value) ? value.map(canonical)
   : value && typeof value === 'object' ? Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])])) : value
+// What prices a sale on a day: the schedule in force, its active scenario and the TMB rate.
 const termsOn = (schedules, day) => {
   const schedule = schedules.filter(item => item.effectiveFrom <= day).sort((a, b) => a.effectiveFrom.localeCompare(b.effectiveFrom)).at(-1)
-  return schedule ? JSON.stringify(canonical({ ...schedule, effectiveFrom: null })) : null
+  if (!schedule) return null
+  const active = schedule.scenarios.find(scenario => scenario.id === schedule.activeScenario)
+  return JSON.stringify(canonical({ activeScenario: schedule.activeScenario, pagarme: active?.pagarme ?? null, tmb: schedule.tmb }))
 }
 // Whether the next table prices some day before today differently from the
 // saved one. The schedule in force changes only on a start date, so checking

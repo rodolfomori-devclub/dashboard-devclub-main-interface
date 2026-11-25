@@ -47,6 +47,10 @@ test('saving asks for confirmation only when some day before today would be pric
   assert.equal(changesPast([schedule('2025-10-01'), schedule('2026-12-01')], [schedule('2025-10-01'), { ...schedule('2026-12-01'), tmb: { cashRate: 0.35 } }], today), false, 'changing only a future schedule')
   assert.equal(changesPast([schedule('2025-10-01')], [reordered(schedule('2025-10-01'))], today), false, 'the same terms rebuilt by the editor')
   assert.equal(changesPast([], [schedule(today)], today), false, 'a schedule from today changes no day before today')
+  const reneg = { id: 'reneg', label: 'RENEG', pagarme: { card: [0.0311, 0.1198], pix: { rate: 0.005, fixed: 0.44 }, boleto: { rate: 0, fixed: 2.99 } } }
+  const both = (rate = 0.1198) => ({ ...schedule('2025-10-01'), scenarios: [schedule().scenarios[0], { ...reneg, pagarme: { ...reneg.pagarme, card: [0.0311, rate] } }] })
+  assert.equal(changesPast([both()], [both(0.121)], today), false, 'an inactive scenario prices no sale')
+  assert.equal(changesPast([both()], [{ ...both(), activeScenario: 'reneg' }], today), true, 'switching the active scenario does')
 })
 
 test('the default impact preview fits the 366 days the API accepts and dates show the Brasília day', () => {
