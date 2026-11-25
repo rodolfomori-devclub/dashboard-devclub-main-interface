@@ -2,6 +2,7 @@ import { DETAIL_METRICS, PRIMARY_METRICS, rangeLabel, sourceStatus } from '../co
 import { GOAL_METRICS } from '../components/goals/goalConfig.js'
 import { compareMetrics } from './comparisonData.js'
 import { goalScope, goalScopeName, GOAL_SCOPES } from './goalScopes.js'
+import { buildRefundSummary } from './refundSummary.js'
 import { UNKNOWN } from './salesData.js'
 
 const monthKey = (year, month) => `${year}-${String(month).padStart(2, '0')}`
@@ -15,8 +16,22 @@ function comparisonValues(a, b) {
   return [a?.value ?? null, metricState(a), b?.value ?? null, metricState(b), delta.absolute, delta.percent, variationState(delta)]
 }
 
+// The refund card's rule, shared with the agent: only confirmed refunds count,
+// valued by the sale refunded. Chargebacks and disputes are not refunds.
+function refundMetrics(side, platform) {
+  const summary = buildRefundSummary(side.records || [], side.sources, { platform })
+  const brl = summary.purchase.values.find(item => item.currency === 'BRL')
+  const coverage = Boolean(side.metrics.refundCount?.partial) || summary.unknown > 0
+  return {
+    refund: { value: brl?.value ?? null, partial: Boolean(brl) && (coverage || summary.purchase.unknown > 0 || summary.purchase.values.length > 1) },
+    refundCount: { value: summary.confirmed, partial: summary.confirmed !== null && coverage },
+  }
+}
+
 export function buildComparisonReport({ snapshots, selection, filters, groupBy, groupSearch, groupRows, daily, hourly }) {
   const { a, b } = snapshots
+  const refunds = { a: refundMetrics(a, filters.platform), b: refundMetrics(b, filters.platform) }
+  const indicator = (side, key) => refunds[side][key] ?? snapshots[side].metrics[key]
   const sourceIds = [...new Set([...a.sources, ...b.sources].map(source => source.id))]
   const metrics = [...PRIMARY_METRICS, ...DETAIL_METRICS, ['refund', 'Valor das vendas reembolsadas', 'currency'], ['refundCount', 'Reembolsos confirmados', 'count']]
   const comparisonHeaders = ['Valor A', 'Cobertura A', 'Valor B', 'Cobertura B', 'Variação A − B', 'Variação (%)', 'Estado da comparação']
@@ -35,7 +50,7 @@ export function buildComparisonReport({ snapshots, selection, filters, groupBy, 
       ['Critério', 'Dados dos períodos e filtros aplicados. A busca por grupo afeta a distribuição. Variações ficam vazias quando os dados são parciais ou indisponíveis. Valores ausentes não são zero. Datas e horas em Brasília.'],
     ],
     sheets: [
-      { name: 'Indicadores', headers: ['Indicador', 'Unidade', ...comparisonHeaders], rows: metrics.map(([key, label, unit]) => [label, unitLabel(unit), ...comparisonValues(a.metrics[key], b.metrics[key])]) },
+      { name: 'Indicadores', headers: ['Indicador', 'Unidade', ...comparisonHeaders], rows: metrics.map(([key, label, unit]) => [label, unitLabel(unit), ...comparisonValues(indicator('a', key), indicator('b', key))]) },
       { name: 'Distribuição', headers: ['Grupo', 'Indicador', 'Unidade', ...comparisonHeaders], rows: groupRows.flatMap(row => [['count', 'Vendas', 'count'], ['revenue', 'Receita operacional', 'currency']].map(([key, label, unit]) => [row.name, label, unitLabel(unit), ...comparisonValues(row.a[key], row.b[key])])) },
       seriesSheet('Dia a dia', daily), seriesSheet('Perfil por hora', hourly),
       { name: 'Fontes', headers: ['Fonte', 'Estado A', 'Estado B', 'Indicador', ...comparisonHeaders], rows: sourceIds.flatMap(id => {

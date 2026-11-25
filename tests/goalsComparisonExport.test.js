@@ -109,3 +109,16 @@ test('legacy exports use confirmed values and do not export commercial defaults 
   assert.deepEqual(sellers.sheets[0].rows, [['Ana', 0, 'Fora dos cálculos · histórico']])
   assert.deepEqual(sellers.context.find(row => row[0] === 'Busca de vendedor'), ['Busca de vendedor', 'Ana'])
 })
+
+test('comparison export counts only confirmed refunds, like the refund card on the screen', () => {
+  const input = comparison()
+  const refund = (status, net) => ({ kind: 'refund', sourceId: 'guruRefunds', platform: 'Guru', quantity: 1, net, original: { status, payment: { currency: 'BRL' } } })
+  input.snapshots.a.records = [refund('refunded', 100), refund('chargeback', 200), refund('dispute', 300)]
+  input.snapshots.a.sources.push({ id: 'guruRefunds', kind: 'refund', platform: 'Guru', status: 'ready', count: metric(3), revenue: metric(600) })
+  input.snapshots.a.metrics.refundCount = metric(3)
+  input.snapshots.a.metrics.refund = metric(600)
+  const indicators = rows(readWorkbook(buildComparisonReport(input)), 'Indicadores')
+  assert.equal(indicators.find(row => row.Indicador === 'Reembolsos confirmados')['Valor A'], 1)
+  assert.equal(indicators.find(row => row.Indicador === 'Valor das vendas reembolsadas')['Valor A'], 100)
+  assert.equal(indicators.find(row => row.Indicador === 'Reembolsos confirmados')['Valor B'], null)
+})
